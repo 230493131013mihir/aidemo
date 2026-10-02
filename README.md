@@ -14,6 +14,19 @@ Small and medium-sized farmers in India frequently face severe financial losses 
 
 ---
 
+## 👥 Team Roles & Responsibilities
+
+| Member | Role | Core Responsibility Area |
+| :--- | :--- | :--- |
+| **Mihir** | Team Lead & Full Stack Integration | Auth Flow, App Routing, Landing Page, Demo Mode & Presentation |
+| **Sayali** | Backend & Database Architect | MySQL Schemas, Sequelize ORM, Mandi Data API, Admin Endpoints |
+| **Prashant** | Frontend UI/UX Developer | Dashboard UI, Harvest Simulator, Recharts Graphs, Design System |
+| **Varun** | AI Engineer & Voice Lead | Mitra Assistant Chatbot, Shared Transport Matching, STT/TTS |
+
+*Detailed task breakdown available in [TEAM_ALLOCATION.md](file:///c:/Users/MIHIR%20JADAV/Desktop/aidemo/TEAM_ALLOCATION.md).*
+
+---
+
 ## ✨ Key Features
 
 ### 1. 🧮 Smart Harvest Decision Simulator
