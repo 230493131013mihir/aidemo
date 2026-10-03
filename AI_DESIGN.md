@@ -51,20 +51,92 @@ CONTEXT DATA INJECTED BY BACKEND:
 
 ---
 
-## 4. Provider-Independent Architecture
+## 4. Provider-Independent Architecture & Service Layer (ISSUE-09)
 
-```javascript
-// Service Layer Interface Flow
-class AIService {
-  async generateResponse({ prompt, language, contextData }) {
-    if (process.env.AI_PROVIDER === 'gemini' && process.env.AI_API_KEY) {
-      return await callGeminiAPI(prompt, contextData);
-    } else if (process.env.AI_PROVIDER === 'openai' && process.env.AI_API_KEY) {
-      return await callOpenAI(prompt, contextData);
-    } else {
-      // Deterministic Fallback Bot
-      return FallbackEngine.generateGuidance(language, contextData);
-    }
-  }
-}
+The AI service layer follows a pluggable, provider-independent architecture:
+
+```text
+Chat API (POST /api/chat/message)
+   ↓
+Authentication & Input Validation
+   ↓
+Intent & Script Language Detection (intentDetector.js)
+   ↓
+Trusted Context Assembly & Backend Math (contextBuilder.js + mathEngine.js)
+   ↓
+Unified AI Service (aiService.js)
+   ├── Gemini Provider (geminiProvider.js)
+   ├── OpenAI Provider (openaiProvider.js)
+   └── Deterministic Fallback Engine (fallbackEngine.js)
+   ↓
+Normalized Response ({ success, provider, mode, message, metadata, source_disclaimer })
 ```
+
+### Module Structure:
+- `backend/services/ai/aiService.js`: Core orchestrator and singleton service.
+- `backend/services/ai/providers/geminiProvider.js`: Google Gemini REST implementation with timeout & error sanitization.
+- `backend/services/ai/providers/openaiProvider.js`: OpenAI Chat Completions REST implementation with timeout & error sanitization.
+- `backend/services/ai/fallbackEngine.js`: Zero-hallucination deterministic fallback bot supporting English, Hindi, Gujarati.
+- `backend/services/ai/contextBuilder.js`: Injects verified farmer, crop, mandi price, and deterministic `mathEngine` results.
+- `backend/services/ai/promptBuilder.js`: Strict prompt assembly enforcing data trust and disclaimers.
+- `backend/services/ai/intentDetector.js`: Deterministic keyword & unicode regex intent/language detector.
+
+---
+
+## 5. Configuration & Environment Variables
+
+| Variable | Required | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `AI_PROVIDER` | No | `gemini` | Active provider: `gemini`, `openai`, or `fallback` |
+| `GEMINI_API_KEY` | If provider=gemini | - | Google Gemini API key (kept strictly server-side) |
+| `OPENAI_API_KEY` | If provider=openai | - | OpenAI API key (kept strictly server-side) |
+| `AI_MODEL` | No | Provider default | Override model (e.g. `gemini-1.5-flash`, `gpt-4o-mini`) |
+| `AI_TIMEOUT_MS`| No | `15000` | HTTP request timeout in milliseconds before triggering fallback |
+
+If no API keys are configured, the system logs a safe warning and seamlessly serves responses using `fallbackEngine.js` without application crashes.
+
+---
+
+## 6. How to Add a New AI Provider
+
+New providers (e.g. Anthropic Claude, Ollama, Groq) can be added cleanly without modifying the Chat API routes:
+
+1. Create a new provider class in `backend/services/ai/providers/yourProvider.js`:
+   ```javascript
+   class YourProvider {
+     constructor(config = {}) {
+       this.name = 'your_provider';
+       this.apiKey = process.env.YOUR_PROVIDER_API_KEY;
+     }
+
+     isConfigured() {
+       return Boolean(this.apiKey);
+     }
+
+     async generateResponse({ systemPrompt, userMessage, history, language, intent }) {
+       // Call provider API using fetch and AbortController timeout
+       return {
+         success: true,
+         provider: 'your_provider',
+         mode: 'ai',
+         message: resultText,
+         metadata: { model: 'your-model', intent, language }
+       };
+     }
+   }
+   module.exports = YourProvider;
+   ```
+2. Register the provider in `aiService.js`:
+   ```javascript
+   const YourProvider = require('./providers/yourProvider');
+   aiService.registerProvider('your_provider', new YourProvider());
+   ```
+3. Set `AI_PROVIDER=your_provider` in `.env`.
+
+---
+
+## 7. Numerical Calculation & Context Rules
+
+- **Zero LLM Math**: All revenue, expense, and margin figures are calculated in Node.js via `mathEngine.js`. Prompts explicitly instruct the LLM: *"NEVER CALCULATE OR ESTIMATE FINANCIAL NUMBERS INDEPENDENTLY. All financial metrics MUST come directly from BACKEND CALCULATIONS."*
+- **Clarification Over Guessing**: If required input numbers (e.g., crop quantity or mandi price) are missing, Mitra Assistant asks the farmer directly instead of assuming values.
+- **Demonstration Data Transparency**: Demo prices are tagged `[DEMO]` so the user is never misled into believing test numbers are live APMC auction rates.
