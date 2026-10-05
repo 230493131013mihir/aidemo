@@ -4,6 +4,9 @@ require("dotenv").config();
 
 const authRoutes = require("./routes/auth.routes");
 const adminRoutes = require("./routes/admin.routes");
+const assistantRoutes = require("./routes/assistant.routes");
+const marketRoutes = require("./routes/market.routes");
+const weatherRoutes = require("./routes/weather.routes");
 const sequelize = require("./config/database");
 require("./models");
 
@@ -16,6 +19,9 @@ app.use(express.json());
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/assistant", assistantRoutes);
+app.use("/api/market", marketRoutes);
+app.use("/api/weather", weatherRoutes);
 
 // Test route
 app.get("/", (req, res) => {
