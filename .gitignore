@@ -1,5 +1,37 @@
+# Dependencies
 node_modules/
-.env
+backend/node_modules/
+frontend/node_modules/
+
+# Production Build
 dist/
+frontend/dist/
 dist-ssr/
+
+# Environment files
+.env
+.env.local
+.env.*
+!.env.example
+*.env
+
+# Nested duplicate directory
+aidemo/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+
+# Logs
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

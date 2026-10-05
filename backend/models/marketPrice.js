@@ -1,59 +1,27 @@
-/**
- * marketPrice.js
- * Market Price Sequelize Model
- * HarvestMitra AI - ISSUE-11
- */
-
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
 
 const MarketPrice = sequelize.define(
-  "MarketPrice",
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true
+    "MarketPrice",
+    {
+        marketId: { type: DataTypes.INTEGER, allowNull: false, field: "market_id" },
+        cropId: { type: DataTypes.INTEGER, allowNull: false, field: "crop_id" },
+        pricePerKg: { type: DataTypes.DECIMAL(8, 2), allowNull: false, field: "price_per_kg" },
+        pricePerQuintal: { type: DataTypes.DECIMAL(10, 2), allowNull: false, field: "price_per_quintal" },
+        minPrice: { type: DataTypes.DECIMAL(8, 2), field: "min_price" },
+        maxPrice: { type: DataTypes.DECIMAL(8, 2), field: "max_price" },
+        dataType: {
+            type: DataTypes.ENUM("verified_live", "sample_demo"),
+            defaultValue: "sample_demo",
+            field: "data_type"
+        },
+        priceDate: { type: DataTypes.DATEONLY, allowNull: false, field: "price_date" }
     },
-    market_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false
-    },
-    crop_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false
-    },
-    price_per_kg: {
-      type: DataTypes.DECIMAL(8, 2),
-      allowNull: false
-    },
-    price_per_quintal: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: false
-    },
-    min_price: {
-      type: DataTypes.DECIMAL(8, 2),
-      allowNull: true
-    },
-    max_price: {
-      type: DataTypes.DECIMAL(8, 2),
-      allowNull: true
-    },
-    data_type: {
-      type: DataTypes.ENUM("verified_live", "sample_demo"),
-      defaultValue: "sample_demo"
-    },
-    price_date: {
-      type: DataTypes.DATEONLY,
-      allowNull: false
+    {
+        tableName: "market_prices",
+        underscored: true,
+        indexes: [{ unique: true, fields: ["market_id", "crop_id", "price_date"] }]
     }
-  },
-  {
-    tableName: "market_prices",
-    timestamps: true,
-    createdAt: "created_at",
-    updatedAt: false
-  }
 );
 
 module.exports = MarketPrice;
