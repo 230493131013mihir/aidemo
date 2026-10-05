@@ -13,6 +13,7 @@ const adminRoutes = require('./routes/admin.routes');
 const chatRoutes = require('./routes/chatRoutes');
 const marketRoutes = require('./routes/marketRoutes');
 const weatherRoutes = require('./routes/weatherRoutes');
+const transportRoutes = require('./routes/transportRoutes');
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/markets', marketRoutes);
 app.use('/api/weather', weatherRoutes);
+app.use('/api/transport', transportRoutes);
 
 // Central 404 handler
 app.use((req, res) => {

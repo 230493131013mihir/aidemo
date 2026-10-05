@@ -314,8 +314,21 @@ export const en = {
   },
   transport: {
     title: "Shared Transport Logistics",
-    subtitle: "Coordinate shared vehicle capacity to regional markets and save on freight.",
-    note: "Route matching algorithm, capacity pooling, and booking workflow will be integrated in ISSUE-08.",
+    subtitle: "Coordinate shared vehicle capacity to regional markets and save up to 50% on freight.",
+    note: "Route matching algorithm, capacity pooling, and booking workflow is live.",
+    searchTitle: "Find & Pool Freight Capacity",
+    fromLocation: "Pickup Location / District",
+    toDestination: "Destination APMC Mandi",
+    cropWeight: "Produce Weight (kg)",
+    date: "Pickup Date",
+    findMatches: "Find Matching Vehicles",
+    availableVehicles: "Available Shared Pools",
+    matchScore: "Match Score",
+    soloCost: "Solo Truck Rent",
+    sharedCost: "Your Pooled Cost",
+    savings: "Savings",
+    poolNow: "Pool & Book Space",
+    bookedSuccess: "Vehicle Space Booked Successfully!"
   },
   weather: {
     title: "Weather & Rain Perishability Alerts",
