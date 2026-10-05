@@ -2,8 +2,17 @@
 // Smart Harvest Decision Simulator
 // HarvestMitra AI
 //
-// This file contains only calculation logic.
+// This file contains only deterministic calculation logic.
 // No React, API, or external libraries are used.
+
+function toNumber(value, fallback = 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function roundCurrency(value) {
+    return Number(Number(value).toFixed(2));
+}
 
 // --------------------------------------------------
 // 1. Calculate Gross Revenue
@@ -12,9 +21,8 @@
 // --------------------------------------------------
 
 function calculateGrossRevenue(quantity, sellingPrice) {
-    return quantity * sellingPrice;
+    return roundCurrency(toNumber(quantity, 0) * toNumber(sellingPrice, 0));
 }
-
 
 // --------------------------------------------------
 // 2. Calculate Total Cost
@@ -23,9 +31,12 @@ function calculateGrossRevenue(quantity, sellingPrice) {
 // --------------------------------------------------
 
 function calculateTotalCost(transportCost, packagingCost, laborCost) {
-    return transportCost + packagingCost + laborCost;
+    return roundCurrency(
+        toNumber(transportCost, 0) +
+        toNumber(packagingCost, 0) +
+        toNumber(laborCost, 0)
+    );
 }
-
 
 // --------------------------------------------------
 // 3. Calculate Net Revenue
@@ -34,63 +45,38 @@ function calculateTotalCost(transportCost, packagingCost, laborCost) {
 // --------------------------------------------------
 
 function calculateNetRevenue(grossRevenue, totalCost) {
-    return grossRevenue - totalCost;
+    return roundCurrency(toNumber(grossRevenue, 0) - toNumber(totalCost, 0));
 }
-
 
 // --------------------------------------------------
 // 4. Calculate Profit Difference
-//
-// This compares the current option's net revenue
-// with the Sell Today option's net revenue.
-//
-// Example:
-// Current option = ₹12,000
-// Sell Today = ₹10,000
-// Difference = ₹2,000
 // --------------------------------------------------
 
 function calculateProfitDifference(netRevenue, sellTodayNetRevenue) {
-    return netRevenue - sellTodayNetRevenue;
+    return roundCurrency(
+        toNumber(netRevenue, 0) - toNumber(sellTodayNetRevenue, 0)
+    );
 }
-
 
 // --------------------------------------------------
 // 5. Sell Today
 // --------------------------------------------------
 
-function sellToday(quantity, sellingPrice, transportCost, packagingCost, laborCost) {
-
-    const grossRevenue = calculateGrossRevenue(
-        quantity,
-        sellingPrice
-    );
-
-    const totalCost = calculateTotalCost(
-        transportCost,
-        packagingCost,
-        laborCost
-    );
-
-    const netRevenue = calculateNetRevenue(
-        grossRevenue,
-        totalCost
-    );
+function sellToday(quantity, sellingPrice, transportCost = 0, packagingCost = 0, laborCost = 0) {
+    const safeQuantity = toNumber(quantity, 0);
+    const grossRevenue = calculateGrossRevenue(safeQuantity, sellingPrice);
+    const totalCost = calculateTotalCost(transportCost, packagingCost, laborCost);
+    const netRevenue = calculateNetRevenue(grossRevenue, totalCost);
 
     return {
         option: "Sell Today",
         grossRevenue: grossRevenue,
         totalCost: totalCost,
         netRevenue: netRevenue,
-
-        // Sell Today is the base option,
-        // so its profit difference is 0.
         profitDifference: 0,
-
-        risk: "Low"
+        risk: netRevenue < 0 ? "High" : "Low"
     };
 }
-
 
 // --------------------------------------------------
 // 6. Hold & Sell Later
@@ -99,32 +85,16 @@ function sellToday(quantity, sellingPrice, transportCost, packagingCost, laborCo
 function holdAndSellLater(
     quantity,
     futureSellingPrice,
-    transportCost,
-    packagingCost,
-    laborCost,
-    sellTodayNetRevenue
+    transportCost = 0,
+    packagingCost = 0,
+    laborCost = 0,
+    sellTodayNetRevenue = 0
 ) {
-
-    const grossRevenue = calculateGrossRevenue(
-        quantity,
-        futureSellingPrice
-    );
-
-    const totalCost = calculateTotalCost(
-        transportCost,
-        packagingCost,
-        laborCost
-    );
-
-    const netRevenue = calculateNetRevenue(
-        grossRevenue,
-        totalCost
-    );
-
-    const profitDifference = calculateProfitDifference(
-        netRevenue,
-        sellTodayNetRevenue
-    );
+    const safeQuantity = toNumber(quantity, 0);
+    const grossRevenue = calculateGrossRevenue(safeQuantity, futureSellingPrice);
+    const totalCost = calculateTotalCost(transportCost, packagingCost, laborCost);
+    const netRevenue = calculateNetRevenue(grossRevenue, totalCost);
+    const profitDifference = calculateProfitDifference(netRevenue, sellTodayNetRevenue);
 
     return {
         option: "Hold & Sell Later",
@@ -132,13 +102,9 @@ function holdAndSellLater(
         totalCost: totalCost,
         netRevenue: netRevenue,
         profitDifference: profitDifference,
-
-        // Holding produce has more uncertainty
-        // because the future selling price can change.
-        risk: "Medium"
+        risk: netRevenue < 0 ? "High" : "Medium"
     };
 }
-
 
 // --------------------------------------------------
 // 7. Alternative Market
@@ -147,32 +113,16 @@ function holdAndSellLater(
 function alternativeMarket(
     quantity,
     alternativeSellingPrice,
-    transportCost,
-    packagingCost,
-    laborCost,
-    sellTodayNetRevenue
+    transportCost = 0,
+    packagingCost = 0,
+    laborCost = 0,
+    sellTodayNetRevenue = 0
 ) {
-
-    const grossRevenue = calculateGrossRevenue(
-        quantity,
-        alternativeSellingPrice
-    );
-
-    const totalCost = calculateTotalCost(
-        transportCost,
-        packagingCost,
-        laborCost
-    );
-
-    const netRevenue = calculateNetRevenue(
-        grossRevenue,
-        totalCost
-    );
-
-    const profitDifference = calculateProfitDifference(
-        netRevenue,
-        sellTodayNetRevenue
-    );
+    const safeQuantity = toNumber(quantity, 0);
+    const grossRevenue = calculateGrossRevenue(safeQuantity, alternativeSellingPrice);
+    const totalCost = calculateTotalCost(transportCost, packagingCost, laborCost);
+    const netRevenue = calculateNetRevenue(grossRevenue, totalCost);
+    const profitDifference = calculateProfitDifference(netRevenue, sellTodayNetRevenue);
 
     return {
         option: "Alternative Market",
@@ -180,35 +130,26 @@ function alternativeMarket(
         totalCost: totalCost,
         netRevenue: netRevenue,
         profitDifference: profitDifference,
-
-        // Alternative markets can involve
-        // additional market/transport uncertainty.
-        risk: "Medium"
+        risk: netRevenue < 0 ? "High" : "Medium"
     };
 }
-
 
 // --------------------------------------------------
 // 8. Run All Three Options
 // --------------------------------------------------
 
-function calculateAllOptions(data) {
-
-    // First calculate Sell Today.
-    // We use its net revenue as the base
-    // for calculating profit differences.
+function calculateAllOptions(data = {}) {
+    const quantity = toNumber(data.quantity, 0);
     const today = sellToday(
-        data.quantity,
+        quantity,
         data.todayPrice,
         data.todayTransportCost,
         data.todayPackagingCost,
         data.todayLaborCost
     );
 
-
-    // Calculate Hold & Sell Later.
     const later = holdAndSellLater(
-        data.quantity,
+        quantity,
         data.futurePrice,
         data.futureTransportCost,
         data.futurePackagingCost,
@@ -216,10 +157,8 @@ function calculateAllOptions(data) {
         today.netRevenue
     );
 
-
-    // Calculate Alternative Market.
     const alternative = alternativeMarket(
-        data.quantity,
+        quantity,
         data.alternativePrice,
         data.alternativeTransportCost,
         data.alternativePackagingCost,
@@ -227,24 +166,35 @@ function calculateAllOptions(data) {
         today.netRevenue
     );
 
-
-    // Return all three options.
-    return {
+    const scenarios = {
         sellToday: today,
         holdAndSellLater: later,
         alternativeMarket: alternative
     };
+
+    const recommendedOption = Object.values(scenarios).reduce((best, current) => {
+        if (!best || current.netRevenue > best.netRevenue) {
+            return current;
+        }
+        return best;
+    }, null);
+
+    return {
+        ...scenarios,
+        recommendedOption: recommendedOption ? recommendedOption.option : "Sell Today",
+        summary: {
+            quantity: quantity,
+            sellTodayNetRevenue: today.netRevenue,
+            futureNetRevenue: later.netRevenue,
+            alternativeMarketNetRevenue: alternative.netRevenue,
+            recommendedNetRevenue: recommendedOption ? recommendedOption.netRevenue : today.netRevenue
+        }
+    };
 }
 
-
-// --------------------------------------------------
-// 9. Export Functions
-// --------------------------------------------------
-
-// These functions can be imported into other
-// JavaScript files in the Node.js project.
-
 module.exports = {
+    toNumber,
+    roundCurrency,
     calculateGrossRevenue,
     calculateTotalCost,
     calculateNetRevenue,
