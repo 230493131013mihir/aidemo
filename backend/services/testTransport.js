@@ -1,10 +1,8 @@
 // testTransport.js
 
-// Import transportMatcher.js
-const { findMatchingTransport } = require("./transportMatcher");
+const assert = require("assert");
+const { findMatchingTransport, calculateSharedTransportCost } = require("./transportMatcher");
 
-
-// Sample farmer
 const farmer = {
     farmerName: "Ramesh",
     location: "Surat",
@@ -14,11 +12,7 @@ const farmer = {
     requiredDate: "2026-10-05"
 };
 
-
-// Sample transport vehicles
 const vehicles = [
-
-    // 1. Matching vehicle
     {
         driverName: "Rajesh",
         location: "Surat",
@@ -26,8 +20,6 @@ const vehicles = [
         capacity: 1000,
         availableDate: "2026-10-05"
     },
-
-    // 2. Insufficient capacity
     {
         driverName: "Amit",
         location: "Surat",
@@ -35,8 +27,6 @@ const vehicles = [
         capacity: 300,
         availableDate: "2026-10-05"
     },
-
-    // 3. Different destination
     {
         driverName: "Suresh",
         location: "Surat",
@@ -46,39 +36,17 @@ const vehicles = [
     }
 ];
 
+const matchingVehicles = findMatchingTransport(farmer, vehicles);
+assert.strictEqual(matchingVehicles.length, 1, "Only the vehicle with required route, date, and capacity should match");
+assert.strictEqual(matchingVehicles[0].driverName, "Rajesh", "The best match should be Rajesh's vehicle");
 
-// Find matching vehicles
-const matchingVehicles = findMatchingTransport(
-    farmer,
-    vehicles
-);
+const sharedCosts = calculateSharedTransportCost(3000, [
+    { farmerName: "Ramesh", quantity: 500 },
+    { farmerName: "Mehul", quantity: 1000 }
+]);
 
+assert.strictEqual(sharedCosts.length, 2, "The cost-sharing output should include a share for each farmer");
+assert.strictEqual(sharedCosts[0].transportCost, 1000, "Ramesh should pay a proportional share of the total transport cost");
+assert.strictEqual(sharedCosts[1].transportCost, 2000, "Mehul should pay the larger proportional share based on quantity");
 
-// Print results
-console.log("=================================");
-console.log("   SHARED TRANSPORT MATCHING");
-console.log("=================================");
-
-console.log("Farmer Name:", farmer.farmerName);
-console.log("From:", farmer.location);
-console.log("To:", farmer.destination);
-console.log("Quantity:", farmer.quantity, "kg");
-console.log("Required Date:", farmer.requiredDate);
-
-console.log("\nMatching Vehicles:");
-
-if (matchingVehicles.length === 0) {
-    console.log("No matching vehicles found.");
-} else {
-
-    for (const vehicle of matchingVehicles) {
-        console.log("-----------------------------");
-        console.log("Driver Name:", vehicle.driverName);
-        console.log("Location:", vehicle.location);
-        console.log("Destination:", vehicle.destination);
-        console.log("Capacity:", vehicle.capacity, "kg");
-        console.log("Available Date:", vehicle.availableDate);
-    }
-}
-
-console.log("=================================");
+console.log("Transport matching tests passed: route/date/capacity matching and shared cost splitting are valid.");
