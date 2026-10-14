@@ -305,12 +305,12 @@ export const en = {
   markets: {
     title: "Mandi Market Prices",
     subtitle: "Real-time APMC Mandi rates and historical price intelligence.",
-    note: "Live price integration, comparison tables, and Recharts trends will be connected in ISSUE-06 & backend integration.",
+    note: "Live APMC prices, comparison tables, and historical price trends across all major mandis.",
   },
   harvest: {
     title: "Smart Harvest Decision Simulator",
     subtitle: "Deterministic net profit calculator comparing holding vs immediate harvest.",
-    note: "Profit math engine, scenario comparison, and perishable risk indicators will be integrated in ISSUE-07.",
+    note: "Deterministic profit math engine comparing immediate sale, holding storage, and transport scenarios.",
   },
   transport: {
     title: "Shared Transport Logistics",
@@ -333,12 +333,12 @@ export const en = {
   weather: {
     title: "Weather & Rain Perishability Alerts",
     subtitle: "Micro-climate forecasts, rainfall probabilities, and field advisories.",
-    note: "Live Open-Meteo weather feeds and harvest timing triggers will be connected in future issues.",
+    note: "Hyperlocal weather forecasts, rainfall probabilities, and harvest advisory alerts.",
   },
   chat: {
     title: "Mitra AI Voice Assistant",
     subtitle: "Ask farm queries in your native tongue using voice or text.",
-    note: "Gemini / Groq AI integration with Web Speech STT/TTS will be implemented in ISSUE-09.",
+    note: "Multilingual AI farm advisor supporting voice and text in English, Hindi, Gujarati, and Marathi.",
   },
   profile: {
     title: "Farmer Profile & Farm Settings",
