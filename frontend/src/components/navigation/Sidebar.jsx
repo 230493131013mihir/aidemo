@@ -29,24 +29,55 @@ export default function Sidebar({ className = '' }) {
       ? 'Transporter / Driver'
       : 'Farmer / Producer';
 
-  const navigationSections = [
-    {
-      title: 'Analytics & Planning',
-      items: [
-        { to: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
-        { to: '/markets', label: t('nav.markets'), icon: TrendingUp },
-        { to: '/harvest', label: t('nav.harvest'), icon: Calculator },
-      ]
-    },
-    {
-      title: 'Operations & Intelligence',
-      items: [
-        { to: '/transport', label: t('nav.transport'), icon: Truck },
-        { to: '/weather', label: t('nav.weather'), icon: CloudSunRain },
-        { to: '/chat', label: t('nav.chat'), icon: Bot, badge: 'AI' },
-      ]
-    },
-  ];
+  const isAdmin = user?.role === 'admin';
+  const isTransporter = user?.role === 'transporter';
+
+  const navigationSections = React.useMemo(() => {
+    if (isAdmin) {
+      return [
+        {
+          title: 'APMC Governance',
+          items: [
+            { to: '/admin', label: 'Admin Control Center', icon: Shield },
+            { to: '/markets', label: 'Mandi Rates & Mandis', icon: TrendingUp },
+          ]
+        }
+      ];
+    }
+
+    if (isTransporter) {
+      return [
+        {
+          title: 'Fleet & Logistics',
+          items: [
+            { to: '/dashboard', label: 'Logistics Dashboard', icon: LayoutDashboard },
+            { to: '/transport', label: 'Cargo Trips & Gate Pass', icon: Truck },
+            { to: '/weather', label: 'Route Weather Alerts', icon: CloudSunRain },
+          ]
+        }
+      ];
+    }
+
+    // Farmer
+    return [
+      {
+        title: 'Analytics & Planning',
+        items: [
+          { to: '/dashboard', label: t('nav.dashboard', 'Farmer Dashboard'), icon: LayoutDashboard },
+          { to: '/markets', label: t('nav.markets', 'Live Mandis'), icon: TrendingUp },
+          { to: '/harvest', label: t('nav.harvest', 'Harvest Simulator'), icon: Calculator },
+        ]
+      },
+      {
+        title: 'Operations & Intelligence',
+        items: [
+          { to: '/transport', label: t('nav.transport', 'Shared Transport'), icon: Truck },
+          { to: '/weather', label: t('nav.weather', 'Agri Weather'), icon: CloudSunRain },
+          { to: '/chat', label: t('nav.chat', 'Mitra AI Advisory'), icon: Bot, badge: 'AI' },
+        ]
+      },
+    ];
+  }, [isAdmin, isTransporter, t]);
 
   return (
     <aside 
