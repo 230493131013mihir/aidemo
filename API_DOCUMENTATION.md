@@ -58,28 +58,68 @@ Deletes user profile & associated data.
 
 ---
 
-## 3. Market Explorer Endpoints
+## 3. Market Explorer Endpoints (ISSUE-11)
 
 ### `GET /api/markets`
 List all supported Mandi markets.
 - **Query Params**: `district`, `state`
-
-### `GET /api/markets/prices`
-Get commodity prices across markets.
-- **Query Params**: `crop_id`, `market_id`, `date`
 - **Response**:
   ```json
   {
     "success": true,
+    "count": 8,
+    "data": [
+      {
+        "id": 1,
+        "name": "Surat APMC Mandi",
+        "district": "Surat",
+        "state": "Gujarat",
+        "distanceFromSuratKm": 0,
+        "operatingDays": "Mon-Sat",
+        "contact": "+91 261 2456789"
+      }
+    ]
+  }
+  ```
+
+### `GET /api/markets/crops`
+List all supported commodities with multilingual names (English, Gujarati, Hindi, Marathi).
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "count": 7,
+    "data": [
+      { "id": 1, "name": "Tomato", "name_gu": "ટામેટાં", "name_hi": "टमाटर", "name_mr": "टोमॅटो", "category": "vegetable" }
+    ]
+  }
+  ```
+
+### `GET /api/markets/prices`
+Get commodity prices filtered by crop, market, district, or data status.
+- **Query Params**: `crop`, `crop_id`, `market`, `market_id`, `district`, `state`, `data_type`
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "count": 5,
     "data": [
       {
         "id": 101,
-        "market_name": "Surat APMC Mandi",
+        "crop_id": 1,
         "crop_name": "Tomato",
-        "price_per_kg": 18.50,
-        "price_per_quintal": 1850.00,
-        "data_type": "sample_demo",
-        "last_updated": "2026-10-02"
+        "market_id": 1,
+        "market_name": "Surat APMC Mandi",
+        "district": "Surat",
+        "state": "Gujarat",
+        "price_per_kg": 20.00,
+        "price_per_quintal": 2000.00,
+        "min_price": 18.00,
+        "max_price": 22.00,
+        "modal_price": 20.00,
+        "dataStatus": "DEMO",
+        "source": "HarvestMitra Demo Dataset",
+        "last_updated": "2026-10-03T09:30:00Z"
       }
     ]
   }
@@ -87,6 +127,25 @@ Get commodity prices across markets.
 
 ### `GET /api/markets/prices/trends`
 Fetch historical 7-day or 30-day price trends for chart rendering.
+- **Query Params**: `crop`, `market`, `days` (default `7`)
+
+### `GET /api/markets/compare`
+Side-by-side factual comparative market price metrics for a crop across APMCs.
+- **Query Params**: `crop` (e.g. `Tomato`), `marketIds` (comma-separated IDs)
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "crop": "Tomato",
+      "totalMarkets": 5,
+      "highestMarket": { "name": "Pune APMC", "pricePerKg": 27.5 },
+      "lowestMarket": { "name": "Surat APMC Mandi", "pricePerKg": 20.0 },
+      "priceDifferencePerKg": 7.5,
+      "comparisons": [...]
+    }
+  }
+  ```
 
 ---
 
@@ -176,17 +235,96 @@ Send a text or transcribed voice query to Mitra Assistant.
   {
     "message": "મારે 500 કિલો ટામેટા વેચવા છે, શું આજે વેચવું જોઈએ?",
     "language": "gu",
-    "session_id": 12
+    "session_id": 12,
+    "conversationHistory": [],
+    "context": {
+      "crop": { "name": "Tomato", "quantityKg": 500 },
+      "marketData": { "currentMarket": { "name": "Surat APMC", "pricePerKg": 20 } }
+    }
   }
   ```
 - **Response**:
   ```json
   {
     "success": true,
-    "reply": "તમારા વિસ્તારમાં આજે ટામેટાંનો ભાવ ₹18.50/કિલો છે. Harvest Simulator મુજબ આજે વેચવાથી ₹7,750 ચોખ્ખો નફો થઈ શકે છે...",
+    "provider": "gemini",
+    "mode": "ai",
+    "message": "તમારા વિસ્તારમાં આજે ટામેટાંનો ભાવ ₹20/કિલો છે. Harvest Simulator મુજબ આજે વેચવાથી ₹7,750 ચોખ્ખો નફો થઈ શકે છે...",
+    "reply": "તમારા વિસ્તારમાં આજે ટામેટાંનો ભાવ ₹20/કિલો છે...",
+    "metadata": {
+      "session_id": 12,
+      "intent": "harvest_decision",
+      "language": "gu",
+      "model": "gemini-1.5-flash"
+    },
     "source_disclaimer": "બજારના આંકડા ડેમો સેમ્પલ ડેટા આધારિત છે."
   }
   ```
+
+### `GET /api/chat/status`
+Check AI provider status, fallback readiness, and supported languages safely without revealing credentials.
+- **Response**:
+  ```json
+  {
+    "status": "ok",
+    "service": "Mitra Assistant AI Service Layer",
+    "provider": "gemini",
+    "isProviderConfigured": false,
+    "fallbackReady": true,
+    "supportedLanguages": ["en", "hi", "gu", "mr"]
+  }
+  ```
+
+---
+
+## 7. Weather & District Rain Advisory Endpoints (ISSUE-11)
+
+### `GET /api/weather`
+Retrieve current weather, 3-day forecast, and deterministic district rain advisory.
+- **Query Params**: `district` (e.g. `Surat`), `state` (e.g. `Gujarat`)
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "location": {
+      "district": "Surat",
+      "state": "Gujarat"
+    },
+    "weather": {
+      "temperature": 29,
+      "humidity": 78,
+      "rainProbability": 70,
+      "rainfallMm": 14.5,
+      "windSpeedKmh": 18,
+      "condition": "Rain expected",
+      "forecast": [
+        { "day": "Today", "temp": 29, "rainProbability": 70, "condition": "Rain expected" },
+        { "day": "Tomorrow", "temp": 28, "rainProbability": 65, "condition": "Scattered Showers" },
+        { "day": "Day After", "temp": 31, "rainProbability": 30, "condition": "Partly Cloudy" }
+      ]
+    },
+    "advisory": {
+      "level": "RAIN_ADVISORY",
+      "isAdvisoryActive": true,
+      "threshold": 60,
+      "rainProbability": 70,
+      "message": "Rain is expected in the selected district based on the available forecast. Consider checking harvest readiness and transportation plans before moving produce.",
+      "reason": "Rain probability (70%) meets or exceeds the configured advisory threshold (60%).",
+      "actionableTips": [
+        "Cover harvested produce with waterproof tarpaulins or move to dry shelter.",
+        "Coordinate with transport partners to ensure vehicles have covered cargo beds.",
+        "Review harvest timing: avoid picking perishable crops immediately before or during heavy rain."
+      ]
+    },
+    "dataStatus": "DEMO",
+    "source": "HarvestMitra Demo Weather Dataset",
+    "lastUpdated": "2026-10-03T10:00:00Z"
+  }
+  ```
+
+### `GET /api/weather/alerts`
+Quick endpoint returning only the active advisory and key metrics for mobile widgets.
+- **Query Params**: `district`, `state`
 
 ### `GET /api/chat/sessions`
 Get list of previous chat conversations.

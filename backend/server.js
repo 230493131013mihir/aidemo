@@ -1,52 +1,31 @@
-const express = require("express");
-const cors = require("cors");
-require("dotenv").config();
-
-const authRoutes = require("./routes/auth.routes");
-const adminRoutes = require("./routes/admin.routes");
-const assistantRoutes = require("./routes/assistant.routes");
-const marketRoutes = require("./routes/market.routes");
-const transportRoutes = require("./routes/transport.routes");
-const weatherRoutes = require("./routes/weather.routes");
-const sequelize = require("./config/database");
-require("./models");
-
-const app = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/assistant", assistantRoutes);
-app.use("/api/market", marketRoutes);
-app.use("/api/transport", transportRoutes);
-app.use("/api/weather", weatherRoutes);
-
-// Test route
-app.get("/", (req, res) => {
-    res.json({
-        success: true,
-        message: "HarvestMitra API is running"
-    });
-});
+require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+const app = require('./app');
+const sequelize = require('./config/database');
+require('./models');
 
 const PORT = process.env.PORT || 5000;
 
 async function startServer() {
-    try {
-        await sequelize.authenticate();
-        await sequelize.sync();
+  try {
+    await sequelize.authenticate();
+    await sequelize.sync();
+    console.log('✅ MySQL Database connected & synced successfully!');
+  } catch (error) {
+    console.warn('⚠️  Database connection skipped or failed:', error.message);
+    console.warn('ℹ️  Running in demo/fallback mode for AI, simulator, and mock endpoints.');
+  }
 
-        app.listen(PORT, () => {
-            console.log(`Server running on port ${PORT}`);
-        });
-    } catch (error) {
-        console.error("Unable to start server:", error.message);
-        process.exitCode = 1;
-    }
+  const server = app.listen(PORT, () => {
+    console.log(`🌾 HarvestMitra AI Backend running on port ${PORT}`);
+    console.log(`🤖 Mitra Assistant AI Provider: ${process.env.AI_PROVIDER || 'fallback'}`);
+  });
+
+  return server;
 }
 
-startServer();
+const serverPromise = startServer();
+
+module.exports = serverPromise;
+

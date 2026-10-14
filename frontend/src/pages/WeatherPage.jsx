@@ -1,70 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  AlertTriangle,
-  CloudSunRain,
-  Droplets,
-  MapPin,
-  RefreshCw,
-  ShieldCheck,
-  Thermometer,
-  Wind,
-} from 'lucide-react';
-
-import { useAuth } from '../context/AuthContext';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
-const QUICK_LOCATIONS = ['Surat', 'Ahmedabad', 'Rajkot', 'Nashik', 'Pune', 'Indore', 'Jaipur', 'Delhi', 'Bengaluru', 'Kolar'];
-
-function adviceClasses(tone) {
-  if (tone === 'danger') return 'bg-red-50 text-error border-error/20';
-  if (tone === 'warning') return 'bg-amber-50 text-warning border-amber-200';
-  return 'bg-success/10 text-success border-success/20';
-}
+import React from 'react';
+import { CloudSunRain, Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../context/LanguageContext';
+import WeatherAdvisoryWidget from '../components/weather/WeatherAdvisoryWidget';
 
 export default function WeatherPage() {
-  const { user } = useAuth();
-  const farmerDistrict = user?.FarmerProfile?.district || 'Surat';
+  const { t, language } = useLanguage();
+  const navigate = useNavigate();
 
-  const [location, setLocation] = useState(farmerDistrict);
-  const [forecast, setForecast] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (user?.FarmerProfile?.district) {
-      setLocation(user.FarmerProfile.district);
-    }
-  }, [user]);
-
-  const query = useMemo(() => {
-    const params = new URLSearchParams({ location });
-    return params.toString();
-  }, [location]);
-
-  async function loadWeather() {
-    setLoading(true);
-    setError('');
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/weather/forecast?${query}`);
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.message || 'Weather could not be loaded');
-      }
-      setForecast(payload);
-    } catch (err) {
-      setForecast(null);
-      setError(err.message || 'Backend is not reachable. Start backend with npm run dev.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadWeather();
-  }, [query]);
-
-  const current = forecast?.current;
-  const advice = forecast?.advice;
+  const handleNavigateToSimulator = (weatherParams) => {
+    navigate('/harvest', { state: { weatherParams } });
+  };
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto py-6 px-4">
@@ -74,154 +20,38 @@ export default function WeatherPage() {
           className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
           style={{ backgroundImage: `url('/images/weather-hero.jpg')` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-sky-950/80 to-emerald-950/70 backdrop-blur-[1px]" />
-
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-900/80 to-emerald-950/70 backdrop-blur-[1px]" />
+        
         <div className="relative z-10 p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
-              <CloudSunRain className="w-3.5 h-3.5 text-sky-400" />
-              <span>Agri-Meteorological Intelligence</span>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+              <CloudSunRain className="w-3.5 h-3.5 text-emerald-400" />
+              <span>District Rain Advisory & Harvest Timing</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
-              Live Weather & Harvest Timing Alerts
+              Agricultural Weather Intelligence
             </h1>
             <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
-              Real-time precipitation risk, spray window advisory, humidity indexes, and harvest timing for Gujarat agricultural hubs.
+              Localized precipitation forecasts, rain probability alerts, and data-backed harvest timing advisories.
             </p>
           </div>
 
-          <div className="rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 p-4 text-center shrink-0 min-w-[200px]">
-            <span className="text-[10px] font-bold text-slate-300 uppercase">Live Satellite Feed</span>
-            <p className="text-xs font-extrabold text-sky-300 mt-1">Open-Meteo High-Res</p>
+          <div className="flex items-center gap-2">
+            <span className="badge-tag bg-primary/10 text-primary border border-primary/20">
+              <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Live Rain Advisory</span>
+            </span>
           </div>
         </div>
       </section>
 
-      <section className="rounded-xl border border-border bg-white p-5 shadow-sm space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 md:items-end">
-          <label className="space-y-1">
-            <span className="text-xs font-semibold text-muted uppercase tracking-wider">City or village</span>
-            <div className="flex items-center rounded-lg border border-border bg-white focus-within:border-primary">
-              <MapPin className="w-4 h-4 text-muted ml-3 shrink-0" />
-              <input
-                value={location}
-                onChange={(event) => setLocation(event.target.value)}
-                placeholder="Pune, Surat, Nashik"
-                className="w-full rounded-lg bg-transparent px-3 py-2.5 text-sm outline-none"
-              />
-            </div>
-          </label>
-
-          <button type="button" onClick={loadWeather} disabled={loading} className="btn-primary h-10">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span>Check</span>
-          </button>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {QUICK_LOCATIONS.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setLocation(item)}
-              className="rounded-full border border-border bg-secondary px-3 py-1.5 text-xs font-semibold text-text hover:border-primary hover:text-primary"
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {error && (
-        <div className="p-4 rounded-lg border border-error/20 bg-red-50 text-error text-sm flex items-start gap-2">
-          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="rounded-xl border border-border bg-white p-8 text-sm text-muted text-center">
-          Loading weather forecast...
-        </div>
-      ) : forecast && current ? (
-        <>
-          <section className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-5">
-            <div className="rounded-xl border border-border bg-white p-6 shadow-sm space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-xl bg-amber-50 text-accent flex items-center justify-center border border-amber-200">
-                    <CloudSunRain className="w-9 h-9" />
-                  </div>
-                  <div>
-                    <p className="text-4xl font-extrabold text-text">{Math.round(current.temperature)}°C</p>
-                    <p className="text-sm text-muted">
-                      {current.condition} • {forecast.location.name}, {forecast.location.state}
-                    </p>
-                  </div>
-                </div>
-
-                <div className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold ${adviceClasses(advice.tone)}`}>
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>{advice.status}</span>
-                </div>
-              </div>
-
-              <p className="text-sm text-muted border-t border-border pt-4">{advice.detail}</p>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="rounded-lg bg-secondary p-4">
-                  <Thermometer className="w-4 h-4 text-accent mb-2" />
-                  <p className="text-xs text-muted">Temperature</p>
-                  <p className="font-extrabold text-text">{Math.round(current.temperature)}°C</p>
-                </div>
-                <div className="rounded-lg bg-secondary p-4">
-                  <Droplets className="w-4 h-4 text-blue-500 mb-2" />
-                  <p className="text-xs text-muted">Humidity</p>
-                  <p className="font-extrabold text-text">{Math.round(current.humidity)}%</p>
-                </div>
-                <div className="rounded-lg bg-secondary p-4">
-                  <AlertTriangle className="w-4 h-4 text-warning mb-2" />
-                  <p className="text-xs text-muted">Rain risk</p>
-                  <p className="font-extrabold text-text">{forecast.rainChance}%</p>
-                </div>
-                <div className="rounded-lg bg-secondary p-4">
-                  <Wind className="w-4 h-4 text-teal-500 mb-2" />
-                  <p className="text-xs text-muted">Wind</p>
-                  <p className="font-extrabold text-text">{Math.round(current.windSpeed)} km/h</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
-              <h2 className="text-base font-bold text-text mb-4">Harvest Decision</h2>
-              <div className={`rounded-lg border p-4 ${adviceClasses(advice.tone)}`}>
-                <p className="text-lg font-extrabold">{advice.status}</p>
-                <p className="text-sm mt-2">{advice.detail}</p>
-              </div>
-              <p className="text-xs text-muted mt-4">
-                Trigger logic: high rain or heavy precipitation suggests delay; moderate rain/wind suggests caution; low risk suggests safe harvest window.
-              </p>
-            </div>
-          </section>
-
-          <section className="rounded-xl border border-border bg-white shadow-sm overflow-hidden">
-            <div className="px-4 py-3 bg-secondary border-b border-border">
-              <h2 className="text-base font-bold text-text">5-Day Forecast</h2>
-            </div>
-            <div className="divide-y divide-border">
-              {forecast.daily.map((day) => (
-                <div key={day.date} className="grid grid-cols-2 md:grid-cols-5 gap-3 px-4 py-4 text-sm">
-                  <p className="font-bold text-text">{day.date}</p>
-                  <p><span className="text-muted">Rain:</span> {day.rainChance}%</p>
-                  <p><span className="text-muted">Precip:</span> {day.precipitation} mm</p>
-                  <p><span className="text-muted">Max:</span> {Math.round(day.maxTemp)}°C</p>
-                  <p><span className="text-muted">Min:</span> {Math.round(day.minTemp)}°C</p>
-                </div>
-              ))}
-            </div>
-          </section>
-        </>
-      ) : null}
+      {/* Live Weather Advisory Widget */}
+      <div className="w-full">
+        <WeatherAdvisoryWidget
+          selectedLanguage={language || 'en'}
+          onNavigateToSimulator={handleNavigateToSimulator}
+        />
+      </div>
     </div>
   );
 }
