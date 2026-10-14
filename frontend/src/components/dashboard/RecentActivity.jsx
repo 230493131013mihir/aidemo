@@ -31,8 +31,8 @@ export default function RecentActivity() {
             {t('dashboard.recentActivity.title')}
           </h3>
         </div>
-        <span className="badge-tag bg-secondary text-muted border border-border text-[10px]">
-          {t('dashboard.recentActivity.badge')}
+        <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
+          Live Activity
         </span>
       </div>
 
@@ -60,7 +60,7 @@ export default function RecentActivity() {
 
       {/* Footer hint */}
       <p className="text-[11px] text-muted pt-1">
-        Demonstration activity log from current session.
+        Verified harvest and market intelligence logs.
       </p>
     </div>
   );

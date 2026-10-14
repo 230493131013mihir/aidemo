@@ -125,48 +125,15 @@ async function fetchOpenMeteoForecast(location) {
     }
 }
 
-function getDemoForecast(location) {
-    const place = getDemoLocation(location);
-    const rainChance = place.name.toLowerCase() === "pune" ? 22 : 12;
-    const advice = getHarvestAdvice({ rainChance, precipitation: 0, windSpeed: 14 });
-    const today = new Date();
-
-    return {
-        source: "demo",
-        message: "Live weather source unavailable, showing saved demo forecast.",
-        location: place,
-        current: {
-            temperature: place.name.toLowerCase() === "pune" ? 27 : 29,
-            humidity: 48,
-            precipitation: 0,
-            windSpeed: 14,
-            weatherCode: 1,
-            condition: "Partly cloudy"
-        },
-        rainChance,
-        advice,
-        daily: Array.from({ length: 5 }, (_, index) => {
-            const date = new Date(today);
-            date.setDate(today.getDate() + index);
-            return {
-                date: date.toISOString().slice(0, 10),
-                rainChance: Math.max(5, rainChance + index * 4),
-                precipitation: index > 2 ? 1.2 : 0,
-                maxTemp: 29 + index,
-                minTemp: 20 + index
-            };
-        })
-    };
-}
-
 async function getWeatherForecast(query) {
     const location = query.location || "Pune";
-    if (query.source === "demo") return getDemoForecast(location);
     try {
         return await fetchOpenMeteoForecast(location);
     } catch (error) {
         console.warn("Live weather fetch failed:", error.message);
-        return getDemoForecast(location);
+        const err = new Error("Live weather is unavailable right now. Check internet/Open-Meteo access and try again.");
+        err.statusCode = 503;
+        throw err;
     }
 }
 

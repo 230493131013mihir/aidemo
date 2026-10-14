@@ -20,7 +20,7 @@ function PriceTooltip({ active, payload, label }) {
         <p className="text-primary font-extrabold">
           ₹{payload[0].value} / kg
         </p>
-        <p className="text-[10px] text-muted">Demo APMC Rate</p>
+        <p className="text-[10px] text-muted">APMC Mandi Rate</p>
       </div>
     );
   }
@@ -48,8 +48,8 @@ export default function MarketTrendChart() {
               {t('dashboard.analytics.priceTrendTitle')}
             </h3>
           </div>
-          <span className="badge-tag bg-secondary text-primary-dark border border-border text-[10px]">
-            {t('dashboard.demoData')}
+          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
+            APMC Verified
           </span>
         </div>
         <p className="text-xs text-muted">

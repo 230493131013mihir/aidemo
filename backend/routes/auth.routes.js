@@ -4,7 +4,8 @@ const {
     register,
     login,
     getMe,
-    demoLogin
+    demoLogin,
+    updateProfile
 } = require("../controllers/auth.controller");
 
 const authMiddleware = require("../middleware/auth.middleware");
@@ -20,5 +21,8 @@ router.post("/demo", demoLogin);
 
 // Get currently logged-in user
 router.get("/me", authMiddleware, getMe);
+
+// Update user & farmer profile
+router.put("/profile", authMiddleware, updateProfile);
 
 module.exports = router;

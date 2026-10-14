@@ -5,6 +5,7 @@ import DashboardLayout from '../layouts/DashboardLayout';
 
 // Pages
 import LandingPage from '../pages/LandingPage';
+import AuthPage from '../pages/AuthPage';
 import DashboardPage from '../pages/DashboardPage';
 import MarketsPage from '../pages/MarketsPage';
 import HarvestPage from '../pages/HarvestPage';
@@ -12,7 +13,9 @@ import TransportPage from '../pages/TransportPage';
 import WeatherPage from '../pages/WeatherPage';
 import ChatPage from '../pages/ChatPage';
 import ProfilePage from '../pages/ProfilePage';
+import AdminPage from '../pages/AdminPage';
 import NotFoundPage from '../pages/NotFoundPage';
+import ProtectedRoute from '../components/common/ProtectedRoute';
 
 export default function AppRoutes() {
   return (
@@ -21,16 +24,54 @@ export default function AppRoutes() {
       <Route element={<MainLayout />}>
         <Route path="/" element={<LandingPage />} />
       </Route>
+      <Route path="/login" element={<AuthPage mode="login" />} />
+      <Route path="/register" element={<AuthPage mode="register" />} />
 
       {/* Internal Application & Dashboard Routes */}
       <Route element={<DashboardLayout />}>
-        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/markets" element={<MarketsPage />} />
-        <Route path="/harvest" element={<HarvestPage />} />
-        <Route path="/transport" element={<TransportPage />} />
+        <Route
+          path="/harvest"
+          element={
+            <ProtectedRoute>
+              <HarvestPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transport"
+          element={
+            <ProtectedRoute>
+              <TransportPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/weather" element={<WeatherPage />} />
         <Route path="/chat" element={<ChatPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminPage />
+            </ProtectedRoute>
+          }
+        />
       </Route>
 
       {/* Catch-all 404 Not Found */}

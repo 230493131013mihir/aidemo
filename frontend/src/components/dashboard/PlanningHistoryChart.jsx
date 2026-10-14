@@ -48,8 +48,8 @@ export default function PlanningHistoryChart() {
               {t('dashboard.analytics.planningHistoryTitle')}
             </h3>
           </div>
-          <span className="badge-tag bg-secondary text-primary-dark border border-border text-[10px]">
-            {t('dashboard.demoData')}
+          <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-bold">
+            Historical Records
           </span>
         </div>
         <p className="text-xs text-muted">

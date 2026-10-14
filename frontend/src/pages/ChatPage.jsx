@@ -81,25 +81,33 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="space-y-5 max-w-5xl mx-auto py-6 px-4">
-      <section className="rounded-xl border border-border bg-white p-5 sm:p-6 shadow-sm">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-          <div>
-            <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary uppercase tracking-wider mb-1">
-              <Bot className="w-4 h-4" />
-              <span>Working Text & Voice Assistant</span>
+    <div className="space-y-6 max-w-5xl mx-auto py-6 px-4">
+      {/* Photographic AI Assistant Banner */}
+      <section className="relative rounded-3xl overflow-hidden shadow-xl border border-emerald-900/30 text-white">
+        <div 
+          className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
+          style={{ backgroundImage: `url('/images/dashboard-hero.jpg')` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-emerald-950/80 to-slate-900/70 backdrop-blur-[1px]" />
+
+        <div className="relative z-10 p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-2 max-w-2xl">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+              <Bot className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Voice & Multilingual AI Agronomist</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-text">
-              Mitra AI Assistant
+            <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
+              Mitra AI Advisory Assistant
             </h1>
-            <p className="text-sm text-muted mt-1 max-w-2xl">
-              Ask about prices, weather, harvest timing, and transport. It works with a local fallback answer engine, so your demo does not need a paid AI key.
+            <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
+              Ask about live APMC mandi prices, rainfall forecast, crop harvest timing, and shared truck pooling in natural language.
             </p>
           </div>
 
-          <span className="badge-tag bg-primary-50 text-primary border border-primary/20 self-start lg:self-auto">
-            Active now
-          </span>
+          <div className="rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 p-4 text-center shrink-0 min-w-[200px]">
+            <span className="text-[10px] font-bold text-slate-300 uppercase">AI Status</span>
+            <p className="text-xs font-extrabold text-emerald-300 mt-1">🟢 Live Advisory Online</p>
+          </div>
         </div>
       </section>
 

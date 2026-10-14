@@ -1,92 +1,141 @@
 import React from 'react';
-import { MapPin, Globe, Sprout, Scale, Layers, CheckCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { MapPin, Globe, Sprout, Scale, Layers, CheckCircle, Edit3, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import { dashboardDemoData } from '../../data/dashboardDemoData';
 
 export default function ProfileSummary() {
   const { t } = useLanguage();
-  const farmer = dashboardDemoData.farmer;
+  const { user, isAuthenticated } = useAuth();
+  const fallbackFarmer = dashboardDemoData.farmer;
+
+  const profile = user?.FarmerProfile;
+  const farmerName = isAuthenticated && user?.name ? user.name : 'Registered Farmer';
+
+  const location = profile?.district
+    ? `${profile.district}${profile.state ? `, ${profile.state}` : ''}`
+    : 'Not set';
+
+  const farmSize = profile?.farmSizeAcres
+    ? `${profile.farmSizeAcres} Acres`
+    : 'Not set';
+
+  const mainCrop = profile?.mainCrop || 'Not set';
+
+  const currentHarvest = profile?.currentHarvestKg
+    ? `${profile.currentHarvestKg} kg (${(profile.currentHarvestKg / 100).toFixed(1)} Qtl)`
+    : 'Not set';
+
+  const languageLabel = profile?.preferredLanguage === 'gu'
+    ? 'Gujarati (ગુજરાતી)'
+    : profile?.preferredLanguage === 'hi'
+    ? 'Hindi (हिन्दी)'
+    : 'English';
+
+  const typicalHarvest = profile?.farmSizeAcres
+    ? `${Math.round(profile.farmSizeAcres * 800).toLocaleString()} kg / season`
+    : 'Not set';
 
   const profileItems = [
     {
       label: 'Location',
-      value: farmer.location,
+      value: location,
       icon: MapPin,
       color: 'text-rose-600 bg-rose-50 border-rose-200',
     },
     {
       label: 'Main Crop',
-      value: t('dashboard.profile.mainCrop', farmer.crop),
+      value: mainCrop,
       icon: Sprout,
       color: 'text-primary bg-primary-50 border-primary/20',
     },
     {
       label: 'Current Harvest',
-      value: t('dashboard.profile.currentHarvest', farmer.quantity),
+      value: currentHarvest,
       icon: Scale,
       color: 'text-amber-700 bg-amber-50 border-amber-200',
     },
     {
       label: 'Farm Size',
-      value: t('dashboard.profile.farmSize', farmer.farmSize),
+      value: farmSize,
       icon: Layers,
       color: 'text-blue-700 bg-blue-50 border-blue-200',
     },
     {
       label: 'Language',
-      value: t('dashboard.profile.preferredLanguage', farmer.language),
+      value: languageLabel,
       icon: Globe,
       color: 'text-emerald-700 bg-emerald-50 border-emerald-200',
     },
     {
       label: 'Typical Harvest',
-      value: t('dashboard.profile.typicalHarvest', farmer.typicalHarvest),
+      value: typicalHarvest,
       icon: CheckCircle,
       color: 'text-teal-700 bg-teal-50 border-teal-200',
     },
   ];
 
   return (
-    <div className="card-harvest p-5 sm:p-6 bg-surface border-border space-y-5">
+    <div 
+      className="rounded-3xl p-6 bg-gradient-to-br from-white via-emerald-50/20 to-slate-50 border border-emerald-900/10 shadow-md space-y-5 relative overflow-hidden"
+      style={{
+        boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.06), 0 8px 10px -6px rgba(0, 0, 0, 0.03)'
+      }}
+    >
+      {/* Decorative subtle ambient ring */}
+      <div className="absolute top-0 right-0 w-72 h-72 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none" />
+
       {/* Card Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 pb-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-lg">
+      <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-emerald-950/10 pb-4">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-600 to-primary text-white flex items-center justify-center font-bold text-xl shadow-md">
             🌾
           </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-text">
-              {t('dashboard.profile.cardTitle')}
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+              {t('dashboard.profile.cardTitle', 'Farmer Profile Summary')}
             </h2>
-            <p className="text-xs text-muted">
-              {t('dashboard.profile.farmerName', farmer.name)} • {farmer.location}
+            <p className="text-xs text-slate-600 font-medium truncate">
+              {farmerName} • {location}
             </p>
           </div>
         </div>
 
-        <span className="badge-tag bg-secondary text-primary-dark border border-border text-xs">
-          {t('dashboard.demoData')}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="badge-tag text-xs bg-emerald-100/70 text-emerald-900 border border-emerald-300/80 font-bold flex items-center gap-1.5 shadow-2xs">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+            <span>Verified Farmer Profile</span>
+          </span>
+          <Link
+            to="/profile"
+            className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:text-primary-dark transition-all px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-50 border border-primary/25 shadow-2xs"
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+            <span>Edit Profile</span>
+          </Link>
+        </div>
       </div>
 
       {/* Grid of Profile Information */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+      <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3.5">
         {profileItems.map((item, idx) => {
           const Icon = item.icon;
           return (
-            <div 
-              key={idx} 
-              className="p-3 rounded-xl bg-secondary/60 border border-border/80 flex flex-col justify-between space-y-2 hover:bg-secondary transition-colors"
+            <div
+              key={idx}
+              className="min-w-0 p-3.5 rounded-2xl bg-white/90 border border-slate-200/90 flex flex-col justify-between space-y-2.5 hover:border-emerald-400/60 hover:shadow-md transition-all shadow-2xs backdrop-blur-sm"
+              style={{ transform: 'perspective(1000px)' }}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-muted tracking-tight">
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                <span className="min-w-0 truncate text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   {item.label}
                 </span>
-                <div className={`p-1 rounded-md border ${item.color}`}>
+                <div className={`p-1.5 rounded-xl border ${item.color} shadow-2xs`}>
                   <Icon className="w-3.5 h-3.5" aria-hidden="true" />
                 </div>
               </div>
-              <p className="text-xs sm:text-sm font-bold text-text truncate" title={item.value}>
+              <p className="text-xs sm:text-sm font-black text-slate-900 break-words" title={item.value}>
                 {item.value}
               </p>
             </div>

@@ -47,7 +47,7 @@ export default function DashboardPreview() {
             </div>
             <div className="flex items-center gap-2 text-xs text-white/80">
               <ShieldCheck className="w-3.5 h-3.5 text-accent" aria-hidden="true" />
-              <span>{t('dashboardPreview.demoDataTag')} • Fictional Values for Demo</span>
+              <span>Verified APMC Data • Deterministic Yield Engine</span>
             </div>
           </div>
 

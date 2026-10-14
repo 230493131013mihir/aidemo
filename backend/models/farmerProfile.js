@@ -24,9 +24,19 @@ const FarmerProfile = sequelize.define(
             type: DataTypes.DECIMAL(5, 2),
             field: "farm_size_acres"
         },
+        mainCrop: {
+            type: DataTypes.STRING(100),
+            defaultValue: "Tomato",
+            field: "main_crop"
+        },
+        currentHarvestKg: {
+            type: DataTypes.INTEGER,
+            defaultValue: 500,
+            field: "current_harvest_kg"
+        },
         preferredLanguage: {
             type: DataTypes.ENUM("en", "gu", "hi"),
-            defaultValue: "gu",
+            defaultValue: "en",
             field: "preferred_language"
         }
     },

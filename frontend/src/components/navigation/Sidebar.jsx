@@ -8,13 +8,26 @@ import {
   CloudSunRain, 
   Bot, 
   User, 
-  Sparkles,
-  ChevronRight
+  Shield, 
+  Sparkles, 
+  ChevronRight,
+  LogOut,
+  UserPlus
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Sidebar({ className = '' }) {
   const { t } = useLanguage();
+  const { user, isAuthenticated, logout } = useAuth();
+
+  const displayName = user?.name || 'Farmer';
+  const roleName =
+    user?.role === 'admin'
+      ? 'Administrator'
+      : user?.role === 'transporter'
+      ? 'Transporter / Driver'
+      : 'Farmer / Producer';
 
   const navigationSections = [
     {
@@ -33,12 +46,6 @@ export default function Sidebar({ className = '' }) {
         { to: '/chat', label: t('nav.chat'), icon: Bot, badge: 'AI' },
       ]
     },
-    {
-      title: 'Account',
-      items: [
-        { to: '/profile', label: t('nav.profile'), icon: User },
-      ]
-    }
   ];
 
   return (
@@ -54,10 +61,10 @@ export default function Sidebar({ className = '' }) {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-text truncate">
-              {t('dashboard.greeting')}
+              {displayName}
             </p>
             <p className="text-[11px] text-muted truncate">
-              {t('common.roleFarmer')}
+              {roleName}
             </p>
           </div>
         </div>
@@ -102,6 +109,86 @@ export default function Sidebar({ className = '' }) {
             </nav>
           </div>
         ))}
+
+        {/* Dynamic Account Section */}
+        <div className="space-y-1.5">
+          <div className="px-3 text-[11px] font-bold uppercase tracking-wider text-muted/80">
+            Account
+          </div>
+          <nav className="space-y-1">
+            <NavLink
+              to="/profile"
+              className={({ isActive }) =>
+                `flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all group ${
+                  isActive
+                    ? 'bg-primary text-white shadow-xs font-semibold'
+                    : 'text-text hover:bg-secondary hover:text-primary'
+                }`
+              }
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <User className="w-4 h-4 shrink-0" />
+                <span className="truncate">{t('nav.profile')}</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
+            </NavLink>
+
+            {user?.role === 'admin' && (
+              <NavLink
+                to="/admin"
+                className={({ isActive }) =>
+                  `flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all group ${
+                    isActive
+                      ? 'bg-primary text-white shadow-xs font-semibold'
+                      : 'text-text hover:bg-secondary hover:text-primary'
+                  }`
+                }
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Shield className="w-4 h-4 shrink-0" />
+                  <span className="truncate">Admin Panel</span>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
+              </NavLink>
+            )}
+
+            {isAuthenticated ? (
+              <button
+                type="button"
+                onClick={logout}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors group"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <LogOut className="w-4 h-4 shrink-0" />
+                  <span className="truncate">Sign Out</span>
+                </div>
+              </button>
+            ) : (
+              <>
+                <NavLink
+                  to="/login"
+                  className="flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium text-text hover:bg-secondary hover:text-primary transition-all"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <User className="w-4 h-4 shrink-0" />
+                    <span className="truncate">Farmer Login</span>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 opacity-40" />
+                </NavLink>
+                <NavLink
+                  to="/register"
+                  className="flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium text-text hover:bg-secondary hover:text-primary transition-all"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <UserPlus className="w-4 h-4 shrink-0" />
+                    <span className="truncate">Create Account</span>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 opacity-40" />
+                </NavLink>
+              </>
+            )}
+          </nav>
+        </div>
       </div>
 
       {/* Version & Status */}
@@ -112,7 +199,7 @@ export default function Sidebar({ className = '' }) {
             <span className="text-xs font-semibold text-primary-dark">HarvestMitra Core</span>
           </div>
           <span className="badge-tag bg-white text-primary border border-primary/20">
-            ISSUE-04
+            v2.4
           </span>
         </div>
       </div>

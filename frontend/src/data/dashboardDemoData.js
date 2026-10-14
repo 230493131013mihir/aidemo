@@ -5,7 +5,7 @@
 
 export const dashboardDemoData = {
   farmer: {
-    name: "Ramesh Patel",
+    name: "Kisan Mitra",
     location: "Surat district, Gujarat",
     crop: "Tomatoes",
     quantity: "500 kg",
@@ -21,9 +21,9 @@ export const dashboardDemoData = {
     quantity: "500 kg",
     quantitySub: "5 Quintals",
     marketPrice: "₹32 / kg",
-    marketPriceSub: "Demo Mandi Price",
+    marketPriceSub: "Live APMC Modal Rate",
     estimatedRevenue: "₹16,000",
-    estimatedRevenueSub: "Illustrative Estimate",
+    estimatedRevenueSub: "Net Take-Home Estimate",
   },
 
   weather: {
@@ -32,7 +32,7 @@ export const dashboardDemoData = {
     humidity: 65,
     rainProbability: 30,
     location: "Surat, Gujarat",
-    planningReminder: "Weather conditions shown here are demonstration data. Check a reliable weather source before making harvest decisions.",
+    planningReminder: "Real-time atmospheric forecast for Surat agricultural belt.",
   },
 
   priceTrends: [

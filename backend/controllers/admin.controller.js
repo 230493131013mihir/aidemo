@@ -1,22 +1,98 @@
-const { User, Crop, Market, MarketPrice, Report } = require("../models");
+const { User, FarmerProfile, Crop, Market, MarketPrice, TransportRequest, Report } = require("../models");
 
 const overview = async (req, res) => {
     try {
-        const [users, crops, markets, marketPrices, openReports] = await Promise.all([
+        const [users, farmers, markets, marketPrices, transportRequests] = await Promise.all([
             User.count(),
-            Crop.count(),
+            FarmerProfile.count(),
             Market.count(),
             MarketPrice.count(),
-            Report.count({ where: { status: "open" } })
+            TransportRequest.count()
         ]);
 
         return res.json({
             success: true,
-            data: { users, crops, markets, marketPrices, openReports }
+            data: { users, farmers, markets, marketPrices, transportRequests }
         });
     } catch (error) {
         console.error("Admin overview error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to load overview" });
+    }
+};
+
+const listUsers = async (req, res) => {
+    try {
+        const users = await User.findAll({
+            attributes: { exclude: ["password"] },
+            include: [{ model: FarmerProfile }],
+            order: [["createdAt", "DESC"]],
+            limit: 200
+        });
+        return res.json({ success: true, data: users });
+    } catch (error) {
+        console.error("Admin user listing error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to load users" });
+    }
+};
+
+const updateUser = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const { role, name, phone, district, state, farmSizeAcres, mainCrop } = req.body;
+
+        const user = await User.findByPk(id, { include: [{ model: FarmerProfile }] });
+        if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+        if (role) {
+            const allowed = ["farmer", "transporter", "admin"];
+            if (!allowed.includes(role)) {
+                return res.status(400).json({ success: false, message: `role must be one of ${allowed.join(", ")}` });
+            }
+            if (id === req.user.id && role !== "admin") {
+                return res.status(400).json({ success: false, message: "Admin cannot demote own account" });
+            }
+            user.role = role;
+        }
+
+        if (name && name.trim()) user.name = name.trim();
+        if (phone !== undefined) user.phone = phone ? phone.trim() : null;
+        await user.save();
+
+        if (user.FarmerProfile) {
+            if (district) user.FarmerProfile.district = district.trim();
+            if (state) user.FarmerProfile.state = state.trim();
+            if (farmSizeAcres) user.FarmerProfile.farmSizeAcres = Number(farmSizeAcres);
+            if (mainCrop) user.FarmerProfile.mainCrop = mainCrop.trim();
+            await user.FarmerProfile.save();
+        }
+
+        const refreshed = await User.findByPk(id, {
+            attributes: { exclude: ["password"] },
+            include: [{ model: FarmerProfile }]
+        });
+
+        return res.json({ success: true, data: refreshed });
+    } catch (error) {
+        console.error("Admin user update error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to update user" });
+    }
+};
+
+const deleteUser = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        if (id === req.user.id) {
+            return res.status(400).json({ success: false, message: "Admin cannot delete own account" });
+        }
+
+        const user = await User.findByPk(id);
+        if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+        await user.destroy();
+        return res.json({ success: true, message: "User deleted" });
+    } catch (error) {
+        console.error("Admin user delete error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to delete user" });
     }
 };
 
@@ -28,7 +104,7 @@ const listMarketPrices = async (req, res) => {
                 { model: Crop, attributes: ["id", "nameEn", "nameGu", "nameHi"] }
             ],
             order: [["priceDate", "DESC"], ["id", "DESC"]],
-            limit: 200
+            limit: 300
         });
         return res.json({ success: true, data: prices });
     } catch (error) {
@@ -37,65 +113,68 @@ const listMarketPrices = async (req, res) => {
     }
 };
 
-function normalizePriceInput(body, partial = false) {
-    const required = ["marketId", "cropId", "pricePerKg", "pricePerQuintal", "priceDate"];
-    if (!partial && required.some((key) => body[key] === undefined || body[key] === "")) {
-        return { error: "Market, crop, prices and price date are required" };
-    }
-
-    const fields = {};
-    for (const key of ["marketId", "cropId"]) {
-        if (body[key] !== undefined) {
-            const value = Number(body[key]);
-            if (!Number.isInteger(value) || value < 1) return { error: `${key} must be a positive integer` };
-            fields[key] = value;
-        }
-    }
-    for (const key of ["pricePerKg", "pricePerQuintal", "minPrice", "maxPrice"]) {
-        if (body[key] !== undefined && body[key] !== "") {
-            const value = Number(body[key]);
-            if (!Number.isFinite(value) || value < 0) return { error: `${key} must be a non-negative number` };
-            fields[key] = value;
-        }
-    }
-    if (body.priceDate !== undefined) {
-        const date = String(body.priceDate);
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) {
-            return { error: "priceDate must use YYYY-MM-DD format" };
-        }
-        fields.priceDate = date;
-    }
-    if (body.dataType !== undefined) {
-        if (!["verified_live", "sample_demo"].includes(body.dataType)) {
-            return { error: "dataType must be verified_live or sample_demo" };
-        }
-        fields.dataType = body.dataType;
-    }
-
-    return { fields };
-}
-
 const createMarketPrice = async (req, res) => {
-    const { fields, error } = normalizePriceInput(req.body);
-    if (error) return res.status(400).json({ success: false, message: error });
-
     try {
-        const [market, crop] = await Promise.all([
-            Market.findByPk(fields.marketId),
-            Crop.findByPk(fields.cropId)
-        ]);
-        if (!market || !crop) {
-            return res.status(404).json({ success: false, message: "Market or crop not found" });
+        const { marketId, cropId, pricePerQuintal, pricePerKg, minPrice, maxPrice, priceDate } = req.body;
+
+        if (!marketId || !cropId || !pricePerQuintal) {
+            return res.status(400).json({ success: false, message: "Market, Crop, and Modal Price per Quintal are required." });
         }
 
-        const price = await MarketPrice.create({ ...fields, dataType: fields.dataType || "verified_live" });
-        return res.status(201).json({ success: true, data: price });
+        const [market, crop] = await Promise.all([
+            Market.findByPk(marketId),
+            Crop.findByPk(cropId)
+        ]);
+
+        if (!market || !crop) {
+            return res.status(404).json({ success: false, message: "Selected market or crop was not found." });
+        }
+
+        const quintal = Number(pricePerQuintal);
+        const kg = Number(pricePerKg) || Number((quintal / 100).toFixed(2));
+        const min = Number(minPrice) || Number((quintal * 0.92).toFixed(0));
+        const max = Number(maxPrice) || Number((quintal * 1.08).toFixed(0));
+        const date = priceDate || new Date().toISOString().slice(0, 10);
+
+        let record = await MarketPrice.findOne({
+            where: { marketId, cropId, priceDate: date }
+        });
+
+        if (record) {
+            await record.update({
+                pricePerQuintal: quintal,
+                pricePerKg: kg,
+                minPrice: min,
+                maxPrice: max,
+                dataType: "verified_live"
+            });
+        } else {
+            record = await MarketPrice.create({
+                marketId,
+                cropId,
+                pricePerQuintal: quintal,
+                pricePerKg: kg,
+                minPrice: min,
+                maxPrice: max,
+                priceDate: date,
+                dataType: "verified_live"
+            });
+        }
+
+        const refreshed = await MarketPrice.findByPk(record.id, {
+            include: [Market, Crop]
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: `Market price for ${crop.nameEn} in ${market.name} saved successfully to MySQL.`,
+            data: refreshed
+        });
     } catch (error) {
         console.error("Market price creation error:", error.message);
-        const duplicate = error.name === "SequelizeUniqueConstraintError";
-        return res.status(duplicate ? 409 : 500).json({
+        return res.status(500).json({
             success: false,
-            message: duplicate ? "A price already exists for this crop, market and date" : "Unable to create market price"
+            message: error.message || "Unable to save market price"
         });
     }
 };
@@ -105,24 +184,57 @@ const updateMarketPrice = async (req, res) => {
         const price = await MarketPrice.findByPk(req.params.id);
         if (!price) return res.status(404).json({ success: false, message: "Market price not found" });
 
-        const { fields, error } = normalizePriceInput({ ...price.get(), ...req.body }, true);
-        if (error) return res.status(400).json({ success: false, message: error });
-        if (Object.keys(req.body).length === 0) {
-            return res.status(400).json({ success: false, message: "At least one field is required" });
+        const { pricePerQuintal, pricePerKg, minPrice, maxPrice } = req.body;
+        if (pricePerQuintal) {
+            const quintal = Number(pricePerQuintal);
+            price.pricePerQuintal = quintal;
+            price.pricePerKg = Number(pricePerKg) || Number((quintal / 100).toFixed(2));
+            price.minPrice = Number(minPrice) || Number((quintal * 0.92).toFixed(0));
+            price.maxPrice = Number(maxPrice) || Number((quintal * 1.08).toFixed(0));
         }
 
-        if (fields.marketId !== undefined && !(await Market.findByPk(fields.marketId))) {
-            return res.status(404).json({ success: false, message: "Market not found" });
-        }
-        if (fields.cropId !== undefined && !(await Crop.findByPk(fields.cropId))) {
-            return res.status(404).json({ success: false, message: "Crop not found" });
-        }
-
-        await price.update(fields);
-        return res.json({ success: true, data: price });
+        await price.save();
+        const refreshed = await MarketPrice.findByPk(price.id, { include: [Market, Crop] });
+        return res.json({ success: true, data: refreshed });
     } catch (error) {
         console.error("Market price update error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to update market price" });
+    }
+};
+
+const deleteMarketPrice = async (req, res) => {
+    try {
+        const price = await MarketPrice.findByPk(req.params.id);
+        if (!price) return res.status(404).json({ success: false, message: "Market price record not found" });
+        await price.destroy();
+        return res.json({ success: true, message: "Market price record deleted successfully" });
+    } catch (error) {
+        console.error("Market price deletion error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to delete market price" });
+    }
+};
+
+const listMarkets = async (req, res) => {
+    try {
+        const markets = await Market.findAll({
+            order: [["state", "ASC"], ["name", "ASC"]]
+        });
+        return res.json({ success: true, data: markets });
+    } catch (error) {
+        console.error("Admin list markets error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to load markets" });
+    }
+};
+
+const listCrops = async (req, res) => {
+    try {
+        const crops = await Crop.findAll({
+            order: [["nameEn", "ASC"]]
+        });
+        return res.json({ success: true, data: crops });
+    } catch (error) {
+        console.error("Admin list crops error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to load crops" });
     }
 };
 
@@ -140,4 +252,16 @@ const reports = async (req, res) => {
     }
 };
 
-module.exports = { overview, listMarketPrices, createMarketPrice, updateMarketPrice, reports };
+module.exports = {
+    overview,
+    listUsers,
+    updateUser,
+    deleteUser,
+    listMarketPrices,
+    createMarketPrice,
+    updateMarketPrice,
+    deleteMarketPrice,
+    listMarkets,
+    listCrops,
+    reports
+};

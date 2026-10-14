@@ -9,9 +9,9 @@ router.post("/ask", async (req, res) => {
         return res.json({ success: true, ...result });
     } catch (error) {
         console.error("Assistant error:", error.message);
-        return res.status(500).json({
+        return res.status(error.statusCode || 500).json({
             success: false,
-            message: "Assistant could not answer right now"
+            message: error.message || "Assistant could not answer right now"
         });
     }
 });

@@ -9,7 +9,7 @@ router.get("/forecast", async (req, res) => {
         return res.json({ success: true, ...result });
     } catch (error) {
         console.error("Weather forecast error:", error.message);
-        return res.status(500).json({
+        return res.status(error.statusCode || 500).json({
             success: false,
             message: "Unable to load weather forecast"
         });
