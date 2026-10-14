@@ -386,40 +386,78 @@ const updateProfile = async (req, res) => {
         if (phone !== undefined) user.phone = phone ? phone.trim() : null;
         await user.save();
 
-        // Update or create FarmerProfile
-        let profile = await FarmerProfile.findOne({ where: { userId } });
-        if (!profile) {
-            profile = await FarmerProfile.create({
-                userId,
-                district: district || "Surat",
-                state: state || "Gujarat",
-                village: village || "",
-                farmSizeAcres: farmSizeAcres ? Number(farmSizeAcres) : 2.5,
-                preferredLanguage: preferredLanguage || "en"
-            });
-        } else {
-            if (district !== undefined) profile.district = district.trim();
-            if (state !== undefined) profile.state = state.trim();
-            if (village !== undefined) profile.village = village.trim();
-            if (farmSizeAcres !== undefined && !Number.isNaN(Number(farmSizeAcres))) {
-                profile.farmSizeAcres = Number(farmSizeAcres);
+        // Update or create FarmerProfile for farmer
+        if (user.role === "farmer" || district || farmSizeAcres || req.body.mainCrop) {
+            let profile = await FarmerProfile.findOne({ where: { userId } });
+            if (!profile) {
+                profile = await FarmerProfile.create({
+                    userId,
+                    district: district || "Surat",
+                    state: state || "Gujarat",
+                    village: village || "",
+                    farmSizeAcres: farmSizeAcres ? Number(farmSizeAcres) : 2.5,
+                    mainCrop: req.body.mainCrop || "Tomato",
+                    currentHarvestKg: req.body.currentHarvestKg ? Number(req.body.currentHarvestKg) : 500,
+                    preferredLanguage: preferredLanguage || "en"
+                });
+            } else {
+                if (district !== undefined) profile.district = district.trim();
+                if (state !== undefined) profile.state = state.trim();
+                if (village !== undefined) profile.village = village.trim();
+                if (farmSizeAcres !== undefined && !Number.isNaN(Number(farmSizeAcres))) {
+                    profile.farmSizeAcres = Number(farmSizeAcres);
+                }
+                if (req.body.mainCrop !== undefined) {
+                    profile.mainCrop = String(req.body.mainCrop).trim();
+                }
+                if (req.body.currentHarvestKg !== undefined && !Number.isNaN(Number(req.body.currentHarvestKg))) {
+                    profile.currentHarvestKg = Number(req.body.currentHarvestKg);
+                }
+                if (preferredLanguage !== undefined) {
+                    profile.preferredLanguage = preferredLanguage;
+                }
+                await profile.save();
             }
-            if (req.body.mainCrop !== undefined) {
-                profile.mainCrop = String(req.body.mainCrop).trim();
-            }
-            if (req.body.currentHarvestKg !== undefined && !Number.isNaN(Number(req.body.currentHarvestKg))) {
-                profile.currentHarvestKg = Number(req.body.currentHarvestKg);
-            }
-            if (preferredLanguage !== undefined) {
-                profile.preferredLanguage = preferredLanguage;
-            }
-            await profile.save();
         }
 
-        // Fetch refreshed user
+        // Update or create TransporterProfile for transporter
+        if (user.role === "transporter" || req.body.vehicleNumber || req.body.vehicleType) {
+            let transProfile = await TransporterProfile.findOne({ where: { userId } });
+            if (!transProfile) {
+                transProfile = await TransporterProfile.create({
+                    userId,
+                    driverName: name ? name.trim() : user.name,
+                    phone: phone ? phone.trim() : user.phone,
+                    vehicleType: req.body.vehicleType ? req.body.vehicleType.trim() : "Mahindra Bolero Maxi Truck",
+                    vehicleNumber: req.body.vehicleNumber ? req.body.vehicleNumber.trim().toUpperCase() : "GJ-05-BX-4921",
+                    capacityKg: req.body.capacityKg ? Number(req.body.capacityKg) : 2200,
+                    baseMandi: req.body.baseMandi ? req.body.baseMandi.trim() : "Surat APMC",
+                    ratePerKm: req.body.ratePerKm ? Number(req.body.ratePerKm) : 25,
+                    isAvailable: req.body.isAvailable !== undefined ? Boolean(req.body.isAvailable) : true
+                });
+            } else {
+                if (name) transProfile.driverName = name.trim();
+                if (phone) transProfile.phone = phone.trim();
+                if (req.body.vehicleType) transProfile.vehicleType = req.body.vehicleType.trim();
+                if (req.body.vehicleNumber) transProfile.vehicleNumber = req.body.vehicleNumber.trim().toUpperCase();
+                if (req.body.capacityKg !== undefined && !Number.isNaN(Number(req.body.capacityKg))) {
+                    transProfile.capacityKg = Number(req.body.capacityKg);
+                }
+                if (req.body.baseMandi) transProfile.baseMandi = req.body.baseMandi.trim();
+                if (req.body.ratePerKm !== undefined && !Number.isNaN(Number(req.body.ratePerKm))) {
+                    transProfile.ratePerKm = Number(req.body.ratePerKm);
+                }
+                if (req.body.isAvailable !== undefined) {
+                    transProfile.isAvailable = Boolean(req.body.isAvailable);
+                }
+                await transProfile.save();
+            }
+        }
+
+        // Fetch refreshed user with both potential profiles
         const updatedUser = await User.findByPk(userId, {
             attributes: { exclude: ["password"] },
-            include: [{ model: FarmerProfile }]
+            include: [{ model: FarmerProfile }, { model: TransporterProfile }]
         });
 
         return res.json({
