@@ -70,6 +70,10 @@ export default function TransportPage() {
   // Transporter state
   const [transportersList, setTransportersList] = useState([]);
   const [openCargoList, setOpenCargoList] = useState([]);
+  const [activeTrip, setActiveTrip] = useState(null);
+  const [loadingActiveTrip, setLoadingActiveTrip] = useState(false);
+  const [updatingTripMilestone, setUpdatingTripMilestone] = useState(false);
+
   const [vehicleForm, setVehicleForm] = useState({
     driverName: user?.name || '',
     phone: user?.phone || '',
@@ -151,11 +155,62 @@ export default function TransportPage() {
     }
   }
 
+  async function loadActiveTrip() {
+    if (!token) return;
+    setLoadingActiveTrip(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/transport/active-trip`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await response.json();
+      if (response.ok && payload.success) {
+        setActiveTrip(payload.hasActiveTrip ? payload.activeTrip : null);
+      }
+    } catch (err) {
+      console.warn('Unable to load active trip:', err.message);
+    } finally {
+      setLoadingActiveTrip(false);
+    }
+  }
+
   useEffect(() => {
     loadMyRequests();
     loadTransporters();
     loadOpenCargo();
+    loadActiveTrip();
   }, [token]);
+
+  // Handle milestone progression by transporter: accepted -> in_transit -> delivered
+  async function handleProgressTrip(tripId, nextStatus) {
+    if (!token) return;
+    setUpdatingTripMilestone(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/transport/requests/${tripId}/progress`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ nextStatus }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.message || 'Milestone update failed');
+
+      showToast({
+        type: 'success',
+        title: nextStatus === 'delivered' ? '🏁 Cargo Delivered at APMC Mandi!' : '🛣️ Dispatched On The Road!',
+        message: payload.message || `Delivery status advanced to ${nextStatus}. Farmer notified!`,
+      });
+
+      await loadActiveTrip();
+      await loadOpenCargo();
+      await loadMyRequests();
+    } catch (err) {
+      showToast({ type: 'error', title: 'Update Failed', message: err.message });
+    } finally {
+      setUpdatingTripMilestone(false);
+    }
+  }
 
   // Combined pools: static pools + live transporters registered in MySQL
   const allPools = useMemo(() => {
@@ -342,9 +397,18 @@ export default function TransportPage() {
     }
   }
 
-  // Transporter accepts a cargo request
+  // Transporter accepts a cargo request (Strict Single-Trip Lock)
   async function handleAcceptCargo(request) {
     if (!token) return;
+
+    if (activeTrip) {
+      showToast({
+        type: 'error',
+        title: '🔒 Single-Trip Lock Active',
+        message: `You currently have an active delivery to ${activeTrip.destinationMarket}. Under transport safety rules, complete this delivery before accepting another load.`,
+      });
+      return;
+    }
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/transport/requests/${request.id}/accept`, {
@@ -354,8 +418,11 @@ export default function TransportPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          driverName: user?.name || 'Driver',
+          driverName: user?.name || vehicleForm.driverName || 'Assigned Driver',
+          driverPhone: user?.phone || vehicleForm.phone || '9876543210',
+          vehicleType: vehicleForm.vehicleType || 'Mahindra Bolero Maxi Truck',
           vehicleNumber: vehicleForm.vehicleNumber || 'GJ-05-BX-4921',
+          estimatedDurationMinutes: request.estimatedDurationMinutes || 120,
         }),
       });
 
@@ -363,11 +430,13 @@ export default function TransportPage() {
       if (!response.ok || !payload.success) throw new Error(payload.message || 'Failed to accept trip');
 
       showToast({
-        type: 'success',
-        title: '✅ Trip Accepted & Assigned!',
-        message: `You accepted load for ${request.farmerName} (${request.weightKg} kg ${request.cropName} to ${request.destinationMarket}).`,
+        type: 'celebrate',
+        title: '🚚 Trip Accepted & Assigned!',
+        message: `Accepted cargo for ${request.farmerName} (${request.weightKg} kg ${request.cropName} to ${request.destinationMarket}). Single-trip lock engaged!`,
+        duration: 5000,
       });
 
+      await loadActiveTrip();
       await loadOpenCargo();
       await loadMyRequests();
     } catch (err) {
@@ -656,8 +725,8 @@ export default function TransportPage() {
           <section className="rounded-3xl border border-border bg-white shadow-xs overflow-hidden">
             <div className="px-6 py-4 bg-slate-50 border-b border-border flex items-center justify-between">
               <div>
-                <h2 className="font-bold text-sm text-text">My Live Transport Bookings & Gate Passes</h2>
-                <p className="text-[11px] text-muted">Stored in MySQL • Click below to view digital gate pass</p>
+                <h2 className="font-bold text-sm text-text">My Live Transport Bookings & Tracking</h2>
+                <p className="text-[11px] text-muted">Stored in MySQL • Real-time driver updates and digital mandi gate passes</p>
               </div>
               <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-lg bg-white border border-slate-200">
                 {myRequests.length} recorded
@@ -670,44 +739,185 @@ export default function TransportPage() {
               </div>
             ) : (
               <div className="divide-y divide-border/60">
-                {myRequests.map((req) => (
-                  <div
-                    key={req.id}
-                    className="grid grid-cols-1 sm:grid-cols-4 gap-3 px-6 py-4 text-xs items-center hover:bg-slate-50/60 transition-colors"
-                  >
-                    <div>
-                      <p className="font-extrabold text-sm text-text">{req.cropName}</p>
-                      <p className="text-muted truncate">{req.pickupLocation}</p>
-                      {req.gatePassCode && (
-                        <p className="text-[10px] font-mono text-primary font-bold mt-0.5">
-                          Pass: {req.gatePassCode}
-                        </p>
-                      )}
-                    </div>
+                {myRequests.map((req) => {
+                  const isAccepted = req.status === 'accepted' || req.status === 'in_transit' || req.status === 'delivered';
+                  const isInTransit = req.status === 'in_transit' || req.status === 'delivered';
+                  const isDelivered = req.status === 'delivered';
 
-                    <div>
-                      <span className="text-muted">Destination: </span>
-                      <p className="font-bold text-text">{req.destinationMarket}</p>
-                    </div>
+                  return (
+                    <div
+                      key={req.id}
+                      className="p-6 space-y-4 hover:bg-slate-50/50 transition-colors"
+                    >
+                      {/* Top Bar: Cargo & Status Pill */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-primary-50 border border-primary/20 text-primary flex items-center justify-center font-bold">
+                            <Truck className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-extrabold text-base text-text">{req.cropName}</h3>
+                              <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                                {req.weightKg} kg ({(req.weightKg / 100).toFixed(1)} Qtl)
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted flex items-center gap-1.5 mt-0.5">
+                              <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                              <span>{req.pickupLocation}</span>
+                              <ArrowRight className="w-3 h-3 text-muted shrink-0" />
+                              <span className="font-semibold text-text">{req.destinationMarket}</span>
+                            </p>
+                          </div>
+                        </div>
 
-                    <div>
-                      <span className="text-muted">Load: </span>
-                      <span className="font-bold text-text font-mono">{req.weightKg} kg</span>
-                      <p className="text-muted">{req.pickupDate}</p>
-                    </div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                              isDelivered
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : isInTransit
+                                ? 'bg-purple-100 text-purple-800 border border-purple-300'
+                                : isAccepted
+                                ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                : 'bg-amber-100 text-amber-800 border border-amber-300'
+                            }`}
+                          >
+                            {isDelivered
+                              ? '🏁 Delivered at APMC'
+                              : isInTransit
+                              ? '🛣️ On The Road (In Transit)'
+                              : isAccepted
+                              ? '🚚 Driver Assigned & En Route'
+                              : '⏳ Waiting for Driver Pickup'}
+                          </span>
 
-                    <div className="flex sm:justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedGatePass(req)}
-                        className="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Mandi Gate Pass</span>
-                      </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedGatePass(req)}
+                            className="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Mandi Gate Pass</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Transporter Details Card (Who booked/accepted the transport) */}
+                      <div className="rounded-2xl border border-border/80 bg-slate-50/80 p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                        <div>
+                          <span className="text-[11px] text-muted uppercase font-semibold">Assigned Transporter</span>
+                          <p className="font-bold text-sm text-text mt-0.5">
+                            {req.driverName ? req.driverName : 'Driver pending assignment'}
+                          </p>
+                          {req.driverPhone ? (
+                            <a
+                              href={`tel:${req.driverPhone}`}
+                              className="inline-flex items-center gap-1 text-primary hover:underline font-bold font-mono mt-0.5"
+                            >
+                              <Phone className="w-3 h-3" />
+                              <span>+91 {req.driverPhone}</span>
+                            </a>
+                          ) : (
+                            <span className="text-muted text-[11px]">Phone shared upon assignment</span>
+                          )}
+                        </div>
+
+                        <div>
+                          <span className="text-[11px] text-muted uppercase font-semibold">Vehicle & Registration</span>
+                          <p className="font-bold text-text mt-0.5">
+                            {req.vehicleType || 'Commercial Farm Truck'}
+                          </p>
+                          <span className="font-mono text-[11px] font-bold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200 inline-block mt-0.5">
+                            {req.vehicleNumber || 'Plate Assigned on Pickup'}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-[11px] text-muted uppercase font-semibold">Est. Arrival Time</span>
+                          <p className="font-bold text-emerald-700 flex items-center gap-1 mt-0.5">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>~{req.estimatedDurationMinutes || 120} Mins transit time</span>
+                          </p>
+                          <p className="text-[11px] text-muted mt-0.5">
+                            Gate Pass: <span className="font-mono font-bold text-primary">{req.gatePassCode}</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 4-Step Live Tracking Stepper */}
+                      <div className="pt-2">
+                        <div className="flex items-center justify-between relative">
+                          <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 bg-slate-200 z-0" />
+                          <div
+                            className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-emerald-500 transition-all duration-500 z-0"
+                            style={{
+                              width: isDelivered ? '100%' : isInTransit ? '66%' : isAccepted ? '33%' : '0%',
+                            }}
+                          />
+
+                          {/* Step 1: Requested */}
+                          <div className="relative z-10 flex flex-col items-center">
+                            <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                              ✓
+                            </div>
+                            <span className="text-[11px] font-bold text-text mt-1">1. Requested</span>
+                            <span className="text-[10px] text-muted">{req.pickupDate}</span>
+                          </div>
+
+                          {/* Step 2: Driver Assigned */}
+                          <div className="relative z-10 flex flex-col items-center">
+                            <div
+                              className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow-sm ${
+                                isAccepted ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'
+                              }`}
+                            >
+                              {isAccepted ? '✓' : '2'}
+                            </div>
+                            <span className={`text-[11px] font-bold mt-1 ${isAccepted ? 'text-text' : 'text-muted'}`}>
+                              2. Driver Assigned
+                            </span>
+                            <span className="text-[10px] text-muted truncate max-w-[100px]">
+                              {req.driverName ? req.driverName.split(' ')[0] : 'Pending'}
+                            </span>
+                          </div>
+
+                          {/* Step 3: In Transit */}
+                          <div className="relative z-10 flex flex-col items-center">
+                            <div
+                              className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow-sm ${
+                                isInTransit ? 'bg-emerald-600 text-white animate-pulse' : 'bg-slate-200 text-slate-500'
+                              }`}
+                            >
+                              {isInTransit ? '✓' : '3'}
+                            </div>
+                            <span className={`text-[11px] font-bold mt-1 ${isInTransit ? 'text-text' : 'text-muted'}`}>
+                              3. In Transit
+                            </span>
+                            <span className="text-[10px] text-muted">
+                              {isInTransit ? 'On Route' : 'Awaiting Dispatch'}
+                            </span>
+                          </div>
+
+                          {/* Step 4: Delivered */}
+                          <div className="relative z-10 flex flex-col items-center">
+                            <div
+                              className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow-sm ${
+                                isDelivered ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'
+                              }`}
+                            >
+                              {isDelivered ? '✓' : '4'}
+                            </div>
+                            <span className={`text-[11px] font-bold mt-1 ${isDelivered ? 'text-emerald-700 font-extrabold' : 'text-muted'}`}>
+                              4. Delivered
+                            </span>
+                            <span className="text-[10px] text-muted">{req.destinationMarket.split(' ')[0]} Mandi</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
@@ -717,6 +927,122 @@ export default function TransportPage() {
       {/* TRANSPORTER CONSOLE TAB CONTENT */}
       {activeTab === 'transporter' && (
         <div className="space-y-6">
+          {/* Active Delivery Card with Single-Trip Lock */}
+          {activeTrip && (
+            <section className="rounded-3xl border-2 border-emerald-500/50 bg-gradient-to-br from-slate-900 via-slate-950 to-emerald-950 text-white p-6 sm:p-7 shadow-xl space-y-5 animate-in fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 flex items-center justify-center font-bold">
+                    <Truck className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                        🔒 Single-Trip Lock Active
+                      </span>
+                      <span className="text-xs text-slate-300 font-mono">Trip #{activeTrip.id}</span>
+                    </div>
+                    <h2 className="text-lg sm:text-xl font-black text-white mt-0.5">
+                      Ongoing Delivery: {activeTrip.cropName} ({activeTrip.weightKg} kg)
+                    </h2>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider ${
+                      activeTrip.status === 'in_transit'
+                        ? 'bg-purple-500/20 text-purple-300 border border-purple-400/40'
+                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
+                    }`}
+                  >
+                    {activeTrip.status === 'in_transit' ? '🛣️ Currently In Transit' : '🚚 Driver Assigned & Loading'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Farmer and Route Information Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Farmer Contact</span>
+                  <p className="font-extrabold text-sm text-white">{activeTrip.farmerName}</p>
+                  <a
+                    href={`tel:${activeTrip.farmerPhone || '9876543210'}`}
+                    className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-bold font-mono"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    <span>+91 {activeTrip.farmerPhone || '9876543210'}</span>
+                  </a>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Pickup Location</span>
+                  <p className="font-bold text-white flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    <span className="truncate">{activeTrip.pickupLocation}</span>
+                  </p>
+                  <span className="text-[11px] text-slate-400">Scheduled: {activeTrip.pickupDate}</span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Destination APMC</span>
+                  <p className="font-bold text-emerald-400 flex items-center gap-1">
+                    <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{activeTrip.destinationMarket}</span>
+                  </p>
+                  <span className="text-[11px] text-slate-400">Pass: {activeTrip.gatePassCode}</span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Est. Travel Time</span>
+                  <p className="font-mono font-extrabold text-sm text-amber-300 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>~{activeTrip.estimatedDurationMinutes || 120} Minutes</span>
+                  </p>
+                  <span className="text-[11px] text-slate-400">
+                    Shared Fare: ~{formatINR(activeTrip.estimatedSharedCost || 1800)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Status Milestone Action Buttons */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-white/10">
+                <p className="text-xs text-slate-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>
+                    Advance the shipment stage to inform the farmer in real time.
+                  </span>
+                </p>
+
+                <div className="flex items-center gap-2">
+                  {activeTrip.status === 'accepted' && (
+                    <button
+                      type="button"
+                      disabled={updatingTripMilestone}
+                      onClick={() => handleProgressTrip(activeTrip.id, 'in_transit')}
+                      className="py-2.5 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                    >
+                      <Truck className="w-4 h-4" />
+                      <span>{updatingTripMilestone ? 'Updating...' : 'Mark Dispatched & In Transit 🛣️'}</span>
+                    </button>
+                  )}
+
+                  {activeTrip.status === 'in_transit' && (
+                    <button
+                      type="button"
+                      disabled={updatingTripMilestone}
+                      onClick={() => handleProgressTrip(activeTrip.id, 'delivered')}
+                      className="py-2.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>{updatingTripMilestone ? 'Completing...' : 'Confirm Delivery at Mandi 🏁'}</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Vehicle Registration Card */}
           <form
             onSubmit={handleRegisterVehicle}
@@ -830,16 +1156,23 @@ export default function TransportPage() {
 
           {/* Incoming Open Farmer Cargo Requests to Accept */}
           <section className="rounded-3xl border border-border bg-white shadow-sm overflow-hidden">
-            <div className="px-6 py-4 bg-slate-50 border-b border-border flex items-center justify-between">
+            <div className="px-6 py-4 bg-slate-50 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h2 className="font-bold text-sm text-text">Live Farmer Cargo Demands (Open for Pickup)</h2>
                 <p className="text-[11px] text-muted">
                   Accept loads from farmers heading towards your APMC routes to fill empty capacity.
                 </p>
               </div>
-              <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800">
-                {openCargoList.length} loads available
-              </span>
+
+              {activeTrip ? (
+                <span className="text-xs font-bold font-mono px-3 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                  🔒 Single-Trip Locked (1 Active Delivery)
+                </span>
+              ) : (
+                <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800">
+                  {openCargoList.length} loads available
+                </span>
+              )}
             </div>
 
             {openCargoList.length === 0 ? (
@@ -855,18 +1188,29 @@ export default function TransportPage() {
                   >
                     <div>
                       <p className="font-extrabold text-sm text-text">{cargo.cropName}</p>
-                      <p className="text-muted">Farmer: <span className="font-bold text-text">{cargo.farmerName}</span></p>
-                      <p className="text-[10px] text-muted">{cargo.pickupLocation}</p>
+                      <p className="text-muted">
+                        Farmer: <span className="font-bold text-text">{cargo.farmerName}</span>
+                      </p>
+                      {cargo.farmerPhone && (
+                        <p className="text-[11px] text-primary font-mono font-semibold">
+                          📞 +91 {cargo.farmerPhone}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-muted truncate">{cargo.pickupLocation}</p>
                     </div>
 
                     <div>
-                      <span className="text-muted">Destination:</span>
+                      <span className="text-muted">Destination Mandi:</span>
                       <p className="font-bold text-primary">{cargo.destinationMarket}</p>
                       <p className="text-muted font-mono">{cargo.pickupDate}</p>
+                      <p className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
+                        <Clock className="w-3 h-3" />
+                        <span>~{cargo.estimatedDurationMinutes || 120} mins trip</span>
+                      </p>
                     </div>
 
                     <div>
-                      <span className="text-muted">Weight:</span>
+                      <span className="text-muted">Cargo Load:</span>
                       <p className="font-bold text-text font-mono text-sm">{cargo.weightKg} kg</p>
                       <p className="text-emerald-700 font-bold">
                         Shared Fare: ~{formatINR(cargo.estimatedSharedCost || 1200)}
@@ -876,11 +1220,26 @@ export default function TransportPage() {
                     <div className="flex sm:justify-end gap-2">
                       <button
                         type="button"
+                        disabled={Boolean(activeTrip)}
                         onClick={() => handleAcceptCargo(cargo)}
-                        className="btn-primary py-2 px-4 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs"
+                        className={`py-2 px-4 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all ${
+                          activeTrip
+                            ? 'bg-slate-200 text-slate-500 cursor-not-allowed border border-slate-300'
+                            : 'btn-primary cursor-pointer'
+                        }`}
+                        title={activeTrip ? 'Finish ongoing delivery before accepting another load' : 'Accept this load'}
                       >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Accept & Assign Truck</span>
+                        {activeTrip ? (
+                          <>
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            <span>🔒 Active Trip in Progress</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Accept & Assign Truck</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>

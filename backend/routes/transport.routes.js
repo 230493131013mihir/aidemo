@@ -1,11 +1,12 @@
 const express = require("express");
+const { Op } = require("sequelize");
 const authMiddleware = require("../middleware/auth.middleware");
 const adminMiddleware = require("../middleware/admin.middleware");
 const { TransportRequest, User, TransporterProfile } = require("../models");
 
 const router = express.Router();
 
-function normalizeTransportInput(body) {
+function normalizeTransportInput(body, reqUser = {}) {
     const required = ["farmerName", "cropName", "pickupLocation", "destinationMarket", "pickupDate", "weightKg"];
     for (const key of required) {
         if (body[key] === undefined || body[key] === "") {
@@ -29,10 +30,21 @@ function normalizeTransportInput(body) {
     // Generate official digital gate pass code
     const gatePassCode = `GJ-APMC-${Math.floor(100000 + Math.random() * 900000)}`;
 
+    // Estimate duration in minutes based on destination
+    const dest = String(body.destinationMarket).toLowerCase();
+    let estimatedDurationMinutes = 120;
+    if (dest.includes("ahmedabad")) estimatedDurationMinutes = 240;
+    else if (dest.includes("mumbai") || dest.includes("vashi")) estimatedDurationMinutes = 360;
+    else if (dest.includes("pune")) estimatedDurationMinutes = 420;
+    else if (dest.includes("rajkot")) estimatedDurationMinutes = 300;
+    else if (dest.includes("surat")) estimatedDurationMinutes = 90;
+
     return {
         fields: {
             farmerName: String(body.farmerName).trim(),
+            farmerPhone: body.farmerPhone ? String(body.farmerPhone).trim() : (reqUser?.phone || "9999999991"),
             driverName: body.driverName ? String(body.driverName).trim() : null,
+            driverPhone: body.driverPhone ? String(body.driverPhone).trim() : null,
             cropName: String(body.cropName).trim(),
             pickupLocation: String(body.pickupLocation).trim(),
             destinationMarket: String(body.destinationMarket).trim(),
@@ -41,6 +53,7 @@ function normalizeTransportInput(body) {
             vehicleType: body.vehicleType || "any",
             vehicleNumber: body.vehicleNumber ? String(body.vehicleNumber).trim().toUpperCase() : null,
             estimatedSharedCost,
+            estimatedDurationMinutes,
             gatePassCode,
             status: "open"
         }
@@ -49,11 +62,18 @@ function normalizeTransportInput(body) {
 
 router.use(authMiddleware);
 
-// Get logged-in user's transport requests
+// Get logged-in user's transport requests (Farmer bookings or Transporter assigned trips)
 router.get("/my-requests", async (req, res) => {
     try {
+        let whereCondition = { userId: req.user.id };
+        if (req.user.role === "transporter") {
+            whereCondition = {
+                [Op.or]: [{ userId: req.user.id }, { transporterId: req.user.id }]
+            };
+        }
+
         const data = await TransportRequest.findAll({
-            where: { userId: req.user.id },
+            where: whereCondition,
             order: [["createdAt", "DESC"]]
         });
         return res.json({ success: true, data });
@@ -65,7 +85,7 @@ router.get("/my-requests", async (req, res) => {
 
 // Create new transport request (saves to MySQL and issues Digital Mandi Gate Pass)
 router.post("/requests", async (req, res) => {
-    const { fields, error } = normalizeTransportInput(req.body);
+    const { fields, error } = normalizeTransportInput(req.body, req.user);
     if (error) return res.status(400).json({ success: false, message: error });
 
     try {
@@ -112,29 +132,160 @@ router.get("/open-cargo", async (req, res) => {
     }
 });
 
-// Driver / Transporter accepts a cargo request
+// Check if logged-in transporter has an active trip in progress
+router.get("/active-trip", async (req, res) => {
+    try {
+        const activeTrip = await TransportRequest.findOne({
+            where: {
+                transporterId: req.user.id,
+                status: { [Op.in]: ["accepted", "in_transit"] }
+            },
+            order: [["updatedAt", "DESC"]]
+        });
+        return res.json({
+            success: true,
+            hasActiveTrip: Boolean(activeTrip),
+            activeTrip: activeTrip || null
+        });
+    } catch (error) {
+        console.error("Active trip error:", error.message);
+        return res.status(500).json({ success: false, message: "Failed to fetch active trip" });
+    }
+});
+
+// Transporter statistics for dashboard
+router.get("/transporter-stats", async (req, res) => {
+    try {
+        const completedTrips = await TransportRequest.findAll({
+            where: {
+                transporterId: req.user.id,
+                status: { [Op.in]: ["delivered", "completed"] }
+            }
+        });
+        const activeTrips = await TransportRequest.findAll({
+            where: {
+                transporterId: req.user.id,
+                status: { [Op.in]: ["accepted", "in_transit"] }
+            }
+        });
+
+        const totalTripsCompleted = completedTrips.length;
+        const activeTripsCount = activeTrips.length;
+        const totalCargoDeliveredKg = completedTrips.reduce((acc, r) => acc + (r.weightKg || 0), 0);
+        const totalEarnings = completedTrips.reduce((acc, r) => acc + (r.estimatedSharedCost || 0), 0);
+
+        const transporterProfile = await TransporterProfile.findOne({ where: { userId: req.user.id } });
+
+        return res.json({
+            success: true,
+            data: {
+                totalTripsCompleted,
+                activeTripsCount,
+                totalCargoDeliveredKg,
+                totalEarnings,
+                vehicleType: transporterProfile?.vehicleType || "Mahindra Bolero Maxi Truck",
+                vehicleNumber: transporterProfile?.vehicleNumber || "GJ-05-BX-4921",
+                capacityKg: transporterProfile?.capacityKg || 2200,
+                isAvailable: activeTripsCount === 0,
+                activeTrip: activeTrips[0] || null
+            }
+        });
+    } catch (error) {
+        console.error("Transporter stats error:", error.message);
+        return res.status(500).json({ success: false, message: "Failed to load transporter stats" });
+    }
+});
+
+// Driver / Transporter accepts a cargo request (Strict Single-Trip Lock)
 router.put("/requests/:id/accept", async (req, res) => {
     try {
         const request = await TransportRequest.findByPk(req.params.id);
         if (!request) return res.status(404).json({ success: false, message: "Request not found" });
 
-        const driverName = req.body.driverName || req.user.name || "Assigned Driver";
-        const vehicleNumber = req.body.vehicleNumber || "GJ-05-TR-2026";
+        if (request.status !== "open") {
+            return res.status(400).json({ success: false, message: "This request has already been booked by another transporter." });
+        }
+
+        // STRICT CHECK: Transporter cannot accept if they already have an active trip!
+        const existingActiveTrip = await TransportRequest.findOne({
+            where: {
+                transporterId: req.user.id,
+                status: { [Op.in]: ["accepted", "in_transit"] }
+            }
+        });
+
+        if (existingActiveTrip) {
+            return res.status(409).json({
+                success: false,
+                message: `You already have an active trip in progress (Trip #${existingActiveTrip.id} delivering ${existingActiveTrip.cropName} to ${existingActiveTrip.destinationMarket}). You cannot accept new bookings until this cargo is delivered!`
+            });
+        }
+
+        const transporterProfile = await TransporterProfile.findOne({ where: { userId: req.user.id } });
+        const driverName = req.body.driverName || transporterProfile?.driverName || req.user.name || "Assigned Driver";
+        const driverPhone = req.body.driverPhone || transporterProfile?.phone || req.user.phone || "9876543210";
+        const vehicleType = req.body.vehicleType || transporterProfile?.vehicleType || "Mahindra Bolero Maxi Truck";
+        const vehicleNumber = req.body.vehicleNumber || transporterProfile?.vehicleNumber || "GJ-05-BX-4921";
+        const estimatedDurationMinutes = req.body.estimatedDurationMinutes || request.estimatedDurationMinutes || 150;
 
         await request.update({
             status: "accepted",
+            transporterId: req.user.id,
             driverName,
-            vehicleNumber
+            driverPhone,
+            vehicleType,
+            vehicleNumber,
+            estimatedDurationMinutes,
+            tripStartTime: new Date()
         });
+
+        if (transporterProfile) {
+            await transporterProfile.update({ isAvailable: false });
+        }
 
         return res.json({
             success: true,
             data: request,
-            message: `Trip accepted by driver ${driverName} with vehicle ${vehicleNumber}`
+            message: `Trip accepted! Driver ${driverName} assigned with ${vehicleNumber}. Travel time: ${Math.round(estimatedDurationMinutes / 60)} hrs ${estimatedDurationMinutes % 60} mins.`
         });
     } catch (error) {
         console.error("Accept cargo error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to accept cargo request" });
+    }
+});
+
+// Update trip status progression (accepted -> in_transit -> delivered)
+router.put("/requests/:id/progress", async (req, res) => {
+    try {
+        const request = await TransportRequest.findByPk(req.params.id);
+        if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+
+        const { nextStatus } = req.body;
+        const allowed = ["in_transit", "delivered", "completed"];
+        if (!allowed.includes(nextStatus)) {
+            return res.status(400).json({ success: false, message: `Invalid status: ${nextStatus}. Allowed: ${allowed.join(", ")}` });
+        }
+
+        await request.update({ status: nextStatus });
+
+        // If trip is delivered or completed, free up the transporter
+        if (["delivered", "completed"].includes(nextStatus)) {
+            if (request.transporterId) {
+                await TransporterProfile.update(
+                    { isAvailable: true },
+                    { where: { userId: request.transporterId } }
+                );
+            }
+        }
+
+        return res.json({
+            success: true,
+            data: request,
+            message: `Trip status progressed to ${nextStatus.toUpperCase()}! Farmer will see live update.`
+        });
+    } catch (error) {
+        console.error("Progress trip error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to update trip progress" });
     }
 });
 
@@ -212,7 +363,7 @@ router.get("/requests", adminMiddleware, async (req, res) => {
 
 router.put("/requests/:id/status", adminMiddleware, async (req, res) => {
     try {
-        const allowed = ["open", "matched", "accepted", "completed", "cancelled"];
+        const allowed = ["open", "matched", "accepted", "in_transit", "delivered", "completed", "cancelled"];
         if (!allowed.includes(req.body.status)) {
             return res.status(400).json({ success: false, message: "Invalid status" });
         }
