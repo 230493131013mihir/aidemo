@@ -135,9 +135,10 @@ router.get("/open-cargo", async (req, res) => {
 // Check if logged-in transporter has an active trip in progress
 router.get("/active-trip", async (req, res) => {
     try {
+        const transporterId = req.user?.id || req.query?.transporterId;
         const activeTrip = await TransportRequest.findOne({
             where: {
-                transporterId: req.user.id,
+                transporterId,
                 status: { [Op.in]: ["accepted", "in_transit"] }
             },
             order: [["updatedAt", "DESC"]]
@@ -156,15 +157,16 @@ router.get("/active-trip", async (req, res) => {
 // Transporter statistics for dashboard
 router.get("/transporter-stats", async (req, res) => {
     try {
+        const transporterId = req.user?.id || req.query?.transporterId;
         const completedTrips = await TransportRequest.findAll({
             where: {
-                transporterId: req.user.id,
+                transporterId,
                 status: { [Op.in]: ["delivered", "completed"] }
             }
         });
         const activeTrips = await TransportRequest.findAll({
             where: {
-                transporterId: req.user.id,
+                transporterId,
                 status: { [Op.in]: ["accepted", "in_transit"] }
             }
         });
@@ -174,7 +176,7 @@ router.get("/transporter-stats", async (req, res) => {
         const totalCargoDeliveredKg = completedTrips.reduce((acc, r) => acc + (r.weightKg || 0), 0);
         const totalEarnings = completedTrips.reduce((acc, r) => acc + (r.estimatedSharedCost || 0), 0);
 
-        const transporterProfile = await TransporterProfile.findOne({ where: { userId: req.user.id } });
+        const transporterProfile = await TransporterProfile.findOne({ where: { userId: transporterId } });
 
         return res.json({
             success: true,
@@ -207,15 +209,16 @@ router.put("/requests/:id/accept", async (req, res) => {
         }
 
         // STRICT CHECK: Transporter cannot accept if they already have an active trip!
+        const transporterId = req.user?.id || req.body?.transporterId;
         const existingActiveTrip = await TransportRequest.findOne({
             where: {
-                transporterId: req.user.id,
+                transporterId,
                 status: { [Op.in]: ["accepted", "in_transit"] }
             }
         });
 
         if (existingActiveTrip) {
-            return res.status(409).json({
+            return res.status(400).json({
                 success: false,
                 message: `You already have an active trip in progress (Trip #${existingActiveTrip.id} delivering ${existingActiveTrip.cropName} to ${existingActiveTrip.destinationMarket}). You cannot accept new bookings until this cargo is delivered!`
             });
@@ -260,15 +263,15 @@ router.put("/requests/:id/progress", async (req, res) => {
         const request = await TransportRequest.findByPk(req.params.id);
         if (!request) return res.status(404).json({ success: false, message: "Request not found" });
 
-        const { nextStatus } = req.body;
+        const nextStatus = req.body.nextStatus || req.body.status;
         const allowed = ["in_transit", "delivered", "completed"];
-        if (!allowed.includes(nextStatus)) {
+        if (!nextStatus || !allowed.includes(nextStatus)) {
             return res.status(400).json({ success: false, message: `Invalid status: ${nextStatus}. Allowed: ${allowed.join(", ")}` });
         }
 
         await request.update({ status: nextStatus });
 
-        // If trip is delivered or completed, free up the transporter
+        // If trip is delivered or completed, reset transporter availability
         if (["delivered", "completed"].includes(nextStatus)) {
             if (request.transporterId) {
                 await TransporterProfile.update(

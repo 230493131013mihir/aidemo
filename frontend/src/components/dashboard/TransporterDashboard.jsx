@@ -83,10 +83,14 @@ export default function TransporterDashboard() {
         throw new Error(result.message || 'Failed to update trip progress');
       }
 
-      showToast(`Trip status updated: ${nextStatus.toUpperCase()}`, 'success');
+      showToast({
+        type: 'success',
+        title: nextStatus === 'delivered' ? '🏁 Cargo Delivered at APMC Mandi!' : '🛣️ Dispatched On The Road!',
+        message: result.message || `Delivery status advanced to ${nextStatus}. Farmer notified!`,
+      });
       loadTransporterStats();
     } catch (err) {
-      showToast(err.message || 'Error updating trip', 'error');
+      showToast({ type: 'error', title: 'Update Failed', message: err.message || 'Error updating trip' });
     } finally {
       setUpdatingTrip(false);
     }
@@ -218,7 +222,7 @@ export default function TransporterDashboard() {
               </div>
               <div>
                 <span className="badge-tag bg-amber-500 text-white text-[10px] font-black uppercase px-2.5 py-0.5">
-                  Trip In Progress • Truck Locked
+                  Active Delivery Action Banner • Single-Trip Lock Active
                 </span>
                 <h2 className="text-xl font-black text-slate-900 mt-1">
                   Trip #{activeTrip.id}: {activeTrip.cropName} ({activeTrip.weightKg} kg)

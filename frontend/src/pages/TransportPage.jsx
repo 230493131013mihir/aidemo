@@ -14,7 +14,8 @@ import {
   Car, 
   Clock, 
   ArrowRight,
-  ShieldAlert
+  ShieldAlert,
+  Phone
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -87,6 +88,11 @@ export default function TransportPage() {
 
   // Modal for Digital Mandi Gate Pass
   const [selectedGatePass, setSelectedGatePass] = useState(null);
+
+  // Active or latest farmer booking for live tracking card
+  const activeFarmerBooking = useMemo(() => {
+    return myRequests.find((r) => ['accepted', 'in_transit'].includes(r.status)) || (myRequests.length > 0 ? myRequests[0] : null);
+  }, [myRequests]);
 
   // Sync inputs when user profile loads
   useEffect(() => {
@@ -509,6 +515,212 @@ export default function TransportPage() {
       {/* FARMER TAB CONTENT */}
       {activeTab === 'farmer' && (
         <>
+          {/* Farmer Live Tracking Card with Driver Details, Phone, Plate, ETA & 4-Step Stepper */}
+          {activeFarmerBooking && (
+            <section className="rounded-3xl border-2 border-primary/30 bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950 text-white p-6 sm:p-7 shadow-xl space-y-5 animate-in fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 flex items-center justify-center font-bold">
+                    <Truck className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                        🛰️ Farmer Live Tracking Card
+                      </span>
+                      <span className="text-xs text-slate-300 font-mono">
+                        Pass: {activeFarmerBooking.gatePassCode || `GJ-APMC-${activeFarmerBooking.id}`}
+                      </span>
+                    </div>
+                    <h2 className="text-lg sm:text-xl font-black text-white mt-0.5">
+                      {activeFarmerBooking.cropName} ({activeFarmerBooking.weightKg} kg) → {activeFarmerBooking.destinationMarket}
+                    </h2>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider ${
+                      activeFarmerBooking.status === 'delivered'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
+                        : activeFarmerBooking.status === 'in_transit'
+                        ? 'bg-purple-500/20 text-purple-300 border border-purple-400/40'
+                        : activeFarmerBooking.status === 'accepted'
+                        ? 'bg-blue-500/20 text-blue-300 border border-blue-400/40'
+                        : 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                    }`}
+                  >
+                    {activeFarmerBooking.status === 'delivered'
+                      ? '🏁 Delivered at Mandi'
+                      : activeFarmerBooking.status === 'in_transit'
+                      ? '🛣️ In Transit to APMC'
+                      : activeFarmerBooking.status === 'accepted'
+                      ? '🚚 Driver Assigned & En Route'
+                      : '⏳ Requested (Awaiting Transporter)'}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGatePass(activeFarmerBooking)}
+                    className="px-3 py-1.5 rounded-xl border border-emerald-400/30 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition-colors"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>View Gate Pass</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Driver, Vehicle, ETA Information Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Assigned Driver</span>
+                  <p className="font-extrabold text-sm text-white">
+                    {activeFarmerBooking.driverName || 'Driver Assignment in Progress'}
+                  </p>
+                  {activeFarmerBooking.driverPhone ? (
+                    <a
+                      href={`tel:${activeFarmerBooking.driverPhone}`}
+                      className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-bold font-mono"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>+91 {activeFarmerBooking.driverPhone}</span>
+                    </a>
+                  ) : (
+                    <span className="text-slate-400 text-[11px]">Phone shared on dispatch</span>
+                  )}
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Vehicle Plate Number</span>
+                  <p className="font-bold text-white">
+                    {activeFarmerBooking.vehicleType || 'Commercial Farm Truck'}
+                  </p>
+                  <span className="font-mono text-[11px] font-bold text-emerald-300 bg-white/10 px-2.5 py-0.5 rounded border border-white/15 inline-block mt-0.5">
+                    {activeFarmerBooking.vehicleNumber || 'Plate Assigned on Pickup'}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Estimated Arrival Time (ETA)</span>
+                  <p className="font-mono font-extrabold text-sm text-amber-300 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>~{activeFarmerBooking.estimatedDurationMinutes || 120} Minutes</span>
+                  </p>
+                  <span className="text-[11px] text-slate-400">Scheduled: {activeFarmerBooking.pickupDate}</span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Pickup & Mandi Route</span>
+                  <p className="font-bold text-white truncate">{activeFarmerBooking.pickupLocation}</p>
+                  <p className="text-[11px] text-emerald-400 flex items-center gap-1">
+                    <ArrowRight className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{activeFarmerBooking.destinationMarket}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* 4-Step Live Tracking Stepper */}
+              <div className="pt-2">
+                <div className="flex items-center justify-between relative">
+                  <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 bg-slate-800 z-0" />
+                  <div
+                    className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-emerald-500 transition-all duration-500 z-0"
+                    style={{
+                      width:
+                        activeFarmerBooking.status === 'delivered'
+                          ? '100%'
+                          : activeFarmerBooking.status === 'in_transit'
+                          ? '66%'
+                          : activeFarmerBooking.status === 'accepted'
+                          ? '33%'
+                          : '0%',
+                    }}
+                  />
+
+                  {/* Step 1: Requested */}
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xs shadow-md">
+                      ✓
+                    </div>
+                    <span className="text-[11px] font-bold text-white mt-1.5">(1) Requested</span>
+                    <span className="text-[10px] text-slate-400">{activeFarmerBooking.pickupDate}</span>
+                  </div>
+
+                  {/* Step 2: Driver Assigned */}
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-md ${
+                        ['accepted', 'in_transit', 'delivered'].includes(activeFarmerBooking.status)
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-slate-800 text-slate-400 border border-slate-700'
+                      }`}
+                    >
+                      {['accepted', 'in_transit', 'delivered'].includes(activeFarmerBooking.status) ? '✓' : '2'}
+                    </div>
+                    <span
+                      className={`text-[11px] font-bold mt-1.5 ${
+                        ['accepted', 'in_transit', 'delivered'].includes(activeFarmerBooking.status)
+                          ? 'text-white'
+                          : 'text-slate-400'
+                      }`}
+                    >
+                      (2) Driver Assigned
+                    </span>
+                    <span className="text-[10px] text-slate-400 truncate max-w-[110px]">
+                      {activeFarmerBooking.driverName ? activeFarmerBooking.driverName.split(' ')[0] : 'Pending'}
+                    </span>
+                  </div>
+
+                  {/* Step 3: In Transit */}
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-md ${
+                        ['in_transit', 'delivered'].includes(activeFarmerBooking.status)
+                          ? 'bg-emerald-500 text-white animate-pulse'
+                          : 'bg-slate-800 text-slate-400 border border-slate-700'
+                      }`}
+                    >
+                      {['in_transit', 'delivered'].includes(activeFarmerBooking.status) ? '✓' : '3'}
+                    </div>
+                    <span
+                      className={`text-[11px] font-bold mt-1.5 ${
+                        ['in_transit', 'delivered'].includes(activeFarmerBooking.status) ? 'text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      (3) In Transit
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {activeFarmerBooking.status === 'in_transit' ? 'On Highway 🛣️' : 'Awaiting Dispatch'}
+                    </span>
+                  </div>
+
+                  {/* Step 4: Delivered at Mandi */}
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-md ${
+                        activeFarmerBooking.status === 'delivered'
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-slate-800 text-slate-400 border border-slate-700'
+                      }`}
+                    >
+                      {activeFarmerBooking.status === 'delivered' ? '✓' : '4'}
+                    </div>
+                    <span
+                      className={`text-[11px] font-bold mt-1.5 ${
+                        activeFarmerBooking.status === 'delivered' ? 'text-emerald-300 font-extrabold' : 'text-slate-400'
+                      }`}
+                    >
+                      (4) Delivered at Mandi
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {activeFarmerBooking.destinationMarket.split(' ')[0]} Mandi
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Booking / Posting Form */}
           <form
             onSubmit={saveTransportRequest}
@@ -861,7 +1073,7 @@ export default function TransportPage() {
                             <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
                               ✓
                             </div>
-                            <span className="text-[11px] font-bold text-text mt-1">1. Requested</span>
+                            <span className="text-[11px] font-bold text-text mt-1">(1) Requested</span>
                             <span className="text-[10px] text-muted">{req.pickupDate}</span>
                           </div>
 
@@ -875,7 +1087,7 @@ export default function TransportPage() {
                               {isAccepted ? '✓' : '2'}
                             </div>
                             <span className={`text-[11px] font-bold mt-1 ${isAccepted ? 'text-text' : 'text-muted'}`}>
-                              2. Driver Assigned
+                              (2) Driver Assigned
                             </span>
                             <span className="text-[10px] text-muted truncate max-w-[100px]">
                               {req.driverName ? req.driverName.split(' ')[0] : 'Pending'}
@@ -892,14 +1104,14 @@ export default function TransportPage() {
                               {isInTransit ? '✓' : '3'}
                             </div>
                             <span className={`text-[11px] font-bold mt-1 ${isInTransit ? 'text-text' : 'text-muted'}`}>
-                              3. In Transit
+                              (3) In Transit
                             </span>
                             <span className="text-[10px] text-muted">
                               {isInTransit ? 'On Route' : 'Awaiting Dispatch'}
                             </span>
                           </div>
 
-                          {/* Step 4: Delivered */}
+                          {/* Step 4: Delivered at Mandi */}
                           <div className="relative z-10 flex flex-col items-center">
                             <div
                               className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow-sm ${
@@ -909,7 +1121,7 @@ export default function TransportPage() {
                               {isDelivered ? '✓' : '4'}
                             </div>
                             <span className={`text-[11px] font-bold mt-1 ${isDelivered ? 'text-emerald-700 font-extrabold' : 'text-muted'}`}>
-                              4. Delivered
+                              (4) Delivered at Mandi
                             </span>
                             <span className="text-[10px] text-muted">{req.destinationMarket.split(' ')[0]} Mandi</span>
                           </div>
