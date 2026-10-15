@@ -201,18 +201,242 @@ Fetch past simulation history for the authenticated farmer.
 
 ## 5. Shared Transport Endpoints
 
-### `GET /api/transport/requests`
-Fetch open transport pooling requests.
-- **Query Params**: `destination_market_id`, `pickup_district`, `date`
+All transport endpoints require JWT authentication (`Authorization: Bearer <TOKEN>`).
+
+### `GET /api/transport/my-requests`
+Fetch transport requests belonging to the logged-in user. For transporters, also returns trips they've been assigned to.
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": 12,
+        "userId": 1,
+        "farmerName": "Ramesh Patel",
+        "farmerPhone": "9876543210",
+        "cropName": "Tomato",
+        "pickupLocation": "Olpad, Surat",
+        "destinationMarket": "Surat APMC",
+        "pickupDate": "2026-10-16",
+        "weightKg": 500,
+        "vehicleType": "any",
+        "vehicleNumber": null,
+        "estimatedSharedCost": 900,
+        "estimatedDurationMinutes": 90,
+        "gatePassCode": "GJ-APMC-482916",
+        "status": "open",
+        "driverName": null,
+        "driverPhone": null,
+        "transporterId": null,
+        "createdAt": "2026-10-15T08:30:00.000Z"
+      }
+    ]
+  }
+  ```
 
 ### `POST /api/transport/requests`
-Create a new shared transport pool offer or request.
+Create a new shared transport pooling request. Automatically generates a digital APMC gate pass code and estimates shared cost.
+- **Request Body**:
+  ```json
+  {
+    "farmerName": "Ramesh Patel",
+    "farmerPhone": "9876543210",
+    "cropName": "Tomato",
+    "pickupLocation": "Olpad, Surat",
+    "destinationMarket": "Surat APMC",
+    "pickupDate": "2026-10-16",
+    "weightKg": 500,
+    "vehicleType": "any"
+  }
+  ```
+- **Required Fields**: `farmerName`, `cropName`, `pickupLocation`, `destinationMarket`, `pickupDate` (YYYY-MM-DD), `weightKg`
+- **Auto-Generated Fields**: `gatePassCode`, `estimatedSharedCost`, `estimatedDurationMinutes`
+- **Response (201 Created)**:
+  ```json
+  {
+    "success": true,
+    "message": "Transport request created with gate pass GJ-APMC-482916",
+    "data": {
+      "id": 13,
+      "gatePassCode": "GJ-APMC-482916",
+      "estimatedSharedCost": 900,
+      "estimatedDurationMinutes": 90,
+      "status": "open"
+    }
+  }
+  ```
 
-### `GET /api/transport/matches`
-Smart match finder that groups compatibility by route and vehicle capacity.
+### `GET /api/transport/transporters`
+List all registered transporters with vehicle info and availability.
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": 1,
+        "driverName": "Vijay Singh",
+        "phone": "9876501234",
+        "vehicleType": "Mahindra Bolero Maxi",
+        "vehicleNumber": "GJ-05-TR-1001",
+        "capacityKg": 2000,
+        "baseMandi": "Surat APMC",
+        "ratePerKm": 25,
+        "isAvailable": true
+      }
+    ]
+  }
+  ```
 
-### `POST /api/transport/matches/:id/accept`
-Accept a shared transport pairing.
+### `GET /api/transport/open-cargo`
+Fetch open cargo requests available for transporters to accept (status = `open`).
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": 12,
+        "farmerName": "Ramesh Patel",
+        "cropName": "Tomato",
+        "pickupLocation": "Olpad, Surat",
+        "destinationMarket": "Surat APMC",
+        "pickupDate": "2026-10-16",
+        "weightKg": 500,
+        "status": "open"
+      }
+    ]
+  }
+  ```
+
+### `GET /api/transport/active-trip`
+Fetch the transporter's currently active trip (status = `in_transit`). Returns `null` if no active trip.
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": 12,
+      "status": "in_transit",
+      "gatePassCode": "GJ-APMC-482916",
+      "farmerName": "Ramesh Patel",
+      "destinationMarket": "Surat APMC",
+      "estimatedDurationMinutes": 90
+    }
+  }
+  ```
+
+### `GET /api/transport/transporter-stats`
+Get delivery statistics for the logged-in transporter.
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "totalTrips": 15,
+      "completedTrips": 12,
+      "activeTrips": 1,
+      "totalWeightKg": 18500,
+      "totalEarnings": 27000
+    }
+  }
+  ```
+
+### `PUT /api/transport/requests/:id/accept`
+Transporter accepts an open transport request. Assigns the transporter and changes status to `matched`.
+- **Request Body** (optional):
+  ```json
+  {
+    "vehicleNumber": "GJ-05-TR-1001",
+    "vehicleType": "Mahindra Bolero Maxi"
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Trip accepted. You are now assigned as the transporter.",
+    "data": {
+      "id": 12,
+      "status": "matched",
+      "transporterId": 3,
+      "driverName": "Vijay Singh",
+      "vehicleNumber": "GJ-05-TR-1001"
+    }
+  }
+  ```
+- **Error (409 Conflict)**: Transporter already has an active trip.
+
+### `PUT /api/transport/requests/:id/progress`
+Update the tracking progress of a transport trip. Used by transporters to move through the trip stepper stages.
+- **Request Body**:
+  ```json
+  {
+    "status": "in_transit"
+  }
+  ```
+- **Valid Status Transitions**: `matched` → `in_transit` → `delivered`
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Trip status updated to in_transit",
+    "data": {
+      "id": 12,
+      "status": "in_transit"
+    }
+  }
+  ```
+
+### `POST /api/transport/register-vehicle`
+Register a new transporter vehicle profile.
+- **Request Body**:
+  ```json
+  {
+    "driverName": "Vijay Singh",
+    "phone": "9876501234",
+    "vehicleType": "Mahindra Bolero Maxi",
+    "vehicleNumber": "GJ-05-TR-1001",
+    "capacityKg": 2000,
+    "baseMandi": "Surat APMC",
+    "ratePerKm": 25
+  }
+  ```
+- **Response (201 Created)**:
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle registered successfully",
+    "data": {
+      "id": 2,
+      "driverName": "Vijay Singh",
+      "vehicleNumber": "GJ-05-TR-1001",
+      "isAvailable": true
+    }
+  }
+  ```
+
+### `GET /api/transport/requests` *(Admin Only)*
+Admin-only endpoint to list all transport requests system-wide.
+- **Requires**: `adminMiddleware`
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": [ /* ...all transport requests across users... */ ]
+  }
+  ```
+
+### `PUT /api/transport/requests/:id/status` *(Admin Only)*
+Admin-only endpoint to override/update a transport request status.
+- **Requires**: `adminMiddleware`
+- **Request Body**:
+  ```json
+  {
+    "status": "cancelled"
+  }
+  ```
 
 ---
 
@@ -277,7 +501,7 @@ Check AI provider status, fallback readiness, and supported languages safely wit
 
 ---
 
-## 7. Weather & District Rain Advisory Endpoints (ISSUE-11)
+## 8. Weather & District Rain Advisory Endpoints
 
 ### `GET /api/weather`
 Retrieve current weather, 3-day forecast, and deterministic district rain advisory.
@@ -308,8 +532,7 @@ Retrieve current weather, 3-day forecast, and deterministic district rain adviso
       "isAdvisoryActive": true,
       "threshold": 60,
       "rainProbability": 70,
-      "message": "Rain is expected in the selected district based on the available forecast. Consider checking harvest readiness and transportation plans before moving produce.",
-      "reason": "Rain probability (70%) meets or exceeds the configured advisory threshold (60%).",
+      "message": "Rain is expected in the selected district based on the available forecast.",
       "actionableTips": [
         "Cover harvested produce with waterproof tarpaulins or move to dry shelter.",
         "Coordinate with transport partners to ensure vehicles have covered cargo beds.",
@@ -317,8 +540,7 @@ Retrieve current weather, 3-day forecast, and deterministic district rain adviso
       ]
     },
     "dataStatus": "DEMO",
-    "source": "HarvestMitra Demo Weather Dataset",
-    "lastUpdated": "2026-10-03T10:00:00Z"
+    "source": "HarvestMitra Demo Weather Dataset"
   }
   ```
 
@@ -331,9 +553,210 @@ Get list of previous chat conversations.
 
 ---
 
-## 8. Administration Endpoints (Admin Role Only)
+## 9. Administration Endpoints (Admin Role Only)
 
-- `GET /api/admin/overview`: System statistics.
-- `POST /api/admin/market-prices`: Manual entry or update of Mandi prices.
-- `PUT /api/admin/market-prices/:id`: Edit Mandi price entry.
-- `GET /api/admin/reports`: View user feedback or data discrepancy reports.
+All admin endpoints require both `authMiddleware` (valid JWT) and `adminMiddleware` (role = `admin`). Non-admin users receive **403 Forbidden**.
+
+### `GET /api/admin/overview`
+System-wide statistics dashboard data.
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "users": 24,
+      "farmers": 18,
+      "markets": 65,
+      "marketPrices": 312,
+      "transportRequests": 47
+    }
+  }
+  ```
+
+### `GET /api/admin/users`
+List all registered users with their farmer profiles. Passwords are never included.
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": 1,
+        "name": "Ramesh Patel",
+        "email": "demo@harvestmitra.local",
+        "phone": "9876543210",
+        "role": "farmer",
+        "createdAt": "2026-10-01T09:00:00.000Z",
+        "FarmerProfile": {
+          "district": "Surat",
+          "state": "Gujarat",
+          "farmSizeAcres": 4.5,
+          "mainCrop": "Tomato"
+        }
+      }
+    ]
+  }
+  ```
+
+### `PUT /api/admin/users/:id`
+Update a user's role, name, phone, or farmer profile fields. Admin cannot demote their own account.
+- **Request Body**:
+  ```json
+  {
+    "role": "farmer",
+    "name": "Ramesh Patel Updated",
+    "phone": "9876543211",
+    "district": "Ahmedabad",
+    "state": "Gujarat",
+    "farmSizeAcres": 5.0,
+    "mainCrop": "Potato"
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": { /* ...updated user object with FarmerProfile... */ }
+  }
+  ```
+- **Error (400)**: `"Admin cannot demote own account"` or invalid role.
+- **Error (404)**: `"User not found"`.
+
+### `DELETE /api/admin/users/:id`
+Delete a user account. Admin cannot delete their own account.
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "User deleted"
+  }
+  ```
+
+### `GET /api/admin/market-prices`
+List all market prices with associated Market and Crop data, sorted by most recent date first (limit 300).
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": 101,
+        "marketId": 1,
+        "cropId": 1,
+        "pricePerQuintal": 2000,
+        "pricePerKg": 20.0,
+        "minPrice": 1840,
+        "maxPrice": 2160,
+        "priceDate": "2026-10-15",
+        "dataType": "verified_live",
+        "Market": { "id": 1, "name": "Surat APMC Mandi", "district": "Surat", "state": "Gujarat" },
+        "Crop": { "id": 1, "nameEn": "Tomato", "nameGu": "ટામેટાં", "nameHi": "टमाटर" }
+      }
+    ]
+  }
+  ```
+
+### `POST /api/admin/market-prices`
+Create or upsert a market price entry. If a record already exists for the same market + crop + date, it is updated instead.
+- **Request Body**:
+  ```json
+  {
+    "marketId": 1,
+    "cropId": 1,
+    "pricePerQuintal": 2100,
+    "pricePerKg": 21.0,
+    "minPrice": 1932,
+    "maxPrice": 2268,
+    "priceDate": "2026-10-15"
+  }
+  ```
+- **Required Fields**: `marketId`, `cropId`, `pricePerQuintal`
+- **Auto-Calculated** (if not provided): `pricePerKg` (quintal/100), `minPrice` (quintal×0.92), `maxPrice` (quintal×1.08), `priceDate` (today)
+- **Response (201 Created)**:
+  ```json
+  {
+    "success": true,
+    "message": "Market price for Tomato in Surat APMC Mandi saved successfully to MySQL.",
+    "data": { /* ...full market price record with Market and Crop includes... */ }
+  }
+  ```
+
+### `PUT /api/admin/market-prices/:id`
+Update an existing market price record.
+- **Request Body**:
+  ```json
+  {
+    "pricePerQuintal": 2200
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": { /* ...updated record... */ }
+  }
+  ```
+
+### `DELETE /api/admin/market-prices/:id`
+Delete a market price record.
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Market price record deleted successfully"
+  }
+  ```
+
+### `GET /api/admin/markets`
+List all APMC markets available in the system, sorted by state and name.
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": 1,
+        "name": "Surat APMC Mandi",
+        "district": "Surat",
+        "state": "Gujarat"
+      }
+    ]
+  }
+  ```
+
+### `GET /api/admin/crops`
+List all crops with multilingual names, sorted alphabetically by English name.
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": 1,
+        "nameEn": "Tomato",
+        "nameGu": "ટામેટાં",
+        "nameHi": "टमाटर"
+      }
+    ]
+  }
+  ```
+
+### `GET /api/admin/reports`
+View user-submitted reports and feedback, sorted by most recent (limit 200).
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": 1,
+        "userId": 5,
+        "type": "price_discrepancy",
+        "description": "Tomato price at Surat APMC seems incorrect",
+        "createdAt": "2026-10-14T14:30:00.000Z",
+        "User": { "id": 5, "name": "Ramesh Patel", "email": "demo@harvestmitra.local" }
+      }
+    ]
+  }
+  ```
+
