@@ -473,7 +473,7 @@ export default function AuthPage({ mode = 'login' }) {
 
                         <label className="block space-y-1">
                           <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                            Ready Harvest (kg) *
+                            Ready Harvest (kg) / તૈયાર પાક (કિલો) *
                           </span>
                           <input
                             type="number"
