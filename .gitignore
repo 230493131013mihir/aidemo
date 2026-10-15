@@ -40,3 +40,7 @@ pnpm-debug.log*
 *.sqlite
 *.sqlite3
 *.db
+
+# Automation & Local Scripts
+scripts/create_mihir_prs.js
+scripts/merge_all_prs.js
