@@ -3,7 +3,7 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 const app = require('./app');
 const sequelize = require('./config/database');
-require('./models');
+const { User } = require('./models');
 
 const PORT = process.env.PORT || 5000;
 
@@ -11,7 +11,18 @@ async function startServer() {
   try {
     await sequelize.authenticate();
     await sequelize.sync();
-    console.log('✅ MySQL Database connected & synced successfully!');
+    console.log(`✅ Database (${sequelize.getDialect()}) connected & synced successfully!`);
+
+    const userCount = await User.count().catch(() => 0);
+    if (userCount === 0) {
+      console.log('🌱 Database is empty, seeding initial demo data...');
+      try {
+        const seed = require('./seed');
+        if (typeof seed === 'function') await seed();
+      } catch (seedErr) {
+        console.warn('⚠️ Seeding skipped:', seedErr.message);
+      }
+    }
   } catch (error) {
     console.warn('⚠️  Database connection skipped or failed:', error.message);
     console.warn('ℹ️  Running in demo/fallback mode for AI, simulator, and mock endpoints.');

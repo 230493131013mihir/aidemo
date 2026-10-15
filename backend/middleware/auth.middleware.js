@@ -28,7 +28,7 @@ const authMiddleware = (req, res, next) => {
         // Verify token
         const decoded = jwt.verify(
             token,
-            process.env.JWT_SECRET
+            process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon"
         );
 
         // Store decoded user information in request

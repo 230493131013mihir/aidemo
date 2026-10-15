@@ -200,11 +200,15 @@ async function seed() {
     console.log(`Created or verified demo user ${demoUser.id} and ${crops.length} crops across ${markets.length} markets.`);
 }
 
-seed()
-    .catch((error) => {
-        console.error("Seed failed:", error.message);
-        process.exitCode = 1;
-    })
-    .finally(async () => {
-        await sequelize.close();
-    });
+if (require.main === module) {
+    seed()
+        .catch((error) => {
+            console.error("Seed failed:", error.message);
+            process.exitCode = 1;
+        })
+        .finally(async () => {
+            await sequelize.close();
+        });
+}
+
+module.exports = seed;

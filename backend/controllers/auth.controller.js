@@ -253,7 +253,7 @@ const login = async (req, res) => {
 
         const token = jwt.sign(
             { id: user.id, role: user.role },
-            process.env.JWT_SECRET,
+            process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon",
             { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
         );
 
@@ -344,7 +344,7 @@ const demoLogin = async (req, res) => {
 
         const token = jwt.sign(
             { id: user.id, role: user.role },
-            process.env.JWT_SECRET,
+            process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon",
             { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
         );
 
