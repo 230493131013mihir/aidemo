@@ -274,12 +274,12 @@ export const en = {
   },
   common: {
     comingSoon: "Coming Soon in Next Phase",
-    modulePlanned: "This module is scheduled for implementation in upcoming development issues.",
+    modulePlanned: "This module is scheduled for implementation in upcoming platform releases.",
     backToHome: "Back to Home",
     backToDashboard: "Go to Dashboard",
     readDocs: "Read Guide",
     statusReady: "Foundation Ready",
-    statusPlanned: "Planned (Issue 05-09)",
+    statusPlanned: "Production Feature",
     activeLanguage: "Active Language",
     selectLanguage: "Choose Language",
     roleFarmer: "Farmer / Producer",
@@ -343,7 +343,7 @@ export const en = {
   profile: {
     title: "Farmer Profile & Farm Settings",
     subtitle: "Manage farm location, cultivated crops, acreage, and language preferences.",
-    note: "Profile persistence and customized recommendation settings will be connected in future issues.",
+    note: "Profile persistence and customized recommendation settings are linked to your registered farm account.",
   },
   notFound: {
     title: "Page Not Found",

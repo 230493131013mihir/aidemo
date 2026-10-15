@@ -279,7 +279,7 @@ export const hi = {
     backToDashboard: "डैशबोर्ड पर जाएं",
     readDocs: "मार्गदर्शिका पढ़ें",
     statusReady: "आधार तैयार है",
-    statusPlanned: "नियोजित (इश्यू 05-09)",
+    statusPlanned: "प्लेटफॉर्म सुविधा",
     activeLanguage: "सक्रिय भाषा",
     selectLanguage: "भाषा चुनें",
     roleFarmer: "किसान / उत्पादक",

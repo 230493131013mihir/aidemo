@@ -279,7 +279,7 @@ export const mr = {
     backToDashboard: "डॅशबोर्डवर जा",
     readDocs: "मार्गदर्शिका वाचा",
     statusReady: "पायाभूत रचना तयार",
-    statusPlanned: "नियोजित (इश्यू 05-09)",
+    statusPlanned: "प्लॅटफॉर्म वैशिष्ट्य",
     activeLanguage: "सक्रिय भाषा",
     selectLanguage: "भाषा निवडा",
     roleFarmer: "शेतकरी / उत्पादक",
