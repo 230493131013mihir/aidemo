@@ -23,7 +23,10 @@ const TransportRequest = sequelize.define(
         vehicleNumber: { type: DataTypes.STRING(64), allowNull: true, field: "vehicle_number" },
         status: {
             type: DataTypes.STRING(32),
-            defaultValue: "open"
+            defaultValue: "open",
+            validate: {
+                isIn: [["open", "matched", "accepted", "in_transit", "delivered", "completed", "cancelled"]]
+            }
         },
         estimatedDurationMinutes: {
             type: DataTypes.INTEGER,
@@ -40,5 +43,15 @@ const TransportRequest = sequelize.define(
     },
     { tableName: "transport_requests", underscored: true }
 );
+
+TransportRequest.STATUSES = {
+    OPEN: "open",
+    MATCHED: "matched",
+    ACCEPTED: "accepted",
+    IN_TRANSIT: "in_transit",
+    DELIVERED: "delivered",
+    COMPLETED: "completed",
+    CANCELLED: "cancelled"
+};
 
 module.exports = TransportRequest;
