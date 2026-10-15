@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { 
   Sprout, 
   Scale, 
@@ -12,6 +13,7 @@ import { dashboardDemoData } from '../data/dashboardDemoData';
 // Dashboard Components
 import DashboardHeader from '../components/dashboard/DashboardHeader';
 import ProfileSummary from '../components/dashboard/ProfileSummary';
+import TransporterDashboard from '../components/dashboard/TransporterDashboard';
 import StatCard from '../components/dashboard/StatCard';
 import WeatherWidget from '../components/dashboard/WeatherWidget';
 import MarketTrendChart from '../components/dashboard/MarketTrendChart';
@@ -27,6 +29,19 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000
 export default function DashboardPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
+
+  // Role-Based Dashboard Segregation:
+  // 1. Admin only views the APMC Central Admin Console
+  if (user?.role === 'admin') {
+    return <Navigate to="/admin" replace />;
+  }
+
+  // 2. Transporter views their dedicated Cargo & Trip Logistics Dashboard
+  if (user?.role === 'transporter') {
+    return <TransporterDashboard />;
+  }
+
+  // 3. Farmer views full crop analytics & harvest decision dashboard
   const farmerCrop = user?.FarmerProfile?.mainCrop || 'Tomato';
   const farmerDistrict = user?.FarmerProfile?.district || 'Surat';
   const quantityKg = Number(user?.FarmerProfile?.currentHarvestKg) || 500;

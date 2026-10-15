@@ -24,17 +24,45 @@ export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const navItems = [
-    { to: '/dashboard', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard },
-    { to: '/markets', label: t('nav.markets', 'Live Mandis'), icon: TrendingUp },
-    { to: '/harvest', label: t('nav.harvest', 'Harvest Intelligence'), icon: Calculator },
-    { to: '/transport', label: t('nav.transport', 'Transport Pooling'), icon: Truck },
-    { to: '/weather', label: t('nav.weather', 'Agri Weather'), icon: CloudSunRain },
-    { to: '/chat', label: t('nav.chat', 'AI Advisory'), icon: Bot },
-    ...(user?.role === 'admin' ? [{ to: '/admin', label: 'APMC Admin', icon: Shield }] : []),
-  ];
-
   const isTransporter = user?.role === 'transporter';
+  const isAdmin = user?.role === 'admin';
+
+  const navItems = React.useMemo(() => {
+    if (!isAuthenticated) {
+      return [
+        { href: '/#features', label: 'Features', icon: Calculator },
+        { href: '/#workflow', label: 'How It Works', icon: Truck },
+        { to: '/login', label: 'Live Mandis', icon: TrendingUp },
+      ];
+    }
+
+    if (isAdmin) {
+      return [
+        { to: '/admin', label: 'APMC Admin Console', icon: Shield },
+        { to: '/markets', label: 'Mandi Intelligence', icon: TrendingUp },
+        { to: '/profile', label: 'Admin Profile', icon: User },
+      ];
+    }
+
+    if (isTransporter) {
+      return [
+        { to: '/dashboard', label: 'Logistics Dashboard', icon: LayoutDashboard },
+        { to: '/transport', label: 'Cargo Trips & Gate Pass', icon: Truck },
+        { to: '/weather', label: 'Route Weather', icon: CloudSunRain },
+        { to: '/profile', label: 'Vehicle Profile', icon: User },
+      ];
+    }
+
+    // Farmer
+    return [
+      { to: '/dashboard', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard },
+      { to: '/markets', label: t('nav.markets', 'Live Mandis'), icon: TrendingUp },
+      { to: '/harvest', label: t('nav.harvest', 'Harvest Intelligence'), icon: Calculator },
+      { to: '/transport', label: t('nav.transport', 'Transport Pooling'), icon: Truck },
+      { to: '/weather', label: t('nav.weather', 'Agri Weather'), icon: CloudSunRain },
+      { to: '/chat', label: t('nav.chat', 'AI Advisory'), icon: Bot },
+    ];
+  }, [isAuthenticated, isAdmin, isTransporter, t]);
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-white/95 backdrop-blur-md transition-colors shadow-2xs">

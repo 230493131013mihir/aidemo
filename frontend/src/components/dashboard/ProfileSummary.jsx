@@ -8,6 +8,12 @@ import { dashboardDemoData } from '../../data/dashboardDemoData';
 export default function ProfileSummary() {
   const { t } = useLanguage();
   const { user, isAuthenticated } = useAuth();
+
+  // Strict role separation: Farmer profile summary should ONLY show to farmers
+  if (user?.role && user?.role !== 'farmer') {
+    return null;
+  }
+
   const fallbackFarmer = dashboardDemoData.farmer;
 
   const profile = user?.FarmerProfile;

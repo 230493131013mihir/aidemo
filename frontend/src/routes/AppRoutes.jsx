@@ -37,7 +37,14 @@ export default function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        <Route path="/markets" element={<MarketsPage />} />
+        <Route
+          path="/markets"
+          element={
+            <ProtectedRoute>
+              <MarketsPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/harvest"
           element={
@@ -54,8 +61,22 @@ export default function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        <Route path="/weather" element={<WeatherPage />} />
-        <Route path="/chat" element={<ChatPage />} />
+        <Route
+          path="/weather"
+          element={
+            <ProtectedRoute>
+              <WeatherPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <ChatPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/profile"
           element={

@@ -38,6 +38,7 @@ export default function AuthPage({ mode = 'login' }) {
     village: '',
     farmSizeAcres: '3.5',
     mainCrop: 'Tomato',
+    currentHarvestKg: '500',
     // Transporter fields
     vehicleType: 'Mahindra Bolero Maxi Truck',
     vehicleNumber: '',
@@ -88,6 +89,10 @@ export default function AuthPage({ mode = 'login' }) {
       const farmSize = Number(form.farmSizeAcres);
       if (Number.isNaN(farmSize) || farmSize <= 0) {
         return 'Please enter a valid farm size in acres.';
+      }
+      const harvestKg = Number(form.currentHarvestKg);
+      if (Number.isNaN(harvestKg) || harvestKg <= 0) {
+        return 'Please enter your ready harvest quantity in kg (e.g. 500).';
       }
     } else if (role === 'transporter') {
       if (!form.vehicleNumber.trim() || form.vehicleNumber.trim().length < 5) {
@@ -151,6 +156,7 @@ export default function AuthPage({ mode = 'login' }) {
           village: form.village.trim(),
           farmSizeAcres: Number(form.farmSizeAcres),
           mainCrop: form.mainCrop || 'Tomato',
+          currentHarvestKg: Number(form.currentHarvestKg) || 500,
           // Transporter specifics
           vehicleType: form.vehicleType,
           vehicleNumber: form.vehicleNumber.trim().toUpperCase(),
@@ -439,30 +445,48 @@ export default function AuthPage({ mode = 'login' }) {
                         </label>
                       </div>
 
-                      <label className="block space-y-1">
-                        <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                          Primary Crop Grown *
-                        </span>
-                        <select
-                          value={form.mainCrop}
-                          onChange={(e) => updateField('mainCrop', e.target.value)}
-                          className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary bg-white"
-                        >
-                          <option value="Tomato">Tomato (Hybrid / Desi)</option>
-                          <option value="Onion">Onion (Nashik Red)</option>
-                          <option value="Potato">Potato (Jyoti / Pukhraj)</option>
-                          <option value="Cotton">Cotton (Bt Cotton)</option>
-                          <option value="Wheat">Wheat (Sharbati)</option>
-                          <option value="Soybean">Soybean (Yellow)</option>
-                          <option value="Rice">Rice (Basmati / Paddy)</option>
-                          <option value="Maize">Maize (Corn)</option>
-                          <option value="Mustard">Mustard (Sarson)</option>
-                          <option value="Groundnut">Groundnut (Peanut)</option>
-                          <option value="Cumin">Cumin (Jeera)</option>
-                          <option value="Garlic">Garlic (Lasan)</option>
-                          <option value="Other">Other Agricultural Crop</option>
-                        </select>
-                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <label className="block space-y-1">
+                          <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                            Primary Crop Grown *
+                          </span>
+                          <select
+                            value={form.mainCrop}
+                            onChange={(e) => updateField('mainCrop', e.target.value)}
+                            className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary bg-white"
+                          >
+                            <option value="Tomato">Tomato (Hybrid / Desi)</option>
+                            <option value="Onion">Onion (Nashik Red)</option>
+                            <option value="Potato">Potato (Jyoti / Pukhraj)</option>
+                            <option value="Cotton">Cotton (Bt Cotton)</option>
+                            <option value="Wheat">Wheat (Sharbati)</option>
+                            <option value="Soybean">Soybean (Yellow)</option>
+                            <option value="Rice">Rice (Basmati / Paddy)</option>
+                            <option value="Maize">Maize (Corn)</option>
+                            <option value="Mustard">Mustard (Sarson)</option>
+                            <option value="Groundnut">Groundnut (Peanut)</option>
+                            <option value="Cumin">Cumin (Jeera)</option>
+                            <option value="Garlic">Garlic (Lasan)</option>
+                            <option value="Other">Other Agricultural Crop</option>
+                          </select>
+                        </label>
+
+                        <label className="block space-y-1">
+                          <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                            Ready Harvest (kg) / તૈયાર પાક (કિલો) *
+                          </span>
+                          <input
+                            type="number"
+                            required
+                            min="10"
+                            step="10"
+                            placeholder="e.g. 500"
+                            value={form.currentHarvestKg}
+                            onChange={(e) => updateField('currentHarvestKg', e.target.value)}
+                            className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary font-mono"
+                          />
+                        </label>
+                      </div>
                     </>
                   ) : (
                     <div className="space-y-3">
