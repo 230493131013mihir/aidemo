@@ -32,6 +32,12 @@ export default function Sidebar({ className = '' }) {
   const isAdmin = user?.role === 'admin';
   const isTransporter = user?.role === 'transporter';
 
+  const profileLabel = isTransporter
+    ? t('nav.transporterProfile', 'Transporter Profile')
+    : isAdmin
+    ? t('nav.adminProfile', 'Admin Profile')
+    : t('nav.farmerProfile', 'Farmer Profile');
+
   const navigationSections = React.useMemo(() => {
     if (isAdmin) {
       return [
@@ -85,10 +91,10 @@ export default function Sidebar({ className = '' }) {
       aria-label="Dashboard sidebar navigation"
     >
       <div className="space-y-6">
-        {/* Farmer Status Pill */}
+        {/* Role-Aware User Status Pill */}
         <div className="p-3 rounded-xl bg-secondary/80 border border-border/80 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
-            🌾
+            {isTransporter ? '🚚' : isAdmin ? '🛡️' : '🌾'}
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-text truncate">
@@ -159,7 +165,7 @@ export default function Sidebar({ className = '' }) {
             >
               <div className="flex items-center gap-3 min-w-0">
                 <User className="w-4 h-4 shrink-0" />
-                <span className="truncate">{t('nav.profile')}</span>
+                <span className="truncate">{profileLabel}</span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
             </NavLink>

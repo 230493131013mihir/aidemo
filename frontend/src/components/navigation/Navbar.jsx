@@ -28,6 +28,12 @@ export default function Navbar() {
   const isTransporter = user?.role === 'transporter';
   const isAdmin = user?.role === 'admin';
 
+  const profileLabel = isTransporter
+    ? t('nav.transporterProfile', 'Transporter Profile')
+    : isAdmin
+    ? t('nav.adminProfile', 'Admin Profile')
+    : t('nav.farmerProfile', 'Farmer Profile');
+
   const navItems = React.useMemo(() => {
     if (!isAuthenticated) {
       return [
@@ -263,7 +269,7 @@ export default function Navbar() {
               }
             >
               <User className="w-4 h-4" />
-              <span>{t('nav.profile', 'My Profile')}</span>
+              <span>{profileLabel}</span>
             </NavLink>
           </nav>
 
