@@ -3,6 +3,7 @@ const { Op } = require("sequelize");
 const authMiddleware = require("../middleware/auth.middleware");
 const adminMiddleware = require("../middleware/admin.middleware");
 const { TransportRequest, User, TransporterProfile } = require("../models");
+const sequelize = require("../config/database");
 
 const router = express.Router();
 
@@ -42,7 +43,9 @@ function normalizeTransportInput(body, reqUser = {}) {
     return {
         fields: {
             farmerName: String(body.farmerName).trim(),
-            farmerPhone: body.farmerPhone ? String(body.farmerPhone).trim() : (reqUser?.phone || "9999999991"),
+            farmerPhone: reqUser?.role === "farmer"
+                ? (body.farmerPhone ? String(body.farmerPhone).trim() : (reqUser?.phone || null))
+                : null,
             driverName: body.driverName ? String(body.driverName).trim() : null,
             driverPhone: body.driverPhone ? String(body.driverPhone).trim() : null,
             cropName: String(body.cropName).trim(),
@@ -62,15 +65,64 @@ function normalizeTransportInput(body, reqUser = {}) {
 
 router.use(authMiddleware);
 
-// Get logged-in user's transport requests (Farmer bookings or Transporter assigned trips)
-router.get("/my-requests", async (req, res) => {
-    try {
-        let whereCondition = { userId: req.user.id };
-        if (req.user.role === "transporter") {
-            whereCondition = {
-                [Op.or]: [{ userId: req.user.id }, { transporterId: req.user.id }]
+// Ensure transport columns introduced after the original table exists on older databases too.
+let transportSchemaReady;
+async function ensureTransportSchema() {
+    if (!transportSchemaReady) {
+        transportSchemaReady = (async () => {
+            const queryInterface = sequelize.getQueryInterface();
+            const columns = await queryInterface.describeTable("transport_requests");
+            const requiredColumns = {
+                transporter_id: { type: sequelize.Sequelize.INTEGER, allowNull: true },
+                farmer_phone: { type: sequelize.Sequelize.STRING(32), allowNull: true },
+                driver_name: { type: sequelize.Sequelize.STRING(120), allowNull: true },
+                driver_phone: { type: sequelize.Sequelize.STRING(32), allowNull: true },
+                vehicle_type: { type: sequelize.Sequelize.STRING(100), allowNull: true },
+                vehicle_number: { type: sequelize.Sequelize.STRING(64), allowNull: true },
+                estimated_duration_minutes: { type: sequelize.Sequelize.INTEGER, allowNull: true },
+                trip_start_time: { type: sequelize.Sequelize.DATE, allowNull: true },
+                estimated_shared_cost: { type: sequelize.Sequelize.INTEGER, allowNull: true },
+                gate_pass_code: { type: sequelize.Sequelize.STRING(64), allowNull: true }
             };
-        }
+            for (const [column, definition] of Object.entries(requiredColumns)) {
+                if (!columns[column]) await queryInterface.addColumn("transport_requests", column, definition);
+            }
+        })().catch((error) => {
+            transportSchemaReady = null;
+            throw error;
+        });
+    }
+    return transportSchemaReady;
+}
+
+function requireRole(...roles) {
+    return (req, res, next) => roles.includes(req.user?.role)
+        ? next()
+        : res.status(403).json({ success: false, message: "This action is not available for your account role." });
+}
+
+async function getTransporterWhereCondition(user) {
+    const profile = await TransporterProfile.findOne({ where: { userId: user.id } });
+    const orList = [{ transporterId: user.id }];
+    if (user.name) {
+        orList.push({ driverName: { [Op.like]: `%${user.name.trim()}%` } });
+    }
+    if (profile?.driverName) {
+        orList.push({ driverName: { [Op.like]: `%${profile.driverName.trim()}%` } });
+    }
+    if (profile?.phone) {
+        orList.push({ driverPhone: profile.phone.trim() });
+    }
+    return { [Op.or]: orList };
+}
+
+// Get only requests created by this farmer or assigned to this transporter.
+router.get("/my-requests", requireRole("farmer", "transporter"), async (req, res) => {
+    try {
+        await ensureTransportSchema();
+        const whereCondition = req.user.role === "transporter"
+            ? await getTransporterWhereCondition(req.user)
+            : { userId: req.user.id };
 
         const data = await TransportRequest.findAll({
             where: whereCondition,
@@ -84,11 +136,12 @@ router.get("/my-requests", async (req, res) => {
 });
 
 // Create new transport request (saves to MySQL and issues Digital Mandi Gate Pass)
-router.post("/requests", async (req, res) => {
+router.post("/requests", requireRole("farmer"), async (req, res) => {
     const { fields, error } = normalizeTransportInput(req.body, req.user);
     if (error) return res.status(400).json({ success: false, message: error });
 
     try {
+        await ensureTransportSchema();
         const request = await TransportRequest.create({ ...fields, userId: req.user.id });
         return res.status(201).json({
             success: true,
@@ -102,12 +155,54 @@ router.post("/requests", async (req, res) => {
     }
 });
 
-// Get registered available transporters
-router.get("/transporters", async (req, res) => {
+// A farmer reserves a registered vehicle. Persist the same trip for both parties.
+router.post("/bookings", requireRole("farmer"), async (req, res) => {
+    const { fields, error } = normalizeTransportInput(req.body, req.user);
+    if (error) return res.status(400).json({ success: false, message: error });
     try {
+        await ensureTransportSchema();
+        const transporterId = Number(req.body.transporterId);
+        if (!Number.isInteger(transporterId) || transporterId === Number(req.user.id)) {
+            return res.status(400).json({ success: false, message: "Choose a valid transporter." });
+        }
+        const profile = await TransporterProfile.findOne({ where: { userId: transporterId, isAvailable: true } });
+        if (!profile) return res.status(404).json({ success: false, message: "This transporter is no longer available." });
+        const activeTrip = await TransportRequest.findOne({ where: { transporterId, status: { [Op.in]: ["accepted", "in_transit"] } } });
+        if (activeTrip) return res.status(409).json({ success: false, message: "This transporter already has an active trip." });
+        if (fields.weightKg > profile.capacityKg) {
+            return res.status(400).json({ success: false, message: `Vehicle capacity is ${profile.capacityKg} kg.` });
+        }
+        const request = await sequelize.transaction(async (transaction) => {
+            const lockedProfile = await TransporterProfile.findByPk(profile.id, { transaction, lock: transaction.LOCK.UPDATE });
+            if (!lockedProfile?.isAvailable) throw Object.assign(new Error("This transporter is no longer available."), { statusCode: 409 });
+            const trip = await TransportRequest.create({
+                ...fields,
+                userId: req.user.id,
+                transporterId,
+                driverName: lockedProfile.driverName,
+                driverPhone: lockedProfile.phone,
+                vehicleType: lockedProfile.vehicleType,
+                vehicleNumber: lockedProfile.vehicleNumber,
+                status: "accepted",
+                tripStartTime: null
+            }, { transaction });
+            await lockedProfile.update({ isAvailable: false }, { transaction });
+            return trip;
+        });
+        return res.status(201).json({ success: true, data: request, message: "Vehicle booked. The booking is visible to you and the transporter." });
+    } catch (err) {
+        console.error("Create vehicle booking error:", err.message);
+        return res.status(err.statusCode || 500).json({ success: false, message: err.statusCode ? err.message : "Unable to create transport booking" });
+    }
+});
+
+// Get registered available transporters
+router.get("/transporters", requireRole("farmer"), async (req, res) => {
+    try {
+        await ensureTransportSchema();
         const transporters = await TransporterProfile.findAll({
-            where: { isAvailable: true },
-            include: [{ model: User, attributes: ["id", "name", "email", "phone"] }],
+            where: { isAvailable: true, userId: { [Op.ne]: req.user.id } },
+            include: [{ model: User, attributes: ["id", "name"] }],
             order: [["createdAt", "DESC"]]
         });
         return res.json({ success: true, data: transporters });
@@ -118,10 +213,10 @@ router.get("/transporters", async (req, res) => {
 });
 
 // View all open requests for transporters/drivers to claim
-router.get("/open-cargo", async (req, res) => {
+router.get("/open-cargo", requireRole("transporter"), async (req, res) => {
     try {
         const openRequests = await TransportRequest.findAll({
-            where: { status: "open" },
+            where: { status: "open", userId: { [Op.ne]: req.user.id } },
             order: [["createdAt", "DESC"]],
             limit: 50
         });
@@ -133,12 +228,12 @@ router.get("/open-cargo", async (req, res) => {
 });
 
 // Check if logged-in transporter has an active trip in progress
-router.get("/active-trip", async (req, res) => {
+router.get("/active-trip", requireRole("transporter"), async (req, res) => {
     try {
-        const transporterId = req.user?.id || req.query?.transporterId;
+        const transporterWhere = await getTransporterWhereCondition(req.user);
         const activeTrip = await TransportRequest.findOne({
             where: {
-                transporterId,
+                ...transporterWhere,
                 status: { [Op.in]: ["accepted", "in_transit"] }
             },
             order: [["updatedAt", "DESC"]]
@@ -155,18 +250,18 @@ router.get("/active-trip", async (req, res) => {
 });
 
 // Transporter statistics for dashboard
-router.get("/transporter-stats", async (req, res) => {
+router.get("/transporter-stats", requireRole("transporter"), async (req, res) => {
     try {
-        const transporterId = req.user?.id || req.query?.transporterId;
+        const transporterWhere = await getTransporterWhereCondition(req.user);
         const completedTrips = await TransportRequest.findAll({
             where: {
-                transporterId,
+                ...transporterWhere,
                 status: { [Op.in]: ["delivered", "completed"] }
             }
         });
         const activeTrips = await TransportRequest.findAll({
             where: {
-                transporterId,
+                ...transporterWhere,
                 status: { [Op.in]: ["accepted", "in_transit"] }
             }
         });
@@ -199,17 +294,20 @@ router.get("/transporter-stats", async (req, res) => {
 });
 
 // Driver / Transporter accepts a cargo request (Strict Single-Trip Lock)
-router.put("/requests/:id/accept", async (req, res) => {
+router.put("/requests/:id/accept", requireRole("transporter"), async (req, res) => {
     try {
         const request = await TransportRequest.findByPk(req.params.id);
         if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+        if (Number(request.userId) === Number(req.user.id)) {
+            return res.status(403).json({ success: false, message: "You cannot accept your own transport request." });
+        }
 
         if (request.status !== "open") {
             return res.status(400).json({ success: false, message: "This request has already been booked by another transporter." });
         }
 
         // STRICT CHECK: Transporter cannot accept if they already have an active trip!
-        const transporterId = req.user?.id || req.body?.transporterId;
+        const transporterId = req.user.id;
         const existingActiveTrip = await TransportRequest.findOne({
             where: {
                 transporterId,
@@ -225,6 +323,10 @@ router.put("/requests/:id/accept", async (req, res) => {
         }
 
         const transporterProfile = await TransporterProfile.findOne({ where: { userId: req.user.id } });
+        if (!transporterProfile) return res.status(400).json({ success: false, message: "Register a vehicle before accepting farmer requests." });
+        if (Number(request.weightKg) > transporterProfile.capacityKg) {
+            return res.status(400).json({ success: false, message: `Your vehicle capacity is ${transporterProfile.capacityKg} kg.` });
+        }
         const driverName = req.body.driverName || transporterProfile?.driverName || req.user.name || "Assigned Driver";
         const driverPhone = req.body.driverPhone || transporterProfile?.phone || req.user.phone || "9876543210";
         const vehicleType = req.body.vehicleType || transporterProfile?.vehicleType || "Mahindra Bolero Maxi Truck";
@@ -241,10 +343,7 @@ router.put("/requests/:id/accept", async (req, res) => {
             estimatedDurationMinutes,
             tripStartTime: new Date()
         });
-
-        if (transporterProfile) {
-            await transporterProfile.update({ isAvailable: false });
-        }
+        await transporterProfile.update({ isAvailable: false });
 
         return res.json({
             success: true,
@@ -258,18 +357,30 @@ router.put("/requests/:id/accept", async (req, res) => {
 });
 
 // Update trip status progression (accepted -> in_transit -> delivered)
-router.put("/requests/:id/progress", async (req, res) => {
+router.put("/requests/:id/progress", requireRole("transporter"), async (req, res) => {
     try {
         const request = await TransportRequest.findByPk(req.params.id);
         if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+        const profile = await TransporterProfile.findOne({ where: { userId: req.user.id } });
+        const isAssigned = (request.transporterId && Number(request.transporterId) === Number(req.user.id)) ||
+            (request.driverName && (request.driverName.toLowerCase().includes(req.user.name.toLowerCase()) || (profile?.driverName && request.driverName.toLowerCase().includes(profile.driverName.toLowerCase()))));
+        if (!isAssigned) {
+            return res.status(403).json({ success: false, message: "You can only update trips assigned to you." });
+        }
+        if (!request.transporterId) {
+            await request.update({ transporterId: req.user.id });
+        }
 
         const nextStatus = req.body.nextStatus || req.body.status;
         const allowed = ["in_transit", "delivered", "completed"];
         if (!nextStatus || !allowed.includes(nextStatus)) {
             return res.status(400).json({ success: false, message: `Invalid status: ${nextStatus}. Allowed: ${allowed.join(", ")}` });
         }
+        const validTransition = (request.status === "accepted" && nextStatus === "in_transit") ||
+            (["in_transit", "accepted"].includes(request.status) && ["delivered", "completed"].includes(nextStatus));
+        if (!validTransition) return res.status(400).json({ success: false, message: `Cannot move a ${request.status} trip to ${nextStatus}.` });
 
-        await request.update({ status: nextStatus });
+        await request.update({ status: nextStatus, ...(nextStatus === "in_transit" ? { tripStartTime: new Date() } : {}) });
 
         // If trip is delivered or completed, reset transporter availability
         if (["delivered", "completed"].includes(nextStatus)) {
@@ -293,7 +404,7 @@ router.put("/requests/:id/progress", async (req, res) => {
 });
 
 // Register or update vehicle details for logged-in user
-router.post("/register-vehicle", async (req, res) => {
+router.post("/register-vehicle", requireRole("transporter"), async (req, res) => {
     try {
         const {
             driverName,
@@ -308,9 +419,14 @@ router.post("/register-vehicle", async (req, res) => {
         if (!driverName || !vehicleNumber) {
             return res.status(400).json({ success: false, message: "Driver name and vehicle number are required." });
         }
+        if (capacityKg !== undefined && (!Number.isInteger(Number(capacityKg)) || Number(capacityKg) <= 0)) {
+            return res.status(400).json({ success: false, message: "Vehicle capacity must be a positive number of kilograms." });
+        }
 
         let profile = await TransporterProfile.findOne({ where: { userId: req.user.id } });
         if (profile) {
+            const activeTrip = await TransportRequest.findOne({ where: { transporterId: req.user.id, status: { [Op.in]: ["accepted", "in_transit"] } } });
+            if (activeTrip) return res.status(409).json({ success: false, message: "Finish your active trip before changing vehicle availability." });
             await profile.update({
                 driverName: driverName.trim(),
                 phone: phone ? phone.trim() : req.user.phone,
@@ -334,9 +450,6 @@ router.post("/register-vehicle", async (req, res) => {
                 isAvailable: true
             });
         }
-
-        // Also update user's role to transporter if not already
-        await User.update({ role: "transporter" }, { where: { id: req.user.id } });
 
         return res.json({
             success: true,
@@ -373,10 +486,39 @@ router.put("/requests/:id/status", adminMiddleware, async (req, res) => {
         const request = await TransportRequest.findByPk(req.params.id);
         if (!request) return res.status(404).json({ success: false, message: "Transport request not found" });
         await request.update({ status: req.body.status });
+        if (["delivered", "completed", "cancelled"].includes(req.body.status) && request.transporterId) {
+            await TransporterProfile.update({ isAvailable: true }, { where: { userId: request.transporterId } });
+        } else if (["accepted", "in_transit"].includes(req.body.status) && request.transporterId) {
+            await TransporterProfile.update({ isAvailable: false }, { where: { userId: request.transporterId } });
+        }
         return res.json({ success: true, data: request });
     } catch (error) {
         console.error("Update transport status error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to update transport request" });
+    }
+});
+
+// Public vehicle inventory contains only real registered profiles; farmers see only available vehicles.
+router.get("/vehicles", requireRole("farmer"), async (req, res) => {
+    try {
+        const profiles = await TransporterProfile.findAll({
+            where: { isAvailable: true, userId: { [Op.ne]: req.user.id } },
+            include: [{ model: User, attributes: ["id", "name"] }],
+            order: [["createdAt", "DESC"]]
+        });
+        return res.json({ success: true, data: profiles.map((profile) => ({
+            id: profile.id,
+            userId: profile.userId,
+            driverName: profile.driverName,
+            vehicleType: profile.vehicleType,
+            vehicleNumber: profile.vehicleNumber,
+            capacityKg: profile.capacityKg,
+            baseMandi: profile.baseMandi,
+            ratePerKm: profile.ratePerKm
+        })) });
+    } catch (error) {
+        console.error("Vehicle inventory error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to load vehicle availability" });
     }
 });
 
