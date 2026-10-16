@@ -383,14 +383,28 @@ export default function WeatherAdvisoryWidget({
               </div>
             )}
 
-            {/* 4. Demo Data Source Notice */}
-            <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 text-xs text-amber-900 flex items-start gap-2">
-              <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-bold">{t.demoNotice}: </span>
-                <span>{t.demoNoticeSub}</span>
-                <div className="mt-1 text-[11px] text-amber-700/80 flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
+            {/* 4. Live / Demo Telemetry Status Badge */}
+            <div className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 transition-all ${
+              weatherData.dataStatus === 'LIVE'
+                ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950 shadow-2xs'
+                : 'bg-amber-50/70 border-amber-200/80 text-amber-900'
+            }`}>
+              {weatherData.dataStatus === 'LIVE' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              ) : (
+                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              )}
+              <div className="flex-1">
+                <span className="font-bold">
+                  {weatherData.dataStatus === 'LIVE' ? '🟢 Live Agro Telemetry Active' : t.demoNotice}:{' '}
+                </span>
+                <span>
+                  {weatherData.dataStatus === 'LIVE'
+                    ? 'Connected to live agrometeorological ground and satellite feeds (Open-Meteo). Real-time humidity, wind speed, and rain probability.'
+                    : t.demoNoticeSub}
+                </span>
+                <div className="mt-1 text-[11px] text-emerald-800/80 flex items-center gap-1.5 font-mono">
+                  <Clock className="w-3 h-3 text-emerald-600" />
                   <span>{t.lastUpdated} {new Date(weatherData.lastUpdated).toLocaleTimeString()} ({weatherData.source})</span>
                 </div>
               </div>
