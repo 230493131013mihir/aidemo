@@ -35,15 +35,17 @@ export default function DashboardHeader() {
   const farmerDistrict = user?.FarmerProfile?.district || 'Regional';
 
   return (
-    <header className="relative rounded-3xl overflow-hidden shadow-xl border border-emerald-900/30 text-white mb-6">
-      {/* Background Photographic Image with Rich Agricultural Overlay */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
-        style={{ backgroundImage: `url('/images/dashboard-hero.jpg')` }}
-      />
-      {/* Cinematic Gradient Overlays */}
-      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-emerald-950/80 to-slate-900/65 backdrop-blur-[1px]" />
-      <div className="absolute inset-0 bg-radial-at-t from-emerald-500/10 via-transparent to-black/40 pointer-events-none" />
+    <header className="relative rounded-3xl shadow-xl border border-emerald-900/30 text-white mb-6">
+      {/* Background Photographic Image with Rich Agricultural Overlay (clipped inside) */}
+      <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+        <div 
+          className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
+          style={{ backgroundImage: `url('/images/dashboard-hero.jpg')` }}
+        />
+        {/* Cinematic Gradient Overlays */}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-emerald-950/80 to-slate-900/65 backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-radial-at-t from-emerald-500/10 via-transparent to-black/40" />
+      </div>
 
       {/* Content Container */}
       <div className="relative z-10 p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -89,8 +91,8 @@ export default function DashboardHeader() {
         </div>
 
         {/* Right: Language Controls & User Badge */}
-        <div className="flex flex-row lg:flex-col items-start lg:items-end justify-between gap-3 shrink-0">
-          <div className="bg-slate-900/60 backdrop-blur-md p-1 rounded-xl border border-white/10">
+        <div className="flex flex-row lg:flex-col items-start lg:items-end justify-between gap-3 shrink-0 relative z-30">
+          <div className="bg-slate-900/60 backdrop-blur-md p-1 rounded-xl border border-white/10 relative z-30">
             <LanguageSelector id="dashboard-hero-lang-selector" />
           </div>
 

@@ -74,36 +74,42 @@ export default function LanguageSelector({ variant = 'dropdown', className = '' 
           role="menu"
           aria-orientation="vertical"
           aria-labelledby="language-selector-button"
-          className="absolute right-0 z-50 mt-2 w-48 origin-top-right rounded-xl bg-surface border border-border shadow-lg p-1.5 focus:outline-none transition-all"
+          className="absolute right-0 z-[100] mt-2 w-56 origin-top-right rounded-2xl bg-white border border-slate-200/90 shadow-2xl p-1.5 focus:outline-none ring-1 ring-black/5 divide-y divide-slate-100"
         >
-          <div className="px-2 py-1.5 text-xs font-semibold text-muted tracking-wider uppercase">
-            Select Language
+          <div className="px-3 py-2 text-[10px] font-bold text-slate-400 tracking-wider uppercase">
+            Select Language • ભાષા પસંદ કરો
           </div>
-          {supportedLanguages.map((lang) => {
-            const isSelected = lang.code === language;
-            return (
-              <button
-                key={lang.code}
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setLanguage(lang.code);
-                  setIsOpen(false);
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors ${
-                  isSelected
-                    ? 'bg-primary/10 text-primary font-semibold'
-                    : 'text-text hover:bg-secondary'
-                }`}
-              >
-                <div className="flex flex-col text-left">
-                  <span className="leading-tight">{lang.nativeName}</span>
-                  <span className="text-xs text-muted font-normal">{lang.label}</span>
-                </div>
-                {isSelected && <Check className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />}
-              </button>
-            );
-          })}
+          <div className="py-1 space-y-0.5">
+            {supportedLanguages.map((lang) => {
+              const isSelected = lang.code === language;
+              return (
+                <button
+                  key={lang.code}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setLanguage(lang.code);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 text-xs sm:text-sm rounded-xl transition-all ${
+                    isSelected
+                      ? 'bg-emerald-50 text-emerald-900 font-bold border border-emerald-200/60 shadow-2xs'
+                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                  }`}
+                >
+                  <div className="flex flex-col text-left">
+                    <span className="text-sm font-semibold leading-tight text-slate-900">{lang.nativeName}</span>
+                    <span className="text-[11px] text-slate-500 font-normal">{lang.label}</span>
+                  </div>
+                  {isSelected && (
+                    <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                      <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
