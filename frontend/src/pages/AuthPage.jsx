@@ -34,11 +34,12 @@ export default function AuthPage({ mode = 'login' }) {
     phone: '',
     password: '',
     // Farmer fields
+    state: 'Gujarat',
     district: 'Surat',
     village: '',
     farmSizeAcres: '3.5',
-    mainCrop: 'Tomato',
-    currentHarvestKg: '500',
+    selectedCrops: ['Tomato'],
+    currentHarvestKg: '',
     // Transporter fields
     vehicleType: 'Mahindra Bolero Maxi Truck',
     vehicleNumber: '',
@@ -152,11 +153,12 @@ export default function AuthPage({ mode = 'login' }) {
           password: form.password,
           role,
           // Farmer specifics
-          district: form.district.trim(),
-          village: form.village.trim(),
-          farmSizeAcres: Number(form.farmSizeAcres),
-          mainCrop: form.mainCrop || 'Tomato',
-          currentHarvestKg: Number(form.currentHarvestKg) || 500,
+          state: form.state ? form.state.trim() : 'Gujarat',
+          district: form.district ? form.district.trim() : 'Surat',
+          village: form.village ? form.village.trim() : '',
+          farmSizeAcres: Number(form.farmSizeAcres) || 3.5,
+          mainCrop: (form.selectedCrops && form.selectedCrops.length > 0) ? form.selectedCrops.join(', ') : 'Tomato',
+          currentHarvestKg: form.currentHarvestKg ? Number(form.currentHarvestKg) : 1000,
           // Transporter specifics
           vehicleType: form.vehicleType,
           vehicleNumber: form.vehicleNumber.trim().toUpperCase(),
@@ -414,20 +416,55 @@ export default function AuthPage({ mode = 'login' }) {
 
                   {role === 'farmer' ? (
                     <>
-                      <div className="grid grid-cols-2 gap-2.5">
+                      {/* State & District Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                         <label className="block space-y-1">
                           <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                            District *
+                            State / રાજ્ય / राज्य *
+                          </span>
+                          <select
+                            value={form.state}
+                            onChange={(e) => {
+                              const nextState = e.target.value;
+                              const defaultDist = nextState === 'Maharashtra' ? 'Pune' : nextState === 'Rajasthan' ? 'Jaipur' : 'Surat';
+                              setForm(prev => ({ ...prev, state: nextState, district: defaultDist }));
+                            }}
+                            className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary bg-white"
+                          >
+                            <option value="Gujarat">Gujarat (ગુજરાત)</option>
+                            <option value="Maharashtra">Maharashtra (महाराष्ट्र)</option>
+                            <option value="Rajasthan">Rajasthan (राजस्थान)</option>
+                            <option value="Madhya Pradesh">Madhya Pradesh (मध्य प्रदेश)</option>
+                            <option value="Uttar Pradesh">Uttar Pradesh (उत्तर प्रदेश)</option>
+                            <option value="Punjab">Punjab (पंजाब)</option>
+                            <option value="Haryana">Haryana (हरियाणा)</option>
+                          </select>
+                        </label>
+
+                        <label className="block space-y-1">
+                          <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                            District / જિલ્લો / जिल्हा *
                           </span>
                           <input
                             type="text"
                             required
-                            placeholder="e.g. Surat, Mehsana"
+                            placeholder={form.state === 'Maharashtra' ? 'e.g. Pune, Nashik' : 'e.g. Surat, Mehsana'}
                             value={form.district}
-                            onChange={(e) => updateField('district', e.target.value)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const lower = val.toLowerCase().trim();
+                              let detectedState = form.state;
+                              if (lower.includes('pune') || lower.includes('nashik') || lower.includes('mumbai') || lower.includes('nagpur') || lower.includes('solapur') || lower.includes('kolhapur')) {
+                                detectedState = 'Maharashtra';
+                              } else if (lower.includes('surat') || lower.includes('ahmedabad') || lower.includes('rajkot') || lower.includes('navsari') || lower.includes('bharuch')) {
+                                detectedState = 'Gujarat';
+                              }
+                              setForm(prev => ({ ...prev, district: val, state: detectedState }));
+                            }}
                             className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary"
                           />
                         </label>
+
                         <label className="block space-y-1">
                           <span className="text-xs font-semibold text-muted uppercase tracking-wider">
                             Farm Land (Acres) *
@@ -445,46 +482,71 @@ export default function AuthPage({ mode = 'login' }) {
                         </label>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <label className="block space-y-1">
+                      {/* Multi-Crop Selection */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
                           <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                            Primary Crop Grown *
+                            Crops Grown on Your Farm (Select Multiple) *
                           </span>
-                          <select
-                            value={form.mainCrop}
-                            onChange={(e) => updateField('mainCrop', e.target.value)}
-                            className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary bg-white"
-                          >
-                            <option value="Tomato">Tomato (Hybrid / Desi)</option>
-                            <option value="Onion">Onion (Nashik Red)</option>
-                            <option value="Potato">Potato (Jyoti / Pukhraj)</option>
-                            <option value="Cotton">Cotton (Bt Cotton)</option>
-                            <option value="Wheat">Wheat (Sharbati)</option>
-                            <option value="Soybean">Soybean (Yellow)</option>
-                            <option value="Rice">Rice (Basmati / Paddy)</option>
-                            <option value="Maize">Maize (Corn)</option>
-                            <option value="Mustard">Mustard (Sarson)</option>
-                            <option value="Groundnut">Groundnut (Peanut)</option>
-                            <option value="Cumin">Cumin (Jeera)</option>
-                            <option value="Garlic">Garlic (Lasan)</option>
-                            <option value="Other">Other Agricultural Crop</option>
-                          </select>
-                        </label>
+                          <span className="text-[11px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                            {form.selectedCrops?.length || 0} selected
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted">
+                          Tap to select all crops produced in your farm fields:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {[
+                            'Tomato', 'Onion', 'Potato', 'Cotton', 'Wheat', 
+                            'Soybean', 'Rice', 'Maize', 'Mustard', 'Groundnut', 'Cumin', 'Garlic'
+                          ].map((crop) => {
+                            const isSelected = form.selectedCrops?.includes(crop);
+                            return (
+                              <button
+                                key={crop}
+                                type="button"
+                                onClick={() => {
+                                  setForm(prev => {
+                                    const exists = prev.selectedCrops?.includes(crop);
+                                    const next = exists 
+                                      ? prev.selectedCrops.filter(c => c !== crop)
+                                      : [...(prev.selectedCrops || []), crop];
+                                    return { ...prev, selectedCrops: next.length > 0 ? next : [crop] };
+                                  });
+                                }}
+                                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-emerald-600 text-white shadow-xs scale-102 border border-emerald-700'
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                                }`}
+                              >
+                                <span>{crop}</span>
+                                {isSelected ? <span>✓</span> : <span className="opacity-40">+</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
 
+                      {/* Ready Harvest Quantity */}
+                      <div className="pt-1">
                         <label className="block space-y-1">
                           <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                            Ready Harvest (kg) / તૈયાર પાક (કિલો) *
+                            Ready Harvest Produce Quantity (kg) *
                           </span>
                           <input
                             type="number"
                             required
                             min="10"
                             step="10"
-                            placeholder="e.g. 500"
+                            placeholder="Enter quantity in kg (e.g. 1200)"
                             value={form.currentHarvestKg}
                             onChange={(e) => updateField('currentHarvestKg', e.target.value)}
                             className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary font-mono"
                           />
+                          <p className="text-[11px] text-muted">
+                            Enter the actual harvest weight available for market sale and shared transport booking.
+                          </p>
                         </label>
                       </div>
                     </>
