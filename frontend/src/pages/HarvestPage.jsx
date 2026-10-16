@@ -321,7 +321,7 @@ export default function HarvestPage() {
             <div className="flex justify-between items-center text-xs">
               <span className="font-semibold text-muted uppercase tracking-wider">Produce Weight</span>
               <span className="font-mono font-bold text-text bg-slate-100 px-2 py-0.5 rounded-md">
-                {quantityKg} kg ({Number(quantityKg / 100).toFixed(1)} Quintals)
+                {quantityKg} kg
               </span>
             </div>
             <input
