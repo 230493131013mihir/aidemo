@@ -112,6 +112,19 @@ export default function Navbar() {
 
           {/* Right Header Actions */}
           <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Quick Mandi Gate Pass for Transporter */}
+            {isTransporter && (
+              <NavLink
+                to="/transport?showpass=true"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-xs transition-all animate-pulse"
+                title="Display Official APMC Digital Gate Pass to Security Inspector"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Mandi Gate Pass</span>
+                <span className="sm:hidden">Pass</span>
+              </NavLink>
+            )}
+
             {/* Language Selector */}
             <div className="hidden sm:block">
               <LanguageSelector id="header-language-selector" />
