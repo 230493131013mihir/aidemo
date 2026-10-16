@@ -13,7 +13,8 @@ import {
   User, 
   Shield, 
   LogOut,
-  UserCheck
+  UserCheck,
+  ShieldCheck
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -26,6 +27,12 @@ export default function Navbar() {
 
   const isTransporter = user?.role === 'transporter';
   const isAdmin = user?.role === 'admin';
+
+  const profileLabel = isTransporter
+    ? t('nav.transporterProfile', 'Transporter Profile')
+    : isAdmin
+    ? t('nav.adminProfile', 'Admin Profile')
+    : t('nav.farmerProfile', 'Farmer Profile');
 
   const navItems = React.useMemo(() => {
     if (!isAuthenticated) {
@@ -262,7 +269,7 @@ export default function Navbar() {
               }
             >
               <User className="w-4 h-4" />
-              <span>{t('nav.profile', 'My Profile')}</span>
+              <span>{profileLabel}</span>
             </NavLink>
           </nav>
 
