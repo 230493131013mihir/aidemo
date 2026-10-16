@@ -15,7 +15,8 @@ import {
   Clock, 
   ArrowRight,
   ShieldAlert,
-  Phone
+  Phone,
+  QrCode
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -186,6 +187,18 @@ export default function TransportPage() {
     }, 4000);
     return () => clearInterval(interval);
   }, [token]);
+
+  // Handle URL query parameter ?showpass=true from header navigation
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get('showpass') === 'true') {
+      if (activeTrip) {
+        setSelectedGatePass(activeTrip);
+      } else if (activeFarmerBooking) {
+        setSelectedGatePass(activeFarmerBooking);
+      }
+    }
+  }, [activeTrip, activeFarmerBooking]);
 
   // Handle milestone progression by transporter: accepted -> in_transit -> delivered
   async function handleProgressTrip(tripId, nextStatus) {
@@ -1227,6 +1240,16 @@ export default function TransportPage() {
                   >
                     {activeTrip.status === 'in_transit' ? '🛣️ Currently In Transit' : '🚚 Driver Assigned & Loading'}
                   </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGatePass(activeTrip)}
+                    className="px-3.5 py-1.5 rounded-xl border border-emerald-400/40 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer animate-pulse"
+                    title="Open Official APMC Gate Pass for Security Check"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>🎫 Show Digital Gate Pass</span>
+                  </button>
                 </div>
               </div>
 
@@ -1282,6 +1305,41 @@ export default function TransportPage() {
                 </div>
               </div>
 
+              {/* Official Mandi Gate Security Verification Box */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/70 via-slate-900 to-teal-950/70 border border-emerald-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-white shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 flex items-center justify-center font-bold shrink-0">
+                    <QrCode className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full">
+                        Official APMC Security Inspection
+                      </span>
+                      <span className="text-xs font-mono text-emerald-400 font-bold">
+                        Pass: {activeTrip.destinationMarket && activeTrip.destinationMarket.toLowerCase().includes('pune') && activeTrip.gatePassCode?.startsWith('GJ-')
+                          ? activeTrip.gatePassCode.replace(/^GJ-/, 'MH-')
+                          : activeTrip.gatePassCode}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-200 mt-1">
+                      {activeTrip.status === 'in_transit'
+                        ? '🚨 Approaching Mandi Gate? Present QR Gate Pass to the Mandi Security Guard and Weighbridge Officer.'
+                        : 'Gate pass verified and ready. Present to Mandi Gate Security upon arrival.'}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedGatePass(activeTrip)}
+                  className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all shrink-0"
+                >
+                  <QrCode className="w-4 h-4" />
+                  <span>Present Gate Pass (QR)</span>
+                </button>
+              </div>
+
               {/* Status Milestone Action Buttons */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-white/10">
                 <p className="text-xs text-slate-300 flex items-center gap-2">
@@ -1291,7 +1349,15 @@ export default function TransportPage() {
                   </span>
                 </p>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGatePass(activeTrip)}
+                    className="py-2.5 px-4 rounded-xl border border-white/20 hover:bg-white/10 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span>View Gate Pass</span>
+                  </button>
                   {activeTrip.status === 'accepted' && (
                     <button
                       type="button"
