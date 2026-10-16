@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Sprout, Menu, X, Sparkles, LayoutDashboard } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import LanguageSelector from '../common/LanguageSelector';
 
 export default function Header() {
   const { t } = useLanguage();
+  const { isAuthenticated } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -89,24 +91,35 @@ export default function Header() {
             {/* Language Selector */}
             <LanguageSelector id="header-language-selector" />
 
-            {/* Explore Demo CTA */}
-            <Link
-              to="/dashboard"
-              id="header-explore-demo-btn"
-              className="hidden sm:inline-flex btn-secondary text-xs sm:text-sm py-2 px-3.5 shadow-xs"
-            >
-              <span>{t('nav.exploreDemo')}</span>
-            </Link>
-
-            {/* Get Started CTA */}
-            <Link
-              to="/dashboard"
-              id="header-get-started-btn"
-              className="btn-primary text-xs sm:text-sm py-2 px-3.5 sm:px-4 shadow-xs"
-            >
-              <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
-              <span>{t('nav.getStarted')}</span>
-            </Link>
+            {/* Auth-aware Dashboard / Sign In Link */}
+            {isAuthenticated ? (
+              <Link
+                to="/dashboard"
+                id="header-get-started-btn"
+                className="btn-primary text-xs sm:text-sm py-2 px-3.5 sm:px-4 shadow-xs"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
+                <span>{t('nav.dashboard')}</span>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/login"
+                  id="header-login-btn"
+                  className="btn-secondary text-xs sm:text-sm py-2 px-3.5 shadow-xs"
+                >
+                  <span>Sign In</span>
+                </Link>
+                <Link
+                  to="/register"
+                  id="header-get-started-btn"
+                  className="btn-primary text-xs sm:text-sm py-2 px-3.5 sm:px-4 shadow-xs"
+                >
+                  <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
+                  <span>{t('nav.getStarted')}</span>
+                </Link>
+              </div>
+            )}
 
             {/* Mobile Hamburger Toggle */}
             <button
@@ -174,21 +187,34 @@ export default function Header() {
             </div>
             <LanguageSelector variant="segmented" className="w-full justify-center" />
 
-            <div className="grid grid-cols-2 gap-2 pt-2">
-              <Link
-                to="/dashboard"
-                onClick={() => setMobileMenuOpen(false)}
-                className="btn-secondary text-xs py-2 px-3 text-center justify-center"
-              >
-                {t('nav.exploreDemo')}
-              </Link>
-              <Link
-                to="/dashboard"
-                onClick={() => setMobileMenuOpen(false)}
-                className="btn-primary text-xs py-2 px-3 text-center justify-center"
-              >
-                {t('nav.getStarted')}
-              </Link>
+            <div className="pt-2">
+              {isAuthenticated ? (
+                <Link
+                  to="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="btn-primary w-full text-xs py-2.5 px-3 text-center justify-center flex items-center gap-1.5"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>{t('nav.dashboard')}</span>
+                </Link>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="btn-secondary text-xs py-2 px-3 text-center justify-center"
+                  >
+                    <span>Sign In</span>
+                  </Link>
+                  <Link
+                    to="/register"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="btn-primary text-xs py-2 px-3 text-center justify-center"
+                  >
+                    <span>{t('nav.getStarted')}</span>
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>

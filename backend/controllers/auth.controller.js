@@ -9,14 +9,32 @@ function formatUserResponse(userInstance) {
     return data;
 }
 
+function detectStateFromDistrict(district, providedState) {
+    if (providedState && providedState.trim() && providedState.trim().toLowerCase() !== "gujarat") {
+        return providedState.trim();
+    }
+    const dist = String(district || "").toLowerCase().trim();
+    const maharashtraDistricts = ["pune", "nashik", "mumbai", "thane", "nagpur", "solapur", "kolhapur", "jalgaon", "ahmednagar", "aurangabad", "chhatrapati sambhajinagar", "amravati", "nanded", "satara", "sangli", "akola", "latur", "dhule", "chandrapur", "parbhani", "beed", "ratnagiri", "gondia", "wardha", "osmanabad", "dharashiv", "yavatmal", "bhandara", "buldhana", "gadchiroli", "hingoli", "nandurbar", "palghar", "raigad", "sindhudurg", "washim"];
+    if (maharashtraDistricts.some(d => dist === d || dist.includes(d))) {
+        return "Maharashtra";
+    }
+    const gujaratDistricts = ["surat", "navsari", "ahmedabad", "rajkot", "bharuch", "vadodara", "mehsana", "anand", "bhavnagar", "junagadh", "kutch", "gandhinagar", "valsad", "jamnagar", "amreli", "banaskantha", "dahod", "morbi", "patan", "porbandar", "sabarkantha", "surendranagar", "tapi"];
+    if (gujaratDistricts.some(d => dist === d || dist.includes(d))) {
+        return "Gujarat";
+    }
+    return (providedState && providedState.trim()) || "Gujarat";
+}
+
 // Ensure farmer profile exists for a user
 async function ensureFarmerProfile(userId, defaults = {}) {
     let profile = await FarmerProfile.findOne({ where: { userId } });
     if (!profile) {
+        const dist = defaults.district || "Surat";
+        const st = detectStateFromDistrict(dist, defaults.state);
         profile = await FarmerProfile.create({
             userId,
-            district: defaults.district || "Surat",
-            state: defaults.state || "Gujarat",
+            district: dist,
+            state: st,
             village: defaults.village || "Olpad",
             farmSizeAcres: defaults.farmSizeAcres || 4.5,
             preferredLanguage: defaults.preferredLanguage || "en"
@@ -158,14 +176,16 @@ const register = async (req, res) => {
                 isAvailable: true
             });
         } else {
+            const finalDistrict = district ? district.trim() : "Surat";
+            const finalState = detectStateFromDistrict(finalDistrict, state);
             profile = await FarmerProfile.create({
                 userId: user.id,
-                district: district ? district.trim() : "Surat",
-                state: state ? state.trim() : "Gujarat",
+                district: finalDistrict,
+                state: finalState,
                 village: village ? village.trim() : "",
                 farmSizeAcres: farmSizeAcres && !Number.isNaN(Number(farmSizeAcres)) ? Number(farmSizeAcres) : 3.5,
-                mainCrop: req.body.mainCrop ? req.body.mainCrop.trim() : "Tomato",
-                currentHarvestKg: req.body.currentHarvestKg ? Number(req.body.currentHarvestKg) : 500,
+                mainCrop: req.body.mainCrop ? String(req.body.mainCrop).trim() : "Tomato",
+                currentHarvestKg: req.body.currentHarvestKg && !Number.isNaN(Number(req.body.currentHarvestKg)) ? Number(req.body.currentHarvestKg) : 500,
                 preferredLanguage: preferredLanguage || "en"
             });
         }
@@ -390,10 +410,12 @@ const updateProfile = async (req, res) => {
         if (user.role === "farmer" || district || farmSizeAcres || req.body.mainCrop) {
             let profile = await FarmerProfile.findOne({ where: { userId } });
             if (!profile) {
+                const finalDistrict = district ? district.trim() : "Surat";
+                const finalState = detectStateFromDistrict(finalDistrict, state);
                 profile = await FarmerProfile.create({
                     userId,
-                    district: district || "Surat",
-                    state: state || "Gujarat",
+                    district: finalDistrict,
+                    state: finalState,
                     village: village || "",
                     farmSizeAcres: farmSizeAcres ? Number(farmSizeAcres) : 2.5,
                     mainCrop: req.body.mainCrop || "Tomato",
@@ -401,8 +423,12 @@ const updateProfile = async (req, res) => {
                     preferredLanguage: preferredLanguage || "en"
                 });
             } else {
-                if (district !== undefined) profile.district = district.trim();
-                if (state !== undefined) profile.state = state.trim();
+                if (district !== undefined) {
+                    profile.district = district.trim();
+                    profile.state = detectStateFromDistrict(district.trim(), state || profile.state);
+                } else if (state !== undefined) {
+                    profile.state = state.trim();
+                }
                 if (village !== undefined) profile.village = village.trim();
                 if (farmSizeAcres !== undefined && !Number.isNaN(Number(farmSizeAcres))) {
                     profile.farmSizeAcres = Number(farmSizeAcres);
