@@ -40,8 +40,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/assistant', require('./routes/assistant.routes'));
 app.use('/api/chat', chatRoutes);
-app.use('/api/market', require('./routes/market.routes'));
-app.use('/api/markets', require('./routes/market.routes'));
+app.use('/api/market', require('./routes/marketRoutes'));
+app.use('/api/markets', require('./routes/marketRoutes'));
 app.use('/api/weather', weatherRoutes);
 app.use('/api/transport', require('./routes/transport.routes'));
 

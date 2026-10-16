@@ -171,7 +171,7 @@ export default function DashboardPage() {
       </section>
 
       {/* 7. Operations Triad: Recent Activity, Transport Pooling & Mitra AI */}
-      <section aria-labelledby="dashboard-operations-heading" className="space-y-3">
+      {user?.role === 'farmer' && <section aria-labelledby="dashboard-operations-heading" className="space-y-3">
         <h2 id="dashboard-operations-heading" className="sr-only">
           Recent Activity and Support
         </h2>
@@ -180,7 +180,7 @@ export default function DashboardPage() {
           <TransportSummary />
           <MitraAssistantCard />
         </div>
-      </section>
+      </section>}
 
       {/* 8. Quick Actions Navigation */}
       <section aria-labelledby="dashboard-quick-actions-heading">
