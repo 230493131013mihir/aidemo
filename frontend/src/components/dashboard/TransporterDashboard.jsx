@@ -193,7 +193,7 @@ export default function TransporterDashboard() {
             {stats.totalCargoDeliveredKg.toLocaleString()} <span className="text-sm font-normal text-muted">kg</span>
           </p>
           <span className="text-xs text-blue-700 font-semibold">
-            {(stats.totalCargoDeliveredKg / 100).toFixed(1)} Quintals Farm Produce
+            {stats.totalCargoDeliveredKg} kg Farm Produce
           </span>
         </div>
 
@@ -245,11 +245,11 @@ export default function TransporterDashboard() {
               <span className="text-muted font-bold uppercase text-[10px]">Farmer Contact</span>
               <p className="font-extrabold text-text text-sm">{activeTrip.farmerName}</p>
               <a
-                href={`tel:${activeTrip.farmerPhone || '9999999991'}`}
+                href={activeTrip.farmerPhone ? `tel:${activeTrip.farmerPhone}` : undefined}
                 className="inline-flex items-center gap-1 text-primary font-bold hover:underline"
               >
                 <Phone className="w-3 h-3" />
-                <span>{activeTrip.farmerPhone || '9999999991'}</span>
+                <span>{activeTrip.farmerPhone || 'Phone shared after booking'}</span>
               </a>
             </div>
 

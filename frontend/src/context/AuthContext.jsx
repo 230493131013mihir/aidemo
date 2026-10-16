@@ -139,6 +139,11 @@ export function AuthProvider({ children }) {
     return payload.user;
   }
 
+  function updateLocalUser(nextUser) {
+    setUser(nextUser);
+    localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
+  }
+
   function logout() {
     setToken('');
     setUser(null);
@@ -155,6 +160,7 @@ export function AuthProvider({ children }) {
     register,
     demoLogin,
     updateProfile,
+    updateLocalUser,
     logout,
   };
 

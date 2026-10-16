@@ -1,12 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Truck, MapPin, Users, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Truck, MapPin, Users, ArrowRight } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
-import { dashboardDemoData } from '../../data/dashboardDemoData';
 
 export default function TransportSummary() {
   const { t } = useLanguage();
-  const transport = dashboardDemoData.transport;
+  const transport = { destination: 'Available APMC routes' };
 
   return (
     <div className="relative rounded-3xl overflow-hidden shadow-lg border border-slate-700/40 text-white flex flex-col justify-between space-y-4">
@@ -32,7 +31,7 @@ export default function TransportSummary() {
             </h3>
           </div>
           <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-bold backdrop-blur-md">
-            2 Nearby Pools Active
+            Live availability
           </span>
         </div>
 
@@ -41,19 +40,19 @@ export default function TransportSummary() {
           <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15 space-y-2 backdrop-blur-md">
             <div className="flex items-center gap-2 text-xs">
               <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span className="text-slate-300">{t('dashboard.transport.destinationLabel')}:</span>
+          <span className="text-slate-300">{t('dashboard.transport.destinationLabel')}:</span>
               <span className="font-black text-white">{transport.destination}</span>
             </div>
 
             <div className="flex items-center gap-2 text-xs">
               <Users className="w-3.5 h-3.5 text-blue-300 shrink-0" />
-              <span className="text-slate-300">Shared Freight:</span>
-              <span className="font-bold text-emerald-300">Save ~45% via Capacity Sharing</span>
+              <span className="text-slate-300">Transport:</span>
+              <span className="font-bold text-emerald-300">Book verified registered vehicles</span>
             </div>
           </div>
 
           <p className="text-[11px] text-slate-200 leading-relaxed font-medium">
-            Join nearby vegetable & grain loads heading to Surat or Ahmedabad APMC and divide diesel costs automatically.
+            Book transport and track your own confirmed requests in the Shared Transport section.
           </p>
         </div>
 

@@ -62,6 +62,9 @@ const DEMO_PRICES = [
   { id: 702, crop_id: 7, crop_name: 'Green Chilli', market_id: 2, market_name: 'Navsari APMC', district: 'Navsari', state: 'Gujarat', price_per_kg: 48.00, price_per_quintal: 4800.00, min_price: 44.00, max_price: 52.00, modal_price: 48.00, data_type: 'sample_demo', source: 'HarvestMitra Demo Dataset', last_updated: '2026-10-03T09:15:00Z' }
 ];
 
+const { Market, Crop, MarketPrice } = require('../models');
+const { Op } = require('sequelize');
+
 class MarketService {
   constructor() {
     this.isLiveApiConfigured = Boolean(process.env.MARKET_API_KEY && process.env.MARKET_API_URL);
@@ -76,18 +79,34 @@ class MarketService {
    * @returns {Promise<Array>}
    */
   async getAllMarkets(filter = {}) {
-    let list = [...DEMO_MARKETS];
+    try {
+      const where = {};
+      if (filter.district) where.district = { [Op.like]: `%${filter.district}%` };
+      if (filter.state) where.state = { [Op.like]: `%${filter.state}%` };
+      const dbMarkets = await Market.findAll({ where, order: [['name', 'ASC']] });
+      if (dbMarkets.length > 0) {
+        return dbMarkets.map(m => ({
+          id: m.id,
+          name: m.name,
+          district: m.district,
+          state: m.state,
+          distanceFromSuratKm: Number(m.distanceFromSuratKm || 0),
+          operatingDays: m.operatingDays || 'Mon-Sat'
+        }));
+      }
+    } catch (err) {
+      console.warn('[MarketService] DB getAllMarkets failed:', err.message);
+    }
 
+    let list = [...DEMO_MARKETS];
     if (filter.district) {
       const qDist = String(filter.district).trim().toLowerCase();
       list = list.filter(m => m.district.toLowerCase().includes(qDist));
     }
-
     if (filter.state) {
       const qState = String(filter.state).trim().toLowerCase();
       list = list.filter(m => m.state.toLowerCase().includes(qState));
     }
-
     return list;
   }
 
@@ -96,6 +115,23 @@ class MarketService {
    * @returns {Promise<Array>}
    */
   async getCrops() {
+    try {
+      const dbCrops = await Crop.findAll({ order: [['nameEn', 'ASC']] });
+      if (dbCrops.length > 0) {
+        return dbCrops.map(c => ({
+          id: c.id,
+          name: c.nameEn,
+          name_en: c.nameEn,
+          name_gu: c.nameGu,
+          name_hi: c.nameHi,
+          name_mr: c.nameHi || c.nameEn,
+          category: c.category || 'vegetable'
+        }));
+      }
+    } catch (err) {
+      console.warn('[MarketService] DB getCrops failed:', err.message);
+    }
+
     return [...DEMO_CROPS];
   }
 
@@ -113,6 +149,90 @@ class MarketService {
    * @returns {Promise<Array>}
    */
   async getMarketPrices(params = {}) {
+    try {
+      const where = {};
+      const cropInclude = { model: Crop, required: true };
+      const marketInclude = { model: Market, required: true };
+
+      const cropQuery = params.crop || params.crop_id;
+      if (cropQuery) {
+        const cleanCrop = String(cropQuery).trim();
+        if (!isNaN(cleanCrop)) {
+          cropInclude.where = { id: Number(cleanCrop) };
+        } else {
+          cropInclude.where = {
+            [Op.or]: [
+              { nameEn: { [Op.like]: `%${cleanCrop}%` } },
+              { nameGu: { [Op.like]: `%${cleanCrop}%` } },
+              { nameHi: { [Op.like]: `%${cleanCrop}%` } }
+            ]
+          };
+        }
+      }
+
+      const marketQuery = params.market || params.market_id;
+      if (marketQuery) {
+        const cleanMarket = String(marketQuery).trim();
+        if (!isNaN(cleanMarket)) {
+          marketInclude.where = { id: Number(cleanMarket) };
+        } else {
+          marketInclude.where = { name: { [Op.like]: `%${cleanMarket}%` } };
+        }
+      }
+
+      if (params.district) {
+        marketInclude.where = marketInclude.where || {};
+        marketInclude.where.district = { [Op.like]: `%${params.district}%` };
+      }
+
+      if (params.state) {
+        marketInclude.where = marketInclude.where || {};
+        marketInclude.where.state = { [Op.like]: `%${params.state}%` };
+      }
+
+      if (params.data_type) {
+        where.dataType = params.data_type;
+      }
+
+      const dbPrices = await MarketPrice.findAll({
+        where,
+        include: [cropInclude, marketInclude],
+        order: [['priceDate', 'DESC'], ['id', 'DESC']],
+        limit: 150
+      });
+
+      if (dbPrices.length > 0) {
+        return dbPrices.map(item => {
+          const kg = Number(item.pricePerKg);
+          const qtl = Number(item.pricePerQuintal) || Math.round(kg * 100);
+          const minP = Number(item.minPrice) || Number((kg * 0.9).toFixed(1));
+          const maxP = Number(item.maxPrice) || Number((kg * 1.1).toFixed(1));
+          return {
+            id: item.id,
+            crop_id: item.Crop?.id,
+            crop_name: item.Crop?.nameEn || 'Produce',
+            crop_name_gu: item.Crop?.nameGu,
+            crop_name_hi: item.Crop?.nameHi,
+            market_id: item.Market?.id,
+            market_name: item.Market?.name || 'Mandi APMC',
+            district: item.Market?.district || '',
+            state: item.Market?.state || 'India',
+            price_per_kg: kg,
+            price_per_quintal: qtl,
+            min_price: minP,
+            max_price: maxP,
+            modal_price: kg,
+            data_type: item.dataType || 'verified_live',
+            dataStatus: item.dataType === 'sample_demo' ? 'DEMO' : 'LIVE',
+            statusNotice: item.dataType === 'sample_demo' ? 'Demonstration Data (For testing only)' : 'Verified Live APMC Rate',
+            last_updated: item.priceDate || item.updatedAt
+          };
+        });
+      }
+    } catch (err) {
+      console.warn('[MarketService] DB getMarketPrices failed, using fallback:', err.message);
+    }
+
     let prices = [...DEMO_PRICES];
 
     // Filter by Crop

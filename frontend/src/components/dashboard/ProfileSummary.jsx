@@ -1,9 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Globe, Sprout, Scale, Layers, CheckCircle, Edit3, ShieldCheck } from 'lucide-react';
+import { MapPin, Globe, Sprout, Scale, Layers, Edit3, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { dashboardDemoData } from '../../data/dashboardDemoData';
 
 export default function ProfileSummary() {
   const { t } = useLanguage();
@@ -13,8 +12,6 @@ export default function ProfileSummary() {
   if (user?.role && user?.role !== 'farmer') {
     return null;
   }
-
-  const fallbackFarmer = dashboardDemoData.farmer;
 
   const profile = user?.FarmerProfile;
   const farmerName = isAuthenticated && user?.name ? user.name : 'Registered Farmer';
@@ -30,18 +27,16 @@ export default function ProfileSummary() {
   const mainCrop = profile?.mainCrop || 'Not set';
 
   const currentHarvest = profile?.currentHarvestKg
-    ? `${profile.currentHarvestKg} kg (${(profile.currentHarvestKg / 100).toFixed(1)} Qtl)`
+    ? `${profile.currentHarvestKg} kg`
     : 'Not set';
 
   const languageLabel = profile?.preferredLanguage === 'gu'
     ? 'Gujarati (ગુજરાતી)'
     : profile?.preferredLanguage === 'hi'
     ? 'Hindi (हिन्दी)'
+    : profile?.preferredLanguage === 'mr'
+    ? 'Marathi (मराठी)'
     : 'English';
-
-  const typicalHarvest = profile?.farmSizeAcres
-    ? `${Math.round(profile.farmSizeAcres * 800).toLocaleString()} kg / season`
-    : 'Not set';
 
   const profileItems = [
     {
@@ -51,13 +46,13 @@ export default function ProfileSummary() {
       color: 'text-rose-600 bg-rose-50 border-rose-200',
     },
     {
-      label: 'Main Crop',
+      label: profile?.mainCrop?.includes(',') ? 'Crops' : 'Main Crop',
       value: mainCrop,
       icon: Sprout,
       color: 'text-primary bg-primary-50 border-primary/20',
     },
     {
-      label: 'Current Harvest',
+      label: 'Harvest Ready',
       value: currentHarvest,
       icon: Scale,
       color: 'text-amber-700 bg-amber-50 border-amber-200',
@@ -73,12 +68,6 @@ export default function ProfileSummary() {
       value: languageLabel,
       icon: Globe,
       color: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-    },
-    {
-      label: 'Typical Harvest',
-      value: typicalHarvest,
-      icon: CheckCircle,
-      color: 'text-teal-700 bg-teal-50 border-teal-200',
     },
   ];
 

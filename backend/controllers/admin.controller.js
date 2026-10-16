@@ -2,9 +2,10 @@ const { User, FarmerProfile, Crop, Market, MarketPrice, TransportRequest, Report
 
 const overview = async (req, res) => {
     try {
-        const [users, farmers, markets, marketPrices, transportRequests] = await Promise.all([
+        const [users, farmers, transporters, markets, marketPrices, transportRequests] = await Promise.all([
             User.count(),
             FarmerProfile.count(),
+            User.count({ where: { role: "transporter" } }),
             Market.count(),
             MarketPrice.count(),
             TransportRequest.count()
@@ -12,7 +13,7 @@ const overview = async (req, res) => {
 
         return res.json({
             success: true,
-            data: { users, farmers, markets, marketPrices, transportRequests }
+            data: { users, farmers, transporters, markets, marketPrices, transportRequests }
         });
     } catch (error) {
         console.error("Admin overview error:", error.message);

@@ -23,17 +23,6 @@ import DigitalGatePassModal from '../components/transport/DigitalGatePassModal';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
-const DEFAULT_POOLS = [
-  { id: 101, driver: 'Suresh Parmar', route: 'Surat APMC', date: '2026-10-14', vehicle: 'Mahindra Bolero Maxi Truck', vehicleNumber: 'GJ-05-BX-4921', capacityKg: 2200, usedKg: 950, cost: 2200, farmers: 2 },
-  { id: 102, driver: 'Kiran Vaghela', route: 'Ahmedabad APMC', date: '2026-10-14', vehicle: 'Tata 407 LPT', vehicleNumber: 'GJ-01-ET-7814', capacityKg: 2800, usedKg: 1400, cost: 4600, farmers: 3 },
-  { id: 103, driver: 'Mahesh Patil', route: 'Pune APMC', date: '2026-10-15', vehicle: 'Eicher Pro 2049', vehicleNumber: 'MH-12-AQ-3392', capacityKg: 3500, usedKg: 1900, cost: 6800, farmers: 3 },
-  { id: 104, driver: 'Amit Solanki', route: 'Rajkot APMC', date: '2026-10-15', vehicle: 'Tata Ace Gold', vehicleNumber: 'GJ-03-MK-9912', capacityKg: 1600, usedKg: 800, cost: 3100, farmers: 2 },
-  { id: 105, driver: 'Rajesh Patel', route: 'Mehsana APMC', date: '2026-10-14', vehicle: 'Ashok Leyland Dost', vehicleNumber: 'GJ-02-CD-5541', capacityKg: 2000, usedKg: 700, cost: 2600, farmers: 2 },
-  { id: 106, driver: 'Nitin Deshmukh', route: 'Nashik APMC', date: '2026-10-15', vehicle: 'Tata 407 LPT', vehicleNumber: 'MH-15-GH-8821', capacityKg: 3000, usedKg: 1100, cost: 4900, farmers: 2 },
-  { id: 107, driver: 'Devendra Yadav', route: 'Indore APMC', date: '2026-10-15', vehicle: 'Mahindra Bolero Maxi', vehicleNumber: 'MP-09-JK-1290', capacityKg: 2400, usedKg: 800, cost: 3800, farmers: 2 },
-  { id: 108, driver: 'Harpreet Singh', route: 'Azadpur APMC (Delhi)', date: '2026-10-15', vehicle: 'Eicher Pro 2049', vehicleNumber: 'DL-01-AB-4412', capacityKg: 4000, usedKg: 1500, cost: 7200, farmers: 4 },
-];
-
 function formatINR(value) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
 }
@@ -48,7 +37,7 @@ function speakAloud(text) {
 }
 
 export default function TransportPage() {
-  const { user, token } = useAuth();
+  const { user, token, updateLocalUser } = useAuth();
   const { showToast } = useToast();
 
   const isUserTransporter = user?.role === 'transporter';
@@ -58,11 +47,15 @@ export default function TransportPage() {
   const [farmerName, setFarmerName] = useState(user?.name || '');
   const [cropName, setCropName] = useState('Tomato');
   const [pickupLocation, setPickupLocation] = useState(
-    user?.FarmerProfile?.district ? `${user.FarmerProfile.district}, Gujarat` : 'Surat, Gujarat'
+    user?.FarmerProfile?.district
+      ? `${user.FarmerProfile.district}${user.FarmerProfile.state ? `, ${user.FarmerProfile.state}` : ''}`
+      : 'Surat, Gujarat'
   );
-  const [destination, setDestination] = useState('Surat APMC');
+  const [destination, setDestination] = useState(
+    user?.FarmerProfile?.district ? `${user.FarmerProfile.district} APMC` : 'Surat APMC'
+  );
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [weight, setWeight] = useState(500);
+  const [weight, setWeight] = useState(user?.FarmerProfile?.currentHarvestKg ? Number(user.FarmerProfile.currentHarvestKg) : 500);
   const [myRequests, setMyRequests] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
@@ -132,7 +125,7 @@ export default function TransportPage() {
   }
 
   async function loadTransporters() {
-    if (!token) return;
+    if (!token || isUserTransporter) return;
     try {
       const response = await fetch(`${API_BASE_URL}/api/transport/transporters`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -147,7 +140,7 @@ export default function TransportPage() {
   }
 
   async function loadOpenCargo() {
-    if (!token) return;
+    if (!token || !isUserTransporter) return;
     try {
       const response = await fetch(`${API_BASE_URL}/api/transport/open-cargo`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -162,7 +155,7 @@ export default function TransportPage() {
   }
 
   async function loadActiveTrip() {
-    if (!token) return;
+    if (!token || !isUserTransporter) return;
     setLoadingActiveTrip(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/transport/active-trip`, {
@@ -181,10 +174,13 @@ export default function TransportPage() {
 
   useEffect(() => {
     loadMyRequests();
-    loadTransporters();
-    loadOpenCargo();
-    loadActiveTrip();
-  }, [token]);
+    if (isUserTransporter) {
+      loadOpenCargo();
+      loadActiveTrip();
+    } else {
+      loadTransporters();
+    }
+  }, [token, isUserTransporter]);
 
   // Handle milestone progression by transporter: accepted -> in_transit -> delivered
   async function handleProgressTrip(tripId, nextStatus) {
@@ -218,26 +214,25 @@ export default function TransportPage() {
     }
   }
 
-  // Combined pools: static pools + live transporters registered in MySQL
+  // Show only currently available registered transporters.
   const allPools = useMemo(() => {
-    const livePools = transportersList.map((tr) => ({
+    return transportersList.filter((tr) => Number(tr.userId) !== Number(user?.id)).map((tr) => ({
       id: `live-${tr.id}`,
+      transporterId: tr.userId,
       driver: tr.driverName,
       route: tr.baseMandi,
-      date: new Date().toISOString().slice(0, 10),
+      date: date,
       vehicle: tr.vehicleType,
       vehicleNumber: tr.vehicleNumber,
       capacityKg: tr.capacityKg,
-      usedKg: Math.round(tr.capacityKg * 0.4),
+      usedKg: 0,
       cost: tr.ratePerKm * 85, // estimated base route cost
-      farmers: 1,
+      farmers: 0,
       isLiveRegistered: true,
     }));
+  }, [transportersList, user?.id, date]);
 
-    return [...DEFAULT_POOLS, ...livePools];
-  }, [transportersList]);
-
-  // Filtered pool matches with robust fallback
+  // Filter registered vehicles by destination and available capacity.
   const matches = useMemo(() => {
     const dest = destination.trim().toLowerCase();
     const filtered = allPools.filter((pool) => {
@@ -246,9 +241,7 @@ export default function TransportPage() {
       return destinationMatch && capacityMatch;
     });
 
-    if (filtered.length > 0) return filtered;
-    // If exact destination didn't match, return all available trucks in region
-    return allPools.filter((pool) => pool.capacityKg - pool.usedKg >= Number(weight || 0));
+    return filtered;
   }, [destination, weight, allPools]);
 
   // Book dedicated transport request
@@ -257,8 +250,8 @@ export default function TransportPage() {
     setError('');
     setMessage('');
 
-    if (!token) {
-      const errMsg = 'Please login to your farmer account first to book transport.';
+    if (!token || isUserTransporter) {
+      const errMsg = 'Sign in with a farmer account to post a transport request.';
       setError(errMsg);
       showToast({ type: 'error', title: 'Login Required', message: errMsg });
       return;
@@ -287,6 +280,7 @@ export default function TransportPage() {
           destinationMarket: destination.trim(),
           pickupDate: date,
           weightKg: Number(weight),
+          farmerPhone: user?.phone,
           vehicleType: 'any',
         }),
       });
@@ -294,18 +288,15 @@ export default function TransportPage() {
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.message || 'Unable to save request');
 
-      setMessage('Transport request booked and saved in MySQL.');
+      setMessage('Transport request posted and saved in MySQL.');
       showToast({
         type: 'celebrate',
-        title: '🚚 Transport Request Confirmed!',
-        message: `Saved ${weight} kg of ${cropName} heading to ${destination}. Digital Mandi Gate Pass Generated!`,
+        title: '🚚 Transport Request Posted!',
+        message: `Posted ${weight} kg of ${cropName} heading to ${destination}. A transporter can accept it from their console.`,
         duration: 5000,
       });
 
-      // Auto-open gate pass modal
-      setSelectedGatePass(payload.data);
       await loadMyRequests();
-      await loadOpenCargo();
     } catch (err) {
       setError(err.message || 'Unable to save transport request');
       showToast({ type: 'error', title: 'Booking Failed', message: err.message });
@@ -316,29 +307,28 @@ export default function TransportPage() {
 
   // Join shared vehicle pool
   async function handleJoinPool(pool) {
-    if (!token) {
+    if (!token || isUserTransporter) {
       showToast({
         type: 'error',
         title: 'Login Required',
-        message: 'Please login first to join shared vehicle pools.',
+        message: 'Sign in as a farmer to book an available transporter.',
       });
       return;
     }
 
-    const totalFarmers = pool.farmers + 1;
-    const sharedCost = Math.round(pool.cost / totalFarmers);
-    const saving = pool.cost - sharedCost;
+    const estimatedCost = Math.round(pool.cost * (Number(weight || 500) / Math.max(pool.capacityKg, 1)));
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transport/requests`, {
+      const response = await fetch(`${API_BASE_URL}/api/transport/bookings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          transporterId: pool.transporterId,
           farmerName: farmerName || user?.name || 'Farmer',
-          driverName: pool.driver,
+          farmerPhone: user?.phone,
           cropName: cropName || 'Produce',
           pickupLocation: pickupLocation || 'Surat, Gujarat',
           destinationMarket: pool.route,
@@ -346,26 +336,26 @@ export default function TransportPage() {
           weightKg: Number(weight) || 500,
           vehicleType: pool.vehicle,
           vehicleNumber: pool.vehicleNumber || 'GJ-05-BX-4921',
-          estimatedSharedCost: sharedCost,
+          estimatedSharedCost: estimatedCost,
         }),
       });
 
-      const payload = await response.json();
-      if (!response.ok || !payload.success) throw new Error(payload.message || 'Pool join failed');
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success) throw new Error(payload.message || `Booking failed (${response.status}). Please check the backend database and try again.`);
 
       showToast({
         type: 'celebrate',
         title: '🎉 Shared Slot Booked & Confirmed!',
-        message: `Reserved space on ${pool.vehicle} with driver ${pool.driver}. Estimated cost: ${formatINR(sharedCost)} (Saved ~${formatINR(saving)}!). Gate pass issued.`,
+        message: `Reserved ${pool.vehicle} with ${pool.driver}. Estimated cost: ${formatINR(estimatedCost)}. Gate pass issued.`,
         duration: 5000,
       });
 
       // Auto open gate pass modal
       setSelectedGatePass(payload.data);
       await loadMyRequests();
-      await loadOpenCargo();
+      await loadTransporters();
     } catch (err) {
-      showToast({ type: 'error', title: 'Booking Failed', message: err.message });
+      showToast({ type: 'error', title: 'Booking Failed', message: err.message || 'Unable to create transport booking. Please try again.' });
     }
   }
 
@@ -395,6 +385,7 @@ export default function TransportPage() {
         duration: 5000,
       });
 
+      if (payload.data?.userId) updateLocalUser({ ...user, role: 'transporter', TransporterProfile: payload.data });
       await loadTransporters();
     } catch (err) {
       showToast({ type: 'error', title: 'Registration Failed', message: err.message });
@@ -493,7 +484,7 @@ export default function TransportPage() {
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>Farmer Pool Booking</span>
+                <span>Farmer Booking</span>
             </button>
 
             <button
@@ -512,11 +503,11 @@ export default function TransportPage() {
         </div>
       </section>
 
-      {/* FARMER TAB CONTENT */}
+          {/* FARMER TAB CONTENT */}
       {activeTab === 'farmer' && (
         <>
           {/* Farmer Live Tracking Card with Driver Details, Phone, Plate, ETA & 4-Step Stepper */}
-          {activeFarmerBooking && (
+              {!isUserTransporter && activeFarmerBooking && (
             <section className="rounded-3xl border-2 border-primary/30 bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950 text-white p-6 sm:p-7 shadow-xl space-y-5 animate-in fade-in">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
                 <div className="flex items-center gap-3">
@@ -721,8 +712,8 @@ export default function TransportPage() {
             </section>
           )}
 
-          {/* Booking / Posting Form */}
-          <form
+          {/* Farmer booking and request form */}
+          {!isUserTransporter && <form
             onSubmit={saveTransportRequest}
             className="rounded-3xl border border-border bg-white p-6 shadow-sm space-y-4"
           >
@@ -835,25 +826,22 @@ export default function TransportPage() {
                 </button>
               </div>
             </div>
-          </form>
+          </form>}
 
-          {/* Available Shared Pooling Matches */}
-          <section className="space-y-3">
+          {/* Available registered transporter inventory */}
+          {!isUserTransporter && <section className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-text flex items-center gap-2">
                 <Users className="w-5 h-5 text-primary" />
-                <span>Live Available Truck Pools ({matches.length} routes found)</span>
+                <span>Available Registered Transporters ({matches.length} found)</span>
               </h2>
-              <span className="text-xs text-muted">Instant Slot Reservation</span>
+              <span className="text-xs text-muted">Live vehicle availability</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {matches.map((pool) => {
+        {matches.map((pool) => {
                 const available = pool.capacityKg - pool.usedKg;
-                const totalFarmers = pool.farmers + 1;
-                const sharedCost = Math.round(pool.cost / totalFarmers);
-                const soloCost = pool.cost;
-                const saving = soloCost - sharedCost;
+                const sharedCost = Math.round(pool.cost * (Number(weight || 500) / Math.max(pool.capacityKg, 1)));
 
                 return (
                   <article
@@ -888,19 +876,17 @@ export default function TransportPage() {
                       </div>
                       <div className="rounded-xl bg-slate-50 p-2.5 flex items-center gap-2 border border-slate-200">
                         <Users className="w-4 h-4 text-primary shrink-0" />
-                        <span className="font-semibold">{pool.farmers} Farmers Joined</span>
+                        <span className="font-semibold">Capacity: {pool.capacityKg} kg</span>
                       </div>
                     </div>
 
                     <div className="rounded-2xl border border-primary/20 bg-primary-50/70 p-3.5 flex items-center justify-between">
                       <div>
-                        <p className="text-[11px] text-muted uppercase font-bold tracking-wider">Your Shared Cost</p>
-                        <p className="text-xl font-black text-primary font-mono">{formatINR(sharedCost)}</p>
+                        <p className="text-[11px] text-muted uppercase font-bold tracking-wider">Estimated Booking Cost</p>
+                <p className="text-xl font-black text-primary font-mono">{formatINR(sharedCost)}</p>
                       </div>
                       <div className="text-right">
-                        <span className="text-xs text-emerald-800 font-bold bg-emerald-100/90 px-2.5 py-1 rounded-lg border border-emerald-300">
-                          Save {formatINR(saving)}
-                        </span>
+                        <span className="text-xs text-emerald-800 font-bold bg-emerald-100/90 px-2.5 py-1 rounded-lg border border-emerald-300">Estimated fare</span>
                       </div>
                     </div>
 
@@ -911,14 +897,14 @@ export default function TransportPage() {
                         className="btn-primary flex-1 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-xs"
                       >
                         <Truck className="w-4 h-4" />
-                        <span>Reserve Shared Slot & Get Pass</span>
+                        <span>Book Transport & Get Pass</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() =>
                           speakAloud(
-                            `Vehicle: ${pool.vehicle}. Driver: ${pool.driver}. Heading to ${pool.route}. Shared rate: ${sharedCost} rupees. You save ${saving} rupees.`
+                            `Vehicle: ${pool.vehicle}. Driver: ${pool.driver}. Operating from ${pool.route}. Estimated fare: ${sharedCost} rupees.`
                           )
                         }
                         title="Listen to Trip Details"
@@ -931,14 +917,14 @@ export default function TransportPage() {
                 );
               })}
             </div>
-          </section>
+          </section>}
 
-          {/* My Saved Transport Bookings (MySQL) */}
-          <section className="rounded-3xl border border-border bg-white shadow-xs overflow-hidden">
+          {/* Farmer booking history. */}
+          {!isUserTransporter && <section className="rounded-3xl border border-border bg-white shadow-xs overflow-hidden">
             <div className="px-6 py-4 bg-slate-50 border-b border-border flex items-center justify-between">
               <div>
                 <h2 className="font-bold text-sm text-text">My Live Transport Bookings & Tracking</h2>
-                <p className="text-[11px] text-muted">Stored in MySQL • Real-time driver updates and digital mandi gate passes</p>
+                <p className="text-[11px] text-muted">Stored in MySQL • Your requests, assigned transporter, and digital mandi gate passes</p>
               </div>
               <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-lg bg-white border border-slate-200">
                 {myRequests.length} recorded
@@ -946,9 +932,7 @@ export default function TransportPage() {
             </div>
 
             {myRequests.length === 0 ? (
-              <div className="p-8 text-center text-sm text-muted">
-                No transport bookings yet. Book a shared slot above to see your real confirmation and digital gate pass.
-              </div>
+              <div className="p-8 text-center text-sm text-muted">No transport bookings yet. Book a vehicle or post a request to see it here.</div>
             ) : (
               <div className="divide-y divide-border/60">
                 {myRequests.map((req) => {
@@ -971,7 +955,7 @@ export default function TransportPage() {
                             <div className="flex items-center gap-2">
                               <h3 className="font-extrabold text-base text-text">{req.cropName}</h3>
                               <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
-                                {req.weightKg} kg ({(req.weightKg / 100).toFixed(1)} Qtl)
+                                {req.weightKg} kg
                               </span>
                             </div>
                             <p className="text-xs text-muted flex items-center gap-1.5 mt-0.5">
@@ -1015,12 +999,12 @@ export default function TransportPage() {
                         </div>
                       </div>
 
-                      {/* Transporter Details Card (Who booked/accepted the transport) */}
+                      {/* Show the other party in this booking. */}
                       <div className="rounded-2xl border border-border/80 bg-slate-50/80 p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                         <div>
-                          <span className="text-[11px] text-muted uppercase font-semibold">Assigned Transporter</span>
+                          <span className="text-[11px] text-muted uppercase font-semibold">{req.driverName ? 'Assigned Transporter' : 'Booking Status'}</span>
                           <p className="font-bold text-sm text-text mt-0.5">
-                            {req.driverName ? req.driverName : 'Driver pending assignment'}
+                            {req.driverName || 'Driver pending assignment'}
                           </p>
                           {req.driverPhone ? (
                             <a
@@ -1028,7 +1012,7 @@ export default function TransportPage() {
                               className="inline-flex items-center gap-1 text-primary hover:underline font-bold font-mono mt-0.5"
                             >
                               <Phone className="w-3 h-3" />
-                              <span>+91 {req.driverPhone}</span>
+                              <span>{req.driverPhone}</span>
                             </a>
                           ) : (
                             <span className="text-muted text-[11px]">Phone shared upon assignment</span>
@@ -1132,7 +1116,7 @@ export default function TransportPage() {
                 })}
               </div>
             )}
-          </section>
+          </section>}
         </>
       )}
 
@@ -1179,11 +1163,11 @@ export default function TransportPage() {
                   <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Farmer Contact</span>
                   <p className="font-extrabold text-sm text-white">{activeTrip.farmerName}</p>
                   <a
-                    href={`tel:${activeTrip.farmerPhone || '9876543210'}`}
+                    href={activeTrip.farmerPhone ? `tel:${activeTrip.farmerPhone}` : undefined}
                     className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-bold font-mono"
                   >
                     <Phone className="w-3.5 h-3.5" />
-                    <span>+91 {activeTrip.farmerPhone || '9876543210'}</span>
+                    <span>{activeTrip.farmerPhone || 'Phone shared after booking'}</span>
                   </a>
                 </div>
 
@@ -1256,7 +1240,7 @@ export default function TransportPage() {
           )}
 
           {/* Vehicle Registration Card */}
-          <form
+          {isUserTransporter && <form
             onSubmit={handleRegisterVehicle}
             className="rounded-3xl border border-border bg-white p-6 shadow-sm space-y-4"
           >
@@ -1364,7 +1348,25 @@ export default function TransportPage() {
                 <span>{savingVehicle ? 'Saving to MySQL...' : 'Save & Publish Vehicle to Pool'}</span>
               </button>
             </div>
-          </form>
+          </form>}
+
+          {/* Transporter's own assigned bookings */}
+          <section className="rounded-3xl border border-border bg-white shadow-sm overflow-hidden">
+            <div className="px-6 py-4 bg-slate-50 border-b border-border flex items-center justify-between">
+              <div><h2 className="font-bold text-sm text-text">My Transport Bookings</h2><p className="text-[11px] text-muted">Farmers who booked you and cargo status</p></div>
+              <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-lg bg-white border border-slate-200">{myRequests.length} bookings</span>
+            </div>
+            {myRequests.length === 0 ? <div className="p-8 text-center text-sm text-muted">No bookings assigned to you yet.</div> : (
+              <div className="divide-y divide-border/60">{myRequests.map((trip) => (
+                <div key={trip.id} className="px-6 py-4 grid grid-cols-1 sm:grid-cols-4 gap-3 items-center text-xs">
+                  <div><p className="font-bold text-text">{trip.farmerName} · {trip.cropName}</p><p className="text-muted">{trip.weightKg} kg · {trip.farmerPhone || 'No phone'}</p></div>
+                  <div><p className="font-semibold text-text">{trip.pickupLocation} → {trip.destinationMarket}</p><p className="text-muted">{trip.pickupDate}</p></div>
+                  <div><p className="font-semibold text-text">{trip.vehicleType}</p><p className="text-muted">Gate pass: {trip.gatePassCode}</p></div>
+                  <div className="sm:text-right flex items-center sm:justify-end gap-2"><span className="inline-block px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold uppercase">{trip.status?.replace('_', ' ')}</span><button type="button" onClick={() => setSelectedGatePass(trip)} className="px-2.5 py-1 rounded-lg border border-emerald-200 bg-white text-emerald-800 font-bold">Gate pass</button></div>
+                </div>
+              ))}</div>
+            )}
+          </section>
 
           {/* Incoming Open Farmer Cargo Requests to Accept */}
           <section className="rounded-3xl border border-border bg-white shadow-sm overflow-hidden">
@@ -1400,14 +1402,7 @@ export default function TransportPage() {
                   >
                     <div>
                       <p className="font-extrabold text-sm text-text">{cargo.cropName}</p>
-                      <p className="text-muted">
-                        Farmer: <span className="font-bold text-text">{cargo.farmerName}</span>
-                      </p>
-                      {cargo.farmerPhone && (
-                        <p className="text-[11px] text-primary font-mono font-semibold">
-                          📞 +91 {cargo.farmerPhone}
-                        </p>
-                      )}
+                      <p className="text-muted">Farmer request · contact shown after assignment</p>
                       <p className="text-[10px] text-muted truncate">{cargo.pickupLocation}</p>
                     </div>
 

@@ -537,6 +537,7 @@ export default function AdminPage() {
   const cards = [
     { label: 'Registered Users', value: summary?.users || users.length || 0, icon: Users, color: 'text-blue-600 bg-blue-50' },
     { label: 'Farmer Profiles', value: summary?.farmers || 0, icon: Wheat, color: 'text-emerald-600 bg-emerald-50' },
+    { label: 'Transporters', value: summary?.transporters || 0, icon: Truck, color: 'text-cyan-600 bg-cyan-50' },
     { label: 'Active Mandis', value: summary?.markets || markets.length || 0, icon: Store, color: 'text-amber-600 bg-amber-50' },
     { label: 'Live Price Points', value: summary?.marketPrices || prices.length || 0, icon: IndianRupee, color: 'text-purple-600 bg-purple-50' },
     { label: 'Logistics Bookings', value: summary?.transportRequests || 0, icon: Truck, color: 'text-cyan-600 bg-cyan-50' },
@@ -1346,7 +1347,7 @@ export default function AdminPage() {
                               </td>
                               <td className="px-5 py-3.5 font-bold text-text">
                                 <div>{t.farmerName}</div>
-                                <div className="text-[11px] font-normal text-muted font-mono">{t.farmerPhone || t.User?.phone || 'No phone'}</div>
+                                <div className="text-[11px] font-normal text-muted font-mono">{t.farmerPhone || (t.status === 'open' ? 'Contact shared after assignment' : t.User?.phone || 'No phone')}</div>
                               </td>
                               <td className="px-5 py-3.5">
                                 {t.driverName ? (
@@ -1372,7 +1373,7 @@ export default function AdminPage() {
                               </td>
                               <td className="px-5 py-3.5">
                                 <div className="font-bold text-text">{t.cropName}</div>
-                                <div className="text-[11px] text-muted font-mono">{t.weightKg} kg ({(t.weightKg / 100).toFixed(1)} Qtl)</div>
+                                <div className="text-[11px] text-muted font-mono">{t.weightKg} kg</div>
                               </td>
                               <td className="px-5 py-3.5 font-mono">
                                 <div className="font-bold text-emerald-700">₹{t.estimatedSharedCost?.toLocaleString('en-IN') || 'N/A'}</div>
