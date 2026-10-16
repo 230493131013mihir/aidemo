@@ -27,64 +27,21 @@ export default function AppRoutes() {
       <Route path="/login" element={<AuthPage mode="login" />} />
       <Route path="/register" element={<AuthPage mode="register" />} />
 
-      {/* Internal Application & Dashboard Routes */}
-      <Route element={<DashboardLayout />}>
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/markets"
-          element={
-            <ProtectedRoute>
-              <MarketsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/harvest"
-          element={
-            <ProtectedRoute>
-              <HarvestPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/transport"
-          element={
-            <ProtectedRoute>
-              <TransportPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/weather"
-          element={
-            <ProtectedRoute>
-              <WeatherPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/chat"
-          element={
-            <ProtectedRoute>
-              <ChatPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          }
-        />
+      {/* Internal Application & Dashboard Routes (Protected at layout root) */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <DashboardLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/markets" element={<MarketsPage />} />
+        <Route path="/harvest" element={<HarvestPage />} />
+        <Route path="/transport" element={<TransportPage />} />
+        <Route path="/weather" element={<WeatherPage />} />
+        <Route path="/chat" element={<ChatPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route
           path="/admin"
           element={

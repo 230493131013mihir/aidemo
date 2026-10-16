@@ -77,13 +77,6 @@ export default function Header() {
             >
               {t('nav.howItWorks')}
             </button>
-            <Link
-              to="/dashboard"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-text hover:text-primary hover:bg-secondary/70 transition-colors"
-            >
-              <LayoutDashboard className="w-4 h-4 text-primary" aria-hidden="true" />
-              <span>{t('nav.dashboard')}</span>
-            </Link>
           </nav>
 
           {/* Right: Actions */}
@@ -171,14 +164,6 @@ export default function Header() {
             >
               <span>{t('nav.howItWorks')}</span>
             </button>
-            <Link
-              to="/dashboard"
-              onClick={() => setMobileMenuOpen(false)}
-              className="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium text-text hover:bg-secondary flex items-center gap-2"
-            >
-              <LayoutDashboard className="w-4 h-4 text-primary" aria-hidden="true" />
-              <span>{t('nav.dashboard')}</span>
-            </Link>
           </nav>
 
           <div className="pt-3 border-t border-border space-y-2">
