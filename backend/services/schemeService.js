@@ -21,7 +21,7 @@ const VERIFIED_SCHEMES_SEED = [
     department: "Department of Agriculture and Farmers Welfare (DA&FW)",
     officialDomain: "pmkisan.gov.in",
     officialInfoUrl: "https://pmkisan.gov.in/",
-    officialApplicationUrl: "https://pmkisan.gov.in/RegistrationFormNew.aspx",
+    officialApplicationUrl: "https://pmkisan.gov.in/",
     applicationWindowStatus: "Open throughout year",
     targetBeneficiaries: "All cultivable landholding farmer families across India",
     eligibilityRules: JSON.stringify({
@@ -427,7 +427,7 @@ const VERIFIED_SCHEMES_SEED = [
     department: "National Infrastructure Division, Ministry of Agriculture & Farmers Welfare",
     officialDomain: "agriinfra.dac.gov.in",
     officialInfoUrl: "https://agriinfra.dac.gov.in/",
-    officialApplicationUrl: "https://agriinfra.dac.gov.in/Home/BeneficiaryRegistration",
+    officialApplicationUrl: "https://agriinfra.dac.gov.in/",
     applicationWindowStatus: "Open till 2032-33",
     targetBeneficiaries: "Farmers, Agri-entrepreneurs, FPOs, Cooperatives, and Primary Agricultural Credit Societies",
     eligibilityRules: JSON.stringify({
