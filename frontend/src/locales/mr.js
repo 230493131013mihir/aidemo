@@ -14,6 +14,7 @@ export const mr = {
     transport: "सामायिक वाहतूक",
     weather: "हवामान अंदाज",
     chat: "मित्र सहाय्यक",
+    schemes: "सरकारी योजना",
     profile: "माझी प्रोफाइल",
     farmerProfile: "शेतकरी प्रोफाइल",
     transporterProfile: "ट्रान्सपोर्टर प्रोफाइल",
