@@ -760,3 +760,147 @@ View user-submitted reports and feedback, sorted by most recent (limit 200).
   }
   ```
 
+---
+
+## Mandi Analytics, Auto-Sync & Alerts (Prashant Warule - Issues #76, #77)
+
+### `POST /api/market/sync`
+Trigger auto-sync of live APMC rates across all Maharashtra mandis.
+- **Query / Body (optional)**: `{ "state": "Maharashtra" }`
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "status": "SUCCESS",
+    "timestamp": "2026-10-17T09:47:20.000Z",
+    "date": "2026-10-17",
+    "recordsUpdated": 850,
+    "marketsCount": 50,
+    "cropsCount": 17,
+    "state": "Maharashtra",
+    "source": "Maharashtra State Agricultural Marketing Board (MSAMB) & AGMARKNET Live Portal"
+  }
+  ```
+
+### `GET /api/market/sync-status`
+Retrieve auto-sync engine health, last sync timestamps, and total active verified rates.
+
+### `GET /api/market/trends/moving-average`
+Retrieve multi-period Simple Moving Averages (SMA-3, SMA-7, SMA-14), Exponential Moving Average (EMA-7), trend momentum (BULLISH/BEARISH/STABLE), and volatility percentage.
+- **Query Parameters**:
+  - `crop`: Commodity name (default: "Tomato")
+  - `market`: APMC market name (default: "Pune APMC (Gultekdi)")
+  - `days`: Window length 7 to 90 (default: 14)
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "crop": "Cotton",
+      "market": "Pune APMC (Gultekdi)",
+      "days": 14,
+      "currentPrice": 76.5,
+      "currentPricePerQuintal": 7650,
+      "sma3": 76.2,
+      "sma7": 75.8,
+      "sma14": 74.9,
+      "ema7": 76.0,
+      "trendDirection": "BULLISH",
+      "volatilityPercentage": 4.82,
+      "recommendation": {
+        "action": "SELL_NOW",
+        "signalStrength": "STRONG",
+        "summary": "Strong upward price momentum detected (+₹1.6/kg above 14-day average)."
+      },
+      "points": [ /* daily points with price, sma3, sma7, sma14, ema7 */ ]
+    }
+  }
+  ```
+
+### `POST /api/market/alerts/simulate` (and `GET /api/market/alerts/simulate`)
+Simulate or detect APMC price surge and price drop alerts with multilingual WhatsApp & GSM-safe SMS payloads (<160 chars).
+- **Parameters**:
+  - `crop`: Commodity (e.g. "Cotton", "Tomato")
+  - `market`: Mandi name (e.g. "Nashik APMC")
+  - `currentPrice`: Current rate ₹/kg
+  - `baselinePrice`: Baseline rate ₹/kg
+  - `thresholdPercent`: Alert trigger threshold % (default: 5.0)
+  - `language`: `"mr"` (Marathi), `"hi"` (Hindi), `"gu"` (Gujarati), `"en"` (English)
+  - `farmerName`: Farmer's name
+  - `farmerPhone`: Mobile number
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "alertId": "HM-ALT-481920",
+    "alertType": "PRICE_SURGE",
+    "severity": "HIGH",
+    "percentChange": 12.0,
+    "notifications": {
+      "whatsapp": {
+        "channel": "WhatsApp Cloud API",
+        "message": "🚀📈 *कृषी भाव वाढ सूचना (Price Surge Alert)*\n...\n🔗 थेट बाजार दर पहा: https://harvestmitra.in/mandis"
+      },
+      "sms": {
+        "channel": "GSM SMS Gateway",
+        "message": "हार्वेस्टमित्र: Nashik APMC मध्ये Cotton चा भाव +12% वाढून रु.84/किलो झाला...",
+        "charCount": 139,
+        "isWithinGsmLimit": true
+      }
+    }
+  }
+  ```
+
+### `GET /api/market/alerts/active`
+Retrieve all current active price surge and price drop alerts across mandis.
+
+### `POST /api/market/alerts/dispatch`
+Simulate immediate transmission of notifications via Meta WhatsApp Business API and National SMS Gateway.
+
+---
+
+## Printable Farm Decision Summary Report API (Prashant Warule - Issue #78)
+
+### `GET /api/reports/farm-decision` (and `POST /api/reports/farm-decision`)
+Generate complete 3-scenario harvest decision analysis combining farmer profile, live APMC rates, weather risk assessment, moving average momentum, and deterministic math engine net revenue comparisons.
+- **Parameters (optional)**:
+  - `farmerName`, `phone`, `village`, `district`, `state`, `farmSizeAcres`
+  - `crop`, `quantityKg`
+  - `localMandi`, `regionalMandi`, `localPricePerKg`, `regionalPricePerKg`
+  - `format`: `"json"` (default) or `"html"` / `"print"`
+- **Response (JSON)**:
+  ```json
+  {
+    "success": true,
+    "reportId": "HM-REP-291823-741",
+    "metadata": {
+      "title": "Farm Decision & Harvest Financial Summary Report",
+      "digitalSignatureHash": "SHA256:4FA8...",
+      "generatedDate": "2026-10-17"
+    },
+    "farmer": {
+      "name": "Ramesh Patel",
+      "crop": "Tomato",
+      "quantityKg": 1500
+    },
+    "financialScenarios": {
+      "option1_sellToday": { "grossRevenue": 27000, "totalCost": 2550, "netRevenue": 24450 },
+      "option2_holdAndSellLater": { "grossRevenue": 31500, "totalCost": 4125, "netRevenue": 27375, "profitDifferenceVsBaseline": 2925 },
+      "option3_regionalMandiSharedTransport": { "grossRevenue": 42000, "totalCost": 3625, "netRevenue": 38375, "profitDifferenceVsBaseline": 13925 }
+    },
+    "recommendation": {
+      "winningOption": "Alternative Market",
+      "netAdvantage": 13925,
+      "percentageGain": 56.9,
+      "actionableAdvice": "Recommended Strategy: Opt for Alternative Market. Expected to generate ₹13,925 (+56.9%) higher net return."
+    }
+  }
+  ```
+
+### `GET /api/reports/farm-decision/print`
+Render high-resolution, A4-ready printable HTML document directly in browser with official HarvestMitra AI header, verification QR seal, 3-scenario comparison table, farmer & extension officer signature lines, and print styling (`@media print`). Append `?autoprint=true` to automatically trigger print dialog.
+
+### `GET /api/reports/farm-decision/download`
+Download the printable farm decision summary document as a standalone HTML file with `Content-Disposition: attachment`.
+
+

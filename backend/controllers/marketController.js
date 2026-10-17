@@ -94,10 +94,90 @@ async function handleCompareMarkets(req, res) {
   }
 }
 
+const alertService = require('../services/alertService');
+
+async function handleSyncMarketPrices(req, res) {
+  try {
+    const { state } = req.body || req.query || {};
+    const result = await marketService.syncLiveApmcRates({ state });
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error('[MarketController Sync Error]:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+async function handleGetSyncStatus(req, res) {
+  try {
+    const status = await marketService.getSyncStatus();
+    return res.status(200).json(status);
+  } catch (err) {
+    console.error('[MarketController Sync Status Error]:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+async function handleGetMovingAverageTrends(req, res) {
+  try {
+    const { crop = 'Tomato', market = 'Pune APMC (Gultekdi)', days = 14 } = req.query;
+    const trends = await marketService.getMovingAverageTrends({ crop, market, days });
+    return res.status(200).json({
+      success: true,
+      data: trends
+    });
+  } catch (err) {
+    console.error('[MarketController Moving Average Error]:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+async function handleSimulatePriceAlert(req, res) {
+  try {
+    const params = { ...req.query, ...(req.body || {}) };
+    const alertResult = await alertService.simulatePriceAlert(params);
+    return res.status(200).json(alertResult);
+  } catch (err) {
+    console.error('[MarketController Alert Simulation Error]:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+async function handleGetActivePriceAlerts(req, res) {
+  try {
+    const { state, thresholdPercent } = req.query;
+    const alerts = await alertService.getActiveMarketAlerts({ state, thresholdPercent });
+    return res.status(200).json(alerts);
+  } catch (err) {
+    console.error('[MarketController Active Alerts Error]:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+async function handleDispatchPriceAlert(req, res) {
+  try {
+    const { alertData, channels = ['whatsapp', 'sms'] } = req.body || {};
+    if (!alertData) {
+      return res.status(400).json({ success: false, error: 'alertData is required to dispatch notification' });
+    }
+    const dispatchResult = await alertService.dispatchAlert(alertData, channels);
+    return res.status(200).json(dispatchResult);
+  } catch (err) {
+    console.error('[MarketController Alert Dispatch Error]:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
 module.exports = {
   handleGetMarkets,
   handleGetCrops,
   handleGetMarketPrices,
   handleGetPriceTrends,
-  handleCompareMarkets
+  handleCompareMarkets,
+  handleSyncMarketPrices,
+  handleGetSyncStatus,
+  handleGetMovingAverageTrends,
+  handleSimulatePriceAlert,
+  handleGetActivePriceAlerts,
+  handleDispatchPriceAlert
 };
+

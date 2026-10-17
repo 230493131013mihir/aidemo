@@ -47,6 +47,8 @@ app.use('/api/transport', require('./routes/transport.routes'));
 app.use('/api/schemes', require('./routes/scheme.routes'));
 app.use('/api/farmer/schemes', require('./routes/scheme.routes'));
 app.use('/api/admin/schemes', require('./routes/scheme.routes'));
+app.use('/api/reports', require('./routes/report.routes'));
+app.use('/api/report', require('./routes/report.routes'));
 
 // Central 404 handler
 app.use((req, res) => {
