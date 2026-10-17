@@ -25,13 +25,9 @@ export default function LandingPage() {
     }
   }, [location]);
 
+  // Auth prompt is kept inactive on landing load so user can freely explore the UI without being blocked
   useEffect(() => {
-    const hasToken = Boolean(localStorage.getItem('harvestmitra_token'));
-    const dismissed = sessionStorage.getItem('harvestmitra_auth_prompt_dismissed') === 'true';
-    if (!hasToken && !dismissed) {
-      const timer = setTimeout(() => setShowAuthPrompt(true), 600);
-      return () => clearTimeout(timer);
-    }
+    // Zero intrusive popups on mount
   }, []);
 
   function closePrompt() {

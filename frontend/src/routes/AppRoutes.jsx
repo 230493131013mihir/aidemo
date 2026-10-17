@@ -20,9 +20,13 @@ import ProtectedRoute from '../components/common/ProtectedRoute';
 export default function AppRoutes() {
   return (
     <Routes>
-      {/* Public Landing View */}
+      {/* Public Landing & Preview Views (Accessible without login to view UI) */}
       <Route element={<MainLayout />}>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/simulator" element={<HarvestPage />} />
+        <Route path="/harvest-preview" element={<HarvestPage />} />
+        <Route path="/prices" element={<MarketsPage />} />
+        <Route path="/assistant" element={<ChatPage />} />
       </Route>
       <Route path="/login" element={<AuthPage mode="login" />} />
       <Route path="/register" element={<AuthPage mode="register" />} />
@@ -37,10 +41,13 @@ export default function AppRoutes() {
       >
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/markets" element={<MarketsPage />} />
+        <Route path="/prices" element={<MarketsPage />} />
         <Route path="/harvest" element={<HarvestPage />} />
+        <Route path="/simulator" element={<HarvestPage />} />
         <Route path="/transport" element={<TransportPage />} />
         <Route path="/weather" element={<WeatherPage />} />
         <Route path="/chat" element={<ChatPage />} />
+        <Route path="/assistant" element={<ChatPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route
           path="/admin"
