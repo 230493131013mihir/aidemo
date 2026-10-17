@@ -32,8 +32,8 @@ export const CORRIDORS = [
     distanceKm: 430,
     highway: 'NH 48 & NH 47 (Saurashtra Highway)',
     estDuration: '7 hrs 30 mins',
-    baseSoloCost: 12900,
-    baseSharedCost: 4900,
+    baseSoloCost: 8550,
+    baseSharedCost: 3250,
     weather: {
       status: 'Breezy & Sunny',
       temp: '34°C',
