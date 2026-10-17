@@ -83,7 +83,7 @@ export default function SchemesPage() {
     }
   }
 
-  // Load saved bookmarks if user logged in
+  // Load saved bookmarks if user logged in, or local bookmarks if guest
   async function loadSaved() {
     if (isAuthenticated) {
       try {
@@ -91,6 +91,14 @@ export default function SchemesPage() {
         setSavedSchemes(saved || []);
       } catch (e) {
         // Safe fallback
+      }
+    } else {
+      try {
+        const localIds = JSON.parse(localStorage.getItem('harvestmitra_guest_saved') || '[]');
+        const localMatched = schemes.filter(s => localIds.includes(s.id)).map(s => ({ scheme: s, notes: 'Saved in Guest Session' }));
+        setSavedSchemes(localMatched);
+      } catch (e) {
+        // Ignore
       }
     }
   }
@@ -101,7 +109,7 @@ export default function SchemesPage() {
 
   useEffect(() => {
     loadSaved();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, schemes]);
 
   // Handle personalized matching
   async function handleWizardComplete(answers) {
@@ -131,11 +139,26 @@ export default function SchemesPage() {
   // Toggle bookmark / save
   async function handleToggleSave(schemeId) {
     if (!isAuthenticated) {
-      showToast({
-        type: 'warning',
-        title: 'Farmer Login Required',
-        message: 'Please login with your farmer account to save schemes to your personal profile.'
-      });
+      const localIds = JSON.parse(localStorage.getItem('harvestmitra_guest_saved') || '[]');
+      const exists = localIds.includes(schemeId);
+      const updated = exists ? localIds.filter(id => id !== schemeId) : [...localIds, schemeId];
+      localStorage.setItem('harvestmitra_guest_saved', JSON.stringify(updated));
+      const targetScheme = schemes.find(s => s.id === schemeId);
+      if (exists) {
+        setSavedSchemes(prev => prev.filter(s => s.scheme?.id !== schemeId));
+        showToast({
+          type: 'info',
+          title: 'Removed from Bookmarks',
+          message: 'Scheme removed from your guest session.'
+        });
+      } else if (targetScheme) {
+        setSavedSchemes(prev => [...prev, { scheme: targetScheme, notes: 'Saved in Guest Session' }]);
+        showToast({
+          type: 'success',
+          title: 'Saved to Bookmarks!',
+          message: 'Scheme saved locally in your guest session. Sign in anytime to sync permanently.'
+        });
+      }
       return;
     }
 
