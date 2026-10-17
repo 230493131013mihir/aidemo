@@ -18,21 +18,19 @@ export default function ProtectedRoute({ children, requiredRole }) {
     );
   }
 
-  // Strict Lockdown: If not logged in, NEVER show any dashboard layout. Immediately redirect to /login
-  if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  // Admin routes strictly require verified administrator credentials
+  if (requiredRole === 'admin') {
+    if (!isAuthenticated || user?.role !== 'admin' || user?.isGuest) {
+      return <Navigate to="/admin" state={{ from: location }} replace />;
+    }
+    return children;
   }
 
-  // Role validation
-  if (requiredRole && user?.role !== requiredRole) {
-    if (user?.role === 'admin') {
-      return <Navigate to="/admin" replace />;
-    }
-    if (user?.role === 'transporter') {
-      return <Navigate to="/transport" replace />;
-    }
+  // Role validation for transporter
+  if (requiredRole === 'transporter' && user?.role !== 'transporter' && !user?.isGuest) {
     return <Navigate to="/dashboard" replace />;
   }
 
+  // Universal Guest Mode: Allow unauthenticated visitors to use all farmer features
   return children;
 }
