@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
@@ -14,7 +14,9 @@ import {
   Building2,
   Sparkles,
   Layers,
-  Scale
+  Scale,
+  ArrowLeft,
+  X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -38,6 +40,22 @@ export default function AuthPage({ mode = 'login' }) {
   const { login, register } = useAuth();
   const { showToast } = useToast();
   const isRegister = mode === 'register';
+
+  // Requirement: When user refreshes / reloads while on /register, return to the landing page without login
+  useEffect(() => {
+    if (isRegister) {
+      try {
+        const navEntries = window.performance?.getEntriesByType?.('navigation');
+        const isReload = (navEntries && navEntries[0]?.type === 'reload') ||
+                         (window.performance?.navigation?.type === 1);
+        if (isReload) {
+          navigate('/', { replace: true });
+        }
+      } catch (e) {
+        // Safe ignore
+      }
+    }
+  }, [isRegister, navigate]);
 
   // 4-Way Role Selector: 'farmer', 'transporter', 'mandi', 'admin'
   const [role, setRole] = useState('farmer');
@@ -340,7 +358,7 @@ export default function AuthPage({ mode = 'login' }) {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center px-4 py-10 overflow-x-hidden">
+    <div className="relative min-h-screen flex flex-col items-center justify-start px-4 py-6 sm:py-10 overflow-y-auto">
       {/* FIXED Background Layers - Prevents jumping/moving during form scrolling (Requirement 10) */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div
@@ -359,14 +377,43 @@ export default function AuthPage({ mode = 'login' }) {
         onProceed={handleModalProceed}
       />
 
-      <div className="relative z-10 w-full max-w-lg space-y-4 my-auto">
+      {/* Top Exit Navigation Bar - Explore Without Login */}
+      <div className="relative z-10 w-full max-w-lg flex items-center justify-between pb-3">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 text-white/90 hover:text-white text-xs sm:text-sm font-semibold bg-slate-900/70 hover:bg-slate-900/90 px-3.5 py-1.5 rounded-full border border-white/20 backdrop-blur-md shadow-lg transition-all"
+        >
+          <ArrowLeft className="w-4 h-4 text-emerald-400" />
+          <span>Back to Home (Explore Without Login)</span>
+        </Link>
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="inline-flex items-center gap-1.5 text-slate-300 hover:text-white text-xs font-medium bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full border border-white/15 backdrop-blur-md transition-all"
+        >
+          <span>Exit</span>
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      <div className="relative z-10 w-full max-w-lg space-y-4 my-0 sm:my-2">
         <form
           onSubmit={submit}
-          className="rounded-3xl border border-white/20 bg-white/95 p-6 sm:p-8 shadow-2xl space-y-4 backdrop-blur-xl"
+          className="relative rounded-3xl border border-white/20 bg-white/95 p-6 sm:p-8 shadow-2xl space-y-4 backdrop-blur-xl"
           style={{
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 30px rgba(16, 185, 129, 0.15)'
           }}
         >
+          {/* Top-Right Dismiss Button */}
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            title="Back to Landing Page"
+            className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100/80 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
           {/* Logo & Header */}
           <div className="text-center space-y-2 pb-1">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-primary to-emerald-500 text-white flex items-center justify-center mx-auto shadow-md shadow-primary/20">
