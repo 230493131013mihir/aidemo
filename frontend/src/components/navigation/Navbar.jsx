@@ -28,11 +28,7 @@ export default function Navbar() {
   const isTransporter = user?.role === 'transporter';
   const isAdmin = user?.role === 'admin';
 
-  const profileLabel = isTransporter
-    ? t('nav.transporterProfile', 'Transporter Profile')
-    : isAdmin
-    ? t('nav.adminProfile', 'Admin Profile')
-    : t('nav.farmerProfile', 'Farmer Profile');
+  const profileLabel = t('nav.profile', 'Profile');
 
   const navItems = React.useMemo(() => {
     if (!isAuthenticated) {
@@ -47,7 +43,7 @@ export default function Navbar() {
       return [
         { to: '/admin', label: 'APMC Admin Console', icon: Shield },
         { to: '/markets', label: 'Mandi Intelligence', icon: TrendingUp },
-        { to: '/profile', label: 'Admin Profile', icon: User },
+        { to: '/profile', label: 'Profile', icon: User },
       ];
     }
 
@@ -56,7 +52,7 @@ export default function Navbar() {
         { to: '/dashboard', label: 'Logistics Dashboard', icon: LayoutDashboard },
         { to: '/transport', label: 'Cargo Trips & Gate Pass', icon: Truck },
         { to: '/weather', label: 'Route Weather', icon: CloudSunRain },
-        { to: '/profile', label: 'Vehicle Profile', icon: User },
+        { to: '/profile', label: 'Profile', icon: User },
       ];
     }
 

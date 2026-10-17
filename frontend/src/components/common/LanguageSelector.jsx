@@ -77,7 +77,7 @@ export default function LanguageSelector({ variant = 'dropdown', className = '' 
           className="absolute right-0 z-[100] mt-2 w-56 origin-top-right rounded-2xl bg-white border border-slate-200/90 shadow-2xl p-1.5 focus:outline-none ring-1 ring-black/5 divide-y divide-slate-100"
         >
           <div className="px-3 py-2 text-[10px] font-bold text-slate-400 tracking-wider uppercase">
-            Select Language • ભાષા પસંદ કરો
+            Select Language • भाषा निवडा / चुनें
           </div>
           <div className="py-1 space-y-0.5">
             {supportedLanguages.map((lang) => {

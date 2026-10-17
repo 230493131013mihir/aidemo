@@ -43,7 +43,7 @@ export default function DashboardPage() {
 
   // 3. Farmer views full crop analytics & harvest decision dashboard
   const farmerCrop = user?.FarmerProfile?.mainCrop || 'Tomato';
-  const farmerDistrict = user?.FarmerProfile?.district || 'Surat';
+  const farmerDistrict = user?.FarmerProfile?.district || 'Pune';
   const quantityKg = Number(user?.FarmerProfile?.currentHarvestKg) || 500;
 
   const [livePrice, setLivePrice] = useState(null);

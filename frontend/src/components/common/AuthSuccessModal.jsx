@@ -43,13 +43,18 @@ function playCelebrationChime() {
 }
 
 export default function AuthSuccessModal({ isOpen, mode = 'register', data = {}, onProceed }) {
-  const [countdown, setCountdown] = useState(mode === 'register' ? 3 : 2);
+  const [countdown, setCountdown] = useState(mode === 'register' ? 3 : 0);
 
   useEffect(() => {
     if (!isOpen) return;
 
+    if (mode === 'login') {
+      if (onProceed) onProceed();
+      return;
+    }
+
     playCelebrationChime();
-    setCountdown(mode === 'register' ? 3 : 2);
+    setCountdown(3);
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -65,7 +70,7 @@ export default function AuthSuccessModal({ isOpen, mode = 'register', data = {},
     return () => clearInterval(timer);
   }, [isOpen, mode, onProceed]);
 
-  if (!isOpen) return null;
+  if (!isOpen || mode === 'login') return null;
 
   const isRegister = mode === 'register';
   const role = data.role || 'farmer';

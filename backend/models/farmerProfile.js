@@ -12,12 +12,13 @@ const FarmerProfile = sequelize.define(
         },
         district: {
             type: DataTypes.STRING(100),
-            allowNull: false
+            allowNull: false,
+            defaultValue: "Pune"
         },
         state: {
             type: DataTypes.STRING(100),
             allowNull: false,
-            defaultValue: "Gujarat"
+            defaultValue: "Maharashtra"
         },
         village: DataTypes.STRING(100),
         farmSizeAcres: {
@@ -29,13 +30,23 @@ const FarmerProfile = sequelize.define(
             defaultValue: "Tomato",
             field: "main_crop"
         },
+        customCrop: {
+            type: DataTypes.STRING(100),
+            allowNull: true,
+            field: "custom_crop"
+        },
         currentHarvestKg: {
             type: DataTypes.INTEGER,
             defaultValue: 500,
             field: "current_harvest_kg"
         },
+        productQuantities: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+            field: "product_quantities"
+        },
         preferredLanguage: {
-            type: DataTypes.ENUM("en", "gu", "hi"),
+            type: DataTypes.STRING(20),
             defaultValue: "en",
             field: "preferred_language"
         }

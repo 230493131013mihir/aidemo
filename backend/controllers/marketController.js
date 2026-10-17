@@ -61,7 +61,7 @@ async function handleGetMarketPrices(req, res) {
 
 async function handleGetPriceTrends(req, res) {
   try {
-    const { crop = 'Tomato', market = 'Surat APMC Mandi', days = 7 } = req.query;
+    const { crop = 'Tomato', market = 'Pune APMC Central Market Yard', days = 7 } = req.query;
     const trends = await marketService.getPriceTrends({ crop, market, days });
     return res.status(200).json({
       success: true,

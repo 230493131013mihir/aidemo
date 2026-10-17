@@ -11,13 +11,27 @@ import {
   Truck,
   UserPlus,
   Shield,
-  ShieldCheck,
+  Building2,
   Sparkles,
-  Lock,
+  Layers,
+  Scale
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import AuthSuccessModal from '../components/common/AuthSuccessModal';
+
+const MAHARASHTRA_DISTRICTS = [
+  'Pune', 'Nashik', 'Mumbai', 'Ahmednagar', 'Kolhapur',
+  'Solapur', 'Sangli', 'Satara', 'Jalgaon', 'Chhatrapati Sambhajinagar',
+  'Nagpur', 'Amravati', 'Akola', 'Latur', 'Nanded',
+  'Chandrapur', 'Beed', 'Parbhani', 'Buldhana', 'Yavatmal'
+];
+
+const STANDARD_CROPS = [
+  'Tomato', 'Onion', 'Potato', 'Cotton', 'Wheat',
+  'Soybean', 'Rice', 'Maize', 'Pomegranate', 'Grapes',
+  'Sugarcane', 'Turmeric', 'Other'
+];
 
 export default function AuthPage({ mode = 'login' }) {
   const navigate = useNavigate();
@@ -25,7 +39,7 @@ export default function AuthPage({ mode = 'login' }) {
   const { showToast } = useToast();
   const isRegister = mode === 'register';
 
-  // 3-Way Role Selector: 'farmer', 'transporter', 'admin'
+  // 4-Way Role Selector: 'farmer', 'transporter', 'mandi', 'admin'
   const [role, setRole] = useState('farmer');
 
   const [form, setForm] = useState({
@@ -33,19 +47,30 @@ export default function AuthPage({ mode = 'login' }) {
     email: '',
     phone: '',
     password: '',
-    // Farmer fields
-    state: 'Gujarat',
-    district: 'Surat',
+    // Common location - strictly Maharashtra
+    state: 'Maharashtra',
+    district: 'Pune',
     village: '',
+    // Farmer fields
     farmSizeAcres: '3.5',
     selectedCrops: ['Tomato'],
-    currentHarvestKg: '',
+    customCrop: '',
+    // Product-wise quantities map: { cropName: { qty: 500, unit: 'kg' } }
+    productQuantities: {
+      Tomato: { qty: 500, unit: 'kg' }
+    },
+    currentHarvestKg: '500',
     // Transporter fields
     vehicleType: 'Mahindra Bolero Maxi Truck',
     vehicleNumber: '',
     capacityKg: '2000',
-    baseMandi: 'Surat APMC',
-    ratePerKm: '25',
+    baseMandi: 'Pune APMC',
+    ratePerKm: '26',
+    // Mandi Official fields
+    mandiName: '',
+    licenseNumber: '',
+    operatingDays: 'Monday to Saturday',
+    facilities: 'Electronic Auction, Cold Storage, Modern Weighbridge, RTGS Direct Settlement'
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -53,7 +78,7 @@ export default function AuthPage({ mode = 'login' }) {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 3D Success Popup Modal state
+  // 3D Success Popup Modal state (registration only)
   const [modalState, setModalState] = useState({
     isOpen: false,
     mode: 'register',
@@ -64,9 +89,71 @@ export default function AuthPage({ mode = 'login' }) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  // Calculate dynamic total harvest kg across selected crops
+  const calculateTotalKg = (quantities, cropsList, customName) => {
+    let total = 0;
+    cropsList.forEach(crop => {
+      const entryKey = crop === 'Other' && customName ? customName : crop;
+      const item = quantities[crop] || quantities[entryKey];
+      if (item && item.qty) {
+        const val = Number(item.qty) || 0;
+        total += item.unit === 'tonne' ? val * 1000 : val;
+      }
+    });
+    return total;
+  };
+
+  function handleCropToggle(crop) {
+    setForm((prev) => {
+      const exists = prev.selectedCrops?.includes(crop);
+      let updatedCrops;
+      if (exists) {
+        updatedCrops = prev.selectedCrops.filter(c => c !== crop);
+        if (updatedCrops.length === 0) updatedCrops = ['Tomato'];
+      } else {
+        updatedCrops = [...(prev.selectedCrops || []), crop];
+      }
+
+      // Sync product quantities map
+      const updatedQuantities = { ...prev.productQuantities };
+      if (!exists && !updatedQuantities[crop]) {
+        updatedQuantities[crop] = { qty: 250, unit: 'kg' };
+      }
+
+      const totalKg = calculateTotalKg(updatedQuantities, updatedCrops, prev.customCrop);
+
+      return {
+        ...prev,
+        selectedCrops: updatedCrops,
+        productQuantities: updatedQuantities,
+        currentHarvestKg: String(totalKg || 250)
+      };
+    });
+  }
+
+  function handleProductQtyChange(crop, qtyVal, unitVal) {
+    setForm((prev) => {
+      const updatedQuantities = {
+        ...prev.productQuantities,
+        [crop]: {
+          qty: qtyVal !== undefined ? qtyVal : (prev.productQuantities[crop]?.qty || 0),
+          unit: unitVal !== undefined ? unitVal : (prev.productQuantities[crop]?.unit || 'kg')
+        }
+      };
+
+      const totalKg = calculateTotalKg(updatedQuantities, prev.selectedCrops, prev.customCrop);
+
+      return {
+        ...prev,
+        productQuantities: updatedQuantities,
+        currentHarvestKg: String(totalKg)
+      };
+    });
+  }
+
   function validateRegister() {
     if (role === 'admin') {
-      return 'APMC Administrator accounts cannot be self-registered. Please login with your official credentials.';
+      return 'APMC Regulatory Officer clearance accounts are provisioned directly. Please login with your official credentials.';
     }
 
     if (!form.name.trim() || form.name.trim().length < 2) {
@@ -91,17 +178,27 @@ export default function AuthPage({ mode = 'login' }) {
       if (Number.isNaN(farmSize) || farmSize <= 0) {
         return 'Please enter a valid farm size in acres.';
       }
+      if (form.selectedCrops.includes('Other') && !form.customCrop.trim()) {
+        return 'Please enter your custom crop name.';
+      }
       const harvestKg = Number(form.currentHarvestKg);
       if (Number.isNaN(harvestKg) || harvestKg <= 0) {
-        return 'Please enter your ready harvest quantity in kg (e.g. 500).';
+        return 'Please enter valid harvest quantities for your selected crops.';
       }
     } else if (role === 'transporter') {
       if (!form.vehicleNumber.trim() || form.vehicleNumber.trim().length < 5) {
-        return 'Please enter a valid vehicle registration number (e.g. GJ-05-BX-4921).';
+        return 'Please enter a valid vehicle registration number (e.g. MH-12-TR-4921).';
       }
       const cap = Number(form.capacityKg);
       if (Number.isNaN(cap) || cap <= 0) {
         return 'Please enter a valid vehicle payload capacity in kg.';
+      }
+    } else if (role === 'mandi') {
+      if (!form.mandiName.trim() || form.mandiName.trim().length < 3) {
+        return 'Please enter your official Mandi name (e.g. Pune APMC Market Yard).';
+      }
+      if (!form.licenseNumber.trim() || form.licenseNumber.trim().length < 4) {
+        return 'Please enter your APMC license or registration number (e.g. MH-APMC-8492).';
       }
     }
 
@@ -146,39 +243,48 @@ export default function AuthPage({ mode = 'login' }) {
 
     try {
       if (isRegister) {
+        const cropsList = form.selectedCrops.map(c => (c === 'Other' && form.customCrop ? form.customCrop.trim() : c));
         const payload = await register({
           name: form.name.trim(),
           email: form.email.trim(),
           phone: form.phone.replace(/\D/g, '').slice(-10),
           password: form.password,
           role,
-          // Farmer specifics
-          state: form.state ? form.state.trim() : 'Gujarat',
-          district: form.district ? form.district.trim() : 'Surat',
+          // Fixed strictly to Maharashtra
+          state: 'Maharashtra',
+          district: form.district.trim(),
           village: form.village ? form.village.trim() : '',
+          // Farmer specifics
           farmSizeAcres: Number(form.farmSizeAcres) || 3.5,
-          mainCrop: (form.selectedCrops && form.selectedCrops.length > 0) ? form.selectedCrops.join(', ') : 'Tomato',
-          currentHarvestKg: form.currentHarvestKg ? Number(form.currentHarvestKg) : 1000,
+          mainCrop: cropsList.join(', '),
+          customCrop: form.selectedCrops.includes('Other') ? form.customCrop.trim() : null,
+          currentHarvestKg: Number(form.currentHarvestKg) || 500,
+          productQuantities: JSON.stringify(form.productQuantities),
+          preferredLanguage: 'mr',
           // Transporter specifics
           vehicleType: form.vehicleType,
           vehicleNumber: form.vehicleNumber.trim().toUpperCase(),
           capacityKg: Number(form.capacityKg),
           baseMandi: form.baseMandi,
           ratePerKm: Number(form.ratePerKm),
+          // Mandi specifics
+          mandiName: form.mandiName.trim(),
+          licenseNumber: form.licenseNumber.trim().toUpperCase(),
+          operatingDays: form.operatingDays,
+          facilities: form.facilities
         });
 
         const msg = payload.message || 'Account registered successfully! Please login with your credentials.';
         setSuccess(msg);
 
-        // Celebratory Toast
         showToast({
           type: 'celebrate',
           title: '🙏 Registration Complete!',
-          message: `Thank you, ${form.name.trim()}! Your ${role === 'transporter' ? 'Transporter' : 'Farmer'} profile is now active.`,
+          message: `Thank you, ${form.name.trim()}! Your ${role === 'mandi' ? 'Mandi Official' : role === 'transporter' ? 'Transporter' : 'Farmer'} profile is now active.`,
           duration: 5000,
         });
 
-        // 3D Thank You & Success Popup Modal
+        // 3D Celebration Modal for Registration
         setModalState({
           isOpen: true,
           mode: 'register',
@@ -187,14 +293,13 @@ export default function AuthPage({ mode = 'login' }) {
             role,
             phone: form.phone.replace(/\D/g, '').slice(-10),
             email: form.email.trim(),
-            district: role === 'farmer' ? form.district : form.baseMandi,
+            district: role === 'farmer' ? form.district : role === 'mandi' ? form.mandiName : form.baseMandi,
           },
         });
       } else {
-        // LOGIN
+        // INSTANT LOGIN REDIRECT (Requirement 5: No delay, no countdown, immediate redirect)
         const loggedUser = await login(form.email.trim(), form.password);
 
-        // Security role cross-check:
         if (role === 'admin' && loggedUser?.role !== 'admin') {
           throw new Error('Access denied: Account is not an APMC administrator.');
         }
@@ -202,22 +307,20 @@ export default function AuthPage({ mode = 'login' }) {
         showToast({
           type: 'success',
           title: '✅ Session Active!',
-          message: `Welcome back, ${loggedUser?.name || 'User'}! Loading live agritech intelligence...`,
-          duration: 3500,
+          message: `Welcome back, ${loggedUser?.name || 'User'}! Connecting to live Maharashtra APMCs...`,
+          duration: 2500,
         });
 
-        // 3D Welcome Popup Modal
-        setModalState({
-          isOpen: true,
-          mode: 'login',
-          data: {
-            name: loggedUser?.name,
-            role: loggedUser?.role || role,
-            phone: loggedUser?.phone,
-            email: loggedUser?.email,
-            district: loggedUser?.FarmerProfile?.district || loggedUser?.TransporterProfile?.baseMandi || 'Surat',
-          },
-        });
+        const userRole = loggedUser?.role || role;
+        if (userRole === 'admin') {
+          navigate('/admin');
+        } else if (userRole === 'transporter') {
+          navigate('/transport');
+        } else if (userRole === 'mandi') {
+          navigate('/markets');
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch (err) {
       setError(err.message || 'Authentication failed. Please verify your credentials.');
@@ -233,30 +336,22 @@ export default function AuthPage({ mode = 'login' }) {
 
   function handleModalProceed() {
     setModalState((prev) => ({ ...prev, isOpen: false }));
-    if (modalState.mode === 'register') {
-      navigate('/login');
-    } else {
-      if (role === 'admin' || modalState.data.role === 'admin') {
-        navigate('/admin');
-      } else if (role === 'transporter' || modalState.data.role === 'transporter') {
-        navigate('/transport');
-      } else {
-        navigate('/dashboard');
-      }
-    }
+    navigate('/login');
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center px-4 py-12 overflow-hidden">
-      {/* Background Photographic Image with Dark Emerald Vignette */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-105"
-        style={{ backgroundImage: `url('/images/dashboard-hero.jpg')` }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-emerald-950/90 to-slate-950/95 backdrop-blur-[1px]" />
-      <div className="absolute inset-0 bg-radial-at-t from-emerald-500/15 via-transparent to-black/60 pointer-events-none" />
+    <div className="relative min-h-screen flex items-center justify-center px-4 py-10 overflow-x-hidden">
+      {/* FIXED Background Layers - Prevents jumping/moving during form scrolling (Requirement 10) */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div
+          className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-105"
+          style={{ backgroundImage: `url('/images/dashboard-hero.jpg')` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-emerald-950/90 to-slate-950/95 backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-radial-at-t from-emerald-500/15 via-transparent to-black/60" />
+      </div>
 
-      {/* 3D Celebratory & Status Popup Modal */}
+      {/* 3D Celebratory Popup Modal for Registration */}
       <AuthSuccessModal
         isOpen={modalState.isOpen}
         mode={modalState.mode}
@@ -264,7 +359,7 @@ export default function AuthPage({ mode = 'login' }) {
         onProceed={handleModalProceed}
       />
 
-      <div className="relative z-10 w-full max-w-lg space-y-4">
+      <div className="relative z-10 w-full max-w-lg space-y-4 my-auto">
         <form
           onSubmit={submit}
           className="rounded-3xl border border-white/20 bg-white/95 p-6 sm:p-8 shadow-2xl space-y-4 backdrop-blur-xl"
@@ -277,6 +372,8 @@ export default function AuthPage({ mode = 'login' }) {
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-primary to-emerald-500 text-white flex items-center justify-center mx-auto shadow-md shadow-primary/20">
               {role === 'admin' ? (
                 <Shield className="w-8 h-8 text-amber-200" />
+              ) : role === 'mandi' ? (
+                <Building2 className="w-8 h-8 text-teal-200" />
               ) : role === 'transporter' ? (
                 <Truck className="w-8 h-8" />
               ) : (
@@ -286,49 +383,57 @@ export default function AuthPage({ mode = 'login' }) {
 
             <h1 className="text-2xl font-black text-text">
               {isRegister
-                ? role === 'transporter'
+                ? role === 'mandi'
+                  ? 'Register Authorized APMC Mandi'
+                  : role === 'transporter'
                   ? 'Register as Transporter / Driver'
                   : role === 'admin'
-                  ? 'APMC Admin Clearance'
-                  : 'Register Farmer Land & Profile'
+                  ? 'APMC Regulatory Clearance'
+                  : 'Register Farmer Land & Produce'
                 : role === 'admin'
                 ? 'APMC Regulatory Officer Login'
+                : role === 'mandi'
+                ? 'APMC Mandi Official Login'
                 : role === 'transporter'
-                ? 'Transporter & Logistics Login'
+                ? 'Transporter & Fleet Login'
                 : 'Farmer & Produce Login'}
             </h1>
 
             <p className="text-xs text-muted max-w-sm mx-auto">
               {isRegister
-                ? role === 'transporter'
-                  ? 'Join our shared transport network. Offer empty truck capacity and earn fair rates directly from local farmers.'
+                ? role === 'mandi'
+                  ? 'Connect your Maharashtra APMC yard with verified local farmers and logistics networks.'
+                  : role === 'transporter'
+                  ? 'Offer empty truck capacity and earn fair rates directly from Maharashtra farmers.'
                   : role === 'admin'
-                  ? 'Administrative clearance portal for certified APMC mandi regulators.'
-                  : 'Join HarvestMitra for real-time mandi prices, harvest intelligence, and pooled vehicle transport.'
+                  ? 'Administrative clearance portal for certified Maharashtra APMC regulators.'
+                  : 'Join HarvestMitra for real-time Maharashtra mandi rates, harvest intelligence, and shared transport.'
                 : role === 'admin'
-                ? 'Authorized access for mandi regulators, market controllers, and system supervisors.'
+                ? 'Authorized access for Maharashtra APMC regulators, market controllers, and system supervisors.'
+                : role === 'mandi'
+                ? 'Access incoming farmer produce batches, publish auction rates, and direct procurement.'
                 : role === 'transporter'
                 ? 'Manage your transport bookings, available truck payload, and view farmer pickup requests.'
                 : 'Enter your registered email address or 10-digit mobile number to access your farmer dashboard.'}
             </p>
           </div>
 
-          {/* 3-Way Role Selection Tabs (Visible on BOTH Login and Register) */}
-          <div className="p-1 rounded-2xl bg-slate-100 border border-slate-200 grid grid-cols-3 gap-1 text-xs font-bold">
+          {/* 4-Way Role Selection Tabs (Requirement 6: Mandi Official role added) */}
+          <div className="p-1 rounded-2xl bg-slate-100 border border-slate-200 grid grid-cols-4 gap-1 text-xs font-bold">
             <button
               type="button"
               onClick={() => {
                 setRole('farmer');
                 setError('');
               }}
-              className={`py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+              className={`py-2 px-1.5 rounded-xl flex flex-col sm:flex-row items-center justify-center gap-1 transition-all ${
                 role === 'farmer'
                   ? 'bg-white text-primary shadow-xs border border-primary/20'
                   : 'text-muted hover:text-text'
               }`}
             >
-              <Sprout className="w-4 h-4 shrink-0" />
-              <span className="truncate">Farmer</span>
+              <Sprout className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate text-[11px]">Farmer</span>
             </button>
 
             <button
@@ -337,14 +442,30 @@ export default function AuthPage({ mode = 'login' }) {
                 setRole('transporter');
                 setError('');
               }}
-              className={`py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+              className={`py-2 px-1.5 rounded-xl flex flex-col sm:flex-row items-center justify-center gap-1 transition-all ${
                 role === 'transporter'
                   ? 'bg-white text-primary shadow-xs border border-primary/20'
                   : 'text-muted hover:text-text'
               }`}
             >
-              <Truck className="w-4 h-4 shrink-0" />
-              <span className="truncate">Transporter</span>
+              <Truck className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate text-[11px]">Transporter</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setRole('mandi');
+                setError('');
+              }}
+              className={`py-2 px-1.5 rounded-xl flex flex-col sm:flex-row items-center justify-center gap-1 transition-all ${
+                role === 'mandi'
+                  ? 'bg-white text-teal-700 shadow-xs border border-teal-300'
+                  : 'text-muted hover:text-text'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate text-[11px]">Mandi</span>
             </button>
 
             <button
@@ -353,14 +474,14 @@ export default function AuthPage({ mode = 'login' }) {
                 setRole('admin');
                 setError('');
               }}
-              className={`py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+              className={`py-2 px-1.5 rounded-xl flex flex-col sm:flex-row items-center justify-center gap-1 transition-all ${
                 role === 'admin'
                   ? 'bg-white text-amber-700 shadow-xs border border-amber-300'
                   : 'text-muted hover:text-text'
               }`}
             >
-              <Shield className="w-4 h-4 shrink-0" />
-              <span className="truncate">Admin</span>
+              <Shield className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate text-[11px]">Admin</span>
             </button>
           </div>
 
@@ -386,7 +507,7 @@ export default function AuthPage({ mode = 'login' }) {
               <Shield className="w-10 h-10 text-amber-600 mx-auto" />
               <h3 className="text-sm font-bold text-amber-950">Administrative Clearance</h3>
               <p className="text-xs text-amber-800 leading-relaxed">
-                APMC Administrator accounts are systematically provisioned by the State Agricultural Marketing Board to verified Mandi Inspectors.
+                APMC Administrator accounts are systematically provisioned by the Maharashtra State Agricultural Marketing Board (MSAMB).
               </p>
               <Link
                 to="/login"
@@ -402,65 +523,74 @@ export default function AuthPage({ mode = 'login' }) {
                 <div className="space-y-3">
                   <label className="block space-y-1">
                     <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                      {role === 'transporter' ? 'Driver / Transporter Full Name *' : 'Farmer Full Name *'}
+                      {role === 'mandi'
+                        ? 'Official In-Charge Name *'
+                        : role === 'transporter'
+                        ? 'Driver / Transporter Full Name *'
+                        : 'Farmer Full Name *'}
                     </span>
                     <input
                       type="text"
                       required
-                      placeholder={role === 'transporter' ? 'e.g. Suresh Parmar' : 'e.g. Mihir Jadav'}
+                      placeholder={
+                        role === 'mandi'
+                          ? 'e.g. Ramesh Patil (APMC Secretary)'
+                          : role === 'transporter'
+                          ? 'e.g. Suresh Pawar'
+                          : 'e.g. Mihir Jadav'
+                      }
                       value={form.name}
                       onChange={(e) => updateField('name', e.target.value)}
                       className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary"
                     />
                   </label>
 
-                  {role === 'farmer' ? (
-                    <>
-                      {/* State & District Grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                        <label className="block space-y-1">
-                          <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                            State / રાજ્ય / राज्य *
-                          </span>
-                          <select
-                            value={form.state}
-                            onChange={(e) => {
-                              const nextState = e.target.value;
-                              const defaultDist = nextState === 'Maharashtra' ? 'Pune' : nextState === 'Rajasthan' ? 'Jaipur' : 'Surat';
-                              setForm(prev => ({ ...prev, state: nextState, district: defaultDist }));
-                            }}
-                            className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary bg-white"
-                          >
-                            <option value="Gujarat">Gujarat (ગુજરાત)</option>
-                            <option value="Maharashtra">Maharashtra (महाराष्ट्र)</option>
-                            <option value="Rajasthan">Rajasthan (राजस्थान)</option>
-                            <option value="Madhya Pradesh">Madhya Pradesh (मध्य प्रदेश)</option>
-                            <option value="Uttar Pradesh">Uttar Pradesh (उत्तर प्रदेश)</option>
-                            <option value="Punjab">Punjab (पंजाब)</option>
-                            <option value="Haryana">Haryana (हरियाणा)</option>
-                          </select>
-                        </label>
+                  {/* Location Grid: Strictly Maharashtra (Requirement 11) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <label className="block space-y-1">
+                      <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                        State / राज्य * (Fixed)
+                      </span>
+                      <select
+                        value="Maharashtra"
+                        disabled
+                        className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none bg-slate-100 font-semibold text-slate-700 cursor-not-allowed"
+                      >
+                        <option value="Maharashtra">Maharashtra (महाराष्ट्र)</option>
+                      </select>
+                    </label>
 
+                    <label className="block space-y-1">
+                      <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                        District / जिल्हा *
+                      </span>
+                      <select
+                        value={form.district}
+                        onChange={(e) => updateField('district', e.target.value)}
+                        className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary bg-white"
+                      >
+                        {MAHARASHTRA_DISTRICTS.map((dist) => (
+                          <option key={dist} value={dist}>
+                            {dist}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  {/* FARMER REGISTRATION SPECIFICS (Requirements 8, 11, 16) */}
+                  {role === 'farmer' && (
+                    <>
+                      <div className="grid grid-cols-2 gap-2.5">
                         <label className="block space-y-1">
                           <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                            District / જિલ્લો / जिल्हा *
+                            Village / गाव
                           </span>
                           <input
                             type="text"
-                            required
-                            placeholder={form.state === 'Maharashtra' ? 'e.g. Pune, Nashik' : 'e.g. Surat, Mehsana'}
-                            value={form.district}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              const lower = val.toLowerCase().trim();
-                              let detectedState = form.state;
-                              if (lower.includes('pune') || lower.includes('nashik') || lower.includes('mumbai') || lower.includes('nagpur') || lower.includes('solapur') || lower.includes('kolhapur')) {
-                                detectedState = 'Maharashtra';
-                              } else if (lower.includes('surat') || lower.includes('ahmedabad') || lower.includes('rajkot') || lower.includes('navsari') || lower.includes('bharuch')) {
-                                detectedState = 'Gujarat';
-                              }
-                              setForm(prev => ({ ...prev, district: val, state: detectedState }));
-                            }}
+                            placeholder="e.g. Haveli, Baramati"
+                            value={form.village}
+                            onChange={(e) => updateField('village', e.target.value)}
                             className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary"
                           />
                         </label>
@@ -482,41 +612,27 @@ export default function AuthPage({ mode = 'login' }) {
                         </label>
                       </div>
 
-                      {/* Multi-Crop Selection */}
+                      {/* Multi-Crop Selection with "Other" Custom Crop Option (Requirement 8) */}
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                            Crops Grown on Your Farm (Select Multiple) *
+                            Crops Grown on Your Land *
                           </span>
                           <span className="text-[11px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                            {form.selectedCrops?.length || 0} selected
+                            {form.selectedCrops.length} selected
                           </span>
                         </div>
-                        <p className="text-[11px] text-muted">
-                          Tap to select all crops produced in your farm fields:
-                        </p>
                         <div className="flex flex-wrap gap-1.5 pt-1">
-                          {[
-                            'Tomato', 'Onion', 'Potato', 'Cotton', 'Wheat', 
-                            'Soybean', 'Rice', 'Maize', 'Mustard', 'Groundnut', 'Cumin', 'Garlic'
-                          ].map((crop) => {
-                            const isSelected = form.selectedCrops?.includes(crop);
+                          {STANDARD_CROPS.map((crop) => {
+                            const isSelected = form.selectedCrops.includes(crop);
                             return (
                               <button
                                 key={crop}
                                 type="button"
-                                onClick={() => {
-                                  setForm(prev => {
-                                    const exists = prev.selectedCrops?.includes(crop);
-                                    const next = exists 
-                                      ? prev.selectedCrops.filter(c => c !== crop)
-                                      : [...(prev.selectedCrops || []), crop];
-                                    return { ...prev, selectedCrops: next.length > 0 ? next : [crop] };
-                                  });
-                                }}
+                                onClick={() => handleCropToggle(crop)}
                                 className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                                   isSelected
-                                    ? 'bg-emerald-600 text-white shadow-xs scale-102 border border-emerald-700'
+                                    ? 'bg-emerald-600 text-white shadow-xs border border-emerald-700'
                                     : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
                                 }`}
                               >
@@ -528,29 +644,159 @@ export default function AuthPage({ mode = 'login' }) {
                         </div>
                       </div>
 
-                      {/* Ready Harvest Quantity */}
-                      <div className="pt-1">
-                        <label className="block space-y-1">
-                          <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                            Ready Harvest Produce Quantity (kg) *
+                      {/* Custom Crop Input when "Other" is chosen (Requirement 8) */}
+                      {form.selectedCrops.includes('Other') && (
+                        <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-1.5">
+                          <label className="block space-y-1">
+                            <span className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+                              Custom Crop Name (इतर पीक) *
+                            </span>
+                            <input
+                              type="text"
+                              required
+                              placeholder="e.g. Dragonfruit, Custard Apple (Sitaphal), Ginger"
+                              value={form.customCrop}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                updateField('customCrop', val);
+                              }}
+                              className="w-full rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-amber-500 font-semibold"
+                            />
+                          </label>
+                        </div>
+                      )}
+
+                      {/* Product-Wise Quantity Inputs with kg / tonne toggle (Requirement 8, 16) */}
+                      <div className="space-y-2 pt-1 border-t border-slate-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <Scale className="w-3.5 h-3.5 text-primary" />
+                            <span>Product-Wise Harvest Quantities *</span>
                           </span>
-                          <input
-                            type="number"
-                            required
-                            min="10"
-                            step="10"
-                            placeholder="Enter quantity in kg (e.g. 1200)"
-                            value={form.currentHarvestKg}
-                            onChange={(e) => updateField('currentHarvestKg', e.target.value)}
-                            className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary font-mono"
-                          />
-                          <p className="text-[11px] text-muted">
-                            Enter the actual harvest weight available for market sale and shared transport booking.
-                          </p>
-                        </label>
+                          <span className="text-xs font-mono font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                            Total: {Number(form.currentHarvestKg).toLocaleString('en-IN')} kg
+                          </span>
+                        </div>
+
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                          {form.selectedCrops.map((crop) => {
+                            const displayName = crop === 'Other' && form.customCrop ? form.customCrop : crop;
+                            const item = form.productQuantities[crop] || { qty: 250, unit: 'kg' };
+                            return (
+                              <div
+                                key={crop}
+                                className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2"
+                              >
+                                <span className="text-xs font-bold text-slate-800 min-w-[90px] truncate">
+                                  {displayName}
+                                </span>
+
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    required
+                                    value={item.qty}
+                                    onChange={(e) => handleProductQtyChange(crop, Number(e.target.value), item.unit)}
+                                    className="w-24 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-mono font-bold outline-none focus:border-primary text-right"
+                                  />
+
+                                  {/* Unit Toggle: kg vs tonne */}
+                                  <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5 text-[11px] font-bold">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleProductQtyChange(crop, item.qty, 'kg')}
+                                      className={`px-2 py-0.5 rounded-md transition-all ${
+                                        item.unit === 'kg'
+                                          ? 'bg-primary text-white shadow-2xs'
+                                          : 'text-slate-600 hover:text-black'
+                                      }`}
+                                    >
+                                      kg
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleProductQtyChange(crop, item.qty, 'tonne')}
+                                      className={`px-2 py-0.5 rounded-md transition-all ${
+                                        item.unit === 'tonne'
+                                          ? 'bg-primary text-white shadow-2xs'
+                                          : 'text-slate-600 hover:text-black'
+                                      }`}
+                                    >
+                                      tonne
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     </>
-                  ) : (
+                  )}
+
+                  {/* MANDI OFFICIAL REGISTRATION SPECIFICS (Requirement 6) */}
+                  {role === 'mandi' && (
+                    <div className="space-y-3 p-3.5 rounded-2xl bg-teal-50/70 border border-teal-200">
+                      <label className="block space-y-1">
+                        <span className="text-xs font-semibold text-teal-900 uppercase tracking-wider">
+                          Mandi Market Name *
+                        </span>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Pune APMC Market Yard"
+                          value={form.mandiName}
+                          onChange={(e) => updateField('mandiName', e.target.value)}
+                          className="w-full rounded-xl border border-teal-300 bg-white px-3.5 py-2 text-sm outline-none focus:border-teal-600"
+                        />
+                      </label>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <label className="block space-y-1">
+                          <span className="text-xs font-semibold text-teal-900 uppercase tracking-wider">
+                            APMC License / Reg No *
+                          </span>
+                          <input
+                            type="text"
+                            required
+                            placeholder="MH-APMC-PUN-8492"
+                            value={form.licenseNumber}
+                            onChange={(e) => updateField('licenseNumber', e.target.value.toUpperCase())}
+                            className="w-full rounded-xl border border-teal-300 bg-white px-3.5 py-2 text-sm outline-none focus:border-teal-600 font-mono uppercase"
+                          />
+                        </label>
+
+                        <label className="block space-y-1">
+                          <span className="text-xs font-semibold text-teal-900 uppercase tracking-wider">
+                            Operating Days
+                          </span>
+                          <input
+                            type="text"
+                            value={form.operatingDays}
+                            onChange={(e) => updateField('operatingDays', e.target.value)}
+                            className="w-full rounded-xl border border-teal-300 bg-white px-3.5 py-2 text-sm outline-none focus:border-teal-600"
+                          />
+                        </label>
+                      </div>
+
+                      <label className="block space-y-1">
+                        <span className="text-xs font-semibold text-teal-900 uppercase tracking-wider">
+                          Mandi Facilities & Infrastructure
+                        </span>
+                        <input
+                          type="text"
+                          value={form.facilities}
+                          onChange={(e) => updateField('facilities', e.target.value)}
+                          className="w-full rounded-xl border border-teal-300 bg-white px-3.5 py-2 text-xs outline-none focus:border-teal-600"
+                        />
+                      </label>
+                    </div>
+                  )}
+
+                  {/* TRANSPORTER REGISTRATION SPECIFICS */}
+                  {role === 'transporter' && (
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-2.5">
                         <label className="block space-y-1">
@@ -563,7 +809,7 @@ export default function AuthPage({ mode = 'login' }) {
                             className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary bg-white"
                           >
                             <option value="Mahindra Bolero Maxi Truck">Mahindra Bolero Maxi</option>
-                            <option value="Tata 407 LPT">Tata 407 LPT</option>
+                            <option value="Tata 407 Agri LCV">Tata 407 Agri LCV</option>
                             <option value="Eicher Pro 2049">Eicher Pro 2049</option>
                             <option value="Tata Ace Gold">Tata Ace Gold (Chota Hathi)</option>
                             <option value="Tractor Trolley">Tractor Trolley</option>
@@ -578,7 +824,7 @@ export default function AuthPage({ mode = 'login' }) {
                           <input
                             type="text"
                             required
-                            placeholder="GJ-05-BX-4921"
+                            placeholder="MH-12-TR-4921"
                             value={form.vehicleNumber}
                             onChange={(e) => updateField('vehicleNumber', e.target.value.toUpperCase())}
                             className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary font-mono uppercase"
@@ -599,24 +845,27 @@ export default function AuthPage({ mode = 'login' }) {
                             placeholder="2000"
                             value={form.capacityKg}
                             onChange={(e) => updateField('capacityKg', e.target.value)}
-                            className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary"
+                            className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary font-mono"
                           />
                         </label>
 
                         <label className="block space-y-1">
                           <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                            Operating Mandi *
+                            Base Mandi *
                           </span>
                           <select
                             value={form.baseMandi}
                             onChange={(e) => updateField('baseMandi', e.target.value)}
                             className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary bg-white"
                           >
-                            <option value="Surat APMC">Surat APMC</option>
-                            <option value="Ahmedabad APMC">Ahmedabad APMC</option>
-                            <option value="Rajkot APMC">Rajkot APMC</option>
-                            <option value="Vadodara APMC">Vadodara APMC</option>
-                            <option value="Mehsana APMC">Mehsana APMC</option>
+                            <option value="Pune APMC">Pune APMC</option>
+                            <option value="Nashik APMC">Nashik APMC</option>
+                            <option value="Mumbai Vashi APMC">Mumbai Vashi APMC</option>
+                            <option value="Ahmednagar APMC">Ahmednagar APMC</option>
+                            <option value="Solapur APMC">Solapur APMC</option>
+                            <option value="Kolhapur APMC">Kolhapur APMC</option>
+                            <option value="Nagpur APMC">Nagpur APMC</option>
+                            <option value="Jalgaon APMC">Jalgaon APMC</option>
                           </select>
                         </label>
                       </div>
@@ -634,17 +883,17 @@ export default function AuthPage({ mode = 'login' }) {
                         type="tel"
                         required
                         maxLength={10}
-                        placeholder="9876543210"
+                        placeholder="9822012345"
                         value={form.phone}
                         onChange={(e) => updateField('phone', e.target.value.replace(/\D/g, ''))}
-                        className="w-full rounded-xl border border-border pl-10 pr-3.5 py-2 text-sm outline-none focus:border-primary"
+                        className="w-full rounded-xl border border-border pl-10 pr-3.5 py-2 text-sm outline-none focus:border-primary font-mono"
                       />
                     </div>
                   </label>
                 </div>
               )}
 
-              {/* Admin 1-Click Credentials Helper */}
+              {/* Admin 1-Click Credentials Helper on Login */}
               {!isRegister && role === 'admin' && (
                 <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs flex items-center justify-between gap-3 shadow-2xs">
                   <div className="min-w-0">
@@ -677,6 +926,8 @@ export default function AuthPage({ mode = 'login' }) {
                     ? 'Email Address *'
                     : role === 'admin'
                     ? 'APMC Admin Email *'
+                    : role === 'mandi'
+                    ? 'APMC Mandi Email or Mobile *'
                     : 'Email Address or 10-Digit Mobile Number *'}
                 </span>
                 <input
@@ -684,10 +935,10 @@ export default function AuthPage({ mode = 'login' }) {
                   required
                   placeholder={
                     isRegister
-                      ? 'farmer@example.com'
+                      ? 'official@example.com'
                       : role === 'admin'
                       ? 'admin@harvestmitra.local'
-                      : 'e.g. mj@gmail.com or 9876543210'
+                      : 'e.g. farmer@example.com or 9822012345'
                   }
                   value={form.email}
                   onChange={(e) => updateField('email', e.target.value)}
@@ -729,13 +980,17 @@ export default function AuthPage({ mode = 'login' }) {
                 {isRegister ? <UserPlus className="w-4 h-4" /> : <LogIn className="w-4 h-4" />}
                 <span>
                   {loading
-                    ? 'Verifying with MySQL...'
+                    ? 'Connecting to Live MySQL...'
                     : isRegister
-                    ? role === 'transporter'
+                    ? role === 'mandi'
+                      ? 'Register APMC Mandi'
+                      : role === 'transporter'
                       ? 'Register Transporter Fleet'
                       : 'Register Farmer Account'
                     : role === 'admin'
-                    ? 'Login as APMC Admin'
+                    ? 'Login as APMC Regulator'
+                    : role === 'mandi'
+                    ? 'Login to Mandi Portal'
                     : role === 'transporter'
                     ? 'Login to Logistics Portal'
                     : 'Login to Farmer Dashboard'}

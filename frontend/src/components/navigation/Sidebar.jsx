@@ -32,11 +32,7 @@ export default function Sidebar({ className = '' }) {
   const isAdmin = user?.role === 'admin';
   const isTransporter = user?.role === 'transporter';
 
-  const profileLabel = isTransporter
-    ? t('nav.transporterProfile', 'Transporter Profile')
-    : isAdmin
-    ? t('nav.adminProfile', 'Admin Profile')
-    : t('nav.farmerProfile', 'Farmer Profile');
+  const profileLabel = t('nav.profile', 'Profile');
 
   const navigationSections = React.useMemo(() => {
     if (isAdmin) {
