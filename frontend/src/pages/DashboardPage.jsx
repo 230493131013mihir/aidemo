@@ -88,9 +88,11 @@ export default function DashboardPage() {
               const res = await fetch(`${API_BASE_URL}/api/market/prices?commodity=${encodeURIComponent(crop)}&state=Maharashtra&limit=30`);
               const json = await res.json();
               if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+                const fDist = String(farmerDistrict || 'Pune').toLowerCase();
                 const matched = json.data.find(
-                  (p) => p.district?.toLowerCase() === farmerDistrict.toLowerCase() ||
-                         (p.market_name || p.market)?.toLowerCase().includes(farmerDistrict.toLowerCase())
+                  (p) => (p.district ? String(p.district).toLowerCase() === fDist : false) ||
+                         (p.market_name ? String(p.market_name).toLowerCase().includes(fDist) : false) ||
+                         (p.market ? String(p.market).toLowerCase().includes(fDist) : false)
                 ) || json.data[0];
 
                 const rate = Number(matched.price_per_kg || matched.pricePerKg || matched.modal_price || matched.modalPrice) || 28;

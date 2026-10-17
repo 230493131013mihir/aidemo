@@ -305,14 +305,14 @@ export default function TransportPage() {
     return transportersList.filter((tr) => Number(tr.userId) !== Number(user?.id)).map((tr) => ({
       id: `live-${tr.id}`,
       transporterId: tr.userId,
-      driver: tr.driverName,
-      route: tr.baseMandi,
+      driver: tr.driverName || 'Verified Driver',
+      route: tr.baseMandi || tr.currentRoute || 'Surat APMC',
       date: date,
-      vehicle: tr.vehicleType,
-      vehicleNumber: tr.vehicleNumber,
-      capacityKg: tr.capacityKg,
+      vehicle: tr.vehicleType || 'Commercial Farm Truck',
+      vehicleNumber: tr.vehicleNumber || 'GJ-05-BX-4921',
+      capacityKg: tr.capacityKg || 2000,
       usedKg: 0,
-      cost: tr.ratePerKm * 85, // estimated base route cost
+      cost: (tr.ratePerKm || 20) * 85, // estimated base route cost
       farmers: 0,
       isLiveRegistered: true,
     }));
@@ -320,10 +320,11 @@ export default function TransportPage() {
 
   // Filter registered vehicles by destination and available capacity.
   const matches = useMemo(() => {
-    const dest = destination.trim().toLowerCase();
+    const dest = (destination || '').trim().toLowerCase();
     const filtered = allPools.filter((pool) => {
-      const destinationMatch = !dest || pool.route.toLowerCase().includes(dest);
-      const capacityMatch = pool.capacityKg - pool.usedKg >= Number(weight || 0);
+      const routeStr = (pool.route || '').toLowerCase();
+      const destinationMatch = !dest || routeStr.includes(dest);
+      const capacityMatch = ((pool.capacityKg || 2000) - (pool.usedKg || 0)) >= Number(weight || 0);
       return destinationMatch && capacityMatch;
     });
 
@@ -790,7 +791,7 @@ export default function TransportPage() {
                       (4) Delivered at Mandi
                     </span>
                     <span className="text-[10px] text-slate-400">
-                      {activeFarmerBooking.destinationMarket.split(' ')[0]} Mandi
+                      {(activeFarmerBooking.destinationMarket || 'APMC').split(' ')[0]} Mandi
                     </span>
                   </div>
                 </div>
@@ -1268,7 +1269,7 @@ export default function TransportPage() {
                             <span className={`text-[11px] font-bold mt-1 ${isDelivered ? 'text-emerald-700 font-extrabold' : 'text-muted'}`}>
                               (4) Delivered at Mandi
                             </span>
-                            <span className="text-[10px] text-muted">{req.destinationMarket.split(' ')[0]} Mandi</span>
+                            <span className="text-[10px] text-muted">{(req.destinationMarket || 'APMC').split(' ')[0]} Mandi</span>
                           </div>
                         </div>
                       </div>
@@ -1362,9 +1363,9 @@ export default function TransportPage() {
                     <span className="truncate">{activeTrip.destinationMarket}</span>
                   </p>
                   <span className="text-[11px] text-slate-400">
-                    Pass: {activeTrip.destinationMarket && activeTrip.destinationMarket.toLowerCase().includes('pune') && activeTrip.gatePassCode?.startsWith('GJ-')
+                    Pass: {activeTrip?.destinationMarket && String(activeTrip.destinationMarket).toLowerCase().includes('pune') && activeTrip.gatePassCode?.startsWith('GJ-')
                       ? activeTrip.gatePassCode.replace(/^GJ-/, 'MH-')
-                      : activeTrip.gatePassCode}
+                      : activeTrip?.gatePassCode}
                   </span>
                 </div>
 
@@ -1392,9 +1393,9 @@ export default function TransportPage() {
                         Official APMC Security Inspection
                       </span>
                       <span className="text-xs font-mono text-emerald-400 font-bold">
-                        Pass: {activeTrip.destinationMarket && activeTrip.destinationMarket.toLowerCase().includes('pune') && activeTrip.gatePassCode?.startsWith('GJ-')
+                        Pass: {activeTrip?.destinationMarket && String(activeTrip.destinationMarket).toLowerCase().includes('pune') && activeTrip.gatePassCode?.startsWith('GJ-')
                           ? activeTrip.gatePassCode.replace(/^GJ-/, 'MH-')
-                          : activeTrip.gatePassCode}
+                          : activeTrip?.gatePassCode}
                       </span>
                     </div>
                     <p className="text-xs text-slate-200 mt-1">
