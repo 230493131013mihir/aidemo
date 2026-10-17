@@ -18,10 +18,10 @@ Small and medium-sized farmers in India frequently face severe financial losses 
 
 | Member | Role | Core Responsibility Area |
 | :--- | :--- | :--- |
-| **Mihir** | Team Lead & Full Stack Integration | Auth Flow, App Routing, Landing Page, Demo Mode & Presentation |
-| **Sayali** | Backend & Database Architect | MySQL Schemas, Sequelize ORM, Mandi Data API, Admin Endpoints |
-| **Prashant** | Frontend UI/UX Developer | Dashboard UI, Harvest Simulator, Recharts Graphs, Design System |
-| **Varun** | AI Engineer & Voice Lead | Mitra Assistant Chatbot, Shared Transport Matching, STT/TTS |
+| **Mihir Jadav** | Team Leader & Full Stack Integration | Auth Flow, App Routing, Landing Page, Architecture & Coordination |
+| **Sayali Kulkarni** | Frontend UI/UX & Design Specialist | Dashboard UI, Harvest Breakdown Badges, Design System & Responsive Layouts |
+| **Prashant Warule** | Backend Architect & Database Lead | MySQL APMC Mandi Data, Sequelize ORM, Dynamic Pricing & Revenue Calculation |
+| **Varun Patil** | AI Engineer & Logistics Lead | Mitra Multilingual Voice Assistant, Driver Mandi Gate Pass & Shared Transport |
 
 *Detailed task breakdown available in [TEAM_ALLOCATION.md](file:///c:/Users/MIHIR%20JADAV/Desktop/aidemo/TEAM_ALLOCATION.md).*
 
