@@ -64,13 +64,13 @@ export default function CorridorFreightCalculator({ onApplyCorridor, defaultWeig
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
             <Calculator className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Real-Time Freight Cost Calculator & Highway Distance</span>
+            <span>Highway Route Distance & Freight Savings Estimator</span>
           </div>
           <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
-            Key Agricultural Corridor Rate Estimator
+            Highway Route Distance & Freight Savings Estimator
           </h2>
           <p className="text-xs text-slate-600">
-            Compare transparent solo vs shared pooled freight rates and check live highway weather safety before dispatching.
+            Compare Solo Truck Freight vs Shared Pooled Freight with calculated savings (e.g., Surat-Navsari 38km saves ₹750/62%, Surat-Rajkot 430km saves ₹5,300/62%) and route weather advisory badges.
           </p>
         </div>
 
@@ -200,7 +200,7 @@ export default function CorridorFreightCalculator({ onApplyCorridor, defaultWeig
           {/* Route Weather & Highway Safety Badge */}
           <div className="mt-3 pt-3 border-t border-slate-200/70 space-y-2">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-              Route Weather & Highway Safety Badge:
+              Route Weather Advisory & Highway Safety Badges:
             </span>
             <div className={`p-3 rounded-xl border flex items-start gap-2.5 ${selectedCorridor.weather.badgeColor}`}>
               {selectedCorridor.weather.condition === 'rain' ? (
@@ -232,7 +232,7 @@ export default function CorridorFreightCalculator({ onApplyCorridor, defaultWeig
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <span className="text-xs uppercase font-extrabold tracking-wider text-emerald-300">
-                💰 Dynamic Freight Comparison
+                💰 Solo Truck Freight vs Shared Pooled Freight
               </span>
               <span className="text-[11px] text-slate-300 font-mono">
                 {selectedCorridor.distanceKm} km Highway Run
@@ -245,7 +245,7 @@ export default function CorridorFreightCalculator({ onApplyCorridor, defaultWeig
               <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
                 <div className="flex items-center gap-1 text-[11px] text-slate-400 font-bold uppercase">
                   <Truck className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Solo Dedicated Truck</span>
+                  <span>Solo Truck Freight</span>
                 </div>
                 <p className="text-xl sm:text-2xl font-black font-mono text-slate-300 line-through decoration-rose-500/80 decoration-2">
                   ₹{calculations.soloCost.toLocaleString('en-IN')}
@@ -264,7 +264,7 @@ export default function CorridorFreightCalculator({ onApplyCorridor, defaultWeig
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-emerald-300 font-bold uppercase">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Shared Pool Fare</span>
+                  <span>Shared Pooled Freight</span>
                 </div>
                 <p className="text-2xl sm:text-3xl font-black font-mono text-emerald-400">
                   ₹{calculations.sharedCost.toLocaleString('en-IN')}

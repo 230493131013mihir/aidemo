@@ -74,10 +74,16 @@ assert.strictEqual(saving, 750, 'Surat-Navsari must save ₹750');
 assert.strictEqual(savingPct, 63, 'Surat-Navsari savings percentage ~62-63%');
 console.log(`  ✅ [PASS] Surat-Navsari: 38km, Solo ₹${suratNavsari.baseSoloCost} vs Shared ₹${suratNavsari.baseSharedCost} (Saves ₹${saving}/${savingPct}%)`);
 
-// Verify Surat - Rajkot specs: 430km
+// Verify Surat - Rajkot specs: 430km, saves ₹5,300/62%
 const suratRajkot = CORRIDORS.find((c) => c.id === 'surat-rajkot');
 assert.strictEqual(suratRajkot.distanceKm, 430, 'Surat-Rajkot must be 430km');
-console.log(`  ✅ [PASS] Surat-Rajkot: 430km, Solo ₹${suratRajkot.baseSoloCost} vs Shared ₹${suratRajkot.baseSharedCost}`);
+assert.strictEqual(suratRajkot.baseSoloCost, 8550, 'Surat-Rajkot base solo cost must be ₹8,550');
+assert.strictEqual(suratRajkot.baseSharedCost, 3250, 'Surat-Rajkot base shared cost must be ₹3,250');
+const rajkotSaving = suratRajkot.baseSoloCost - suratRajkot.baseSharedCost;
+const rajkotSavingPct = Math.round((rajkotSaving / suratRajkot.baseSoloCost) * 100);
+assert.strictEqual(rajkotSaving, 5300, 'Surat-Rajkot must save ₹5,300');
+assert.strictEqual(rajkotSavingPct, 62, 'Surat-Rajkot savings percentage must be 62%');
+console.log(`  ✅ [PASS] Surat-Rajkot: 430km, Solo ₹${suratRajkot.baseSoloCost} vs Shared ₹${suratRajkot.baseSharedCost} (Saves ₹${rajkotSaving}/${rajkotSavingPct}%)`);
 
 // Verify Ahmedabad - Surat specs: 265km
 const ahmedabadSurat = CORRIDORS.find((c) => c.id === 'ahmedabad-surat');
