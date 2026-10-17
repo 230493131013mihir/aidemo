@@ -5,15 +5,25 @@ const authMiddleware = (req, res, next) => {
         // Get token from Authorization header
         const authHeader = req.headers.authorization;
 
+        // Support guest access if requested
         if (!authHeader) {
+            if (req.headers['x-guest-mode'] === 'true' || req.query.guest === 'true') {
+                req.user = {
+                    id: 999999,
+                    name: "Guest Farmer",
+                    email: "guest@harvestmitra.local",
+                    role: "farmer",
+                    isGuest: true
+                };
+                return next();
+            }
             return res.status(401).json({
                 success: false,
                 message: "Access denied. No token provided."
             });
         }
 
-        // Expected format:
-        // Authorization: Bearer TOKEN
+        // Expected format: Authorization: Bearer TOKEN
         const parts = authHeader.split(" ");
 
         if (parts.length !== 2 || parts[0] !== "Bearer") {
@@ -24,6 +34,18 @@ const authMiddleware = (req, res, next) => {
         }
 
         const token = parts[1];
+
+        // Support guest token directly
+        if (token === "guest" || token === "guest_token") {
+            req.user = {
+                id: 999999,
+                name: "Guest Farmer",
+                email: "guest@harvestmitra.local",
+                role: "farmer",
+                isGuest: true
+            };
+            return next();
+        }
 
         // Verify token
         const decoded = jwt.verify(

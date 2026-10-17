@@ -7,14 +7,35 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000
 const TOKEN_KEY = 'harvestmitra_token';
 const USER_KEY = 'harvestmitra_user';
 
+export const GUEST_USER = {
+  id: 'guest',
+  name: 'Guest Farmer (અતિથિ)',
+  email: 'guest@harvestmitra.local',
+  role: 'farmer',
+  isGuest: true,
+  FarmerProfile: {
+    farmSizeAcres: 4.5,
+    mainCrop: 'Tomatoes',
+    typicalYieldKg: 1200,
+    currentHarvestKg: 500,
+    state: 'Gujarat',
+    district: 'Surat',
+    preferredLanguage: 'gu',
+    productQuantities: {
+      'Tomatoes': 300,
+      'Cotton': 200
+    }
+  }
+};
+
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) || '');
+  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) || 'guest');
   const [user, setUser] = useState(() => {
     try {
       const stored = localStorage.getItem(USER_KEY);
-      return stored ? JSON.parse(stored) : null;
+      return stored ? JSON.parse(stored) : GUEST_USER;
     } catch {
-      return null;
+      return GUEST_USER;
     }
   });
   const [loading, setLoading] = useState(true);
@@ -23,9 +44,9 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     async function verifySession() {
       const savedToken = localStorage.getItem(TOKEN_KEY);
-      if (!savedToken) {
-        setToken('');
-        setUser(null);
+      if (!savedToken || savedToken === 'guest') {
+        setToken('guest');
+        setUser((prev) => prev && !prev.isGuest ? prev : GUEST_USER);
         setLoading(false);
         return;
       }
@@ -44,10 +65,12 @@ export function AuthProvider({ children }) {
             setToken(savedToken);
             localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
           } else {
-            logout();
+            setUser(GUEST_USER);
+            setToken('guest');
           }
         } else {
-          logout();
+          setUser(GUEST_USER);
+          setToken('guest');
         }
       } catch (err) {
         console.warn('Session verification fallback to stored user:', err.message);
@@ -145,17 +168,21 @@ export function AuthProvider({ children }) {
   }
 
   function logout() {
-    setToken('');
-    setUser(null);
+    setToken('guest');
+    setUser(GUEST_USER);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
   }
+
+  const isGuest = Boolean(user?.isGuest || token === 'guest');
+  const isAuthenticated = Boolean(user && token && !user.isGuest && token !== 'guest');
 
   const value = {
     user,
     token,
     loading,
-    isAuthenticated: Boolean(user && token),
+    isAuthenticated,
+    isGuest,
     login,
     register,
     demoLogin,
