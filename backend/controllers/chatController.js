@@ -5,7 +5,7 @@
  */
 
 const aiService = require('../services/ai/aiService');
-const { detectIntent, detectLanguage, extractCropMention, extractQuantity } = require('../services/ai/intentDetector');
+const { detectIntent, detectLanguage, extractCropMention, extractQuantity, extractDistrictMention } = require('../services/ai/intentDetector');
 const { buildContext } = require('../services/ai/contextBuilder');
 const marketService = require('../services/marketService');
 const weatherService = require('../services/weatherService');
@@ -67,15 +67,18 @@ async function handleChatMessage(req, res) {
     const detectedIntent = detectIntent(cleanMessage);
 
     // 4. Enrich Context
-    // Extract any crop mention or quantity if not explicitly provided
+    // Extract any crop mention, district mention, or quantity if not explicitly provided
     const cropMention = callerContext.crop?.name || extractCropMention(cleanMessage);
+    const districtMention = callerContext.marketData?.currentMarket?.district || extractDistrictMention(cleanMessage);
     const quantityInfo = callerContext.crop?.quantityKg || extractQuantity(cleanMessage).quantityKg;
 
     // Auto-enrich market data if query mentions crop and no marketData was supplied
     let marketData = callerContext.marketData;
     if (!marketData && (detectedIntent === 'market_price' || detectedIntent === 'harvest_decision') && cropMention) {
       try {
-        const prices = await marketService.getMarketPrices({ crop: cropMention });
+        const queryParams = { crop: cropMention };
+        if (districtMention) queryParams.district = districtMention;
+        const prices = await marketService.getMarketPrices(queryParams);
         if (prices.length > 0) {
           marketData = {
             currentMarket: {

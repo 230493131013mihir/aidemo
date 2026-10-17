@@ -215,11 +215,42 @@ function extractQuantity(text) {
   return { quantityKg: null, unit: null };
 }
 
+/**
+ * Extract district / mandi mention if present in query
+ * @param {string} text
+ * @returns {string|null}
+ */
+function extractDistrictMention(text) {
+  if (!text) return null;
+  const districts = [
+    { name: 'Pune', patterns: [/\b(pune|poona)\b/i, /(पुणे|पुण्यात|पुण्यातील|पुण्यामध्ये|पुना)/i] },
+    { name: 'Nashik', patterns: [/\b(nashik|nasik|lasalgaon)\b/i, /(नाशिक|नाशिकमध्ये|नाशिकमधील|लासलगाव)/i] },
+    { name: 'Mumbai', patterns: [/\b(mumbai|bombay|vashi)\b/i, /(मुंबई|मुंबईत|वाशी)/i] },
+    { name: 'Nagpur', patterns: [/\b(nagpur)\b/i, /(नागपूर|नागपूरमध्ये|नागपुर)/i] },
+    { name: 'Kolhapur', patterns: [/\b(kolhapur)\b/i, /(कोल्हापूर|कोल्हापुरात|कोल्हापुर)/i] },
+    { name: 'Solapur', patterns: [/\b(solapur|sholapur)\b/i, /(सोलापूर|सोलापुरात|सोलापुर)/i] },
+    { name: 'Ahmednagar', patterns: [/\b(ahmednagar|nagar)\b/i, /(अहमदनगर|अहमदनगरात)/i] },
+    { name: 'Jalgaon', patterns: [/\b(jalgaon)\b/i, /(जळगाव|जळगावात|जलगांव)/i] },
+    { name: 'Surat', patterns: [/\b(surat)\b/i, /(સુરત|સુરતમાં|सूरत|सुरत)/i] },
+    { name: 'Ahmedabad', patterns: [/\b(ahmedabad)\b/i, /(અમદાવાદ|અમદાવાદમાં|अहमदाबाद)/i] },
+    { name: 'Rajkot', patterns: [/\b(rajkot|gondal)\b/i, /(રાજકોટ|રાજકોટમાં|राजकोट)/i] },
+    { name: 'Vadodara', patterns: [/\b(vadodara|baroda)\b/i, /(વડોદરા|વડોદરામાં|वडोदरा)/i] }
+  ];
+
+  for (const d of districts) {
+    for (const pattern of d.patterns) {
+      if (pattern.test(text)) return d.name;
+    }
+  }
+  return null;
+}
+
 module.exports = {
   detectIntent,
   detectLanguage,
   normalizeLanguage,
   extractCropMention,
   extractQuantity,
+  extractDistrictMention,
   INTENT_PATTERNS
 };

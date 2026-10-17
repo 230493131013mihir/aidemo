@@ -108,6 +108,24 @@ export default function TransportPage() {
     }
   }, [user]);
 
+  // Pre-fill destination, weight, and crop from navigation state or URL parameters (e.g. from /harvest redirect)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || window.location.search);
+    const destParam = params.get('destination') || location.state?.destinationMarket || location.state?.destination;
+    const weightParam = params.get('weight') || location.state?.weightKg || location.state?.weight;
+    const cropParam = params.get('crop') || location.state?.cropName || location.state?.crop;
+
+    if (destParam) {
+      setDestination(destParam);
+    }
+    if (weightParam && !isNaN(Number(weightParam))) {
+      setWeight(Number(weightParam));
+    }
+    if (cropParam) {
+      setCropName(cropParam);
+    }
+  }, [location.search, location.state]);
+
   async function loadMyRequests() {
     if (!token) return;
     try {
@@ -906,7 +924,7 @@ export default function TransportPage() {
                   className="btn-primary py-2.5 px-6 rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm"
                 >
                   <PlusCircle className="w-4 h-4" />
-                  <span>{submitting ? 'Connecting...' : 'Book & Issue Gate Pass'}</span>
+                  <span>{submitting ? 'Connecting...' : 'Confirm & Request Pool'}</span>
                 </button>
               </div>
             </div>
@@ -1007,7 +1025,7 @@ export default function TransportPage() {
           {!isUserTransporter && <section className="rounded-3xl border border-border bg-white shadow-xs overflow-hidden">
             <div className="px-6 py-4 bg-slate-50 border-b border-border flex items-center justify-between">
               <div>
-                <h2 className="font-bold text-sm text-text">My Live Transport Bookings & Tracking</h2>
+                <h2 className="font-bold text-sm text-text">Active Requests & Live Transport Bookings</h2>
                 <p className="text-[11px] text-muted">Stored in MySQL • Your requests, assigned transporter, and digital mandi gate passes</p>
               </div>
               <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-lg bg-white border border-slate-200">

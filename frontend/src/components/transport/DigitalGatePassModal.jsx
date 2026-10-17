@@ -270,13 +270,18 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
               </div>
 
               <div className="flex justify-between py-1 border-b border-border/60">
-                <span className="text-muted font-medium">Vehicle Number:</span>
+                <span className="text-muted font-medium">Truck Number:</span>
                 <span className="font-bold text-primary font-mono">{booking.vehicleNumber || 'MH-12-TR-4921'}</span>
               </div>
 
               <div className="flex justify-between py-1 border-b border-border/60">
-                <span className="text-muted font-medium">Destination Mandi:</span>
-                <span className="font-bold text-emerald-700">{booking.destinationMarket}</span>
+                <span className="text-muted font-medium">Origin Farm:</span>
+                <span className="font-medium text-text">{booking.pickupLocation || 'Narayangaon, Junnar (Farm Gate)'}</span>
+              </div>
+
+              <div className="flex justify-between py-1 border-b border-border/60">
+                <span className="text-muted font-medium">Destination APMC:</span>
+                <span className="font-bold text-emerald-700">{booking.destinationMarket || 'Pune APMC'}</span>
               </div>
 
               <div className="flex justify-between py-1 border-b border-border/60">
@@ -329,19 +334,20 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
               type="button"
               onClick={handlePrint}
               className="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-xs font-bold text-text flex items-center gap-1.5 transition-colors"
+              title="Open Print Preview for Gate Pass"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print Pass</span>
+              <span>Print / Download Gate Pass</span>
             </button>
 
             <button
               type="button"
               onClick={handleDownloadPass}
               className="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-xs font-bold text-text flex items-center gap-1.5 transition-colors"
-              title="Download Gate Pass File"
+              title="Download HTML Gate Pass Receipt"
             >
               <Download className="w-3.5 h-3.5 text-primary" />
-              <span>Download Pass</span>
+              <span>Save File</span>
             </button>
           </div>
 

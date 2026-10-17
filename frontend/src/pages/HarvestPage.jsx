@@ -361,7 +361,15 @@ export default function HarvestPage() {
       title: '🚚 Routing to Shared Transport...',
       message: `Pre-filling ${winningScenario.mandi} for ${totalEnteredKg} kg total cargo.`,
     });
-    navigate('/transport');
+    navigate(`/transport?destination=${encodeURIComponent(winningScenario.mandi)}&weight=${totalEnteredKg}&crop=${encodeURIComponent(selectedCrops[0] || 'Tomato')}`, {
+      state: {
+        destinationMarket: winningScenario.mandi,
+        destination: winningScenario.mandi,
+        weightKg: totalEnteredKg,
+        weight: totalEnteredKg,
+        cropName: selectedCrops[0] || 'Tomato'
+      }
+    });
   }
 
   return (
@@ -808,7 +816,7 @@ export default function HarvestPage() {
                         validationError ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                       }`}
                     >
-                      <span>Book Shared Truck for This Mandi</span>
+                      <span>Book Shared Truck for Winning Mandi</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
