@@ -334,7 +334,8 @@ class MarketService {
           const existing = await MarketPrice.findOne({
             where: {
               cropId: crop.id,
-              marketId: market.id
+              marketId: market.id,
+              priceDate: todayStr
             }
           });
 
