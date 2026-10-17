@@ -43,20 +43,20 @@ export default function ProfilePage() {
     name: user?.name || '',
     phone: user?.phone || '',
     // Farmer fields
-    district: farmerProfile?.district || 'Surat',
-    state: farmerProfile?.state || 'Gujarat',
+    district: farmerProfile?.district || 'Pune',
+    state: 'Maharashtra',
     village: farmerProfile?.village || '',
     farmSizeAcres: farmerProfile?.farmSizeAcres ? String(farmerProfile.farmSizeAcres) : '4.5',
     mainCrop: farmerProfile?.mainCrop || 'Tomato',
     selectedCrops: initialFarmerCrops.length > 0 ? initialFarmerCrops : ['Tomato'],
     currentHarvestKg: farmerProfile?.currentHarvestKg ? String(farmerProfile.currentHarvestKg) : '',
-    preferredLanguage: farmerProfile?.preferredLanguage || 'gu',
+    preferredLanguage: farmerProfile?.preferredLanguage || 'mr',
     // Transporter fields
     vehicleType: transporterProfile?.vehicleType || 'Mahindra Bolero Maxi Truck',
-    vehicleNumber: transporterProfile?.vehicleNumber || 'GJ-05-BX-4921',
+    vehicleNumber: transporterProfile?.vehicleNumber || 'MH-12-TR-4921',
     capacityKg: transporterProfile?.capacityKg ? String(transporterProfile.capacityKg) : '2200',
-    baseMandi: transporterProfile?.baseMandi || 'Surat APMC',
-    ratePerKm: transporterProfile?.ratePerKm ? String(transporterProfile.ratePerKm) : '25',
+    baseMandi: transporterProfile?.baseMandi || 'Pune APMC',
+    ratePerKm: transporterProfile?.ratePerKm ? String(transporterProfile.ratePerKm) : '26',
     isAvailable: transporterProfile?.isAvailable ?? true,
     // Admin fields
     department: 'APMC Market Intelligence & Agricultural Standards Bureau',
@@ -695,19 +695,14 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    State / રાજ્ય / राज्य *
+                    State / राज्य * (Fixed)
                   </span>
                   <select
-                    value={form.state}
-                    onChange={(e) => handleChange('state', e.target.value)}
-                    className="w-full rounded-xl border border-border px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-primary bg-white"
+                    value="Maharashtra"
+                    disabled
+                    className="w-full rounded-xl border border-border px-3.5 py-2.5 text-sm font-semibold outline-none bg-slate-100 text-slate-700 cursor-not-allowed"
                   >
-                    <option value="Gujarat">Gujarat (ગુજરાત)</option>
                     <option value="Maharashtra">Maharashtra (महाराष्ट्र)</option>
-                    <option value="Madhya Pradesh">Madhya Pradesh (मध्य प्रदेश)</option>
-                    <option value="Rajasthan">Rajasthan (राजस्थान)</option>
-                    <option value="Punjab">Punjab (पंजाब)</option>
-                    <option value="Haryana">Haryana (हरियाणा)</option>
                   </select>
                 </label>
               </div>

@@ -6,86 +6,86 @@
 
 const { findMatchingTransport, calculateSharedTransportCost } = require('../services/transportMatcher');
 
-// Realistic transport pools across Gujarat APMC Mandis
+// Realistic transport pools across Maharashtra APMC Mandis
 let transportPools = [
   {
     id: 'veh-01',
-    driverName: 'Rajesh Patel',
-    driverPhone: '+91 98251 44120',
-    vehicleType: 'Tata 407 (Medium Freight)',
-    vehicleNumber: 'GJ-05-BX-4120',
-    location: 'Surat',
-    destination: 'Ahmedabad',
+    driverName: 'Dnyaneshwar Shinde',
+    driverPhone: '+91 98220 44120',
+    vehicleType: 'Tata 407 (Agri Freight)',
+    vehicleNumber: 'MH-12-RN-4120',
+    location: 'Pune',
+    destination: 'Mumbai Vashi Mega APMC',
     capacity: 2500,
     availableCapacity: 1500,
     currentLoad: 1000,
     availableDate: new Date().toISOString().split('T')[0],
-    departureTime: '06:00 AM',
-    totalTripCost: 2800,
+    departureTime: '05:30 AM',
+    totalTripCost: 2600,
     rating: 4.9,
     coFarmersCount: 1,
     coFarmers: [
-      { farmerName: 'Suresh Chaudhari (Navsari)', quantity: 1000, crop: 'Tomatoes' }
+      { farmerName: 'Anil Jadhav (Haveli)', quantity: 1000, crop: 'Tomato' }
     ]
   },
   {
     id: 'veh-02',
-    driverName: 'Manish Varma',
-    driverPhone: '+91 94280 88219',
+    driverName: 'Santosh Gaikwad',
+    driverPhone: '+91 94220 88219',
     vehicleType: 'Mahindra Bolero Maxi Truck',
-    vehicleNumber: 'GJ-19-K-8821',
-    location: 'Navsari',
-    destination: 'Surat',
-    capacity: 1200,
-    availableCapacity: 700,
-    currentLoad: 500,
+    vehicleNumber: 'MH-15-TC-8821',
+    location: 'Nashik',
+    destination: 'Pune APMC (Gultekdi)',
+    capacity: 1500,
+    availableCapacity: 900,
+    currentLoad: 600,
     availableDate: new Date().toISOString().split('T')[0],
-    departureTime: '07:30 AM',
-    totalTripCost: 1400,
+    departureTime: '06:30 AM',
+    totalTripCost: 1800,
     rating: 4.8,
     coFarmersCount: 1,
     coFarmers: [
-      { farmerName: 'Hasmukh Bhai', quantity: 500, crop: 'Green Chilli' }
+      { farmerName: 'Popat Pawar (Niphad)', quantity: 600, crop: 'Onion' }
     ]
   },
   {
     id: 'veh-03',
-    driverName: 'Pravin Solanki',
-    driverPhone: '+91 97230 11984',
-    vehicleType: 'Ashok Leyland Dost',
-    vehicleNumber: 'GJ-03-TC-1198',
-    location: 'Surat',
-    destination: 'Rajkot',
+    driverName: 'Vitthal Thorat',
+    driverPhone: '+91 97220 11984',
+    vehicleType: 'Ashok Leyland Dost Agri',
+    vehicleNumber: 'MH-17-AZ-1198',
+    location: 'Ahmednagar',
+    destination: 'Mumbai Vashi Mega APMC',
     capacity: 1800,
-    availableCapacity: 1200,
-    currentLoad: 600,
+    availableCapacity: 1100,
+    currentLoad: 700,
     availableDate: new Date().toISOString().split('T')[0],
     departureTime: '05:00 AM',
-    totalTripCost: 3200,
+    totalTripCost: 2900,
     rating: 4.7,
     coFarmersCount: 1,
     coFarmers: [
-      { farmerName: 'Kishore Dave', quantity: 600, crop: 'Onion' }
+      { farmerName: 'Babanrao Shinde (Rahuri)', quantity: 700, crop: 'Soybean' }
     ]
   },
   {
     id: 'veh-04',
-    driverName: 'Iqbal Mansuri',
-    driverPhone: '+91 98980 55671',
-    vehicleType: 'Eicher Pro 2049',
-    vehicleNumber: 'GJ-06-AZ-5567',
-    location: 'Surat',
-    destination: 'Ahmedabad',
+    driverName: 'Sachin More',
+    driverPhone: '+91 98229 55671',
+    vehicleType: 'Eicher Pro 2049 Heavy',
+    vehicleNumber: 'MH-09-EM-5567',
+    location: 'Kolhapur',
+    destination: 'Pune APMC (Gultekdi)',
     capacity: 3500,
-    availableCapacity: 2200,
-    currentLoad: 1300,
+    availableCapacity: 2100,
+    currentLoad: 1400,
     availableDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
     departureTime: '04:30 AM',
-    totalTripCost: 3400,
+    totalTripCost: 3100,
     rating: 4.9,
     coFarmersCount: 1,
     coFarmers: [
-      { farmerName: 'Dhirubhai Patel', quantity: 1300, crop: 'Wheat' }
+      { farmerName: 'Tukaram Patil (Karveer)', quantity: 1400, crop: 'Jaggery & Vegetables' }
     ]
   }
 ];

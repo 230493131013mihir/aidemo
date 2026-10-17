@@ -20,7 +20,7 @@ export default function WeatherWidget() {
   const { user } = useAuth();
 
   // Use logged-in farmer district, fallback to Surat or user location
-  const farmerDistrict = user?.FarmerProfile?.district || 'Surat';
+  const farmerDistrict = user?.FarmerProfile?.district || 'Pune';
   const [activeLocation, setActiveLocation] = useState(farmerDistrict);
   const [weatherData, setWeatherData] = useState(null);
   const [loading, setLoading] = useState(true);

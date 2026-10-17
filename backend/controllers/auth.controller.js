@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { User, FarmerProfile, TransporterProfile } = require("../models");
+const { User, FarmerProfile, TransporterProfile, MandiProfile, ContactRequest } = require("../models");
+const { Op } = require("sequelize");
 
 function formatUserResponse(userInstance) {
     if (!userInstance) return null;
@@ -10,33 +11,26 @@ function formatUserResponse(userInstance) {
 }
 
 function detectStateFromDistrict(district, providedState) {
-    if (providedState && providedState.trim() && providedState.trim().toLowerCase() !== "gujarat") {
+    if (providedState && providedState.trim()) {
         return providedState.trim();
     }
-    const dist = String(district || "").toLowerCase().trim();
-    const maharashtraDistricts = ["pune", "nashik", "mumbai", "thane", "nagpur", "solapur", "kolhapur", "jalgaon", "ahmednagar", "aurangabad", "chhatrapati sambhajinagar", "amravati", "nanded", "satara", "sangli", "akola", "latur", "dhule", "chandrapur", "parbhani", "beed", "ratnagiri", "gondia", "wardha", "osmanabad", "dharashiv", "yavatmal", "bhandara", "buldhana", "gadchiroli", "hingoli", "nandurbar", "palghar", "raigad", "sindhudurg", "washim"];
-    if (maharashtraDistricts.some(d => dist === d || dist.includes(d))) {
-        return "Maharashtra";
-    }
-    const gujaratDistricts = ["surat", "navsari", "ahmedabad", "rajkot", "bharuch", "vadodara", "mehsana", "anand", "bhavnagar", "junagadh", "kutch", "gandhinagar", "valsad", "jamnagar", "amreli", "banaskantha", "dahod", "morbi", "patan", "porbandar", "sabarkantha", "surendranagar", "tapi"];
-    if (gujaratDistricts.some(d => dist === d || dist.includes(d))) {
-        return "Gujarat";
-    }
-    return (providedState && providedState.trim()) || "Gujarat";
+    // Default strictly to Maharashtra for state detection
+    return "Maharashtra";
 }
 
 // Ensure farmer profile exists for a user
 async function ensureFarmerProfile(userId, defaults = {}) {
     let profile = await FarmerProfile.findOne({ where: { userId } });
     if (!profile) {
-        const dist = defaults.district || "Surat";
-        const st = detectStateFromDistrict(dist, defaults.state);
+        const dist = defaults.district || "Pune";
         profile = await FarmerProfile.create({
             userId,
             district: dist,
-            state: st,
-            village: defaults.village || "Olpad",
-            farmSizeAcres: defaults.farmSizeAcres || 4.5,
+            state: "Maharashtra",
+            village: defaults.village || "Haveli",
+            farmSizeAcres: defaults.farmSizeAcres || 3.5,
+            mainCrop: defaults.mainCrop || "Tomato",
+            currentHarvestKg: defaults.currentHarvestKg || 500,
             preferredLanguage: defaults.preferredLanguage || "en"
         });
     }
@@ -50,13 +44,32 @@ async function ensureTransporterProfile(userId, defaults = {}) {
         profile = await TransporterProfile.create({
             userId,
             driverName: defaults.name || "Transporter",
-            phone: defaults.phone || "9876543210",
-            vehicleType: defaults.vehicleType || "Mahindra Bolero Maxi",
-            vehicleNumber: defaults.vehicleNumber || "GJ-05-TR-1001",
-            capacityKg: defaults.capacityKg || 2000,
-            baseMandi: defaults.baseMandi || "Surat APMC",
-            ratePerKm: defaults.ratePerKm || 25,
+            phone: defaults.phone || "9822012345",
+            vehicleType: defaults.vehicleType || "Tata 407 Agri LCV",
+            vehicleNumber: defaults.vehicleNumber || `MH-12-TR-${Math.floor(1000 + Math.random() * 9000)}`,
+            capacityKg: defaults.capacityKg || 2500,
+            baseMandi: defaults.baseMandi || "Pune APMC",
+            ratePerKm: defaults.ratePerKm || 28,
             isAvailable: true
+        });
+    }
+    return profile;
+}
+
+// Ensure mandi profile exists for a user
+async function ensureMandiProfile(userId, defaults = {}) {
+    let profile = await MandiProfile.findOne({ where: { userId } });
+    if (!profile) {
+        profile = await MandiProfile.create({
+            userId,
+            mandiName: defaults.mandiName || "Pune APMC Central Mandi",
+            licenseNumber: defaults.licenseNumber || `MH-APMC-LIC-${Math.floor(100000 + Math.random() * 900000)}`,
+            district: defaults.district || "Pune",
+            state: "Maharashtra",
+            operatingDays: defaults.operatingDays || "Mon-Sat",
+            contactPhone: defaults.phone || "9822012345",
+            contactEmail: defaults.email || "pune.apmc@harvestmitra.local",
+            facilities: defaults.facilities || "Electronic Auction, Direct Payment, Cold Storage, Modern Weighbridge"
         });
     }
     return profile;
@@ -74,17 +87,26 @@ const register = async (req, res) => {
             password,
             role = "farmer",
             // Farmer fields
-            district,
-            state,
+            district = "Pune",
+            state = "Maharashtra",
             village,
             farmSizeAcres,
-            preferredLanguage,
+            mainCrop,
+            customCrop,
+            currentHarvestKg,
+            productQuantities,
+            preferredLanguage = "en",
             // Transporter fields
             vehicleType,
             vehicleNumber,
             capacityKg,
             baseMandi,
-            ratePerKm
+            ratePerKm,
+            // Mandi fields
+            mandiName,
+            licenseNumber,
+            facilities,
+            operatingDays
         } = req.body;
 
         // 1. Validate Full Name
@@ -149,7 +171,7 @@ const register = async (req, res) => {
         // 7. Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const assignedRole = role === "transporter" ? "transporter" : "farmer";
+        const assignedRole = role === "transporter" ? "transporter" : role === "mandi" ? "mandi" : "farmer";
 
         // 8. Create user in MySQL
         const user = await User.create({
@@ -162,37 +184,53 @@ const register = async (req, res) => {
 
         let profile = null;
         let transporterProfile = null;
+        let mandiProfile = null;
 
         if (assignedRole === "transporter") {
             transporterProfile = await TransporterProfile.create({
                 userId: user.id,
                 driverName: name.trim(),
                 phone: cleanPhone,
-                vehicleType: vehicleType ? vehicleType.trim() : "Mahindra Bolero Maxi",
-                vehicleNumber: vehicleNumber ? vehicleNumber.trim().toUpperCase() : `GJ-05-TR-${Math.floor(1000 + Math.random() * 9000)}`,
-                capacityKg: capacityKg && !Number.isNaN(Number(capacityKg)) ? Number(capacityKg) : 2000,
-                baseMandi: baseMandi ? baseMandi.trim() : (district ? `${district.trim()} APMC` : "Surat APMC"),
-                ratePerKm: ratePerKm && !Number.isNaN(Number(ratePerKm)) ? Number(ratePerKm) : 25,
+                vehicleType: vehicleType ? vehicleType.trim() : "Tata 407 Agri LCV",
+                vehicleNumber: vehicleNumber ? vehicleNumber.trim().toUpperCase() : `MH-12-TR-${Math.floor(1000 + Math.random() * 9000)}`,
+                capacityKg: capacityKg && !Number.isNaN(Number(capacityKg)) ? Number(capacityKg) : 2500,
+                baseMandi: baseMandi ? baseMandi.trim() : `${district.trim()} APMC`,
+                ratePerKm: ratePerKm && !Number.isNaN(Number(ratePerKm)) ? Number(ratePerKm) : 28,
                 isAvailable: true
             });
+        } else if (assignedRole === "mandi") {
+            mandiProfile = await MandiProfile.create({
+                userId: user.id,
+                mandiName: mandiName ? mandiName.trim() : `${district.trim()} APMC Mandi`,
+                licenseNumber: licenseNumber ? licenseNumber.trim().toUpperCase() : `MH-APMC-LIC-${Math.floor(100000 + Math.random() * 900000)}`,
+                district: district ? district.trim() : "Pune",
+                state: "Maharashtra",
+                operatingDays: operatingDays || "Mon-Sat",
+                contactPhone: cleanPhone,
+                contactEmail: normalizedEmail,
+                facilities: facilities || "Electronic Auction, Direct Payment, Weighbridge, Cold Storage"
+            });
         } else {
-            const finalDistrict = district ? district.trim() : "Surat";
-            const finalState = detectStateFromDistrict(finalDistrict, state);
+            // Farmer
             profile = await FarmerProfile.create({
                 userId: user.id,
-                district: finalDistrict,
-                state: finalState,
+                district: district ? district.trim() : "Pune",
+                state: "Maharashtra",
                 village: village ? village.trim() : "",
                 farmSizeAcres: farmSizeAcres && !Number.isNaN(Number(farmSizeAcres)) ? Number(farmSizeAcres) : 3.5,
-                mainCrop: req.body.mainCrop ? String(req.body.mainCrop).trim() : "Tomato",
-                currentHarvestKg: req.body.currentHarvestKg && !Number.isNaN(Number(req.body.currentHarvestKg)) ? Number(req.body.currentHarvestKg) : 500,
+                mainCrop: mainCrop ? String(mainCrop).trim() : "Tomato",
+                customCrop: customCrop ? String(customCrop).trim() : null,
+                currentHarvestKg: currentHarvestKg && !Number.isNaN(Number(currentHarvestKg)) ? Number(currentHarvestKg) : 500,
+                productQuantities: productQuantities ? (typeof productQuantities === 'string' ? productQuantities : JSON.stringify(productQuantities)) : null,
                 preferredLanguage: preferredLanguage || "en"
             });
         }
 
+        const roleTitle = assignedRole === "transporter" ? "Transporter" : assignedRole === "mandi" ? "Mandi Official" : "Farmer";
+
         return res.status(201).json({
             success: true,
-            message: `Account registered successfully as ${assignedRole === "transporter" ? "Transporter" : "Farmer"}! Please login with your credentials.`,
+            message: `Account registered successfully as ${roleTitle}! Please login with your credentials.`,
             registeredEmail: user.email,
             role: user.role,
             user: {
@@ -202,7 +240,8 @@ const register = async (req, res) => {
                 phone: user.phone,
                 role: user.role,
                 FarmerProfile: profile,
-                TransporterProfile: transporterProfile
+                TransporterProfile: transporterProfile,
+                MandiProfile: mandiProfile
             }
         });
 
@@ -232,8 +271,6 @@ const login = async (req, res) => {
         const identifier = String(email).trim();
         const cleanPhone = identifier.replace(/\D/g, "").slice(-10);
 
-        const { Op } = require("sequelize");
-
         // Find user by either email OR 10-digit mobile number
         const user = await User.findOne({
             where: {
@@ -242,10 +279,13 @@ const login = async (req, res) => {
                     ...(cleanPhone && cleanPhone.length === 10 ? [{ phone: cleanPhone }] : [])
                 ]
             },
-            include: [{ model: FarmerProfile }, { model: TransporterProfile }]
+            include: [
+                { model: FarmerProfile },
+                { model: TransporterProfile },
+                { model: MandiProfile }
+            ]
         });
 
-        // Specific error if account does not exist
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -253,7 +293,6 @@ const login = async (req, res) => {
             });
         }
 
-        // Verify password
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
 
         if (!isPasswordCorrect) {
@@ -269,6 +308,9 @@ const login = async (req, res) => {
         }
         if (user.role === "transporter" && !user.TransporterProfile) {
             user.TransporterProfile = await ensureTransporterProfile(user.id, { name: user.name, phone: user.phone });
+        }
+        if (user.role === "mandi" && !user.MandiProfile) {
+            user.MandiProfile = await ensureMandiProfile(user.id, { name: user.name, phone: user.phone, email: user.email });
         }
 
         const token = jwt.sign(
@@ -300,7 +342,11 @@ const getMe = async (req, res) => {
     try {
         const user = await User.findByPk(req.user.id, {
             attributes: { exclude: ["password"] },
-            include: [{ model: FarmerProfile }, { model: TransporterProfile }]
+            include: [
+                { model: FarmerProfile },
+                { model: TransporterProfile },
+                { model: MandiProfile }
+            ]
         });
 
         if (!user) {
@@ -317,6 +363,10 @@ const getMe = async (req, res) => {
         if (user.role === "transporter" && !user.TransporterProfile) {
             const profile = await ensureTransporterProfile(user.id, { name: user.name, phone: user.phone });
             user.setDataValue("TransporterProfile", profile);
+        }
+        if (user.role === "mandi" && !user.MandiProfile) {
+            const profile = await ensureMandiProfile(user.id, { name: user.name, phone: user.phone, email: user.email });
+            user.setDataValue("MandiProfile", profile);
         }
 
         return res.status(200).json({
@@ -344,7 +394,7 @@ const demoLogin = async (req, res) => {
     try {
         const user = await User.findOne({
             where: { email: "demo@harvestmitra.local" },
-            include: [{ model: FarmerProfile }]
+            include: [{ model: FarmerProfile }, { model: TransporterProfile }, { model: MandiProfile }]
         });
 
         if (!user) {
@@ -353,11 +403,11 @@ const demoLogin = async (req, res) => {
 
         if (!user.FarmerProfile) {
             const profile = await ensureFarmerProfile(user.id, {
-                district: "Surat",
-                state: "Gujarat",
-                village: "Olpad",
-                farmSizeAcres: 4.5,
-                preferredLanguage: "gu"
+                district: "Pune",
+                state: "Maharashtra",
+                village: "Haveli",
+                farmSizeAcres: 3.5,
+                preferredLanguage: "mr"
             });
             user.setDataValue("FarmerProfile", profile);
         }
@@ -390,10 +440,19 @@ const updateProfile = async (req, res) => {
             name,
             phone,
             district,
-            state,
+            state = "Maharashtra",
             village,
             farmSizeAcres,
-            preferredLanguage
+            preferredLanguage,
+            mainCrop,
+            customCrop,
+            currentHarvestKg,
+            productQuantities,
+            // Mandi fields
+            mandiName,
+            licenseNumber,
+            facilities,
+            operatingDays
         } = req.body;
 
         const user = await User.findByPk(userId);
@@ -401,52 +460,47 @@ const updateProfile = async (req, res) => {
             return res.status(404).json({ success: false, message: "User not found" });
         }
 
-        // Update User table fields
         if (name && name.trim()) user.name = name.trim();
         if (phone !== undefined) user.phone = phone ? phone.trim() : null;
         await user.save();
 
         // Update or create FarmerProfile for farmer
-        if (user.role === "farmer" || district || farmSizeAcres || req.body.mainCrop) {
+        if (user.role === "farmer" || district || farmSizeAcres || mainCrop) {
             let profile = await FarmerProfile.findOne({ where: { userId } });
             if (!profile) {
-                const finalDistrict = district ? district.trim() : "Surat";
-                const finalState = detectStateFromDistrict(finalDistrict, state);
                 profile = await FarmerProfile.create({
                     userId,
-                    district: finalDistrict,
-                    state: finalState,
+                    district: district ? district.trim() : "Pune",
+                    state: "Maharashtra",
                     village: village || "",
-                    farmSizeAcres: farmSizeAcres ? Number(farmSizeAcres) : 2.5,
-                    mainCrop: req.body.mainCrop || "Tomato",
-                    currentHarvestKg: req.body.currentHarvestKg ? Number(req.body.currentHarvestKg) : 500,
+                    farmSizeAcres: farmSizeAcres ? Number(farmSizeAcres) : 3.5,
+                    mainCrop: mainCrop || "Tomato",
+                    customCrop: customCrop || null,
+                    currentHarvestKg: currentHarvestKg ? Number(currentHarvestKg) : 500,
+                    productQuantities: productQuantities ? (typeof productQuantities === 'string' ? productQuantities : JSON.stringify(productQuantities)) : null,
                     preferredLanguage: preferredLanguage || "en"
                 });
             } else {
-                if (district !== undefined) {
-                    profile.district = district.trim();
-                    profile.state = detectStateFromDistrict(district.trim(), state || profile.state);
-                } else if (state !== undefined) {
-                    profile.state = state.trim();
-                }
+                if (district !== undefined) profile.district = district.trim();
+                profile.state = "Maharashtra";
                 if (village !== undefined) profile.village = village.trim();
                 if (farmSizeAcres !== undefined && !Number.isNaN(Number(farmSizeAcres))) {
                     profile.farmSizeAcres = Number(farmSizeAcres);
                 }
-                if (req.body.mainCrop !== undefined) {
-                    profile.mainCrop = String(req.body.mainCrop).trim();
+                if (mainCrop !== undefined) profile.mainCrop = String(mainCrop).trim();
+                if (customCrop !== undefined) profile.customCrop = customCrop ? String(customCrop).trim() : null;
+                if (currentHarvestKg !== undefined && !Number.isNaN(Number(currentHarvestKg))) {
+                    profile.currentHarvestKg = Number(currentHarvestKg);
                 }
-                if (req.body.currentHarvestKg !== undefined && !Number.isNaN(Number(req.body.currentHarvestKg))) {
-                    profile.currentHarvestKg = Number(req.body.currentHarvestKg);
+                if (productQuantities !== undefined) {
+                    profile.productQuantities = typeof productQuantities === 'string' ? productQuantities : JSON.stringify(productQuantities);
                 }
-                if (preferredLanguage !== undefined) {
-                    profile.preferredLanguage = preferredLanguage;
-                }
+                if (preferredLanguage !== undefined) profile.preferredLanguage = preferredLanguage;
                 await profile.save();
             }
         }
 
-        // Update or create TransporterProfile for transporter
+        // Update or create TransporterProfile
         if (user.role === "transporter" || req.body.vehicleNumber || req.body.vehicleType) {
             let transProfile = await TransporterProfile.findOne({ where: { userId } });
             if (!transProfile) {
@@ -454,11 +508,11 @@ const updateProfile = async (req, res) => {
                     userId,
                     driverName: name ? name.trim() : user.name,
                     phone: phone ? phone.trim() : user.phone,
-                    vehicleType: req.body.vehicleType ? req.body.vehicleType.trim() : "Mahindra Bolero Maxi Truck",
-                    vehicleNumber: req.body.vehicleNumber ? req.body.vehicleNumber.trim().toUpperCase() : "GJ-05-BX-4921",
-                    capacityKg: req.body.capacityKg ? Number(req.body.capacityKg) : 2200,
-                    baseMandi: req.body.baseMandi ? req.body.baseMandi.trim() : "Surat APMC",
-                    ratePerKm: req.body.ratePerKm ? Number(req.body.ratePerKm) : 25,
+                    vehicleType: req.body.vehicleType ? req.body.vehicleType.trim() : "Tata 407 Agri LCV",
+                    vehicleNumber: req.body.vehicleNumber ? req.body.vehicleNumber.trim().toUpperCase() : "MH-12-TR-4921",
+                    capacityKg: req.body.capacityKg ? Number(req.body.capacityKg) : 2500,
+                    baseMandi: req.body.baseMandi ? req.body.baseMandi.trim() : "Pune APMC",
+                    ratePerKm: req.body.ratePerKm ? Number(req.body.ratePerKm) : 28,
                     isAvailable: req.body.isAvailable !== undefined ? Boolean(req.body.isAvailable) : true
                 });
             } else {
@@ -480,10 +534,40 @@ const updateProfile = async (req, res) => {
             }
         }
 
-        // Fetch refreshed user with both potential profiles
+        // Update or create MandiProfile
+        if (user.role === "mandi" || mandiName || licenseNumber) {
+            let mProfile = await MandiProfile.findOne({ where: { userId } });
+            if (!mProfile) {
+                mProfile = await MandiProfile.create({
+                    userId,
+                    mandiName: mandiName || `${user.name} APMC`,
+                    licenseNumber: licenseNumber || "MH-APMC-LIC-411001",
+                    district: district || "Pune",
+                    state: "Maharashtra",
+                    operatingDays: operatingDays || "Mon-Sat",
+                    contactPhone: phone || user.phone,
+                    contactEmail: user.email,
+                    facilities: facilities || "Electronic Auction, Direct Payment, Cold Storage, Modern Weighbridge"
+                });
+            } else {
+                if (mandiName) mProfile.mandiName = mandiName.trim();
+                if (licenseNumber) mProfile.licenseNumber = licenseNumber.trim().toUpperCase();
+                if (district) mProfile.district = district.trim();
+                mProfile.state = "Maharashtra";
+                if (operatingDays) mProfile.operatingDays = operatingDays.trim();
+                if (phone) mProfile.contactPhone = phone.trim();
+                if (facilities) mProfile.facilities = facilities.trim();
+                await mProfile.save();
+            }
+        }
+
         const updatedUser = await User.findByPk(userId, {
             attributes: { exclude: ["password"] },
-            include: [{ model: FarmerProfile }, { model: TransporterProfile }]
+            include: [
+                { model: FarmerProfile },
+                { model: TransporterProfile },
+                { model: MandiProfile }
+            ]
         });
 
         return res.json({
@@ -500,10 +584,250 @@ const updateProfile = async (req, res) => {
     }
 };
 
+// ==========================================
+// MANDI-FARMER CONTACT REQUESTS (Req 8)
+// ==========================================
+
+// Create a new contact request
+const createContactRequest = async (req, res) => {
+    try {
+        const senderId = req.user.id;
+        const sender = await User.findByPk(senderId, {
+            include: [{ model: FarmerProfile }, { model: MandiProfile }]
+        });
+
+        if (!sender) {
+            return res.status(404).json({ success: false, message: "Sender not found" });
+        }
+
+        const {
+            receiverId,
+            cropName,
+            quantityKg,
+            proposedPricePerKg,
+            message,
+            contactType
+        } = req.body;
+
+        if (!receiverId || !cropName) {
+            return res.status(400).json({
+                success: false,
+                message: "Receiver ID and Crop Name are required"
+            });
+        }
+
+        const receiver = await User.findByPk(receiverId, {
+            include: [{ model: FarmerProfile }, { model: MandiProfile }]
+        });
+
+        if (!receiver) {
+            return res.status(404).json({ success: false, message: "Target user not found" });
+        }
+
+        const qty = Number(quantityKg);
+        if (Number.isNaN(qty) || qty <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Please enter a valid positive quantity (in kg)"
+            });
+        }
+
+        const contactReq = await ContactRequest.create({
+            senderId,
+            senderName: sender.name,
+            senderRole: sender.role,
+            senderContact: sender.phone || sender.email,
+            receiverId: receiver.id,
+            receiverName: receiver.name,
+            receiverRole: receiver.role,
+            cropName: String(cropName).trim(),
+            quantityKg: qty,
+            proposedPricePerKg: proposedPricePerKg ? Number(proposedPricePerKg) : null,
+            message: message ? String(message).trim() : `Inquiry regarding ${qty} kg of ${cropName}.`,
+            status: "pending",
+            contactType: contactType || (sender.role === 'mandi' ? 'mandi_to_farmer' : 'farmer_to_mandi')
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: "Contact request submitted successfully and recorded persistently in database.",
+            data: contactReq
+        });
+    } catch (error) {
+        console.error("Create Contact Request error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to submit contact request"
+        });
+    }
+};
+
+// Retrieve contact requests for current user (both sent and received)
+const getContactRequests = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const requests = await ContactRequest.findAll({
+            where: {
+                [Op.or]: [
+                    { senderId: userId },
+                    { receiverId: userId }
+                ]
+            },
+            order: [["createdAt", "DESC"]]
+        });
+
+        return res.json({
+            success: true,
+            count: requests.length,
+            data: requests
+        });
+    } catch (error) {
+        console.error("Get Contact Requests error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to retrieve contact requests"
+        });
+    }
+};
+
+// Update status of a contact request (e.g. accepted / declined)
+const updateContactRequestStatus = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+        const { status } = req.body;
+
+        if (!['accepted', 'declined', 'pending'].includes(status)) {
+            return res.status(400).json({ success: false, message: "Invalid status value" });
+        }
+
+        const contactReq = await ContactRequest.findByPk(id);
+        if (!contactReq) {
+            return res.status(404).json({ success: false, message: "Contact request not found" });
+        }
+
+        // Only receiver can accept or decline
+        if (contactReq.receiverId !== userId && contactReq.senderId !== userId) {
+            return res.status(403).json({ success: false, message: "Not authorized to update this contact request" });
+        }
+
+        contactReq.status = status;
+        await contactReq.save();
+
+        return res.json({
+            success: true,
+            message: `Contact request marked as ${status}.`,
+            data: contactReq
+        });
+    } catch (error) {
+        console.error("Update Contact Request Status error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to update contact request"
+        });
+    }
+};
+
+// Discover relevant registered farmers for Mandi users
+const getRelevantFarmers = async (req, res) => {
+    try {
+        const { crop, district } = req.query;
+        const where = { role: "farmer" };
+        const profileWhere = { state: "Maharashtra" };
+
+        if (district && district.trim()) {
+            profileWhere.district = { [Op.like]: `%${district.trim()}%` };
+        }
+        if (crop && crop.trim()) {
+            profileWhere[Op.or] = [
+                { mainCrop: { [Op.like]: `%${crop.trim()}%` } },
+                { customCrop: { [Op.like]: `%${crop.trim()}%` } }
+            ];
+        }
+
+        const farmers = await User.findAll({
+            where,
+            attributes: ["id", "name", "email", "phone"],
+            include: [{
+                model: FarmerProfile,
+                where: profileWhere,
+                required: true
+            }],
+            limit: 50
+        });
+
+        return res.json({
+            success: true,
+            count: farmers.length,
+            data: farmers.map(f => ({
+                id: f.id,
+                name: f.name,
+                phone: f.phone,
+                email: f.email,
+                district: f.FarmerProfile?.district,
+                village: f.FarmerProfile?.village,
+                farmSizeAcres: f.FarmerProfile?.farmSizeAcres,
+                mainCrop: f.FarmerProfile?.mainCrop,
+                customCrop: f.FarmerProfile?.customCrop,
+                currentHarvestKg: f.FarmerProfile?.currentHarvestKg,
+                productQuantities: f.FarmerProfile?.productQuantities
+            }))
+        });
+    } catch (error) {
+        console.error("Get Relevant Farmers error:", error);
+        return res.status(500).json({ success: false, message: "Failed to query farmers" });
+    }
+};
+
+// Discover registered Mandis for Farmers
+const getRelevantMandis = async (req, res) => {
+    try {
+        const { district } = req.query;
+        const where = { state: "Maharashtra" };
+        if (district && district.trim()) {
+            where.district = { [Op.like]: `%${district.trim()}%` };
+        }
+
+        const mandis = await MandiProfile.findAll({
+            where,
+            include: [{
+                model: User,
+                attributes: ["id", "name", "email", "phone"]
+            }],
+            limit: 50
+        });
+
+        return res.json({
+            success: true,
+            count: mandis.length,
+            data: mandis.map(m => ({
+                id: m.id,
+                userId: m.userId,
+                mandiName: m.mandiName,
+                licenseNumber: m.licenseNumber,
+                district: m.district,
+                state: m.state,
+                operatingDays: m.operatingDays,
+                contactPhone: m.contactPhone || m.User?.phone,
+                contactEmail: m.contactEmail || m.User?.email,
+                facilities: m.facilities
+            }))
+        });
+    } catch (error) {
+        console.error("Get Relevant Mandis error:", error);
+        return res.status(500).json({ success: false, message: "Failed to query mandis" });
+    }
+};
+
 module.exports = {
     register,
     login,
     getMe,
     demoLogin,
-    updateProfile
+    updateProfile,
+    createContactRequest,
+    getContactRequests,
+    updateContactRequestStatus,
+    getRelevantFarmers,
+    getRelevantMandis
 };

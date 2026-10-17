@@ -28,17 +28,17 @@ function normalizeTransportInput(body, reqUser = {}) {
         ? Number(body.estimatedSharedCost)
         : Math.max(500, Math.round((weightKg / 1000) * 1800));
 
-    // Generate official digital gate pass code
-    const gatePassCode = `GJ-APMC-${Math.floor(100000 + Math.random() * 900000)}`;
+    // Generate official digital gate pass code for Maharashtra APMC
+    const gatePassCode = `MH-APMC-${Math.floor(100000 + Math.random() * 900000)}`;
 
     // Estimate duration in minutes based on destination
     const dest = String(body.destinationMarket).toLowerCase();
     let estimatedDurationMinutes = 120;
-    if (dest.includes("ahmedabad")) estimatedDurationMinutes = 240;
-    else if (dest.includes("mumbai") || dest.includes("vashi")) estimatedDurationMinutes = 360;
-    else if (dest.includes("pune")) estimatedDurationMinutes = 420;
-    else if (dest.includes("rajkot")) estimatedDurationMinutes = 300;
-    else if (dest.includes("surat")) estimatedDurationMinutes = 90;
+    if (dest.includes("mumbai") || dest.includes("vashi")) estimatedDurationMinutes = 210;
+    else if (dest.includes("nagpur")) estimatedDurationMinutes = 660;
+    else if (dest.includes("nashik") || dest.includes("lasalgaon")) estimatedDurationMinutes = 240;
+    else if (dest.includes("kolhapur") || dest.includes("solapur")) estimatedDurationMinutes = 270;
+    else if (dest.includes("pune")) estimatedDurationMinutes = 90;
 
     return {
         fields: {
@@ -280,8 +280,8 @@ router.get("/transporter-stats", requireRole("transporter"), async (req, res) =>
                 activeTripsCount,
                 totalCargoDeliveredKg,
                 totalEarnings,
-                vehicleType: transporterProfile?.vehicleType || "Mahindra Bolero Maxi Truck",
-                vehicleNumber: transporterProfile?.vehicleNumber || "GJ-05-BX-4921",
+                vehicleType: transporterProfile?.vehicleType || "Tata 407 Agri LCV",
+                vehicleNumber: transporterProfile?.vehicleNumber || "MH-12-TR-4921",
                 capacityKg: transporterProfile?.capacityKg || 2200,
                 isAvailable: activeTripsCount === 0,
                 activeTrip: activeTrips[0] || null
@@ -330,7 +330,7 @@ router.put("/requests/:id/accept", requireRole("transporter"), async (req, res) 
         const driverName = req.body.driverName || transporterProfile?.driverName || req.user.name || "Assigned Driver";
         const driverPhone = req.body.driverPhone || transporterProfile?.phone || req.user.phone || "9876543210";
         const vehicleType = req.body.vehicleType || transporterProfile?.vehicleType || "Mahindra Bolero Maxi Truck";
-        const vehicleNumber = req.body.vehicleNumber || transporterProfile?.vehicleNumber || "GJ-05-BX-4921";
+        const vehicleNumber = req.body.vehicleNumber || transporterProfile?.vehicleNumber || "MH-12-TR-4921";
         const estimatedDurationMinutes = req.body.estimatedDurationMinutes || request.estimatedDurationMinutes || 150;
 
         await request.update({

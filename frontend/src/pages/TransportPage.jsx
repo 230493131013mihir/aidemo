@@ -49,11 +49,11 @@ export default function TransportPage() {
   const [cropName, setCropName] = useState('Tomato');
   const [pickupLocation, setPickupLocation] = useState(
     user?.FarmerProfile?.district
-      ? `${user.FarmerProfile.district}${user.FarmerProfile.state ? `, ${user.FarmerProfile.state}` : ''}`
-      : 'Surat, Gujarat'
+      ? `${user.FarmerProfile.district}, Maharashtra`
+      : 'Pune, Maharashtra'
   );
   const [destination, setDestination] = useState(
-    user?.FarmerProfile?.district ? `${user.FarmerProfile.district} APMC` : 'Surat APMC'
+    user?.FarmerProfile?.district ? `${user.FarmerProfile.district} APMC` : 'Pune APMC'
   );
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [weight, setWeight] = useState(user?.FarmerProfile?.currentHarvestKg ? Number(user.FarmerProfile.currentHarvestKg) : 500);

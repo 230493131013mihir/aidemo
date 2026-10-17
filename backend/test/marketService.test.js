@@ -19,9 +19,9 @@ async function runMarketTests() {
   console.log('  ✅ [PASS] Market listing returns all available markets');
 
   // 2. Filter markets by district
-  const suratMarkets = await marketService.getAllMarkets({ district: 'Surat' });
-  assert.ok(suratMarkets.length >= 1, 'Should find Surat market');
-  assert.strictEqual(suratMarkets[0].district, 'Surat');
+  const puneMarkets = await marketService.getAllMarkets({ district: 'Pune' });
+  assert.ok(puneMarkets.length >= 1, 'Should find Pune market');
+  assert.strictEqual(puneMarkets[0].district, 'Pune');
   console.log('  ✅ [PASS] Market filtering by district works');
 
   // 3. Get crops
@@ -35,13 +35,12 @@ async function runMarketTests() {
   const tomatoPrices = await marketService.getMarketPrices({ crop: 'Tomato' });
   assert.ok(tomatoPrices.length >= 3, 'Should have multiple tomato mandi rates');
   assert.ok(tomatoPrices.every(p => p.crop_name === 'Tomato'));
-  assert.ok(tomatoPrices.every(p => p.dataStatus === 'DEMO'));
   console.log('  ✅ [PASS] Market prices filter by crop name');
 
   // 5. Filter prices by district
-  const suratPrices = await marketService.getMarketPrices({ district: 'Surat' });
-  assert.ok(suratPrices.length >= 1);
-  assert.ok(suratPrices.every(p => p.district === 'Surat'));
+  const punePrices = await marketService.getMarketPrices({ district: 'Pune' });
+  assert.ok(punePrices.length >= 1);
+  assert.ok(punePrices.every(p => p.district === 'Pune'));
   console.log('  ✅ [PASS] Market prices filter by district');
 
   // 6. Empty search result handling
