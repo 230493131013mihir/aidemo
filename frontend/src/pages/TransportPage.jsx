@@ -14,10 +14,8 @@ import {
   Car, 
   Clock, 
   ArrowRight,
-  ShieldAlert,
-  Phone,
-  QrCode
 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import DigitalGatePassModal from '../components/transport/DigitalGatePassModal';

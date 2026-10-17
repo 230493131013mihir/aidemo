@@ -940,6 +940,58 @@ export default function AuthPage({ mode = 'login' }) {
                 </div>
               )}
 
+              {/* Farmer 1-Click Credentials Helper on Login */}
+              {!isRegister && role === 'farmer' && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs flex items-center justify-between gap-3 shadow-2xs">
+                  <div className="min-w-0">
+                    <p className="font-bold text-emerald-950 flex items-center gap-1.5">
+                      <Sprout className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Demo Farmer Account</span>
+                    </p>
+                    <p className="text-[11px] text-emerald-800 font-mono mt-0.5 truncate">
+                      demo@harvestmitra.local • Demo@12345
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateField('email', 'demo@harvestmitra.local');
+                      updateField('password', 'Demo@12345');
+                      setError('');
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all shrink-0 cursor-pointer"
+                  >
+                    ⚡ Auto-Fill
+                  </button>
+                </div>
+              )}
+
+              {/* Transporter 1-Click Credentials Helper on Login */}
+              {!isRegister && role === 'transporter' && (
+                <div className="p-3.5 rounded-2xl bg-teal-50 border border-teal-200 text-xs flex items-center justify-between gap-3 shadow-2xs">
+                  <div className="min-w-0">
+                    <p className="font-bold text-teal-950 flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5 text-teal-700" />
+                      <span>Verified Transporter (Suresh Pawar)</span>
+                    </p>
+                    <p className="text-[11px] text-teal-800 font-mono mt-0.5 truncate">
+                      suresh.transporter@harvestmitra.local • demo1234
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateField('email', 'suresh.transporter@harvestmitra.local');
+                      updateField('password', 'demo1234');
+                      setError('');
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all shrink-0 cursor-pointer"
+                  >
+                    ⚡ Auto-Fill
+                  </button>
+                </div>
+              )}
+
               {/* Admin 1-Click Credentials Helper on Login */}
               {!isRegister && role === 'admin' && (
                 <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs flex items-center justify-between gap-3 shadow-2xs">

@@ -11,7 +11,8 @@ import {
   Scale, 
   Volume2, 
   Copy,
-  ExternalLink
+  ExternalLink,
+  Download
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 
@@ -124,6 +125,66 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
     window.print();
   }
 
+  function handleDownloadPass() {
+    const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Official APMC Mandi Digital Gate Pass - ${passId}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1e293b; background: #f8fafc; }
+  .pass-card { max-width: 600px; margin: 0 auto; background: #ffffff; border: 2px solid #059669; border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .header { text-align: center; border-bottom: 2px dashed #10b981; padding-bottom: 20px; margin-bottom: 24px; }
+  .title { font-size: 22px; font-weight: 800; color: #065f46; margin: 0; }
+  .pass-id { font-size: 24px; font-weight: 900; font-family: monospace; color: #047857; letter-spacing: 2px; margin-top: 8px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .field { background: #f1f5f9; padding: 12px 16px; border-radius: 8px; }
+  .label { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 4px; }
+  .value { font-size: 14px; font-weight: 700; color: #0f172a; }
+  .footer { border-top: 1px solid #e2e8f0; padding-top: 16px; text-align: center; font-size: 12px; color: #64748b; }
+</style>
+</head>
+<body>
+<div class="pass-card">
+  <div class="header">
+    <div class="title">🌾 HarvestMitra Official APMC Mandi Gate Pass</div>
+    <div class="pass-id">${passId}</div>
+    <p style="margin: 4px 0 0; font-size: 12px; color: #059669; font-weight: 600;">e-NAM & State Mandi Authority Verified • Live Security Clearance</p>
+  </div>
+  <div class="grid">
+    <div class="field"><div class="label">Driver Name</div><div class="value">${booking.driverName || 'Suresh Pawar'}</div></div>
+    <div class="field"><div class="label">Vehicle Number</div><div class="value">${booking.vehicleNumber || 'MH-12-TR-4921'}</div></div>
+    <div class="field"><div class="label">Destination Mandi</div><div class="value">${booking.destinationMarket}</div></div>
+    <div class="field"><div class="label">Load (kg)</div><div class="value">${booking.weightKg} kg (${booking.cropName})</div></div>
+    <div class="field"><div class="label">Farmer Name</div><div class="value">${booking.farmerName}</div></div>
+    <div class="field"><div class="label">Pickup Location</div><div class="value">${booking.pickupLocation || 'Farm Gate'}</div></div>
+    <div class="field"><div class="label">Pickup Date</div><div class="value">${booking.pickupDate}</div></div>
+    <div class="field"><div class="label">Clearance Status</div><div class="value" style="color: #059669;">✅ VERIFIED E-PASS</div></div>
+  </div>
+  <div class="footer">
+    Authorized by APMC Security & Weighbridge Gateway • HarvestMitra Agri-Logistics
+  </div>
+</div>
+</body>
+</html>`;
+
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `GatePass_${passId}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast({
+      type: 'success',
+      title: 'Gate Pass Downloaded',
+      message: `Official Gate Pass ${passId} downloaded successfully.`,
+    });
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
       <div className="relative w-full max-w-lg rounded-3xl bg-white border border-border shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
@@ -204,23 +265,28 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
             {/* Core Details List */}
             <div className="space-y-2 text-xs">
               <div className="flex justify-between py-1 border-b border-border/60">
+                <span className="text-muted font-medium">Driver Name:</span>
+                <span className="font-bold text-text">{booking.driverName || 'Suresh Pawar'}</span>
+              </div>
+
+              <div className="flex justify-between py-1 border-b border-border/60">
+                <span className="text-muted font-medium">Vehicle Number:</span>
+                <span className="font-bold text-primary font-mono">{booking.vehicleNumber || 'MH-12-TR-4921'}</span>
+              </div>
+
+              <div className="flex justify-between py-1 border-b border-border/60">
+                <span className="text-muted font-medium">Destination Mandi:</span>
+                <span className="font-bold text-emerald-700">{booking.destinationMarket}</span>
+              </div>
+
+              <div className="flex justify-between py-1 border-b border-border/60">
+                <span className="text-muted font-medium">Load (kg):</span>
+                <span className="font-bold text-text font-mono">{booking.weightKg} kg ({booking.cropName})</span>
+              </div>
+
+              <div className="flex justify-between py-1 border-b border-border/60">
                 <span className="text-muted font-medium">Farmer Name:</span>
                 <span className="font-bold text-text">{booking.farmerName}</span>
-              </div>
-
-              <div className="flex justify-between py-1 border-b border-border/60">
-                <span className="text-muted font-medium">Produce / Crop:</span>
-                <span className="font-bold text-primary">{booking.cropName}</span>
-              </div>
-
-              <div className="flex justify-between py-1 border-b border-border/60">
-                <span className="text-muted font-medium">Shipment Weight:</span>
-                <span className="font-bold text-text font-mono">{booking.weightKg} kg</span>
-              </div>
-
-              <div className="flex justify-between py-1 border-b border-border/60">
-                <span className="text-muted font-medium">Destination APMC:</span>
-                <span className="font-bold text-emerald-700">{booking.destinationMarket}</span>
               </div>
 
               <div className="flex justify-between py-1 border-b border-border/60">
@@ -229,8 +295,8 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
               </div>
 
               <div className="flex justify-between py-1">
-                <span className="text-muted font-medium">Assigned Vehicle:</span>
-                <span className="font-semibold text-text">{booking.vehicleType || 'Shared Transport Pool'}</span>
+                <span className="text-muted font-medium">Vehicle Type:</span>
+                <span className="font-semibold text-text">{booking.vehicleType || 'Tata 407 Agri LCV'}</span>
               </div>
             </div>
           </div>
@@ -249,14 +315,14 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
 
         {/* Modal Actions Footer */}
         <div className="p-4 border-t border-border bg-slate-50 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={handleCopyPassId}
               className="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-xs font-bold text-text flex items-center gap-1.5 transition-colors"
             >
               <Copy className="w-3.5 h-3.5" />
-              <span>Copy Pass ID</span>
+              <span>Copy ID</span>
             </button>
 
             <button
@@ -265,7 +331,17 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
               className="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-xs font-bold text-text flex items-center gap-1.5 transition-colors"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print Gate Pass</span>
+              <span>Print Pass</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadPass}
+              className="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-xs font-bold text-text flex items-center gap-1.5 transition-colors"
+              title="Download Gate Pass File"
+            >
+              <Download className="w-3.5 h-3.5 text-primary" />
+              <span>Download Pass</span>
             </button>
           </div>
 

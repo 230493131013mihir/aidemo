@@ -271,7 +271,7 @@ router.get("/transporter-stats", requireRole("transporter"), async (req, res) =>
         const totalCargoDeliveredKg = completedTrips.reduce((acc, r) => acc + (r.weightKg || 0), 0);
         const totalEarnings = completedTrips.reduce((acc, r) => acc + (r.estimatedSharedCost || 0), 0);
 
-        const transporterProfile = await TransporterProfile.findOne({ where: { userId: transporterId } });
+        const transporterProfile = await TransporterProfile.findOne({ where: { userId: req.user.id } });
 
         return res.json({
             success: true,

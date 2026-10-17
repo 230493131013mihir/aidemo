@@ -1,7 +1,7 @@
 require("dotenv").config();
 const bcrypt = require("bcryptjs");
 const sequelize = require("./config/database");
-const { User, AdminUser, Crop, Market, MarketPrice } = require("./models");
+const { User, AdminUser, FarmerProfile, TransporterProfile, TransportRequest, Crop, Market, MarketPrice } = require("./models");
 
 async function seed() {
     await sequelize.authenticate();
@@ -9,6 +9,8 @@ async function seed() {
 
     const demoPassword = await bcrypt.hash(process.env.DEMO_PASSWORD || "Demo@12345", 10);
     const adminPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || "Admin@12345", 10);
+    const transporterPassword = await bcrypt.hash("demo1234", 10);
+
     const [demoUser] = await User.findOrCreate({
         where: { email: "demo@harvestmitra.local" },
         defaults: {
@@ -19,6 +21,21 @@ async function seed() {
             role: "farmer"
         }
     });
+
+    await FarmerProfile.findOrCreate({
+        where: { userId: demoUser.id },
+        defaults: {
+            userId: demoUser.id,
+            district: "Pune",
+            state: "Maharashtra",
+            village: "Narayangaon",
+            farmSizeAcres: 4.5,
+            mainCrop: "Tomato",
+            currentHarvestKg: 1800,
+            preferredLanguage: "mr"
+        }
+    });
+
     const [adminUser] = await User.findOrCreate({
         where: { email: "admin@harvestmitra.local" },
         defaults: {
@@ -32,6 +49,61 @@ async function seed() {
     await AdminUser.findOrCreate({
         where: { userId: adminUser.id },
         defaults: { userId: adminUser.id, displayName: adminUser.name }
+    });
+
+    const [sureshUser] = await User.findOrCreate({
+        where: { email: "suresh.transporter@harvestmitra.local" },
+        defaults: {
+            name: "Suresh Pawar",
+            email: "suresh.transporter@harvestmitra.local",
+            phone: "9876543210",
+            password: transporterPassword,
+            role: "transporter"
+        }
+    });
+    await sureshUser.update({ password: transporterPassword });
+
+    await TransporterProfile.findOrCreate({
+        where: { userId: sureshUser.id },
+        defaults: {
+            userId: sureshUser.id,
+            driverName: "Suresh Pawar",
+            phone: "9876543210",
+            vehicleType: "Tata 407 Agri LCV",
+            vehicleNumber: "MH-12-TR-4921",
+            capacityKg: 2500,
+            baseMandi: "Pune APMC",
+            ratePerKm: 28,
+            isAvailable: false
+        }
+    });
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    await TransportRequest.findOrCreate({
+        where: {
+            transporterId: sureshUser.id,
+            status: "in_transit"
+        },
+        defaults: {
+            userId: demoUser.id,
+            transporterId: sureshUser.id,
+            farmerName: "Mihir Jadav",
+            farmerPhone: "9999999991",
+            driverName: "Suresh Pawar",
+            driverPhone: "9876543210",
+            cropName: "Tomato",
+            pickupLocation: "Narayangaon, Junnar, Pune",
+            destinationMarket: "Pune APMC",
+            pickupDate: todayStr,
+            weightKg: 1800,
+            vehicleType: "Tata 407 Agri LCV",
+            vehicleNumber: "MH-12-TR-4921",
+            status: "in_transit",
+            estimatedDurationMinutes: 90,
+            tripStartTime: new Date(),
+            estimatedSharedCost: 3200,
+            gatePassCode: "MH-APMC-923736"
+        }
     });
 
     const cropsToSeed = [
@@ -196,6 +268,7 @@ async function seed() {
     }
 
     console.log("Seed complete. Demo: demo@harvestmitra.local / Demo@12345");
+    console.log("Transporter: suresh.transporter@harvestmitra.local / demo1234");
     console.log("Admin: admin@harvestmitra.local / Admin@12345");
     console.log(`Created or verified demo user ${demoUser.id} and ${crops.length} crops across ${markets.length} markets.`);
 }
