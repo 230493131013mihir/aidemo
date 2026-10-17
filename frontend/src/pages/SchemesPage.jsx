@@ -27,6 +27,7 @@ import {
 import SchemeCard from '../components/schemes/SchemeCard';
 import SchemeFinderWizard from '../components/schemes/SchemeFinderWizard';
 import SchemeDetailModal from '../components/schemes/SchemeDetailModal';
+import VoiceSearchButton from '../components/common/VoiceSearchButton';
 
 const CATEGORIES = [
   { id: 'all', label: 'All Schemes' },
@@ -63,14 +64,14 @@ export default function SchemesPage() {
   const [isMatchActive, setIsMatchActive] = useState(false);
 
   // Load schemes from backend
-  async function loadSchemes() {
+  async function loadSchemes(query = search) {
     setLoading(true);
     setError('');
     try {
       const res = await fetchSchemes({
         category: selectedCategory,
         state: selectedState,
-        search
+        search: query
       });
       setSchemes(res.data || []);
       setIsMatchActive(false);
@@ -247,15 +248,25 @@ export default function SchemesPage() {
       <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
           {/* Search Box */}
-          <div className="md:col-span-6 relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && loadSchemes()}
-              placeholder="Search schemes by name, department, or keyword (e.g. PM-KISAN, Drip, Tractor)..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-300 bg-slate-50/50 text-xs sm:text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+          <div className="md:col-span-6 relative flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                id="schemes-search-input"
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && loadSchemes(search)}
+                placeholder="Search schemes by name, department, or keyword (e.g. PM-KISAN, Drip, Tractor)..."
+                className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-300 bg-slate-50/50 text-xs sm:text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            <VoiceSearchButton
+              id="schemes-voice-search-btn"
+              onResult={(transcript) => {
+                setSearch(transcript);
+                loadSchemes(transcript);
+              }}
             />
           </div>
 

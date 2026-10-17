@@ -1,12 +1,14 @@
-import React from 'react';
-import { TrendingUp, Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { TrendingUp, Sparkles, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import MarketPriceExplorer from '../components/market/MarketPriceExplorer';
+import VoiceSearchButton from '../components/common/VoiceSearchButton';
 
 export default function MarketsPage() {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleSelectMarketForSimulator = (market) => {
     navigate('/harvest', { state: { selectedMarket: market } });
@@ -29,8 +31,27 @@ export default function MarketsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="badge-tag bg-primary/10 text-primary border border-primary/20">
+        <div className="flex items-center gap-3">
+          {/* Quick Voice / Text Search Input in Header */}
+          <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-border shadow-xs">
+            <div className="relative">
+              <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                id="markets-page-search"
+                type="text"
+                placeholder={t('markets.voiceSearchPlaceholder', 'Speak or search crop...')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-3 py-1.5 text-xs sm:text-sm bg-slate-50 border border-border rounded-xl text-text focus:outline-none focus:bg-white focus:border-primary w-44 sm:w-56"
+              />
+            </div>
+            <VoiceSearchButton
+              id="markets-page-voice-search-btn"
+              onResult={(transcript) => setSearchQuery(transcript)}
+            />
+          </div>
+
+          <span className="badge-tag bg-primary/10 text-primary border border-primary/20 hidden md:inline-flex">
             <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Live APMC Mandi Data</span>
           </span>
@@ -40,6 +61,8 @@ export default function MarketsPage() {
       {/* Live Market Price Explorer */}
       <div className="w-full">
         <MarketPriceExplorer
+          key={searchQuery}
+          initialSearchQuery={searchQuery}
           selectedLanguage={language || 'en'}
           onSelectMarketForSimulator={handleSelectMarketForSimulator}
         />

@@ -21,6 +21,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import DigitalGatePassModal from '../components/transport/DigitalGatePassModal';
+import CorridorFreightCalculator from '../components/transport/CorridorFreightCalculator';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
@@ -87,6 +88,25 @@ export default function TransportPage() {
   const activeFarmerBooking = useMemo(() => {
     return myRequests.find((r) => ['accepted', 'in_transit'].includes(r.status)) || (myRequests.length > 0 ? myRequests[0] : null);
   }, [myRequests]);
+
+  // Apply selected highway corridor to booking form
+  const handleApplyCorridor = (data) => {
+    setActiveTab('farmer');
+    if (data.origin) setPickupLocation(data.origin);
+    if (data.destination) setDestination(data.destination);
+    if (data.weightKg) setWeight(Number(data.weightKg));
+    showToast({
+      type: 'success',
+      title: '🛣️ Corridor Applied!',
+      message: `Applied ${data.corridor.name} (${data.corridor.distanceKm} km). Estimated shared freight: ₹${data.calculations.sharedCost} (saves ₹${data.calculations.savings}).`,
+    });
+    setTimeout(() => {
+      const formElement = document.getElementById('booking-dispatch-form');
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 100);
+  };
 
   // Sync inputs when user profile loads
   useEffect(() => {
@@ -846,8 +866,15 @@ export default function TransportPage() {
             </section>
           )}
 
+          {/* Real-Time Freight Cost Calculator & Highway Distance Estimator Widget */}
+          <CorridorFreightCalculator
+            onApplyCorridor={handleApplyCorridor}
+            defaultWeight={weight}
+          />
+
           {/* Farmer booking and request form */}
           {!isUserTransporter && <form
+            id="booking-dispatch-form"
             onSubmit={saveTransportRequest}
             className="rounded-3xl border border-border bg-white p-6 shadow-sm space-y-4"
           >
