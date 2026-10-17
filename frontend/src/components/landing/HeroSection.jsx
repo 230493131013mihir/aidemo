@@ -80,6 +80,12 @@ export default function HeroSection() {
               </Link>
             </div>
 
+            {/* Universal Guest Mode Access Notice */}
+            <div className="flex items-center justify-center lg:justify-start gap-2 text-xs text-emerald-300 font-semibold pt-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>⚡ Full Access Without Login — Use All Features Interactively in Guest Mode</span>
+            </div>
+
             {/* Trust points */}
             <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
               <div className="flex items-center gap-2 text-xs text-slate-200/90 bg-black/20 p-2.5 rounded-xl border border-white/10 backdrop-blur-sm">
