@@ -42,41 +42,121 @@ export default function DashboardPage() {
   }
 
   // 3. Farmer views full crop analytics & harvest decision dashboard
-  const farmerCrop = user?.FarmerProfile?.mainCrop || 'Tomato';
-  const farmerDistrict = user?.FarmerProfile?.district || 'Pune';
-  const quantityKg = Number(user?.FarmerProfile?.currentHarvestKg) || 500;
+  const profile = user?.FarmerProfile;
+  const farmerCrop = profile?.mainCrop || 'Tomato';
+  const farmerDistrict = profile?.district || 'Pune';
 
-  const [livePrice, setLivePrice] = useState(null);
+  // Parse multi-crop list and product quantities map
+  const cropsList = farmerCrop !== 'Not set'
+    ? farmerCrop.split(',').map(c => c.trim()).filter(Boolean)
+    : ['Tomato'];
+
+  let quantitiesMap = {};
+  if (typeof profile?.productQuantities === 'string') {
+    try {
+      quantitiesMap = JSON.parse(profile.productQuantities);
+    } catch (e) {}
+  } else if (typeof profile?.productQuantities === 'object' && profile?.productQuantities !== null) {
+    quantitiesMap = profile.productQuantities;
+  }
+
+  // Calculate per-crop harvest breakdown
+  const cropHarvestBreakdown = cropsList.map(crop => {
+    const entry = quantitiesMap[crop];
+    if (entry && entry.qty) {
+      const val = Number(entry.qty) || 0;
+      const kg = entry.unit === 'tonne' ? val * 1000 : val;
+      return { crop, qty: kg };
+    }
+    const fallbackTotal = Number(profile?.currentHarvestKg) || 500;
+    return { crop, qty: Math.round(fallbackTotal / (cropsList.length || 1)) };
+  });
+
+  const totalQuantityKg = cropHarvestBreakdown.reduce((sum, c) => sum + c.qty, 0);
+
+  // Live prices per crop map: { [crop]: { pricePerKg, market } }
+  const [livePricesMap, setLivePricesMap] = useState({});
   const [loadingPrice, setLoadingPrice] = useState(true);
 
   useEffect(() => {
-    async function loadLiveMandiPrice() {
+    async function loadLiveMandiPrices() {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/market/prices?commodity=${encodeURIComponent(farmerCrop)}&limit=30`);
-        const result = await response.json();
+        const prices = {};
+        await Promise.all(
+          cropsList.map(async (crop) => {
+            try {
+              const res = await fetch(`${API_BASE_URL}/api/market/prices?commodity=${encodeURIComponent(crop)}&state=Maharashtra&limit=30`);
+              const json = await res.json();
+              if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+                const matched = json.data.find(
+                  (p) => p.district?.toLowerCase() === farmerDistrict.toLowerCase() ||
+                         (p.market_name || p.market)?.toLowerCase().includes(farmerDistrict.toLowerCase())
+                ) || json.data[0];
 
-        if (result.success && Array.isArray(result.data) && result.data.length > 0) {
-          // Find matching market for user district, or fallback to first
-          const matched = result.data.find(
-            (p) => p.district?.toLowerCase() === farmerDistrict.toLowerCase() || p.market?.toLowerCase().includes(farmerDistrict.toLowerCase())
-          ) || result.data[0];
-
-          setLivePrice(matched);
-        }
+                const rate = Number(matched.price_per_kg || matched.pricePerKg || matched.modal_price || matched.modalPrice) || 28;
+                const mkt = matched.market_name || matched.market || `${farmerDistrict} APMC`;
+                prices[crop] = { pricePerKg: rate, market: mkt };
+              } else {
+                const defaultRate = crop.toLowerCase().includes('cotton') ? 75.65
+                  : crop.toLowerCase().includes('wheat') ? 29.55
+                  : crop.toLowerCase().includes('onion') ? 24.50
+                  : crop.toLowerCase().includes('potato') ? 18.00
+                  : crop.toLowerCase().includes('soybean') ? 48.00
+                  : 28.00;
+                prices[crop] = { pricePerKg: defaultRate, market: `${farmerDistrict} APMC` };
+              }
+            } catch (err) {
+              const defaultRate = crop.toLowerCase().includes('cotton') ? 75.65
+                : crop.toLowerCase().includes('wheat') ? 29.55
+                : 28.00;
+              prices[crop] = { pricePerKg: defaultRate, market: `${farmerDistrict} APMC` };
+            }
+          })
+        );
+        setLivePricesMap(prices);
       } catch (err) {
-        console.warn('Could not fetch live dashboard price, using fallback:', err.message);
+        console.warn('Could not fetch live dashboard prices:', err.message);
       } finally {
         setLoadingPrice(false);
       }
     }
 
-    loadLiveMandiPrice();
+    loadLiveMandiPrices();
   }, [user, farmerCrop, farmerDistrict]);
 
-  // Derived live market figures
-  const currentPricePerKg = livePrice ? Number(livePrice.pricePerKg) : 22;
-  const estimatedRevenue = Math.round(quantityKg * currentPricePerKg);
-  const marketName = livePrice ? livePrice.market : `${farmerDistrict} APMC`;
+  // Compute per-crop revenue and total
+  let totalEstimatedRevenue = 0;
+  const revenueBreakdown = cropHarvestBreakdown.map(({ crop, qty }) => {
+    const rate = livePricesMap[crop]?.pricePerKg || 28;
+    const rev = Math.round(qty * rate);
+    totalEstimatedRevenue += rev;
+    return { crop, qty, rate, revenue: rev };
+  });
+
+  const primaryMarketName = Object.values(livePricesMap)[0]?.market || `${farmerDistrict} APMC`;
+  const isMultiCrop = cropHarvestBreakdown.length > 1;
+
+  // Multi-crop StatCard items
+  const harvestItems = isMultiCrop
+    ? cropHarvestBreakdown.map(c => ({
+        label: c.crop,
+        value: `${c.qty.toLocaleString('en-IN')} kg`
+      }))
+    : null;
+
+  const priceItems = isMultiCrop
+    ? cropsList.map(c => ({
+        label: c,
+        value: `₹${(livePricesMap[c]?.pricePerKg || 28).toFixed(2)} / kg`
+      }))
+    : null;
+
+  const revenueItems = isMultiCrop
+    ? revenueBreakdown.map(r => ({
+        label: `${r.crop} (${r.qty} kg)`,
+        value: `₹${r.revenue.toLocaleString('en-IN')}`
+      }))
+    : null;
 
   return (
     <div className="space-y-6 sm:space-y-8 w-full max-w-7xl mx-auto pb-12">
@@ -95,27 +175,29 @@ export default function DashboardPage() {
           {/* Stat 1: Current Crop */}
           <StatCard
             icon={Sprout}
-            label={t('dashboard.stats.currentCrop')}
+            label={isMultiCrop ? "Current Crops" : t('dashboard.stats.currentCrop')}
             value={farmerCrop}
-            subtext={`${farmerDistrict} Agro-Zone`}
+            subtext={`${farmerDistrict} Agro-Zone (${cropHarvestBreakdown.length} Active Crops)`}
             color="text-primary bg-primary-50 border-primary/20"
           />
 
           {/* Stat 2: Harvest Quantity */}
           <StatCard
             icon={Scale}
-            label={t('dashboard.stats.harvestQuantity')}
-            value={`${quantityKg} kg`}
-            subtext={`${(quantityKg / 100).toFixed(1)} Quintals Harvest Ready`}
+            label={isMultiCrop ? "Harvest per Crop" : t('dashboard.stats.harvestQuantity')}
+            value={`${totalQuantityKg.toLocaleString('en-IN')} kg`}
+            items={harvestItems}
+            subtext={isMultiCrop ? `Total: ${totalQuantityKg.toLocaleString('en-IN')} kg (${(totalQuantityKg / 100).toFixed(1)} Qtl)` : `${(totalQuantityKg / 100).toFixed(1)} Quintals Harvest Ready`}
             color="text-amber-700 bg-amber-50 border-amber-200"
           />
 
           {/* Stat 3: Live Market Price */}
           <StatCard
             icon={TrendingUp}
-            label={t('dashboard.stats.marketPrice')}
-            value={`₹${currentPricePerKg} / kg`}
-            subtext={`${marketName} • Live Mandi`}
+            label={isMultiCrop ? "Live Market Prices" : t('dashboard.stats.marketPrice')}
+            value={isMultiCrop ? `₹${(revenueBreakdown[0]?.rate || 28).toFixed(2)} / kg` : `₹${(livePricesMap[cropsList[0]]?.pricePerKg || 28).toFixed(2)} / kg`}
+            items={priceItems}
+            subtext={`${primaryMarketName} • Live Mandi Rates`}
             badge="Live APMC"
             color="text-emerald-700 bg-emerald-50 border-emerald-200"
           />
@@ -124,8 +206,9 @@ export default function DashboardPage() {
           <StatCard
             icon={Calculator}
             label={t('dashboard.stats.estimatedRevenue')}
-            value={`₹${estimatedRevenue.toLocaleString('en-IN')}`}
-            subtext={`Take-Home (${quantityKg} kg @ ₹${currentPricePerKg}/kg)`}
+            value={`₹${totalEstimatedRevenue.toLocaleString('en-IN')}`}
+            items={revenueItems}
+            subtext={isMultiCrop ? `Total Take-Home across ${cropsList.length} crops` : `Take-Home (${totalQuantityKg} kg @ ₹${livePricesMap[cropsList[0]]?.pricePerKg || 28}/kg)`}
             badge="Live Calculation"
             color="text-blue-700 bg-blue-50 border-blue-200"
           />

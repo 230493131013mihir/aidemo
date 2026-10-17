@@ -25,10 +25,34 @@ export default function ProfileSummary() {
     : 'Not set';
 
   const mainCrop = profile?.mainCrop || 'Not set';
+  const cropsList = mainCrop !== 'Not set'
+    ? mainCrop.split(',').map(c => c.trim()).filter(Boolean)
+    : [];
 
-  const currentHarvest = profile?.currentHarvestKg
-    ? `${profile.currentHarvestKg} kg`
-    : 'Not set';
+  let quantitiesMap = {};
+  if (typeof profile?.productQuantities === 'string') {
+    try {
+      quantitiesMap = JSON.parse(profile.productQuantities);
+    } catch (e) {}
+  } else if (typeof profile?.productQuantities === 'object' && profile?.productQuantities !== null) {
+    quantitiesMap = profile.productQuantities;
+  }
+
+  const cropBreakdown = cropsList.map(crop => {
+    const entry = quantitiesMap[crop];
+    if (entry && entry.qty) {
+      const val = Number(entry.qty) || 0;
+      const kg = entry.unit === 'tonne' ? val * 1000 : val;
+      return { crop, qty: kg, unit: 'kg' };
+    }
+    const fallbackTotal = Number(profile?.currentHarvestKg) || 500;
+    return { crop, qty: Math.round(fallbackTotal / (cropsList.length || 1)), unit: 'kg' };
+  });
+
+  const totalHarvestKg = cropBreakdown.reduce((sum, c) => sum + c.qty, 0);
+  const currentHarvest = cropBreakdown.length > 0
+    ? cropBreakdown.map(c => `${c.crop}: ${c.qty} kg`).join(' • ')
+    : profile?.currentHarvestKg ? `${profile.currentHarvestKg} kg` : 'Not set';
 
   const languageLabel = profile?.preferredLanguage === 'gu'
     ? 'Gujarati (ગુજરાતી)'
@@ -52,8 +76,10 @@ export default function ProfileSummary() {
       color: 'text-primary bg-primary-50 border-primary/20',
     },
     {
-      label: 'Harvest Ready',
+      label: cropBreakdown.length > 1 ? 'Harvest per Crop' : 'Harvest Ready',
       value: currentHarvest,
+      subValue: cropBreakdown.length > 1 ? `Total: ${totalHarvestKg} kg` : null,
+      breakdown: cropBreakdown,
       icon: Scale,
       color: 'text-amber-700 bg-amber-50 border-amber-200',
     },
@@ -130,9 +156,26 @@ export default function ProfileSummary() {
                   <Icon className="w-3.5 h-3.5" aria-hidden="true" />
                 </div>
               </div>
-              <p className="text-xs sm:text-sm font-black text-slate-900 break-words" title={item.value}>
-                {item.value}
-              </p>
+              {item.breakdown && item.breakdown.length > 1 ? (
+                <div className="space-y-1">
+                  <div className="flex flex-wrap gap-1">
+                    {item.breakdown.map((b, i) => (
+                      <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-bold">
+                        {b.crop}:&nbsp;<span className="font-extrabold text-amber-950">{b.qty} kg</span>
+                      </span>
+                    ))}
+                  </div>
+                  {item.subValue && (
+                    <span className="text-[10px] text-slate-500 font-medium block">
+                      {item.subValue}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs sm:text-sm font-black text-slate-900 break-words" title={item.value}>
+                  {item.value}
+                </p>
+              )}
             </div>
           );
         })}

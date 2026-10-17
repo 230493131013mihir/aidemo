@@ -118,11 +118,20 @@ class MarketService {
       const cropInclude = { model: Crop, required: true };
       const marketInclude = { model: Market, required: true };
 
-      const cropQuery = params.crop || params.crop_id;
+      const cropQuery = params.crop || params.commodity || params.crop_id;
       if (cropQuery) {
         const cleanCrop = String(cropQuery).trim();
         if (!isNaN(cleanCrop)) {
           cropInclude.where = { id: Number(cleanCrop) };
+        } else if (cleanCrop.includes(',')) {
+          const cropNames = cleanCrop.split(',').map(s => s.trim()).filter(Boolean);
+          const orList = [];
+          for (const cn of cropNames) {
+            orList.push({ nameEn: { [Op.like]: `%${cn}%` } });
+            orList.push({ nameHi: { [Op.like]: `%${cn}%` } });
+            orList.push({ nameGu: { [Op.like]: `%${cn}%` } });
+          }
+          cropInclude.where = { [Op.or]: orList };
         } else {
           cropInclude.where = {
             [Op.or]: [
@@ -175,17 +184,22 @@ class MarketService {
             id: item.id,
             crop_id: item.Crop?.id,
             crop_name: item.Crop?.nameEn || 'Produce',
+            crop: item.Crop?.nameEn || 'Produce',
             crop_name_mr: item.Crop?.nameHi || item.Crop?.nameEn,
             crop_name_hi: item.Crop?.nameHi,
             market_id: item.Market?.id,
             market_name: item.Market?.name || 'Maharashtra APMC',
+            market: item.Market?.name || 'Maharashtra APMC',
             district: item.Market?.district || 'Maharashtra',
             state: item.Market?.state || 'Maharashtra',
             price_per_kg: kg,
+            pricePerKg: kg,
             price_per_quintal: qtl,
+            pricePerQuintal: qtl,
             min_price: minP,
             max_price: maxP,
             modal_price: kg,
+            modalPrice: kg,
             data_type: item.dataType || 'verified_live',
             dataStatus: 'LIVE',
             statusNotice: 'Verified Maharashtra APMC Rate (MSAMB / AGMARKNET)',

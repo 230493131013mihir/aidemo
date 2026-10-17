@@ -37,9 +37,10 @@ async function handleGetCrops(req, res) {
 
 async function handleGetMarketPrices(req, res) {
   try {
-    const { crop, crop_id, market, market_id, district, state, data_type } = req.query;
+    const { crop, commodity, crop_id, market, market_id, district, state, data_type } = req.query;
+    const targetCrop = crop || commodity;
     const prices = await marketService.getMarketPrices({
-      crop,
+      crop: targetCrop,
       crop_id,
       market,
       market_id,
