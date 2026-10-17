@@ -688,7 +688,7 @@ export default function ProfilePage() {
                         setForm((prev) => ({ ...prev, district: dist, state: detectedState }));
                       }}
                       className="w-full rounded-xl border border-border pl-9 pr-3 py-2.5 text-sm font-semibold outline-none focus:border-primary"
-                      placeholder="e.g. Pune, Surat, Nashik"
+                      placeholder="e.g. Pune, Nashik, Kolhapur"
                     />
                   </div>
                 </label>
@@ -818,10 +818,9 @@ export default function ProfilePage() {
                     onChange={(e) => handleChange('preferredLanguage', e.target.value)}
                     className="w-full rounded-xl border border-border px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-primary bg-white"
                   >
-                    <option value="en">English</option>
-                    <option value="gu">ગુજરાતી (Gujarati)</option>
-                    <option value="hi">हिन्दी (Hindi)</option>
                     <option value="mr">मराठी (Marathi)</option>
+                    <option value="hi">हिन्दी (Hindi)</option>
+                    <option value="en">English</option>
                   </select>
                 </label>
               </div>

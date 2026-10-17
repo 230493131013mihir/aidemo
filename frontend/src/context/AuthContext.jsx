@@ -9,7 +9,7 @@ const USER_KEY = 'harvestmitra_user';
 
 export const GUEST_USER = {
   id: 'guest',
-  name: 'Guest Farmer (અતિથિ)',
+  name: 'Guest Farmer (अतिथी शेतकरी)',
   email: 'guest@harvestmitra.local',
   role: 'farmer',
   isGuest: true,
@@ -18,12 +18,12 @@ export const GUEST_USER = {
     mainCrop: 'Tomatoes',
     typicalYieldKg: 1200,
     currentHarvestKg: 500,
-    state: 'Gujarat',
-    district: 'Surat',
-    preferredLanguage: 'gu',
+    state: 'Maharashtra',
+    district: 'Pune',
+    preferredLanguage: 'mr',
     productQuantities: {
       'Tomatoes': 300,
-      'Cotton': 200
+      'Soybeans': 200
     }
   }
 };

@@ -29,7 +29,7 @@ export default function VoiceSearchButton({ onResult, className = '', id = 'voic
     }
 
     const recognition = new SpeechRecognition();
-    recognition.lang = language === 'gu' ? 'gu-IN' : language === 'hi' ? 'hi-IN' : language === 'mr' ? 'mr-IN' : 'en-IN';
+    recognition.lang = language === 'mr' ? 'mr-IN' : language === 'hi' ? 'hi-IN' : 'en-IN';
     recognition.continuous = false;
     recognition.interimResults = false;
 

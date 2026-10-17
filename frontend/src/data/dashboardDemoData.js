@@ -6,11 +6,11 @@
 export const dashboardDemoData = {
   farmer: {
     name: "Kisan Mitra",
-    location: "Surat district, Gujarat",
+    location: "Pune district, Maharashtra",
     crop: "Tomatoes",
     quantity: "500 kg",
     quantityKg: 500,
-    language: "Gujarati",
+    language: "Marathi",
     farmSize: "4.5 Acres",
     typicalHarvest: "1,200 kg / season",
   },
@@ -31,8 +31,8 @@ export const dashboardDemoData = {
     condition: "Partly Cloudy",
     humidity: 65,
     rainProbability: 30,
-    location: "Surat, Gujarat",
-    planningReminder: "Real-time atmospheric forecast for Surat agricultural belt.",
+    location: "Pune, Maharashtra",
+    planningReminder: "Real-time atmospheric forecast for Pune-Nashik agricultural belt.",
   },
 
   priceTrends: [
@@ -99,7 +99,7 @@ export const dashboardDemoData = {
 
   transport: {
     matchingRequests: 2,
-    destination: "Surat APMC Yard",
+    destination: "Pune APMC Yard",
     pickupWindow: "Tomorrow 6:30 AM",
     vehicleType: "Tata Ace (Shared Pool)",
     savingsSummary: "Est. 45% freight savings with 2 nearby farmers",

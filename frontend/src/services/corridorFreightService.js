@@ -1,67 +1,11 @@
 /**
  * corridorFreightService.js
- * Agricultural Corridors Data, Freight Cost Calculator & Highway Distance Estimator
- * HarvestMitra AI - Logistics Engine (Issue #84)
+ * Maharashtra Agricultural Corridors Data, Freight Cost Calculator & Highway Distance Estimator
+ * Strictly Maharashtra APMC Hubs & Mandis
+ * HarvestMitra AI - Logistics Engine
  */
 
 export const CORRIDORS = [
-  {
-    id: 'surat-navsari',
-    name: 'Surat ➔ Navsari',
-    origin: 'Surat Farm Hub, Gujarat',
-    destination: 'Navsari APMC Mandi',
-    distanceKm: 38,
-    highway: 'NH 48 (Golden Quadrilateral)',
-    estDuration: '45 mins',
-    baseSoloCost: 1200,
-    baseSharedCost: 450,
-    weather: {
-      status: 'Clear & Sunny',
-      temp: '31°C',
-      condition: 'clear',
-      badgeText: '🟢 Clear Highway Conditions',
-      badgeColor: 'bg-emerald-50 text-emerald-800 border-emerald-300',
-      advisory: 'Dry pavement, optimal visibility on NH 48. Ideal for delicate vegetable and fruit transit.'
-    }
-  },
-  {
-    id: 'surat-rajkot',
-    name: 'Surat ➔ Rajkot',
-    origin: 'Surat APMC Hub, Gujarat',
-    destination: 'Rajkot APMC Yard',
-    distanceKm: 430,
-    highway: 'NH 48 & NH 47 (Saurashtra Highway)',
-    estDuration: '7 hrs 30 mins',
-    baseSoloCost: 8550,
-    baseSharedCost: 3250,
-    weather: {
-      status: 'Breezy & Sunny',
-      temp: '34°C',
-      condition: 'wind',
-      badgeText: '🌤️ Moderate Crosswinds (NH 47)',
-      badgeColor: 'bg-emerald-50 text-emerald-800 border-emerald-300',
-      advisory: 'Crosswinds near Tarapur coastal bypass. Ensure cargo tarpaulin straps are doubled and secured.'
-    }
-  },
-  {
-    id: 'ahmedabad-surat',
-    name: 'Ahmedabad ➔ Surat',
-    origin: 'Ahmedabad APMC Hub, Gujarat',
-    destination: 'Surat APMC Mandi',
-    distanceKm: 265,
-    highway: 'NE 1 & NH 48 Expressway',
-    estDuration: '4 hrs 30 mins',
-    baseSoloCost: 7950,
-    baseSharedCost: 3100,
-    weather: {
-      status: 'Smooth Expressway Traffic',
-      temp: '32°C',
-      condition: 'clear',
-      badgeText: '🟢 Express Highway Optimal',
-      badgeColor: 'bg-emerald-50 text-emerald-800 border-emerald-300',
-      advisory: 'High-speed green corridor active. Dedicated heavy vehicle freight lane open with 0 toll delay.'
-    }
-  },
   {
     id: 'nashik-vashi',
     name: 'Nashik ➔ Vashi (Mumbai)',
@@ -79,6 +23,63 @@ export const CORRIDORS = [
       badgeText: '🟡 Wet Surface Advisory (Kasara Ghat)',
       badgeColor: 'bg-amber-50 text-amber-900 border-amber-300',
       advisory: 'Intermittent rainfall on Kasara Ghat incline. Maintain 40 km/h speed limit and 50m vehicle spacing.'
+    }
+  },
+  {
+    id: 'pune-vashi',
+    name: 'Pune ➔ Vashi (Mumbai)',
+    origin: 'Pune APMC Market Yard, Maharashtra',
+    destination: 'Vashi APMC, Navi Mumbai',
+    distanceKm: 148,
+    highway: 'Yashwantrao Chavan Expressway (NE 2)',
+    estDuration: '2 hrs 45 mins',
+    baseSoloCost: 4800,
+    baseSharedCost: 1800,
+    weather: {
+      status: 'Expressway Clear Traffic',
+      temp: '28°C',
+      condition: 'clear',
+      badgeText: '🟢 Expressway Green Corridor',
+      badgeColor: 'bg-emerald-50 text-emerald-800 border-emerald-300',
+      advisory: 'Optimal concrete surface conditions. Heavy vehicle express lane moving at 60 km/h with 0 toll delays.'
+    }
+  },
+  {
+    id: 'kolhapur-pune',
+    name: 'Kolhapur ➔ Pune APMC',
+    origin: 'Kolhapur Jaggery & Cane Hub, Maharashtra',
+    destination: 'Pune APMC Market Yard',
+    distanceKm: 235,
+    highway: 'NH 48 (Western Maharashtra Agri Corridor)',
+    estDuration: '4 hrs 30 mins',
+    baseSoloCost: 7200,
+    baseSharedCost: 2700,
+    weather: {
+      status: 'Dry & Sunny Pavement',
+      temp: '31°C',
+      condition: 'clear',
+      badgeText: '🟢 Clear Highway Conditions (NH 48)',
+      badgeColor: 'bg-emerald-50 text-emerald-800 border-emerald-300',
+      advisory: 'Dry highway surface throughout Satara-Pune stretch. Perfect for fresh jaggery and vegetable transport.'
+    }
+  },
+  {
+    id: 'nagpur-amravati',
+    name: 'Nagpur ➔ Amravati APMC',
+    origin: 'Nagpur Orange & Soybean Yard, Maharashtra',
+    destination: 'Amravati APMC Yard',
+    distanceKm: 155,
+    highway: 'NH 53 (Vidarbha Citrus & Cotton Corridor)',
+    estDuration: '3 hrs 15 mins',
+    baseSoloCost: 4900,
+    baseSharedCost: 1850,
+    weather: {
+      status: 'Mild Breeze & Clear Skies',
+      temp: '33°C',
+      condition: 'wind',
+      badgeText: '🌤️ Stable Vidarbha Transit (NH 53)',
+      badgeColor: 'bg-emerald-50 text-emerald-800 border-emerald-300',
+      advisory: 'Clear highway visibility. Ensure fruit crate ventilation and secure side tarpaulin ropes.'
     }
   }
 ];

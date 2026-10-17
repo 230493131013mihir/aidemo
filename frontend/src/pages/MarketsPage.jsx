@@ -24,10 +24,10 @@ export default function MarketsPage() {
             <span>Mandi Price Intelligence</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-text">
-            {t('markets.title', 'All-India APMC Mandi Rates')}
+            {t('markets.title', 'Maharashtra APMC Mandi Rates')}
           </h1>
           <p className="text-sm text-muted mt-1">
-            {t('markets.subtitle', 'Reliable wholesale price discovery across Gujarat, Maharashtra and Pan-India.')}
+            {t('markets.subtitle', 'Live wholesale price discovery across Maharashtra APMC yards (Pune, Nashik, Vashi, Kolhapur, Nagpur).')}
           </p>
         </div>
 

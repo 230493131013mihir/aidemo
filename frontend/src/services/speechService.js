@@ -6,13 +6,13 @@
  */
 
 export const SUPPORTED_LANGUAGES = {
-  en: {
-    code: 'en',
-    name: 'English',
-    nativeName: 'English',
-    speechRecognition: 'en-IN',
-    speechSynthesis: 'en-IN',
-    langTag: 'en-IN'
+  mr: {
+    code: 'mr',
+    name: 'Marathi',
+    nativeName: 'मराठी',
+    speechRecognition: 'mr-IN',
+    speechSynthesis: 'mr-IN',
+    langTag: 'mr-IN'
   },
   hi: {
     code: 'hi',
@@ -22,21 +22,13 @@ export const SUPPORTED_LANGUAGES = {
     speechSynthesis: 'hi-IN',
     langTag: 'hi-IN'
   },
-  gu: {
-    code: 'gu',
-    name: 'Gujarati',
-    nativeName: 'ગુજરાતી',
-    speechRecognition: 'gu-IN',
-    speechSynthesis: 'gu-IN',
-    langTag: 'gu-IN'
-  },
-  mr: {
-    code: 'mr',
-    name: 'Marathi',
-    nativeName: 'मराठी',
-    speechRecognition: 'mr-IN',
-    speechSynthesis: 'mr-IN',
-    langTag: 'mr-IN'
+  en: {
+    code: 'en',
+    name: 'English',
+    nativeName: 'English',
+    speechRecognition: 'en-IN',
+    speechSynthesis: 'en-IN',
+    langTag: 'en-IN'
   }
 };
 

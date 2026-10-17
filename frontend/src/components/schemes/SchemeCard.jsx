@@ -26,21 +26,21 @@ export default function SchemeCard({
   const { language } = useLanguage();
   const [showMatchDetails, setShowMatchDetails] = useState(false);
 
-  // Multilingual field picker
-  const displayName = language === 'gu' && scheme.nameGu
-    ? scheme.nameGu
+  // Multilingual field picker (Strictly Marathi, Hindi, and English)
+  const displayName = language === 'mr' && (scheme.nameMr || scheme.nameEn)
+    ? (scheme.nameMr || scheme.nameEn)
     : language === 'hi' && scheme.nameHi
     ? scheme.nameHi
     : scheme.nameEn;
 
-  const displayDesc = language === 'gu' && scheme.shortDescriptionGu
-    ? scheme.shortDescriptionGu
+  const displayDesc = language === 'mr' && (scheme.shortDescriptionMr || scheme.shortDescriptionEn)
+    ? (scheme.shortDescriptionMr || scheme.shortDescriptionEn)
     : language === 'hi' && scheme.shortDescriptionHi
     ? scheme.shortDescriptionHi
     : scheme.shortDescriptionEn;
 
-  const displayBenefits = language === 'gu' && scheme.benefitsGu
-    ? scheme.benefitsGu
+  const displayBenefits = language === 'mr' && (scheme.benefitsMr || scheme.benefitsEn)
+    ? (scheme.benefitsMr || scheme.benefitsEn)
     : language === 'hi' && scheme.benefitsHi
     ? scheme.benefitsHi
     : scheme.benefitsEn;

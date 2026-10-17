@@ -6,7 +6,7 @@
 
 const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '';
 
-export async function fetchWeather(district = 'Surat', state = 'Gujarat') {
+export async function fetchWeather(district = 'Pune', state = 'Maharashtra') {
   const query = new URLSearchParams({ district, state });
   const url = `${API_BASE_URL}/api/weather?${query.toString()}`;
   const res = await fetch(url);
@@ -14,7 +14,7 @@ export async function fetchWeather(district = 'Surat', state = 'Gujarat') {
   return await res.json();
 }
 
-export async function fetchRainAlerts(district = 'Surat', state = 'Gujarat') {
+export async function fetchRainAlerts(district = 'Pune', state = 'Maharashtra') {
   const query = new URLSearchParams({ district, state });
   const url = `${API_BASE_URL}/api/weather/alerts?${query.toString()}`;
   const res = await fetch(url);

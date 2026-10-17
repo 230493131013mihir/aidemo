@@ -64,26 +64,6 @@ const I18N = {
     loading: 'जिले का मौसम डेटा लोड हो रहा है...',
     errorTitle: 'मौसम डेटा प्राप्त करने में असमर्थ'
   },
-  gu: {
-    title: 'હવામાન અને જિલ્લા વરસાદ સલાહ',
-    subtitle: 'લણણીનો સમય અને પરિવહનના યોગ્ય આયોજન માટે સ્થાનિક હવામાન આગાહી',
-    selectDistrict: 'જિલ્લો પસંદ કરો:',
-    currentWeather: 'હાલનું હવામાન',
-    rainProbability: 'વરસાદની સંભાવના',
-    humidity: 'ભેજનું પ્રમાણ',
-    wind: 'પવનની ઝડપ',
-    rainfall: 'વરસાદ',
-    forecastTitle: '3-દિવસીય આગાહી',
-    advisoryActive: 'જિલ્લા વરસાદ સલાહ સક્રિય',
-    advisoryClear: 'અનુકૂળ હવામાન સ્થિતિ',
-    actionTipsTitle: 'ખેડૂતો માટે ભલામણ કરેલ પગલાં:',
-    simulatorAction: 'લણણી સમય અને વાહન યોજનાની સમીક્ષા કરો',
-    demoNotice: 'ડેમો હવામાન ડેટા',
-    demoNoticeSub: 'લાઈવ હવામાન સેવા સેટ કરેલ નથી. દર્શાવેલ માહિતી માત્ર ડેમો પ્રદર્શન માટે છે.',
-    lastUpdated: 'છેલ્લે અપડેટ:',
-    loading: 'જિલ્લાની હવામાન માહિતી લોડ થઈ રહી છે...',
-    errorTitle: 'હવામાન માહિતી મેળવવામાં અસમર્થ'
-  },
   mr: {
     title: 'हवामान आणि जिल्हा पाऊस सल्लागार',
     subtitle: 'काढणीची योग्य वेळ आणि वाहतूक नियोजनासाठी स्थानिक हवामान अंदाज',
@@ -107,13 +87,16 @@ const I18N = {
 };
 
 const DISTRICT_OPTIONS = [
-  { name: 'Surat', state: 'Gujarat' },
-  { name: 'Navsari', state: 'Gujarat' },
-  { name: 'Ahmedabad', state: 'Gujarat' },
-  { name: 'Rajkot', state: 'Gujarat' },
-  { name: 'Bharuch', state: 'Gujarat' },
+  { name: 'Pune', state: 'Maharashtra' },
   { name: 'Nashik', state: 'Maharashtra' },
-  { name: 'Pune', state: 'Maharashtra' }
+  { name: 'Mumbai', state: 'Maharashtra' },
+  { name: 'Kolhapur', state: 'Maharashtra' },
+  { name: 'Nagpur', state: 'Maharashtra' },
+  { name: 'Amravati', state: 'Maharashtra' },
+  { name: 'Solapur', state: 'Maharashtra' },
+  { name: 'Ahmednagar', state: 'Maharashtra' },
+  { name: 'Sangli', state: 'Maharashtra' },
+  { name: 'Satara', state: 'Maharashtra' }
 ];
 
 export default function WeatherAdvisoryWidget({
@@ -122,8 +105,8 @@ export default function WeatherAdvisoryWidget({
 }) {
   const t = I18N[selectedLanguage] || I18N.en;
 
-  const [selectedDistrict, setSelectedDistrict] = useState('Surat');
-  const [selectedState, setSelectedState] = useState('Gujarat');
+  const [selectedDistrict, setSelectedDistrict] = useState('Pune');
+  const [selectedState, setSelectedState] = useState('Maharashtra');
   const [weatherData, setWeatherData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

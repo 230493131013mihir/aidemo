@@ -11,35 +11,35 @@ export default function ChatPage() {
   const profile = user?.FarmerProfile;
   const demoFarmerContext = {
     farmer: {
-      name: user?.name || 'Ramesh Patel',
-      district: profile?.district || 'Surat',
-      state: profile?.state || 'Gujarat',
+      name: user?.name || 'Varun Patil',
+      district: profile?.district || 'Pune',
+      state: profile?.state || 'Maharashtra',
       crop: profile?.mainCrop || 'Tomato',
       yieldKg: profile?.currentHarvestKg || 500,
-      preferredLanguage: profile?.preferredLanguage || language || 'gu'
+      preferredLanguage: profile?.preferredLanguage || language || 'mr'
     },
     crop: {
       name: profile?.mainCrop || 'Tomato',
       shelfLifeDays: 5
     },
     localMarket: {
-      name: `${profile?.district || 'Surat'} APMC`,
-      pricePerKg: 18.5,
+      name: `${profile?.district || 'Pune'} APMC`,
+      pricePerKg: 28.5,
       distanceKm: 0,
       transportCost: 1200
     },
     regionalMarket: {
-      name: 'Ahmedabad APMC',
-      pricePerKg: 23.0,
-      distanceKm: 260,
+      name: 'Mumbai Vashi APMC',
+      pricePerKg: 34.0,
+      distanceKm: 148,
       transportCost: 2800,
       sharedTransportCost: 1400
     },
     weather: {
-      district: profile?.district || 'Surat',
-      rainProbability: 70,
-      condition: 'Rain expected',
-      advisory: 'Harvest tomatoes promptly to prevent perishability losses'
+      district: profile?.district || 'Pune',
+      rainProbability: 35,
+      condition: 'Favorable Weather',
+      advisory: 'Low rain risk across Maharashtra. Good window for harvesting and transport planning.'
     }
   };
 

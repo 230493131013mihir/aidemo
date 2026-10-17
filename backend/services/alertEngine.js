@@ -10,8 +10,8 @@ function generatePriceAlerts(params = {}) {
     currentPrice = 32.0,
     targetHigh = 30.0,
     targetLow = 20.0,
-    mandiName = 'Surat APMC',
-    lang = 'gu'
+    mandiName = 'Pune APMC',
+    lang = 'mr'
   } = params;
 
   const isSurge = currentPrice >= targetHigh;

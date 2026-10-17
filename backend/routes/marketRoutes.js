@@ -38,7 +38,7 @@ router.get('/trends/moving-average', handleGetMovingAverageTrends);
 router.get('/prices/moving-average', handleGetMovingAverageTrends);
 router.get('/analytics/trends', async (req, res) => {
   const crop = req.query.crop || 'Tomato';
-  const state = req.query.state || 'Gujarat';
+  const state = req.query.state || 'Maharashtra';
   const data = await getMandiPriceTrends(crop, state);
   res.json({ success: true, data });
 });
@@ -49,7 +49,7 @@ router.get('/alerts/simulate', handleSimulatePriceAlert);
 router.get('/alerts/active', (req, res) => {
   const crop = req.query.crop || 'Tomato';
   const price = parseFloat(req.query.price) || 32.0;
-  const lang = req.query.lang || 'gu';
+  const lang = req.query.lang || 'mr';
   const alert = generatePriceAlerts({ cropName: crop, currentPrice: price, lang });
   res.json({ success: true, data: alert });
 });

@@ -13,12 +13,11 @@ console.log('🎙️ HarvestMitra AI - Voice AI & Logistics Tests (Varun Patil)'
 console.log('Issues #82, #83, #84 Verification');
 console.log('======================================================\n');
 
-// 1. Issue #82: Multilingual Speech Recognition Locales
+// 1. Issue #82: Multilingual Speech Recognition Locales (mr, hi, en)
 console.log('1. Verifying Universal Voice Search Locales (Issue #82):');
 const expectedLocales = {
-  gu: 'gu-IN',
-  hi: 'hi-IN',
   mr: 'mr-IN',
+  hi: 'hi-IN',
   en: 'en-IN'
 };
 
@@ -42,17 +41,17 @@ for (const [lang, locale] of Object.entries(expectedLocales)) {
   console.log(`  ✅ [PASS] Audio readout synthesis locale verified for ${lang}: ${locale}`);
 }
 
-// 3. Issue #84: Agricultural Freight Corridor Lookup & Distance Estimator
-console.log('\n3. Verifying Highway Corridors & Dynamic Freight Calculator (Issue #84):');
+// 3. Issue #84: Agricultural Freight Corridor Lookup & Distance Estimator (Maharashtra Corridors)
+console.log('\n3. Verifying Maharashtra Highway Corridors & Dynamic Freight Calculator (Issue #84):');
 
 const requiredCorridorKeys = [
-  'surat-navsari',
-  'surat-rajkot',
-  'ahmedabad-surat',
-  'nashik-vashi'
+  'nashik-vashi',
+  'pune-vashi',
+  'kolhapur-pune',
+  'nagpur-amravati'
 ];
 
-assert.strictEqual(CORRIDORS.length, 4, 'Must configure exactly 4 key agricultural corridors');
+assert.strictEqual(CORRIDORS.length, 4, 'Must configure exactly 4 key Maharashtra agricultural corridors');
 
 for (const key of requiredCorridorKeys) {
   const corridor = CORRIDORS.find((c) => c.id === key);
@@ -63,39 +62,45 @@ for (const key of requiredCorridorKeys) {
   assert.ok(corridor.weather?.advisory, `Corridor '${key}' must have safety advisory`);
 }
 
-// Verify Surat - Navsari specs from prompt: 38km, ₹1,200 solo vs ₹450 shared, saving ₹750/62%
-const suratNavsari = CORRIDORS.find((c) => c.id === 'surat-navsari');
-assert.strictEqual(suratNavsari.distanceKm, 38, 'Surat-Navsari must be 38km');
-assert.strictEqual(suratNavsari.baseSoloCost, 1200, 'Surat-Navsari base solo cost must be ₹1,200');
-assert.strictEqual(suratNavsari.baseSharedCost, 450, 'Surat-Navsari base shared cost must be ₹450');
-const saving = suratNavsari.baseSoloCost - suratNavsari.baseSharedCost;
-const savingPct = Math.round((saving / suratNavsari.baseSoloCost) * 100);
-assert.strictEqual(saving, 750, 'Surat-Navsari must save ₹750');
-assert.strictEqual(savingPct, 63, 'Surat-Navsari savings percentage ~62-63%');
-console.log(`  ✅ [PASS] Surat-Navsari: 38km, Solo ₹${suratNavsari.baseSoloCost} vs Shared ₹${suratNavsari.baseSharedCost} (Saves ₹${saving}/${savingPct}%)`);
-
-// Verify Surat - Rajkot specs: 430km, saves ₹5,300/62%
-const suratRajkot = CORRIDORS.find((c) => c.id === 'surat-rajkot');
-assert.strictEqual(suratRajkot.distanceKm, 430, 'Surat-Rajkot must be 430km');
-assert.strictEqual(suratRajkot.baseSoloCost, 8550, 'Surat-Rajkot base solo cost must be ₹8,550');
-assert.strictEqual(suratRajkot.baseSharedCost, 3250, 'Surat-Rajkot base shared cost must be ₹3,250');
-const rajkotSaving = suratRajkot.baseSoloCost - suratRajkot.baseSharedCost;
-const rajkotSavingPct = Math.round((rajkotSaving / suratRajkot.baseSoloCost) * 100);
-assert.strictEqual(rajkotSaving, 5300, 'Surat-Rajkot must save ₹5,300');
-assert.strictEqual(rajkotSavingPct, 62, 'Surat-Rajkot savings percentage must be 62%');
-console.log(`  ✅ [PASS] Surat-Rajkot: 430km, Solo ₹${suratRajkot.baseSoloCost} vs Shared ₹${suratRajkot.baseSharedCost} (Saves ₹${rajkotSaving}/${rajkotSavingPct}%)`);
-
-// Verify Ahmedabad - Surat specs: 265km
-const ahmedabadSurat = CORRIDORS.find((c) => c.id === 'ahmedabad-surat');
-assert.strictEqual(ahmedabadSurat.distanceKm, 265, 'Ahmedabad-Surat must be 265km');
-console.log(`  ✅ [PASS] Ahmedabad-Surat: 265km, Solo ₹${ahmedabadSurat.baseSoloCost} vs Shared ₹${ahmedabadSurat.baseSharedCost}`);
-
-// Verify Nashik - Vashi specs: 165km
+// Verify Nashik - Vashi specs: 165km, ₹5,200 solo vs ₹1,950 shared, saves ₹3,250/63%
 const nashikVashi = CORRIDORS.find((c) => c.id === 'nashik-vashi');
 assert.strictEqual(nashikVashi.distanceKm, 165, 'Nashik-Vashi must be 165km');
+assert.strictEqual(nashikVashi.baseSoloCost, 5200, 'Nashik-Vashi base solo cost must be ₹5,200');
+assert.strictEqual(nashikVashi.baseSharedCost, 1950, 'Nashik-Vashi base shared cost must be ₹1,950');
+const nvSaving = nashikVashi.baseSoloCost - nashikVashi.baseSharedCost;
+const nvSavingPct = Math.round((nvSaving / nashikVashi.baseSoloCost) * 100);
+assert.strictEqual(nvSaving, 3250, 'Nashik-Vashi must save ₹3,250');
+assert.strictEqual(nvSavingPct, 63, 'Nashik-Vashi savings percentage must be 63%');
 assert.ok(nashikVashi.weather.badgeText.includes('Kasara Ghat'), 'Must include Kasara Ghat weather badge');
-console.log(`  ✅ [PASS] Nashik-Vashi: 165km, Solo ₹${nashikVashi.baseSoloCost} vs Shared ₹${nashikVashi.baseSharedCost} (Weather badge: ${nashikVashi.weather.badgeText})`);
+console.log(`  ✅ [PASS] Nashik-Vashi: 165km, Solo ₹${nashikVashi.baseSoloCost} vs Shared ₹${nashikVashi.baseSharedCost} (Saves ₹${nvSaving}/${nvSavingPct}%)`);
+
+// Verify Pune - Vashi APMC specs: 148km, ₹4,800 solo vs ₹1,800 shared, saves ₹3,000/62%
+const puneVashi = CORRIDORS.find((c) => c.id === 'pune-vashi');
+assert.strictEqual(puneVashi.distanceKm, 148, 'Pune-Vashi must be 148km');
+assert.strictEqual(puneVashi.baseSoloCost, 4800, 'Pune-Vashi base solo cost must be ₹4,800');
+assert.strictEqual(puneVashi.baseSharedCost, 1800, 'Pune-Vashi base shared cost must be ₹1,800');
+const pvSaving = puneVashi.baseSoloCost - puneVashi.baseSharedCost;
+const pvSavingPct = Math.round((pvSaving / puneVashi.baseSoloCost) * 100);
+assert.strictEqual(pvSaving, 3000, 'Pune-Vashi must save ₹3,000');
+assert.strictEqual(pvSavingPct, 63, 'Pune-Vashi savings percentage must be ~62-63%');
+console.log(`  ✅ [PASS] Pune-Vashi: 148km, Solo ₹${puneVashi.baseSoloCost} vs Shared ₹${puneVashi.baseSharedCost} (Saves ₹${pvSaving}/${pvSavingPct}%)`);
+
+// Verify Kolhapur - Pune specs: 235km, ₹7,200 solo vs ₹2,700 shared, saves ₹4,500/62%
+const kolhapurPune = CORRIDORS.find((c) => c.id === 'kolhapur-pune');
+assert.strictEqual(kolhapurPune.distanceKm, 235, 'Kolhapur-Pune must be 235km');
+assert.strictEqual(kolhapurPune.baseSoloCost, 7200, 'Kolhapur-Pune base solo cost must be ₹7,200');
+assert.strictEqual(kolhapurPune.baseSharedCost, 2700, 'Kolhapur-Pune base shared cost must be ₹2,700');
+const kpSaving = kolhapurPune.baseSoloCost - kolhapurPune.baseSharedCost;
+const kpSavingPct = Math.round((kpSaving / kolhapurPune.baseSoloCost) * 100);
+assert.strictEqual(kpSaving, 4500, 'Kolhapur-Pune must save ₹4,500');
+assert.strictEqual(kpSavingPct, 63, 'Kolhapur-Pune savings percentage must be ~62-63%');
+console.log(`  ✅ [PASS] Kolhapur-Pune: 235km, Solo ₹${kolhapurPune.baseSoloCost} vs Shared ₹${kolhapurPune.baseSharedCost} (Saves ₹${kpSaving}/${kpSavingPct}%)`);
+
+// Verify Nagpur - Amravati specs: 155km
+const nagpurAmravati = CORRIDORS.find((c) => c.id === 'nagpur-amravati');
+assert.strictEqual(nagpurAmravati.distanceKm, 155, 'Nagpur-Amravati must be 155km');
+console.log(`  ✅ [PASS] Nagpur-Amravati: 155km, Solo ₹${nagpurAmravati.baseSoloCost} vs Shared ₹${nagpurAmravati.baseSharedCost}`);
 
 console.log('\n======================================================');
-console.log('🎉 All Voice Search, Audio Readout & Freight Tests Passed!');
+console.log('🎉 All Maharashtra Voice AI & Freight Tests Passed!');
 console.log('======================================================\n');

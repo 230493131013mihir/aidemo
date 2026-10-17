@@ -319,13 +319,13 @@ class WeatherService {
    * Retrieve weather information and district rain advisory for a location
    *
    * @param {Object} [params]
-   * @param {string} [params.district='Surat']
-   * @param {string} [params.state='Gujarat']
+   * @param {string} [params.district='Pune']
+   * @param {string} [params.state='Maharashtra']
    * @returns {Promise<Object>}
    */
   async getWeather(params = {}) {
-    const districtQuery = (params.district || 'Surat').trim();
-    const stateQuery = (params.state || 'Gujarat').trim();
+    const districtQuery = (params.district || 'Pune').trim();
+    const stateQuery = (params.state || 'Maharashtra').trim();
     const key = districtQuery.toLowerCase();
 
     // 1. Live real-time agro weather telemetry via Open-Meteo

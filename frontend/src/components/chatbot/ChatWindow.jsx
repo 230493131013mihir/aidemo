@@ -29,48 +29,38 @@ import {
 import { sendChatMessage, getOrCreateSessionId } from '../../services/chatService';
 
 const WELCOME_MESSAGES = {
-  en: {
-    text: "Namaste! I am Mitra Assistant. Ask me about APMC Mandi prices, whether you should sell today or hold, shared transport pooling, or weather forecasts.",
-    disclaimer: "Demonstration data mode active."
+  mr: {
+    text: "नमस्कार! मी मित्रा असिस्टंट (Mitra Assistant) आहे. आपण मला महाराष्ट्र कृषी उत्पन्न बाजार समिती (APMC) बाजार भाव, आज पिकाची विक्री करावी की थांबावे, सामायिक वाहतूक (भाडे बचत), किंवा हवामानाचा अंदाज विचारू शकता.",
+    disclaimer: "बाजार भाव आणि आकडेवारी महाराष्ट्र APMC डेटावर आधारित आहे."
   },
   hi: {
-    text: "नमस्ते! मैं मित्रा असिस्टेंट (Mitra Assistant) हूं। आप मुझसे मंडी भाव, आज फसल बेचें या रुकें, साझा परिवहन (भाड़ा बचत), या मौसम की जानकारी पूछ सकते हैं।",
-    disclaimer: "मंडी के आंकड़े डेमो डेटा पर आधारित हैं।"
+    text: "नमस्ते! मैं मित्रा असिस्टेंट (Mitra Assistant) हूं। आप मुझसे महाराष्ट्र मंडी भाव, आज फसल बेचें या रुकें, साझा परिवहन (भाड़ा बचत), या मौसम की जानकारी पूछ सकते हैं।",
+    disclaimer: "मंडी के आंकड़े महाराष्ट्र APMC डेटा पर आधारित हैं।"
   },
-  gu: {
-    text: "નમસ્તે! હું મિત્ર આસિસ્ટન્ટ (Mitra Assistant) છું. તમે મને મંડી ભાવ, આજે વેચવું કે રાહ જોવી, સહિયારા વાહનનું ભાડું બચાવવા, અથવા હવામાન વિશે પૂછી શકો છો.",
-    disclaimer: "બજારના આંકડા ડેમો સેમ્પલ ડેટા આધારિત છે."
-  },
-  mr: {
-    text: "नमस्कार! मी मित्रा असिस्टंट (Mitra Assistant) आहे. आपण मला बाजार भाव, आज पिकाची विक्री करावी की थांबावे, सामायिक वाहतूक (भाडे बचत), किंवा हवामानाचा अंदाज विचारू शकता.",
-    disclaimer: "बाजार भाव आणि आकडेवारी डेमो सॅम्पल डेटावर आधारित आहे."
+  en: {
+    text: "Namaste! I am Mitra Assistant. Ask me about Maharashtra APMC Mandi prices, whether you should sell today or hold, shared transport pooling, or weather forecasts.",
+    disclaimer: "Demonstration data mode active (Maharashtra APMC)."
   }
 };
 
 const SUGGESTED_QUERIES = {
-  en: [
-    "What is today's tomato rate?",
-    "What are the eligibility rules for PM-KISAN?",
-    "How can I apply for i-Khedut tractor and drip subsidy?",
-    "How can I save on shared transport?"
+  mr: [
+    "आज टोमॅटोचा भाव काय आहे?",
+    "पीएम-किसान व महाडीबीटी योजनेची पात्रता काय आहे?",
+    "पीक विमा व कृषी अनुदानाची माहिती सांगा",
+    "सामायिक वाहनाने वाहतूक खर्च कसा वाचवावा?"
   ],
   hi: [
     "आज टमाटर का मंडी भाव क्या है?",
     "पीएम-किसान योजना की पात्रता क्या है?",
-    "आई-खेड़ूत पोर्टल पर ट्रैक्टर व ड्रिप सब्सिडी कैसे मिलेगी?",
+    "महाराष्ट्र महाडीबीटी पोर्टल पर ट्रैक्टर व ड्रिप सब्सिडी कैसे मिलेगी?",
     "साझा वाहन से भाड़ा कैसे बचाएं?"
   ],
-  gu: [
-    "આજે ટામેટાંનો ભાવ શું છે?",
-    "પીએમ કિસાન યોજનાના ₹6000 સહાય કેવી રીતે મળે?",
-    "આઈ-ખેડૂત પોર્ટલ પર ટપક સિંચાઈ અને ટ્રેક્ટર સબસિડી વિગત",
-    "સહિયારા વાહન દ્વારા ભાડું કેવી રીતે બચાવી શકાય?"
-  ],
-  mr: [
-    "आज टोमॅटोचा भाव काय आहे?",
-    "पीएम-किसान योजनेची पात्रता काय आहे?",
-    "पीक विमा व कृषी अनुदानाची माहिती सांगा",
-    "सामायिक वाहनाने वाहतूक खर्च कसा वाचवावा?"
+  en: [
+    "What is today's tomato rate in Maharashtra?",
+    "What are the eligibility rules for PM-KISAN?",
+    "How can I apply for Maharashtra MahaDBT tractor & drip subsidy?",
+    "How can I save on shared transport?"
   ]
 };
 
@@ -79,13 +69,13 @@ export default function ChatWindow({
   onClose = null,
   contextData = {}
 }) {
-  // 1. Language state: restore from localStorage or default to 'en'
+  // 1. Language state: restore from localStorage or default to 'mr'
   const [selectedLanguage, setSelectedLanguage] = useState(() => {
     try {
       const saved = localStorage.getItem('mitraLanguage');
-      return saved && SUPPORTED_LANGUAGES[saved] ? saved : 'en';
+      return saved && SUPPORTED_LANGUAGES[saved] ? saved : 'mr';
     } catch (_) {
-      return 'en';
+      return 'mr';
     }
   });
 

@@ -20,7 +20,7 @@ import { CORRIDORS, calculateCorridorFreight } from '../../services/corridorFrei
 
 export default function CorridorFreightCalculator({ onApplyCorridor, defaultWeight = 500 }) {
   const { language } = useLanguage();
-  const [selectedCorridorId, setSelectedCorridorId] = useState('surat-navsari');
+  const [selectedCorridorId, setSelectedCorridorId] = useState('nashik-vashi');
   const [cargoWeightKg, setCargoWeightKg] = useState(defaultWeight || 500);
   const [applied, setApplied] = useState(false);
 
@@ -50,9 +50,9 @@ export default function CorridorFreightCalculator({ onApplyCorridor, defaultWeig
   const speakQuote = () => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
-    const text = `${selectedCorridor.name}, distance ${selectedCorridor.distanceKm} kilometers. Dedicated solo freight is rupees ${calculations.soloCost}. Shared pooling cost is only rupees ${calculations.sharedCost}, saving you rupees ${calculations.savings}, which is ${calculations.savingsPercent} percent savings. Road condition: ${selectedCorridor.weather.badgeText}.`;
+    const text = `${selectedCorridor.name}, अंतर ${selectedCorridor.distanceKm} किलोमीटर. खाजगी ट्रक भाडे रुपये ${calculations.soloCost}. शेअर्ड पूलिंग भाडे फक्त रुपये ${calculations.sharedCost}, तुमची बचत रुपये ${calculations.savings}, म्हणजेच ${calculations.savingsPercent} टक्के सूट. रस्ता स्थिती: ${selectedCorridor.weather.badgeText}.`;
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = language === 'gu' ? 'gu-IN' : language === 'hi' ? 'hi-IN' : language === 'mr' ? 'mr-IN' : 'en-IN';
+    utterance.lang = language === 'mr' ? 'mr-IN' : language === 'hi' ? 'hi-IN' : 'en-IN';
     utterance.rate = 0.95;
     window.speechSynthesis.speak(utterance);
   };
@@ -64,13 +64,13 @@ export default function CorridorFreightCalculator({ onApplyCorridor, defaultWeig
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
             <Calculator className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Highway Route Distance & Freight Savings Estimator</span>
+            <span>Maharashtra Highway Route Distance & Freight Savings Estimator</span>
           </div>
           <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
-            Highway Route Distance & Freight Savings Estimator
+            Maharashtra Highway Route Distance & Freight Savings Estimator
           </h2>
           <p className="text-xs text-slate-600">
-            Compare Solo Truck Freight vs Shared Pooled Freight with calculated savings (e.g., Surat-Navsari 38km saves ₹750/62%, Surat-Rajkot 430km saves ₹5,300/62%) and route weather advisory badges.
+            Compare Solo Truck Freight vs Shared Pooled Freight across Maharashtra APMC corridors with calculated savings (e.g., Nashik-Vashi 165km saves ₹3,250/62%, Kolhapur-Pune 235km saves ₹4,500/62%) and route weather advisory badges.
           </p>
         </div>
 
@@ -81,14 +81,14 @@ export default function CorridorFreightCalculator({ onApplyCorridor, defaultWeig
           className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 transition-colors cursor-pointer"
         >
           <Volume2 className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Listen Aloud</span>
+          <span>Listen Aloud (मराठी / हिन्दी)</span>
         </button>
       </div>
 
       {/* Corridor Selection Pills */}
       <div className="space-y-2">
         <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-          Select Agricultural Transport Corridor:
+          Select Maharashtra Agricultural Transport Corridor:
         </label>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
           {CORRIDORS.map((corridor) => {

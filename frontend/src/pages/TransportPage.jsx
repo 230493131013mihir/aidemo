@@ -74,9 +74,9 @@ export default function TransportPage() {
     driverName: user?.name || '',
     phone: user?.phone || '',
     vehicleType: 'Mahindra Bolero Maxi Truck',
-    vehicleNumber: 'GJ-05-BX-4921',
+    vehicleNumber: 'MH-12-RN-4921',
     capacityKg: '2200',
-    baseMandi: 'Surat APMC',
+    baseMandi: 'Pune APMC',
     ratePerKm: '25',
   });
   const [savingVehicle, setSavingVehicle] = useState(false);
@@ -158,11 +158,11 @@ export default function TransportPage() {
         setTransportersList([
           {
             id: 'mock-1',
-            driverName: 'Jigneshbhai Patel',
+            driverName: 'Kishor Jadhav',
             phone: '+91 98765 43210',
             vehicleType: 'Tata 407 (Medium Truck)',
             capacityKg: 2500,
-            currentRoute: 'Surat ➔ Ahmedabad APMC',
+            currentRoute: 'Nashik ➔ Vashi APMC (Navi Mumbai)',
             ratePerKm: 14,
             isAvailable: true,
             rating: 4.8
@@ -184,11 +184,11 @@ export default function TransportPage() {
       setTransportersList([
         {
           id: 'mock-1',
-          driverName: 'Jigneshbhai Patel',
+          driverName: 'Kishor Jadhav',
           phone: '+91 98765 43210',
           vehicleType: 'Tata 407 (Medium Truck)',
           capacityKg: 2500,
-          currentRoute: 'Surat ➔ Ahmedabad APMC',
+          currentRoute: 'Nashik ➔ Vashi APMC (Navi Mumbai)',
           ratePerKm: 14,
           isAvailable: true,
           rating: 4.8
@@ -306,10 +306,10 @@ export default function TransportPage() {
       id: `live-${tr.id}`,
       transporterId: tr.userId,
       driver: tr.driverName || 'Verified Driver',
-      route: tr.baseMandi || tr.currentRoute || 'Surat APMC',
+      route: tr.baseMandi || tr.currentRoute || 'Pune APMC',
       date: date,
       vehicle: tr.vehicleType || 'Commercial Farm Truck',
-      vehicleNumber: tr.vehicleNumber || 'GJ-05-BX-4921',
+      vehicleNumber: tr.vehicleNumber || 'MH-12-RN-4921',
       capacityKg: tr.capacityKg || 2000,
       usedKg: 0,
       cost: (tr.ratePerKm || 20) * 85, // estimated base route cost
@@ -348,15 +348,15 @@ export default function TransportPage() {
       setTimeout(() => {
         const guestBooking = {
           id: `guest-${Date.now()}`,
-          farmerName: farmerName.trim() || 'Guest Farmer (અતિથિ)',
+          farmerName: farmerName.trim() || 'Guest Farmer (अतिथी शेतकरी)',
           cropName: cropName.trim(),
           weightKg: Number(weight || 500),
           pickupLocation: pickupLocation.trim(),
-          destinationMarket: destination || 'Surat APMC',
+          destinationMarket: destination || 'Pune APMC',
           pickupDate: date || new Date().toISOString().slice(0, 10),
           status: 'assigned',
           gatePassCode: `HM-GP-DEMO-${Math.floor(1000 + Math.random() * 9000)}`,
-          driverName: 'Ramesh Patel (Verified Driver)',
+          driverName: 'Sanjay Shinde (Verified Driver)',
           driverPhone: '9876543210',
           vehicleType: 'Mahindra Bolero Maxi Truck',
           vehicleNumber: 'GJ-05-AB-4921',
@@ -456,12 +456,12 @@ export default function TransportPage() {
           farmerName: farmerName || user?.name || 'Farmer',
           farmerPhone: user?.phone,
           cropName: cropName || 'Produce',
-          pickupLocation: pickupLocation || 'Surat, Gujarat',
+          pickupLocation: pickupLocation || 'Pune, Maharashtra',
           destinationMarket: pool.route,
           pickupDate: pool.date,
           weightKg: Number(weight) || 500,
           vehicleType: pool.vehicle,
-          vehicleNumber: pool.vehicleNumber || 'GJ-05-BX-4921',
+          vehicleNumber: pool.vehicleNumber || 'MH-12-RN-4921',
           estimatedSharedCost: estimatedCost,
         }),
       });
@@ -956,7 +956,7 @@ export default function TransportPage() {
                   value={pickupLocation}
                   onChange={(e) => setPickupLocation(e.target.value)}
                   className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary"
-                  placeholder="e.g. Surat, Gujarat"
+                  placeholder="e.g. Pune, Maharashtra"
                 />
               </label>
 
@@ -967,7 +967,7 @@ export default function TransportPage() {
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
                   className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary"
-                  placeholder="e.g. Surat APMC, Ahmedabad APMC"
+                  placeholder="e.g. Pune APMC, Mumbai Vashi APMC"
                 />
               </label>
 
@@ -1591,11 +1591,12 @@ export default function TransportPage() {
                   onChange={(e) => setVehicleForm({ ...vehicleForm, baseMandi: e.target.value })}
                   className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary bg-white"
                 >
-                  <option value="Surat APMC">Surat APMC</option>
-                  <option value="Ahmedabad APMC">Ahmedabad APMC</option>
-                  <option value="Rajkot APMC">Rajkot APMC</option>
-                  <option value="Vadodara APMC">Vadodara APMC</option>
-                  <option value="Mehsana APMC">Mehsana APMC</option>
+                  <option value="Pune APMC">Pune APMC (Gultekdi)</option>
+                  <option value="Nashik APMC">Nashik APMC</option>
+                  <option value="Mumbai Vashi APMC">Mumbai Vashi Mega APMC</option>
+                  <option value="Kolhapur APMC">Kolhapur APMC (Shahu Market Yard)</option>
+                  <option value="Nagpur APMC">Nagpur APMC (Kalamna)</option>
+                  <option value="Amravati APMC">Amravati APMC</option>
                 </select>
               </label>
             </div>

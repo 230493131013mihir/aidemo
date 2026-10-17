@@ -55,7 +55,7 @@ export default function SchemesPage() {
   // Filters
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedState, setSelectedState] = useState('all');
+  const [selectedState, setSelectedState] = useState('Maharashtra');
   const [showSavedOnly, setShowSavedOnly] = useState(false);
 
   // Modals & Match Engine
@@ -220,7 +220,7 @@ export default function SchemesPage() {
           </h1>
 
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
-            Discover verified Central, Gujarat (i-Khedut), and Maharashtra agricultural assistance schemes. Check deterministic eligibility, track your required document checklist, and connect directly to official government portals.
+            Discover verified Maharashtra (MahaDBT / PoCRA) and Central agricultural assistance schemes. Check deterministic eligibility, track your required document checklist, and connect directly to official government portals.
           </p>
 
           <div className="pt-2 flex flex-wrap items-center gap-3">
@@ -256,8 +256,8 @@ export default function SchemesPage() {
         <div className="animate-in fade-in slide-in-from-top-4 duration-300">
           <SchemeFinderWizard
             initialData={{
-              state: user?.FarmerProfile?.state || 'Gujarat',
-              district: user?.FarmerProfile?.district || 'Surat',
+              state: user?.FarmerProfile?.state || 'Maharashtra',
+              district: user?.FarmerProfile?.district || 'Pune',
               farmSizeAcres: user?.FarmerProfile?.farmSizeAcres || '3.5',
               crops: user?.FarmerProfile?.mainCrop ? user.FarmerProfile.mainCrop.split(',').map(s => s.trim()) : ['Tomato']
             }}
@@ -300,9 +300,8 @@ export default function SchemesPage() {
               onChange={e => setSelectedState(e.target.value)}
               className="w-full py-2.5 px-3.5 rounded-2xl border border-slate-300 bg-slate-50/50 text-xs sm:text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
-              <option value="all">Applicability: All India & All States</option>
-              <option value="Gujarat">Gujarat (ગુજરાત - i-Khedut)</option>
-              <option value="Maharashtra">Maharashtra (महाराष्ट्र)</option>
+              <option value="Maharashtra">Maharashtra (महाराष्ट्र शासन कृषी योजना)</option>
+              <option value="all">Applicability: Maharashtra & Central Schemes</option>
             </select>
           </div>
 
@@ -452,10 +451,10 @@ export default function SchemesPage() {
               desc: 'National crop insurance policy & claims registration.'
             },
             {
-              name: 'Gujarat i-Khedut Portal',
-              domain: 'ikhedut.gujarat.gov.in',
-              url: 'https://ikhedut.gujarat.gov.in/',
-              desc: 'Gujarat Department of Agriculture single-window scheme portal.'
+              name: 'Maharashtra MahaDBT Farmer Portal',
+              domain: 'mahadbt.maharashtra.gov.in',
+              url: 'https://mahadbt.maharashtra.gov.in/',
+              desc: 'Maharashtra Agriculture & Farmer Welfare single-window DBT scheme portal.'
             }
           ].map(portal => (
             <a

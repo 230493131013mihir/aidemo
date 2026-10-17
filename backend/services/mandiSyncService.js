@@ -7,7 +7,7 @@
 const { MarketPrice, Market, Crop } = require('../models');
 const { Op } = require('sequelize');
 
-async function getMandiPriceTrends(cropName = 'Tomato', state = 'Gujarat') {
+async function getMandiPriceTrends(cropName = 'Tomato', state = 'Maharashtra') {
   try {
     const cropWhere = cropName
       ? (Crop.rawAttributes && Crop.rawAttributes.name

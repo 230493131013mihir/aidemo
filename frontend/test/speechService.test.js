@@ -18,8 +18,8 @@ console.log('🎙️ HarvestMitra AI - ISSUE-10 Speech Service Tests');
 console.log('======================================================\n');
 
 // 1. Language Definitions Verification
-console.log('1. Checking 4 Supported Languages:');
-const requiredLangs = ['en', 'hi', 'gu', 'mr'];
+console.log('1. Checking 3 Supported Languages (Marathi, Hindi, English):');
+const requiredLangs = ['mr', 'hi', 'en'];
 for (const lang of requiredLangs) {
   assert.ok(SUPPORTED_LANGUAGES[lang], `Language '${lang}' must be configured`);
   assert.ok(SUPPORTED_LANGUAGES[lang].speechRecognition.endsWith('-IN'), `Recognition locale for '${lang}' must be Indian locale (-IN)`);
@@ -28,16 +28,15 @@ for (const lang of requiredLangs) {
 
 assert.strictEqual(SUPPORTED_LANGUAGES.mr.speechRecognition, 'mr-IN', 'Marathi recognition locale must be mr-IN');
 assert.strictEqual(SUPPORTED_LANGUAGES.mr.speechSynthesis, 'mr-IN', 'Marathi synthesis locale must be mr-IN');
-assert.strictEqual(SUPPORTED_LANGUAGES.gu.speechRecognition, 'gu-IN', 'Gujarati recognition locale must be gu-IN');
 assert.strictEqual(SUPPORTED_LANGUAGES.hi.speechRecognition, 'hi-IN', 'Hindi recognition locale must be hi-IN');
 assert.strictEqual(SUPPORTED_LANGUAGES.en.speechRecognition, 'en-IN', 'English recognition locale must be en-IN');
-console.log('  ✅ [PASS] All 4 languages (en, hi, gu, mr) verified with Indian locales.');
+assert.strictEqual(SUPPORTED_LANGUAGES.gu, undefined, 'Gujarati must not be present');
+console.log('  ✅ [PASS] 3 languages (mr, hi, en) verified with Indian locales.');
 
 // 2. Strict Voice Matching (NO FAKING)
 console.log('\n2. Testing Voice Matching Algorithm:');
 const mockVoices = [
   { name: 'Google हिन्दी', lang: 'hi-IN', default: false },
-  { name: 'Google Gujarati', lang: 'gu-IN', default: false },
   { name: 'Google English (India)', lang: 'en-IN', default: true },
   { name: 'Microsoft Ravi - Marathi (India)', lang: 'mr-IN', default: false }
 ];
@@ -49,11 +48,17 @@ assert.strictEqual(mrMatch.voice.lang, 'mr-IN');
 assert.strictEqual(mrMatch.exactMatch, true);
 console.log('  ✅ [PASS] Marathi voice matched to mr-IN exact voice.');
 
-// Test Gujarati voice matching
-const guMatch = findMatchingVoice('gu', mockVoices);
-assert.ok(guMatch.voice, 'Must find Gujarati voice');
-assert.strictEqual(guMatch.voice.lang, 'gu-IN');
-console.log('  ✅ [PASS] Gujarati voice matched to gu-IN.');
+// Test Hindi voice matching
+const hiMatch = findMatchingVoice('hi', mockVoices);
+assert.ok(hiMatch.voice, 'Must find Hindi voice');
+assert.strictEqual(hiMatch.voice.lang, 'hi-IN');
+console.log('  ✅ [PASS] Hindi voice matched to hi-IN.');
+
+// Test English voice matching
+const enMatch = findMatchingVoice('en', mockVoices);
+assert.ok(enMatch.voice, 'Must find English voice');
+assert.strictEqual(enMatch.voice.lang, 'en-IN');
+console.log('  ✅ [PASS] English voice matched to en-IN.');
 
 // Test NO FAKING: When Marathi voice is missing, must NOT return Hindi voice
 const voicesWithoutMarathi = mockVoices.filter(v => v.lang !== 'mr-IN');

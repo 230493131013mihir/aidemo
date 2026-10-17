@@ -37,7 +37,7 @@ export default function TextToSpeechButton({ text, className = '', id = 'tts-but
     if (!cleanText) return;
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = language === 'gu' ? 'gu-IN' : language === 'hi' ? 'hi-IN' : language === 'mr' ? 'mr-IN' : 'en-IN';
+    utterance.lang = language === 'mr' ? 'mr-IN' : language === 'hi' ? 'hi-IN' : 'en-IN';
     utterance.rate = 0.95;
     utterance.pitch = 1.0;
 
