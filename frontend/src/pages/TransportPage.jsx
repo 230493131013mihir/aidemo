@@ -336,10 +336,49 @@ export default function TransportPage() {
     setError('');
     setMessage('');
 
-    if (!token || isUserTransporter) {
-      const errMsg = 'Sign in with a farmer account to post a transport request.';
+    if (!token || token === 'guest' || user?.isGuest) {
+      if (!cropName.trim() || !pickupLocation.trim()) {
+        const errMsg = 'Please fill in crop commodity and pickup location.';
+        setError(errMsg);
+        showToast({ type: 'error', title: 'Missing Information', message: errMsg });
+        return;
+      }
+      setSubmitting(true);
+      setTimeout(() => {
+        const guestBooking = {
+          id: `guest-${Date.now()}`,
+          farmerName: farmerName.trim() || 'Guest Farmer (અતિથિ)',
+          cropName: cropName.trim(),
+          weightKg: Number(weight || 500),
+          pickupLocation: pickupLocation.trim(),
+          destinationMarket: destination || 'Surat APMC',
+          pickupDate: date || new Date().toISOString().slice(0, 10),
+          status: 'assigned',
+          gatePassCode: `HM-GP-DEMO-${Math.floor(1000 + Math.random() * 9000)}`,
+          driverName: 'Ramesh Patel (Verified Driver)',
+          driverPhone: '9876543210',
+          vehicleType: 'Mahindra Bolero Maxi Truck',
+          vehicleNumber: 'GJ-05-AB-4921',
+          estimatedDurationMinutes: 120,
+          estimatedSharedCost: Math.round(Number(weight || 500) * 1.8),
+          createdAt: new Date().toISOString()
+        };
+        setActiveFarmerBooking(guestBooking);
+        setSelectedGatePass(guestBooking);
+        setSubmitting(false);
+        showToast({
+          type: 'success',
+          title: '🎟️ Demo Gate Pass Issued!',
+          message: 'Your Digital Mandi Gate Pass is generated with QR verification code.'
+        });
+      }, 500);
+      return;
+    }
+
+    if (isUserTransporter) {
+      const errMsg = 'Transporters cannot post farmer transport requests.';
       setError(errMsg);
-      showToast({ type: 'error', title: 'Login Required', message: errMsg });
+      showToast({ type: 'warning', title: 'Role Restriction', message: errMsg });
       return;
     }
 

@@ -37,7 +37,7 @@ export default function Navbar() {
         { href: '/#features', label: 'Features', icon: Calculator },
         { href: '/#workflow', label: 'How It Works', icon: Truck },
         { to: '/schemes-preview', label: 'Govt Schemes', icon: Landmark },
-        { to: '/login', label: 'Live Mandis', icon: TrendingUp },
+        { to: '/markets', label: 'Live Mandis', icon: TrendingUp },
       ];
     }
 
