@@ -15,6 +15,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import TextToSpeechButton from '../common/TextToSpeechButton';
 
 export default function SchemeCard({ 
   scheme, 
@@ -59,12 +60,21 @@ export default function SchemeCard({
 
   const cat = categoryConfig[scheme.category] || { label: 'Agricultural Assistance', color: 'bg-slate-100 text-slate-800 border-slate-300' };
 
+  // Audio text to speak aloud for illiterate farmers in selected language
+  const speechText = `${displayName}. ${displayDesc || ''}. Key Benefits: ${displayBenefits || ''}. ${
+    scheme.eligibilityOutcome === 'potentially_eligible'
+      ? 'You are potentially eligible for this scheme.'
+      : scheme.eligibilityOutcome === 'more_info_required'
+      ? 'More information is required to verify your eligibility.'
+      : ''
+  }`;
+
   return (
     <div className="bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-emerald-400/60 transition-all duration-300 flex flex-col justify-between p-5 sm:p-6 space-y-4 relative overflow-hidden group">
       {/* Top subtle glow */}
       <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-500/10 transition-colors" />
 
-      {/* Top Row: Category + State + Bookmark Button */}
+      {/* Top Row: Category + State + Audio Readout & Bookmark Buttons */}
       <div className="relative z-10 flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${cat.color}`}>
@@ -75,20 +85,27 @@ export default function SchemeCard({
           </span>
         </div>
 
-        {onToggleSave && (
-          <button
-            type="button"
-            onClick={() => onToggleSave(scheme.id)}
-            title={isSaved ? 'Remove from Saved Schemes' : 'Save Scheme for Later'}
-            className={`p-2 rounded-xl border transition-all ${
-              isSaved
-                ? 'bg-amber-50 text-amber-600 border-amber-300 shadow-xs'
-                : 'bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            {isSaved ? <BookmarkCheck className="w-4 h-4 fill-amber-500" /> : <Bookmark className="w-4 h-4" />}
-          </button>
-        )}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <TextToSpeechButton 
+            text={speechText} 
+            id={`tts-scheme-${scheme.id}`}
+          />
+
+          {onToggleSave && (
+            <button
+              type="button"
+              onClick={() => onToggleSave(scheme.id)}
+              title={isSaved ? 'Remove from Saved Schemes' : 'Save Scheme for Later'}
+              className={`p-2 rounded-xl border transition-all ${
+                isSaved
+                  ? 'bg-amber-50 text-amber-600 border-amber-300 shadow-xs'
+                  : 'bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              {isSaved ? <BookmarkCheck className="w-4 h-4 fill-amber-500" /> : <Bookmark className="w-4 h-4" />}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Middle Content */}

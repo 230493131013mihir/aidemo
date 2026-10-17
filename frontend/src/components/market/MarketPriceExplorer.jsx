@@ -34,6 +34,7 @@ import {
   fetchMarketPrices,
   compareMarkets
 } from '../../services/marketApiService';
+import VoiceSearchButton from '../common/VoiceSearchButton';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
@@ -126,7 +127,8 @@ const I18N = {
 
 export default function MarketPriceExplorer({
   selectedLanguage = 'en',
-  onSelectMarketForSimulator = null
+  onSelectMarketForSimulator = null,
+  initialSearchQuery = ''
 }) {
   const t = I18N[selectedLanguage] || I18N.en;
   const { user } = useAuth();
@@ -142,7 +144,7 @@ export default function MarketPriceExplorer({
   const [error, setError] = useState(null);
 
   // Filters
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [selectedCrop, setSelectedCrop] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [selectedMarket, setSelectedMarket] = useState('');
@@ -193,12 +195,13 @@ export default function MarketPriceExplorer({
   }, []);
 
   // Filter Trigger
-  const handleApplyFilters = async () => {
+  const handleApplyFilters = async (queryOverride = null) => {
     try {
       setLoading(true);
       setError(null);
+      const query = queryOverride !== null ? queryOverride : (selectedCrop || searchQuery);
       const filtered = await fetchMarketPrices({
-        crop: selectedCrop || searchQuery,
+        crop: query,
         district: selectedDistrict,
         market: selectedMarket,
       });
@@ -529,10 +532,11 @@ export default function MarketPriceExplorer({
           {/* Filter Bar */}
           <div className="p-3 sm:p-4 bg-white border-b border-emerald-100 flex flex-wrap items-center gap-2.5 shadow-2xs">
             {/* Search Input */}
-            <form onSubmit={(e) => { e.preventDefault(); handleApplyFilters(); }} className="flex-1 min-w-[200px]">
-              <div className="relative">
+            <form onSubmit={(e) => { e.preventDefault(); handleApplyFilters(); }} className="flex-1 min-w-[220px] flex items-center gap-2">
+              <div className="relative flex-1">
                 <Search className="w-4 h-4 text-emerald-700 absolute left-3 top-2.5" />
                 <input
+                  id="market-explorer-search-input"
                   type="text"
                   placeholder={t.searchPlaceholder}
                   value={searchQuery}
@@ -540,6 +544,13 @@ export default function MarketPriceExplorer({
                   className="w-full pl-9 pr-3 py-1.5 bg-gray-50 border border-emerald-200 rounded-xl text-xs sm:text-sm text-gray-800 focus:outline-none focus:border-emerald-600 focus:bg-white transition-all"
                 />
               </div>
+              <VoiceSearchButton
+                id="market-explorer-voice-btn"
+                onResult={(transcript) => {
+                  setSearchQuery(transcript);
+                  handleApplyFilters(transcript);
+                }}
+              />
             </form>
 
             {/* Crop Select */}
