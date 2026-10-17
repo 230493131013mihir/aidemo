@@ -13,6 +13,7 @@ import TransportPage from '../pages/TransportPage';
 import WeatherPage from '../pages/WeatherPage';
 import ChatPage from '../pages/ChatPage';
 import ProfilePage from '../pages/ProfilePage';
+import SchemesPage from '../pages/SchemesPage';
 import AdminPage from '../pages/AdminPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import ProtectedRoute from '../components/common/ProtectedRoute';
@@ -27,6 +28,7 @@ export default function AppRoutes() {
         <Route path="/harvest-preview" element={<HarvestPage />} />
         <Route path="/prices" element={<MarketsPage />} />
         <Route path="/assistant" element={<ChatPage />} />
+        <Route path="/schemes-preview" element={<SchemesPage isPreview={true} />} />
       </Route>
       <Route path="/login" element={<AuthPage mode="login" />} />
       <Route path="/register" element={<AuthPage mode="register" />} />
@@ -48,6 +50,8 @@ export default function AppRoutes() {
         <Route path="/weather" element={<WeatherPage />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/assistant" element={<ChatPage />} />
+        <Route path="/schemes" element={<SchemesPage />} />
+        <Route path="/farmer/schemes" element={<SchemesPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route
           path="/admin"

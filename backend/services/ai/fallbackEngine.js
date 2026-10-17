@@ -48,6 +48,10 @@ function generateResponse(params = {}) {
       replyMessage = handleWeather(context, lang);
       break;
 
+    case 'government_scheme':
+      replyMessage = handleGovernmentScheme(context, lang, userMessage);
+      break;
+
     case 'profile':
       replyMessage = handleProfile(context, lang);
       break;
@@ -312,41 +316,151 @@ function handleProfile(context, lang) {
 }
 
 /**
+ * Handle government_scheme intent
+ */
+function handleGovernmentScheme(context, lang, userMessage = '') {
+  const query = (userMessage || '').toLowerCase();
+
+  if (query.includes('pm-kisan') || query.includes('pmkisan') || query.includes('६०००') || query.includes('6000')) {
+    if (lang === 'mr') {
+      return `🏛️ **पीएम-किसान (PM-KISAN) सन्मान निधी**:
+• **लाभ**: पात्र शेतकरी कुटुंबांना प्रतिवर्ष ₹6,000 (3 समान हप्त्यांमध्ये ₹2,000 थेट DBT द्वारे).
+• **पात्रता**: लागवडीयोग्य जमिनीची मालकी असणारे शेतकरी.
+• **आवश्यक कागदपत्रे**: आधार कार्ड, 7/12 व 8-A उतारा, बँक पासबुक तपशील.
+• **अधिकृत पोर्टल**: https://pmkisan.gov.in/
+*टीप: HarvestMitra AI कधीही तुमचा बँक पासवर्ड, OTP किंवा आधार नंबर मागत नाही. अर्ज नेहमी अधिकृत पोर्टलवरच करा.*`;
+    }
+    if (lang === 'gu') {
+      return `🏛️ **પ્રધાનમંત્રી કિસાન સન્માન નિધિ (PM-KISAN)**:
+• **લાભ**: પાત્ર ખેડૂત પરિવારોને વાર્ષિક ₹6,000 સહાય (₹2,000 ના 3 સરખા હપ્તામાં સીધા DBT ખાતામાં).
+• **પાત્રતા**: ખેતીલાયક જમીનની માલિકી ધરાવતા ખેડૂતો.
+• **જરૂરી દસ્તાવેજ**: આધાર કાર્ડ, ૭/૧૨ અને ૮-અ ના ઉતારા, બેંક પાસબુક વિગત.
+• **સત્તાવાર પોર્ટલ**: https://pmkisan.gov.in/
+*નોંધ: HarvestMitra AI ક્યારેય બેંક પાસવર્ડ, OTP કે આધાર નંબર પૂછતું નથી. સત્તાવાર પોર્ટલ પર જ અરજી કરવી.*`;
+    }
+    if (lang === 'hi') {
+      return `🏛️ **प्रधानमंत्री किसान सम्मान निधि (PM-KISAN)**:
+• **लाभ**: पात्र किसान परिवारों को प्रति वर्ष ₹6,000 की वित्तीय सहायता (3 किस्तों में ₹2,000 सीधे बैंक खाते में).
+• **पात्रता**: खेती योग्य भूमि धारक किसान परिवार.
+• **आवश्यक दस्तावेज**: आधार कार्ड, भूमि अभिलेख (खतौनी/जमाबंदी), बैंक खाता विवरण.
+• **आधिकारिक पोर्टल**: https://pmkisan.gov.in/
+*सुझाव: HarvestMitra AI कभी भी पासवर्ड, OTP या संवेदनशील क्रेडेंशियल्स नहीं मांगता। आवेदन केवल आधिकारिक पोर्टल पर ही करें।*`;
+    }
+    return `🏛️ **PM-KISAN Samman Nidhi**:
+• **Benefit**: ₹6,000 per year in 3 equal installments of ₹2,000 directly via DBT into Aadhaar-linked bank accounts.
+• **Eligibility**: Landholding farmer families with cultivable agricultural land.
+• **Required Documents**: Aadhaar Card, Land ownership record (7/12, Khatauni), Bank passbook details.
+• **Official Portal**: https://pmkisan.gov.in/
+*Notice: HarvestMitra AI never asks for bank passwords, OTPs, or Aadhaar numbers. Always submit official applications on verified government websites.*`;
+  }
+
+  if (query.includes('ikhedut') || query.includes('ખેડૂત') || query.includes('gujarat') || query.includes('ગુજરાત')) {
+    if (lang === 'gu') {
+      return `🏛️ **ગુજરાત આઈ-ખેડૂત પોર્ટલ (i-Khedut Portal)**:
+• **યોજનાઓ**: ટ્રેક્ટર સહાય, ટપક સિંચાઈ (Drip Irrigation 70% સબસિડી), તાર ફેન્સિંગ, ખેત ઓજારો અને બાગાયતી યોજનાઓ.
+• **અરજી પ્રક્રિયા**: i-Khedut પોર્ટલ પર ગ્રામ પંચાયત VCE અથવા ઓનલાઇન અરજી કરી ૭/૧૨, ૮-અ અને આધાર કાર્ડ સાથે અરજી સબમિટ કરવી.
+• **સત્તાવાર પોર્ટલ**: https://ikhedut.gujarat.gov.in/
+વધુ વિગતવાર યોજનાઓ જાણવા HarvestMitra ના **Kisan Sahayata (સરકારી યોજનાઓ)** વિભાગની મુલાકાત લો!`;
+    }
+    if (lang === 'hi') {
+      return `🏛️ **गुजरात आई-खेड़ूत पोर्टल (Gujarat i-Khedut Portal)**:
+• **योजनाएं**: ट्रैक्टर सब्सिडी, सूक्ष्म सिंचाई (ड्रिप 70% तक अनुदान), तार फेंसिंग सहायता, कृषि यंत्रीकरण।
+• **आवेदन**: i-Khedut पोर्टल पर ग्राम पंचायत या ऑनलाइन माध्यम से आवेदन कर सकते हैं।
+• **आधिकारिक वेबसाइट**: https://ikhedut.gujarat.gov.in/
+अधिक जानकारी के लिए HarvestMitra AI के **सरकारी योजनाएं (Kisan Sahayata)** मॉड्यूल को देखें।`;
+    }
+    return `🏛️ **Gujarat i-Khedut Portal**:
+• **Available Schemes**: Tractor subsidy (up to ₹60,000), Drip Irrigation (up to 70% subsidy via GGRC), wire fencing, agricultural implements, and horticulture assistance.
+• **How to Apply**: Apply online at the official portal and verify through your village panchayat (e-Gram VCE).
+• **Official Portal**: https://ikhedut.gujarat.gov.in/
+Explore personalized matching on our **Kisan Sahayata — Government Schemes** finder!`;
+  }
+
+  // General scheme response
+  if (lang === 'mr') {
+    return `🏛️ **किसान सहायता — सरकारी कृषी योजना व अनुदान**:
+शेतकऱ्यांसाठी प्रमुख सत्यापित योजना:
+1. **PM-KISAN**: प्रतिवर्ष ₹6,000 उत्पन्न सहाय्य (https://pmkisan.gov.in/)
+2. **PMFBY**: नैसर्गिक आपत्तीत पीक विमा संरक्षण (https://pmfby.gov.in/)
+3. **Kisan Credit Card (KCC)**: 4% सवलतीच्या दरात कृषी कर्ज.
+4. **Soil Health Card**: मोफत माती परीक्षण व खतांचा सल्ला.
+
+👉 तुमच्या जमिनीचा आकार आणि पिकांनुसार तंतोतंत योजना शोधण्यासाठी आमच्या मेनूमधील **'सरकारी योजना' (Kisan Sahayata)** टॅब वापरा!`;
+  }
+
+  if (lang === 'gu') {
+    return `🏛️ **કિસાન સહાયતા — સરકારી કૃષિ યોજનાઓ અને સબસિડી**:
+ખેડૂતો માટે મહત્વપૂર્ણ ચકાસાયેલ યોજનાઓ:
+1. **પીએમ-કિસાન**: વાર્ષિક ₹6,000 સહાય (https://pmkisan.gov.in/)
+2. **પીએમ પાક વીમા યોજના (PMFBY)**: પાક નુકસાન સામે સુરક્ષા (https://pmfby.gov.in/)
+3. **i-Khedut પોર્ટલ**: ટ્રેક્ટર, ટપક સિંચાઈ અને ઓજારો માટે ગુજરાત સરકારની સબસિડી (https://ikhedut.gujarat.gov.in/)
+4. **કિસાન ક્રેડિટ કાર્ડ (KCC)**: સસ્તા વ્યાજ દરે ખેતી ધિરાણ.
+
+👉 તમારી જમીન અને પાક અનુસાર યોગ્ય યોજના શોધવા ડેશબોર્ડ પર **'સરકારી યોજનાઓ' (Kisan Sahayata)** મેનૂ ખોલો!`;
+  }
+
+  if (lang === 'hi') {
+    return `🏛️ **किसान सहायता — सरकारी कृषि योजनाएं एवं सब्सिडी**:
+किसानों के लिए प्रमुख सत्यापित योजनाएं:
+1. **PM-KISAN**: ₹6,000 प्रति वर्ष आय सहायता (https://pmkisan.gov.in/)
+2. **प्रधानमंत्री फसल बीमा योजना (PMFBY)**: फसल सुरक्षा एवं क्षतिपूर्ति (https://pmfby.gov.in/)
+3. **i-Khedut पोर्टल**: ट्रैक्टर, ड्रिप सिंचाई और कृषि यंत्रों पर सरकारी सब्सिडी (https://ikhedut.gujarat.gov.in/)
+4. **किसान क्रेडिट कार्ड (KCC)**: 4% रियायती ब्याज दर पर कृषि ऋण।
+
+👉 अपनी जमीन व फसल के अनुसार उपयुक्त योजनाएं खोजने के लिए हमारे मेनू में **'सरकारी योजनाएं' (Kisan Sahayata)** देखें!`;
+  }
+
+  return `🏛️ **Kisan Sahayata — Government Schemes & Subsidies**:
+Here are key verified central and state agriculture schemes:
+1. **PM-KISAN**: ₹6,000/year direct financial support (https://pmkisan.gov.in/)
+2. **PMFBY**: Comprehensive crop insurance against weather hazards (https://pmfby.gov.in/)
+3. **Gujarat i-Khedut**: Subsidies for tractors, drip irrigation, and equipment (https://ikhedut.gujarat.gov.in/)
+4. **Kisan Credit Card (KCC)**: Concessional crop loans at 4% effective interest rate.
+5. **Soil Health Card Scheme**: Scientific soil testing and fertilizer advice.
+
+👉 Use the **Government Schemes** finder in your dashboard navigation to check personalized eligibility, download document checklists, and access verified government portals!`;
+}
+
+/**
  * Handle help and general guidance
  */
 function handleHelp(context, lang) {
   if (lang === 'mr') {
     return `मी मित्रा असिस्टंट (Mitra Assistant) आहे. मी तुम्हाला खालील गोष्टींमध्ये मदत करू शकतो:
-1. Market Explorer: विविध बाजारांमधील पिकांचे दर तपासा.
-2. Harvest Simulator: आज विक्री करावी की नंतर, यावरील निव्वळ नफ्याची तुलना करा.
-3. Shared Transport: वाहतूक खर्च कमी करण्यासाठी वाहन पूलिंग.
-4. Weather: काढणीसाठी हवामानाचा सल्ला.
+1. Kisan Sahayata: शासकीय योजना, अनुदान व आवश्यक कागदपत्रे.
+2. Market Explorer: विविध बाजारांमधील पिकांचे दर तपासा.
+3. Harvest Simulator: आज विक्री करावी की नंतर, यावरील निव्वळ नफ्याची तुलना करा.
+4. Shared Transport: वाहतूक खर्च कमी करण्यासाठी वाहन पूलिंग.
+5. Weather: काढणीसाठी हवामानाचा सल्ला.
 तुम्ही मला कोणताही प्रश्न विचारू शकता!`;
   }
 
   if (lang === 'gu') {
     return `હું મિત્ર આસિસ્ટન્ટ (Mitra Assistant) છું. હું તમને આ બાબતોમાં મદદ કરી શકું છું:
-1. Market Explorer: વિવિધ મંડીઓમાં પાકના ભાવ તપાસો.
-2. Harvest Simulator: આજે વેચવું કે પછીથી તે અંગે ચોખ્ખા નફાની સરખામણી.
-3. Shared Transport: પરિવહન ખર્ચ ઘટાડવા વાહન પૂલિંગ.
-4. Weather: લણણી માટે હવામાન સલાહ.
+1. કિસાન સહાયતા: સરકારી યોજનાઓ, સબસિડી અને જરૂરી દસ્તાવેજ યાદી.
+2. Market Explorer: વિવિધ મંડીઓમાં પાકના ભાવ તપાસો.
+3. Harvest Simulator: આજે વેચવું કે પછીથી તે અંગે ચોખ્ખા નફાની સરખામણી.
+4. Shared Transport: પરિવહન ખર્ચ ઘટાડવા વાહન પૂલિંગ.
+5. Weather: લણણી માટે હવામાન સલાહ.
 તમે મને સીધો પ્રશ્ન પૂછી શકો છો!`;
   }
 
   if (lang === 'hi') {
     return `मैं मित्रा असिस्टेंट (Mitra Assistant) हूं। मैं आपकी इन कार्यों में सहायता कर सकता हूं:
-1. Market Explorer: विभिन्न मंडियों में फसलों के भाव देखें।
-2. Harvest Simulator: आज बेचने या रुकने के शुद्ध लाभ की तुलना।
-3. Shared Transport: भाड़ा कम करने के लिए साझा वाहन।
-4. Weather: कटाई से संबंधित मौसम की जानकारी।
+1. किसान सहायता: सरकारी कृषि योजनाएं, सब्सिडी एवं आवश्यक दस्तावेज।
+2. Market Explorer: विभिन्न मंडियों में फसलों के भाव देखें।
+3. Harvest Simulator: आज बेचने या रुकने के शुद्ध लाभ की तुलना।
+4. Shared Transport: भाड़ा कम करने के लिए साझा वाहन।
+5. Weather: कटाई से संबंधित मौसम की जानकारी।
 आप मुझसे कोई भी सवाल पूछ सकते हैं!`;
   }
 
   return `I am Mitra Assistant. Here is how I can assist you:
-1. Market Explorer: Check current crop prices across APMC Mandis.
-2. Harvest Simulator: Compare net revenue between selling today vs holding or alternative markets.
-3. Shared Transport: Find pooling options to reduce vehicle freight expenses.
-4. Weather Advisories: View weather forecasts before scheduling your harvest.
+1. Kisan Sahayata: Discover government schemes, subsidies, and required document checklists.
+2. Market Explorer: Check current crop prices across APMC Mandis.
+3. Harvest Simulator: Compare net revenue between selling today vs holding or alternative markets.
+4. Shared Transport: Find pooling options to reduce vehicle freight expenses.
+5. Weather Advisories: View weather forecasts before scheduling your harvest.
 Feel free to ask a specific question!`;
 }
 

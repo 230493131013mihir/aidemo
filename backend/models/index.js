@@ -9,6 +9,9 @@ const MarketPrice = require("./marketPrice");
 const TransportRequest = require("./transportRequest");
 const ContactRequest = require("./contactRequest");
 const Report = require("./report");
+const Scheme = require("./scheme");
+const SavedScheme = require("./savedScheme");
+const SchemeChecklist = require("./schemeChecklist");
 
 User.hasOne(FarmerProfile, { foreignKey: "userId", onDelete: "CASCADE" });
 FarmerProfile.belongsTo(User, { foreignKey: "userId" });
@@ -37,6 +40,17 @@ MarketPrice.belongsTo(Market, { foreignKey: "marketId" });
 Crop.hasMany(MarketPrice, { foreignKey: "cropId", onDelete: "CASCADE" });
 MarketPrice.belongsTo(Crop, { foreignKey: "cropId" });
 
+// Government Schemes Associations
+User.hasMany(SavedScheme, { foreignKey: "userId", onDelete: "CASCADE" });
+SavedScheme.belongsTo(User, { foreignKey: "userId" });
+Scheme.hasMany(SavedScheme, { foreignKey: "schemeId", onDelete: "CASCADE" });
+SavedScheme.belongsTo(Scheme, { foreignKey: "schemeId" });
+
+User.hasMany(SchemeChecklist, { foreignKey: "userId", onDelete: "CASCADE" });
+SchemeChecklist.belongsTo(User, { foreignKey: "userId" });
+Scheme.hasMany(SchemeChecklist, { foreignKey: "schemeId", onDelete: "CASCADE" });
+SchemeChecklist.belongsTo(Scheme, { foreignKey: "schemeId" });
+
 module.exports = {
   User,
   FarmerProfile,
@@ -48,5 +62,8 @@ module.exports = {
   MarketPrice,
   TransportRequest,
   ContactRequest,
-  Report
+  Report,
+  Scheme,
+  SavedScheme,
+  SchemeChecklist
 };

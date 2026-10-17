@@ -59,6 +59,18 @@ Small and medium-sized farmers in India frequently face severe financial losses 
 - Profile management for farm location, primary crops, typical yield, and language preferences.
 - Admin dashboard to manage market prices, seed sample data, inspect transport requests, and review reports.
 
+### 7. 🏛️ Kisan Sahayata — Government Scheme Finder
+- **Farmer-Exclusive Module**: Personalized central and state government scheme discovery exclusively for farmers and agricultural beneficiaries.
+- **Rule-Based Eligibility Engine**: 100% deterministic matching (no LLM hallucinations of benefit amounts or official approval) returning outcomes: *Potentially Eligible*, *More Info Required*, or *Ineligible* with explainable criteria.
+- **Verified Official Sources Only**: Strict direct links to authentic government portals:
+  - **PM-KISAN**: [pmkisan.gov.in](https://pmkisan.gov.in/)
+  - **PM Fasal Bima Yojana (PMFBY)**: [pmfby.gov.in](https://pmfby.gov.in/)
+  - **Gujarat i-Khedut Portal**: [ikhedut.gujarat.gov.in](https://ikhedut.gujarat.gov.in/)
+  - **myScheme National Portal**: [myscheme.gov.in](https://www.myscheme.gov.in/)
+- **Document Checklist**: Interactive scheme-specific document preparation (Aadhaar Card, 7/12 land records, bank passbook, caste certificate) with local checklist ticking and readiness progress tracking.
+- **Strict Zero-Credential Architecture**: Never asks for or stores Aadhaar numbers, bank account numbers, passwords, or OTPs. Real applications are completed safely on external verified government portals.
+- **Admin Governance & Audit Trail**: Real-time regulatory scheme activation/deactivation toggles with audit logging.
+
 ---
 
 ## 🛠️ Technology Stack

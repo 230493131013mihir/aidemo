@@ -44,6 +44,9 @@ app.use('/api/market', require('./routes/marketRoutes'));
 app.use('/api/markets', require('./routes/marketRoutes'));
 app.use('/api/weather', weatherRoutes);
 app.use('/api/transport', require('./routes/transport.routes'));
+app.use('/api/schemes', require('./routes/scheme.routes'));
+app.use('/api/farmer/schemes', require('./routes/scheme.routes'));
+app.use('/api/admin/schemes', require('./routes/scheme.routes'));
 
 // Central 404 handler
 app.use((req, res) => {

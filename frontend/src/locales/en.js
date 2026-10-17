@@ -14,6 +14,7 @@ export const en = {
     transport: "Shared Transport",
     weather: "Weather Alerts",
     chat: "Mitra Assistant",
+    schemes: "Govt Schemes",
     profile: "My Profile",
     farmerProfile: "Farmer Profile",
     transporterProfile: "Transporter Profile",

@@ -14,7 +14,8 @@ import {
   Shield, 
   LogOut,
   UserCheck,
-  ShieldCheck
+  ShieldCheck,
+  Landmark
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -35,6 +36,7 @@ export default function Navbar() {
       return [
         { href: '/#features', label: 'Features', icon: Calculator },
         { href: '/#workflow', label: 'How It Works', icon: Truck },
+        { to: '/schemes-preview', label: 'Govt Schemes', icon: Landmark },
         { to: '/login', label: 'Live Mandis', icon: TrendingUp },
       ];
     }
@@ -43,6 +45,7 @@ export default function Navbar() {
       return [
         { to: '/admin', label: 'APMC Admin Console', icon: Shield },
         { to: '/markets', label: 'Mandi Intelligence', icon: TrendingUp },
+        { to: '/schemes', label: 'Govt Schemes', icon: Landmark },
         { to: '/profile', label: 'Profile', icon: User },
       ];
     }
@@ -61,6 +64,7 @@ export default function Navbar() {
       { to: '/dashboard', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard },
       { to: '/markets', label: t('nav.markets', 'Live Mandis'), icon: TrendingUp },
       { to: '/harvest', label: t('nav.harvest', 'Harvest Intelligence'), icon: Calculator },
+      { to: '/schemes', label: t('nav.schemes', 'Govt Schemes'), icon: Landmark },
       { to: '/transport', label: t('nav.transport', 'Transport Pooling'), icon: Truck },
       { to: '/weather', label: t('nav.weather', 'Agri Weather'), icon: CloudSunRain },
       { to: '/chat', label: t('nav.chat', 'AI Advisory'), icon: Bot },

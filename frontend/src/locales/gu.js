@@ -14,6 +14,7 @@ export const gu = {
     transport: "સહિયારું પરિવહન",
     weather: "હવામાન આગાહી",
     chat: "મિત્ર સહાયક",
+    schemes: "સરકારી યોજનાઓ",
     profile: "મારી પ્રોફાઇલ",
     farmerProfile: "ખેડૂત પ્રોફાઇલ",
     transporterProfile: "ટ્રાન્સપોર્ટર પ્રોફાઇલ",

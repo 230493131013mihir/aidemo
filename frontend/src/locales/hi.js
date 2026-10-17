@@ -14,6 +14,7 @@ export const hi = {
     transport: "साझा परिवहन",
     weather: "मौसम अलर्ट",
     chat: "मित्र सहायक",
+    schemes: "सरकारी योजनाएं",
     profile: "मेरी प्रोफ़ाइल",
     farmerProfile: "किसान प्रोफ़ाइल",
     transporterProfile: "ट्रांसपोर्टर प्रोफ़ाइल",

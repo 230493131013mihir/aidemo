@@ -60,6 +60,17 @@ const INTENT_PATTERNS = {
     /(हवामान|पाऊस|तापमान|अंदाज|वादळ)/i
   ],
 
+  government_scheme: [
+    // English
+    /\b(scheme|schemes|subsidy|subsidies|pm-kisan|pmkisan|fasal bima|pmfby|ikhedut|khedut|kcc|kisan credit card|soil health|krishi yojana|yojana|yojna|grant|financial assistance|tractor subsidy|drip subsidy)\b/i,
+    // Hindi
+    /(योजना|योजनाएं|सब्सिडी|अनुदान|पीएम-किसान|फसल बीमा|सरकारी सहायता|कृषि योजना|केसीसी|ऋण|सहायता राशि)/i,
+    // Gujarati
+    /(યોજના|યોજનાઓ|સબસિડી|સહાય|આઈ-ખેડૂત|ખેડૂત સહાય|પીએમ કિસાન|પાક વીમો|ટ્રેક્ટર સબસિડી|ટપક સિંચાઈ)/i,
+    // Marathi
+    /(योजना|अनुदान|सबसिडी|पीएम किसान|पीक विमा|शासकीय मदत|कृषी योजना|कर्ज माफी|ट्रॅक्टर सबसिडी)/i
+  ],
+
   profile: [
     // English
     /\b(profile|my farm|my account|details|farmer profile)\b/i,

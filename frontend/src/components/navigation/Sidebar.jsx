@@ -12,7 +12,8 @@ import {
   Sparkles, 
   ChevronRight,
   LogOut,
-  UserPlus
+  UserPlus,
+  Landmark
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -41,6 +42,7 @@ export default function Sidebar({ className = '' }) {
           title: 'APMC Governance',
           items: [
             { to: '/admin', label: 'Admin Control Center', icon: Shield },
+            { to: '/schemes', label: 'Govt Schemes Directory', icon: Landmark, badge: 'Gov' },
             { to: '/markets', label: 'Mandi Rates & Mandis', icon: TrendingUp },
           ]
         }
@@ -71,11 +73,17 @@ export default function Sidebar({ className = '' }) {
         ]
       },
       {
-        title: 'Operations & Intelligence',
+        title: 'Government & Advisory',
+        items: [
+          { to: '/schemes', label: t('nav.schemes', 'Govt Schemes'), icon: Landmark, badge: 'New' },
+          { to: '/chat', label: t('nav.chat', 'Mitra AI Advisory'), icon: Bot, badge: 'AI' },
+        ]
+      },
+      {
+        title: 'Operations & Logistics',
         items: [
           { to: '/transport', label: t('nav.transport', 'Shared Transport'), icon: Truck },
           { to: '/weather', label: t('nav.weather', 'Agri Weather'), icon: CloudSunRain },
-          { to: '/chat', label: t('nav.chat', 'Mitra AI Advisory'), icon: Bot, badge: 'AI' },
         ]
       },
     ];
