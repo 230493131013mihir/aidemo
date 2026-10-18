@@ -235,50 +235,39 @@ export default function HarvestPage() {
 
     // Statutory APMC Cess (1.5% under Maharashtra APMC Act)
     const apmcCessRate = 0.015;
+    const packagingCost = Math.round(qty * 0.40); // ₹0.40/kg standard packaging & crate handling
+    const spoilageLoss = Math.round(qty * livePrices.holdRate * (Number(damageRisk) / 100));
     const spoilageFactor = Math.max(0, 1 - Number(damageRisk) / 100);
 
-    // 1. Local District Mandi
+    // Option 1: Immediate Sale at Local Mandi
     const localRevenue = Math.round(qty * livePrices.localRate);
     const localCess = Math.round(localRevenue * apmcCessRate);
-    const localNetProfit = localRevenue - localTransportCost - localCess;
+    const localNetProfit = localRevenue - localTransportCost - localCess - packagingCost;
 
-    // 2. Regional Maharashtra Mega APMC
-    const regionalRevenue = Math.round(qty * livePrices.regionalRate);
-    const regionalCess = Math.round(regionalRevenue * apmcCessRate);
-    const regionalNetProfit = regionalRevenue - regionalTransportCost - regionalCess;
-
-    // 3. Cold Storage / Hold & Sell
+    // Option 2: Cold Storage Holding (5-7 Days)
     const holdRevenue = Math.round(qty * livePrices.holdRate * spoilageFactor);
     const holdCess = Math.round(holdRevenue * apmcCessRate);
-    const holdNetProfit = holdRevenue - localTransportCost - coldStorageCost - holdCess;
+    const holdNetProfit = holdRevenue - localTransportCost - coldStorageCost - holdCess - packagingCost;
+
+    // Option 3: Regional APMC Terminal (Vashi Mumbai / Pune)
+    const regionalRevenue = Math.round(qty * livePrices.regionalRate);
+    const regionalCess = Math.round(regionalRevenue * apmcCessRate);
+    const regionalNetProfit = regionalRevenue - regionalTransportCost - regionalCess - packagingCost;
 
     const list = [
       {
-        id: 'regional',
-        title: `Dispatch to ${targetRegionalMandi.name}`,
-        sub: `Major Regional APMC (${targetRegionalMandi.distanceKm} km)`,
-        mandi: targetRegionalMandi.name,
-        pricePerKg: livePrices.regionalRate,
-        grossRevenue: regionalRevenue,
-        transportCost: regionalTransportCost,
-        apmcCess: regionalCess,
-        storageCost: 0,
-        netProfit: regionalNetProfit,
-        icon: Truck,
-        badge: 'High Regional Demand',
-        badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-        routeDistance: `${targetRegionalMandi.distanceKm} km route`
-      },
-      {
-        id: 'local',
-        title: `Sell at Local ${userDistrict} APMC`,
+        id: 'option-1',
+        optionNumber: 1,
+        title: 'Option 1: Immediate Sale at Local Mandi',
         sub: `Immediate Cash Settlement (~${localDistanceKm} km)`,
         mandi: `${userDistrict} APMC Market Yard`,
         pricePerKg: livePrices.localRate,
         grossRevenue: localRevenue,
         transportCost: localTransportCost,
         apmcCess: localCess,
+        packagingCost: packagingCost,
         storageCost: 0,
+        spoilageCost: 0,
         netProfit: localNetProfit,
         icon: Building2,
         badge: 'Lowest Logistics Friction',
@@ -286,20 +275,42 @@ export default function HarvestPage() {
         routeDistance: `${localDistanceKm} km local haul`
       },
       {
-        id: 'hold',
-        title: `Hold in Warehouse (${holdingDays} Days)`,
-        sub: `Festive/Seasonal Price Surge Buffer`,
+        id: 'option-2',
+        optionNumber: 2,
+        title: `Option 2: Cold Storage Holding (${holdingDays} Days)`,
+        sub: 'Festive / Seasonal Price Surge Buffer',
         mandi: `${userDistrict} Cold Storage Facility`,
         pricePerKg: livePrices.holdRate,
         grossRevenue: holdRevenue,
         transportCost: localTransportCost,
         apmcCess: holdCess,
+        packagingCost: packagingCost,
         storageCost: coldStorageCost,
+        spoilageCost: spoilageLoss,
         netProfit: holdNetProfit,
         icon: Clock,
         badge: `${damageRisk}% Spoilage Factored`,
         badgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
         routeDistance: 'Local Warehouse'
+      },
+      {
+        id: 'option-3',
+        optionNumber: 3,
+        title: `Option 3: Regional APMC Terminal (${targetRegionalMandi.district})`,
+        sub: `Major Regional APMC (${targetRegionalMandi.distanceKm} km)`,
+        mandi: targetRegionalMandi.name,
+        pricePerKg: livePrices.regionalRate,
+        grossRevenue: regionalRevenue,
+        transportCost: regionalTransportCost,
+        apmcCess: regionalCess,
+        packagingCost: packagingCost,
+        storageCost: 0,
+        spoilageCost: 0,
+        netProfit: regionalNetProfit,
+        icon: Truck,
+        badge: 'High Regional Demand',
+        badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+        routeDistance: `${targetRegionalMandi.distanceKm} km route`
       }
     ].sort((a, b) => b.netProfit - a.netProfit); // Strictly ranked by Net Profit (Requirement 14)
 
@@ -339,14 +350,14 @@ export default function HarvestPage() {
       `📈 *Extra Profit Earned:* +${formatINR(extraProfit)} higher!\n` +
       `🚚 *Logistics Mode:* ${transportMode === 'shared' ? 'Shared Truck Pooling (50% Off)' : 'Solo Freight'}\n` +
       `📍 *Target Mandi:* ${winningScenario.mandi}\n\n` +
-      `_Net Profit = Gross Revenue - Transport - APMC Cess - Storage Costs_\n` +
+      `_Net Profit = (Quantity × Mandi Rate) - (Transport Freight + Mandi Cess + Packaging + Spoilage Risk)_\n` +
       `_Generated by HarvestMitra Maharashtra APMC Decision Engine_`;
 
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   }
 
-  function handleBookTransportForWinner() {
+  function handleBookTransportForScenario(scenario) {
     if (validationError) {
       showToast({
         type: 'error',
@@ -356,12 +367,22 @@ export default function HarvestPage() {
       return;
     }
 
+    const target = scenario || winningScenario;
+    const cropList = selectedCrops.join(', ') || 'Tomato';
+
     showToast({
       type: 'celebrate',
       title: '🚚 Routing to Shared Transport...',
-      message: `Pre-filling ${winningScenario.mandi} for ${totalEnteredKg} kg total cargo.`,
+      message: `Pre-filling ${target.mandi} for ${totalEnteredKg} kg cargo.`,
     });
-    navigate('/transport');
+
+    navigate(`/transport?destination=${encodeURIComponent(target.mandi)}&weight=${totalEnteredKg}&crop=${encodeURIComponent(cropList)}`, {
+      state: {
+        destination: target.mandi,
+        weightKg: totalEnteredKg,
+        crop: cropList
+      }
+    });
   }
 
   return (
@@ -669,14 +690,15 @@ export default function HarvestPage() {
 
             {showFormulaDetails && (
               <div className="pt-2 text-[11px] text-slate-600 space-y-1.5 border-t border-slate-200">
-                <p className="font-mono bg-white p-2 rounded-lg border border-slate-200 text-slate-900 font-semibold">
-                  Estimated Net Profit = Gross Revenue − Transport Cost − APMC Cess (1.5%) − Storage Fee
+                <p className="font-mono bg-white p-2 rounded-lg border border-slate-200 text-slate-900 font-semibold text-[10.5px]">
+                  Net Profit = (Quantity × Mandi Rate) − (Transport Freight + Mandi Cess + Packaging + Spoilage Risk)
                 </p>
                 <ul className="list-disc pl-4 space-y-0.5 text-slate-600">
-                  <li><strong>Gross Revenue:</strong> Weight (kg) × Mandi Price (₹/kg)</li>
-                  <li><strong>Transport Cost:</strong> Route km × ₹26/km (Shared pooling gives ~50% savings)</li>
-                  <li><strong>APMC Cess:</strong> Statutory 1.5% fee under Maharashtra APMC Act</li>
-                  <li><strong>Storage/Holding:</strong> ₹180 per tonne/day cold storage charge + 5% spoilage risk buffer</li>
+                  <li><strong>Gross Produce Value:</strong> Total Weight (kg) × Active APMC Modal Price (₹/kg)</li>
+                  <li><strong>Transport Freight:</strong> Route distance (km) × ₹26/km (Shared pooling cuts 50%)</li>
+                  <li><strong>Mandi Cess:</strong> Statutory 1.5% fee under Maharashtra APMC Act</li>
+                  <li><strong>Packaging:</strong> ₹0.40/kg crate packaging & handling</li>
+                  <li><strong>Storage & Spoilage:</strong> Warehouse holding fee (₹180/tonne/day) + {damageRisk}% spoilage buffer</li>
                 </ul>
               </div>
             )}
@@ -716,6 +738,7 @@ export default function HarvestPage() {
 
           {scenarios.map((item, index) => {
             const isWinner = index === 0;
+            const isOption3 = item.optionNumber === 3;
             const Icon = item.icon;
 
             return (
@@ -731,7 +754,7 @@ export default function HarvestPage() {
                 {isWinner && (
                   <div className="absolute -top-3 left-6 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[10px] font-black tracking-wider uppercase shadow-md">
                     <Sparkles className="w-3 h-3 text-amber-300" />
-                    <span>Rank #1 • Highest Net Profit</span>
+                    <span>Rank #1 • Highest Net Profit Strategy</span>
                   </div>
                 )}
 
@@ -778,47 +801,68 @@ export default function HarvestPage() {
                   </div>
                 </div>
 
-                {/* Breakdown Deductions (Requirement 14) */}
-                <div className="mt-3 grid grid-cols-4 gap-1.5 text-center text-[10px] font-mono bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                {/* Breakdown Deductions (Formula Aligned) */}
+                <div className="mt-3 grid grid-cols-5 gap-1 text-center text-[9.5px] font-mono bg-slate-50 p-2 rounded-xl border border-slate-200">
                   <div>
-                    <span className="text-muted block">Gross</span>
+                    <span className="text-muted block truncate">Gross</span>
                     <span className="font-bold text-slate-800">{formatINR(item.grossRevenue)}</span>
                   </div>
                   <div>
-                    <span className="text-muted block">Transport</span>
+                    <span className="text-muted block truncate">Freight</span>
                     <span className="font-bold text-red-600">- {formatINR(item.transportCost)}</span>
                   </div>
                   <div>
-                    <span className="text-muted block">APMC Cess (1.5%)</span>
+                    <span className="text-muted block truncate">Cess (1.5%)</span>
                     <span className="font-bold text-red-600">- {formatINR(item.apmcCess)}</span>
                   </div>
                   <div>
-                    <span className="text-muted block">Storage</span>
-                    <span className="font-bold text-red-600">- {formatINR(item.storageCost)}</span>
+                    <span className="text-muted block truncate">Packaging</span>
+                    <span className="font-bold text-red-600">- {formatINR(item.packagingCost)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted block truncate">Storage/Risk</span>
+                    <span className="font-bold text-red-600">- {formatINR(item.storageCost + item.spoilageCost)}</span>
                   </div>
                 </div>
 
-                {/* Winner Action CTA */}
-                {isWinner && (
+                {/* Scenario Booking CTA Buttons */}
+                {isWinner ? (
                   <div className="mt-4 pt-3 border-t border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <span className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>Yields <strong>+{formatINR(extraProfit)}</strong> extra profit over alternative</span>
+                      <span>Yields <strong>+{formatINR(extraProfit)}</strong> extra profit over runner-up</span>
                     </span>
 
                     <button
                       type="button"
+                      id="cta-book-winning-mandi"
                       disabled={Boolean(validationError)}
-                      onClick={handleBookTransportForWinner}
+                      onClick={() => handleBookTransportForScenario(item)}
                       className={`btn-primary py-2 px-4 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 shadow-sm ${
                         validationError ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                       }`}
                     >
-                      <span>Book Shared Truck for This Mandi</span>
+                      <span>Book Shared Truck for Winning Mandi</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                )}
+                ) : isOption3 ? (
+                  <div className="mt-3 pt-2.5 border-t border-slate-200 flex justify-end">
+                    <button
+                      type="button"
+                      id="cta-book-option-3"
+                      disabled={Boolean(validationError)}
+                      onClick={() => handleBookTransportForScenario(item)}
+                      className={`px-3.5 py-1.5 rounded-xl border border-emerald-600 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold inline-flex items-center gap-1.5 transition-colors ${
+                        validationError ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                      }`}
+                    >
+                      <Truck className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Book Shared Truck for Winning Mandi</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : null}
               </div>
             );
           })}
