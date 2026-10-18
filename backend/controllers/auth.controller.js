@@ -212,25 +212,66 @@ const register = async (req, res) => {
             });
         } else {
             // Farmer
+            let formattedMainCrop = "Tomato";
+            if (Array.isArray(mainCrop)) {
+                formattedMainCrop = mainCrop.map(c => String(c).trim()).filter(Boolean).join(", ");
+            } else if (mainCrop) {
+                formattedMainCrop = String(mainCrop).trim();
+            }
+
+            let computedHarvestKg = currentHarvestKg && !Number.isNaN(Number(currentHarvestKg)) ? Number(currentHarvestKg) : 500;
+            let normalizedQuantitiesStr = null;
+
+            if (productQuantities) {
+                try {
+                    const parsed = typeof productQuantities === 'string' ? JSON.parse(productQuantities) : productQuantities;
+                    if (parsed && typeof parsed === 'object') {
+                        normalizedQuantitiesStr = JSON.stringify(parsed);
+                        let totalKg = 0;
+                        Object.values(parsed).forEach(item => {
+                            if (item && typeof item === 'object') {
+                                const q = Number(item.qty !== undefined ? item.qty : item.harvestQuantityKg) || 0;
+                                const u = String(item.unit || 'kg').toLowerCase();
+                                totalKg += (u === 'tonne' || u === 'ton' || u === 'mt') ? q * 1000 : (u === 'quintal' || u === 'qtl') ? q * 100 : q;
+                            } else if (!Number.isNaN(Number(item))) {
+                                totalKg += Number(item);
+                            }
+                        });
+                        if (totalKg > 0) {
+                            computedHarvestKg = Math.round(totalKg);
+                        }
+                    }
+                } catch (e) {
+                    normalizedQuantitiesStr = typeof productQuantities === 'string' ? productQuantities : JSON.stringify(productQuantities);
+                }
+            }
+
             profile = await FarmerProfile.create({
                 userId: user.id,
                 district: district ? district.trim() : "Pune",
                 state: "Maharashtra",
                 village: village ? village.trim() : "",
                 farmSizeAcres: farmSizeAcres && !Number.isNaN(Number(farmSizeAcres)) ? Number(farmSizeAcres) : 3.5,
-                mainCrop: mainCrop ? String(mainCrop).trim() : "Tomato",
+                mainCrop: formattedMainCrop,
                 customCrop: customCrop ? String(customCrop).trim() : null,
-                currentHarvestKg: currentHarvestKg && !Number.isNaN(Number(currentHarvestKg)) ? Number(currentHarvestKg) : 500,
-                productQuantities: productQuantities ? (typeof productQuantities === 'string' ? productQuantities : JSON.stringify(productQuantities)) : null,
+                currentHarvestKg: computedHarvestKg,
+                productQuantities: normalizedQuantitiesStr,
                 preferredLanguage: preferredLanguage || "en"
             });
         }
 
         const roleTitle = assignedRole === "transporter" ? "Transporter" : assignedRole === "mandi" ? "Mandi Official" : "Farmer";
 
+        const token = jwt.sign(
+            { id: user.id, role: user.role },
+            process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon",
+            { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+        );
+
         return res.status(201).json({
             success: true,
             message: `Account registered successfully as ${roleTitle}! Please login with your credentials.`,
+            token,
             registeredEmail: user.email,
             role: user.role,
             user: {
@@ -466,6 +507,13 @@ const updateProfile = async (req, res) => {
 
         // Update or create FarmerProfile for farmer
         if (user.role === "farmer" || district || farmSizeAcres || mainCrop) {
+            let formattedMainCrop = undefined;
+            if (Array.isArray(mainCrop)) {
+                formattedMainCrop = mainCrop.map(c => String(c).trim()).filter(Boolean).join(", ");
+            } else if (mainCrop !== undefined) {
+                formattedMainCrop = String(mainCrop).trim();
+            }
+
             let profile = await FarmerProfile.findOne({ where: { userId } });
             if (!profile) {
                 profile = await FarmerProfile.create({
@@ -474,7 +522,7 @@ const updateProfile = async (req, res) => {
                     state: "Maharashtra",
                     village: village || "",
                     farmSizeAcres: farmSizeAcres ? Number(farmSizeAcres) : 3.5,
-                    mainCrop: mainCrop || "Tomato",
+                    mainCrop: formattedMainCrop || "Tomato",
                     customCrop: customCrop || null,
                     currentHarvestKg: currentHarvestKg ? Number(currentHarvestKg) : 500,
                     productQuantities: productQuantities ? (typeof productQuantities === 'string' ? productQuantities : JSON.stringify(productQuantities)) : null,
@@ -487,13 +535,31 @@ const updateProfile = async (req, res) => {
                 if (farmSizeAcres !== undefined && !Number.isNaN(Number(farmSizeAcres))) {
                     profile.farmSizeAcres = Number(farmSizeAcres);
                 }
-                if (mainCrop !== undefined) profile.mainCrop = String(mainCrop).trim();
+                if (formattedMainCrop !== undefined) profile.mainCrop = formattedMainCrop;
                 if (customCrop !== undefined) profile.customCrop = customCrop ? String(customCrop).trim() : null;
                 if (currentHarvestKg !== undefined && !Number.isNaN(Number(currentHarvestKg))) {
                     profile.currentHarvestKg = Number(currentHarvestKg);
                 }
                 if (productQuantities !== undefined) {
                     profile.productQuantities = typeof productQuantities === 'string' ? productQuantities : JSON.stringify(productQuantities);
+                    try {
+                        const parsed = typeof productQuantities === 'string' ? JSON.parse(productQuantities) : productQuantities;
+                        if (parsed && typeof parsed === 'object') {
+                            let totalKg = 0;
+                            Object.values(parsed).forEach(item => {
+                                if (item && typeof item === 'object') {
+                                    const q = Number(item.qty !== undefined ? item.qty : item.harvestQuantityKg) || 0;
+                                    const u = String(item.unit || 'kg').toLowerCase();
+                                    totalKg += (u === 'tonne' || u === 'ton' || u === 'mt') ? q * 1000 : (u === 'quintal' || u === 'qtl') ? q * 100 : q;
+                                } else if (!Number.isNaN(Number(item))) {
+                                    totalKg += Number(item);
+                                }
+                            });
+                            if (totalKg > 0) {
+                                profile.currentHarvestKg = Math.round(totalKg);
+                            }
+                        }
+                    } catch (e) {}
                 }
                 if (preferredLanguage !== undefined) profile.preferredLanguage = preferredLanguage;
                 await profile.save();
