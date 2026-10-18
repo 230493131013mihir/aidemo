@@ -386,6 +386,12 @@ export default function HarvestPage() {
             <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
               Calculate genuine take-home cash after deducting transport logistics, statutory APMC market cess, and storage expenses across Maharashtra mandis.
             </p>
+            {user?.isGuest && (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-amber-400/20 text-amber-200 border border-amber-300/40 text-xs font-semibold backdrop-blur-sm mt-1">
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>Active Guest Session: 4.5 Acres (Pune District) • Pre-loaded Simulator Active</span>
+              </div>
+            )}
           </div>
 
           {/* 3D Winning Verdict Snapshot Badge */}
@@ -432,7 +438,7 @@ export default function HarvestPage() {
               <span>Harvest Parameters</span>
             </h2>
             <div className="text-right">
-              <span className="text-[11px] text-muted block">Available Harvest Limit</span>
+              <span className="text-[11px] text-muted block">Farm Size: {farmerProfile?.farmSizeAcres || 4.5} Acres • Stock</span>
               <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                 {userHarvestLimitKg.toLocaleString('en-IN')} kg Ready
               </span>

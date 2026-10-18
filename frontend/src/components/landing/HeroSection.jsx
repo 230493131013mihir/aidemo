@@ -60,23 +60,31 @@ export default function HeroSection() {
             </div>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
+            <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
               <Link
-                to="/dashboard"
-                id="hero-primary-cta"
-                className="btn-primary w-full sm:w-auto text-base px-8 py-3.5 shadow-xl hover:shadow-2xl transition-all font-bold flex items-center justify-center gap-2 group"
+                to="/harvest"
+                id="hero-simulator-cta"
+                className="btn-primary w-full sm:w-auto text-base px-7 py-3.5 shadow-xl hover:shadow-2xl transition-all font-bold flex items-center justify-center gap-2 group bg-emerald-600 hover:bg-emerald-700 text-white"
               >
-                <span>{t('hero.getStarted')}</span>
+                <span>🌾 Try Harvest Simulator Without Login</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
               </Link>
 
               <Link
                 to="/markets"
                 id="hero-secondary-cta"
-                className="w-full sm:w-auto text-base px-7 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold border border-white/25 backdrop-blur-md transition-all flex items-center justify-center gap-2 shadow-lg"
+                className="w-full sm:w-auto text-base px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold border border-white/25 backdrop-blur-md transition-all flex items-center justify-center gap-2 shadow-lg"
               >
                 <TrendingUp className="w-4 h-4 text-emerald-400" aria-hidden="true" />
-                <span>{t('hero.exploreDemo')}</span>
+                <span>View APMC Mandi Rates</span>
+              </Link>
+
+              <Link
+                to="/dashboard"
+                id="hero-primary-cta"
+                className="w-full sm:w-auto text-sm px-5 py-3.5 rounded-2xl bg-emerald-900/40 hover:bg-emerald-900/60 text-emerald-300 font-semibold border border-emerald-500/30 transition-all flex items-center justify-center gap-1.5"
+              >
+                <span>{t('hero.getStarted')}</span>
               </Link>
             </div>
 

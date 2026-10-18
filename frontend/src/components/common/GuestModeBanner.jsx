@@ -42,7 +42,21 @@ export default function GuestModeBanner() {
         </span>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <Link
+          to="/harvest"
+          id="guest-try-simulator"
+          className="px-2.5 py-1 rounded-lg bg-emerald-500/30 hover:bg-emerald-500/50 text-white font-bold border border-emerald-400/40 active:scale-95 transition-all shadow-xs flex items-center gap-1 text-[11px]"
+        >
+          <span>🌾 Try Harvest Simulator Without Login</span>
+        </Link>
+        <Link
+          to="/markets"
+          id="guest-view-mandis"
+          className="px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white font-bold border border-white/25 active:scale-95 transition-all shadow-xs flex items-center gap-1 text-[11px]"
+        >
+          <span>📈 View APMC Mandi Rates</span>
+        </Link>
         <Link
           to="/register"
           className="px-3 py-1.5 rounded-xl bg-white text-emerald-900 font-extrabold hover:bg-emerald-50 active:scale-95 transition-all shadow-xs flex items-center gap-1.5"
