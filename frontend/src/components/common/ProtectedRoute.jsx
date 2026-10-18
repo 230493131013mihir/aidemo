@@ -21,7 +21,7 @@ export default function ProtectedRoute({ children, requiredRole }) {
   // Admin routes strictly require verified administrator credentials
   if (requiredRole === 'admin') {
     if (!isAuthenticated || user?.role !== 'admin' || user?.isGuest) {
-      return <Navigate to="/admin" state={{ from: location }} replace />;
+      return <Navigate to="/login" state={{ from: location }} replace />;
     }
     return children;
   }
