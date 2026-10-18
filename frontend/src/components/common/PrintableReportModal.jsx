@@ -14,8 +14,8 @@ import {
   Truck, 
   FileCheck, 
   Sparkles,
-  ExternalLink,
-  Award
+  Award,
+  ShieldAlert
 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
@@ -24,7 +24,7 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Default Farm Report Payload (synthesizing Surat farmer Ramesh Patel with deterministic simulation numbers)
+  // Default Farm Report Payload (synthesizing farmer parameters and deterministic 3-scenario revenue model)
   const defaultReport = {
     reportId: 'HM-REP-2026-SRT78',
     generatedDate: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -81,7 +81,7 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
         },
         {
           id: 'option2',
-          title: 'Option 2: Hold & Sell Later (Cold Storage)',
+          title: 'Option 2: Hold & Sell Later (Cold Storage Holding)',
           market: 'Surat APMC Mandi',
           timeline: 'Hold 5-7 Days',
           grossRevenue: 16675,
@@ -96,7 +96,7 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
         },
         {
           id: 'option3',
-          title: 'Option 3: Shared Transport to Regional Hub',
+          title: 'Option 3: Shared Transport to Regional APMC',
           market: 'Pune APMC / Metro Hub',
           timeline: 'Depart Next Shared Pool',
           grossRevenue: 18000,
@@ -112,7 +112,7 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
         }
       ],
       recommendationSummary: {
-        winningOption: 'Option 3: Shared Transport to Regional Hub Mandi',
+        winningOption: 'Option 3: Shared Transport to Regional APMC',
         winningNetRevenue: 16350,
         baselineNetRevenue: 13050,
         netAdvantage: 3300,
@@ -121,11 +121,13 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
         advisoryNote: 'Opting for Option 3 generates ₹3,300 (+25.3%) higher take-home profit via HarvestMitra Shared Logistics pooling while bypassing local mandi oversupply.'
       }
     },
+    // Top 3 eligible government schemes (PM-KISAN, PMFBY, i-Khedut) with document checklist & readiness score
     schemesChecklist: [
       {
         schemeName: 'PM-KISAN (Pradhan Mantri Kisan Samman Nidhi)',
         ministry: 'Ministry of Agriculture & Farmers Welfare, GoI',
         benefit: '₹6,000 / Year Direct DBT Income Support',
+        readinessScore: 100,
         status: 'Verified & Active',
         items: [
           { name: 'Aadhaar Card Linked to Bank Account', ready: true },
@@ -135,9 +137,23 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
         ]
       },
       {
+        schemeName: 'PMFBY (Pradhan Mantri Fasal Bima Yojana)',
+        ministry: 'Ministry of Agriculture & Farmers Welfare, GoI',
+        benefit: 'Comprehensive Crop Insurance against Weather & Pest Loss (Up to ₹45,000/acre)',
+        readinessScore: 95,
+        status: 'High Readiness (95%)',
+        items: [
+          { name: 'Sowing Certificate / Crop Sowing Declaration', ready: true },
+          { name: 'Land Record 7/12 RoR & Possession Certificate', ready: true },
+          { name: 'Aadhaar Card Copy & KYC Verification', ready: true },
+          { name: 'Cancelled Cheque / Bank Passbook Copy', ready: true }
+        ]
+      },
+      {
         schemeName: 'i-Khedut Portal (Gujarat State Agri Subsidy)',
         ministry: 'Department of Agriculture & Farmers Welfare, Govt. of Gujarat',
         benefit: '70% Subsidy on Micro-Drip Irrigation & Farm Machinery',
+        readinessScore: 100,
         status: 'Eligible - Ready to Submit',
         items: [
           { name: 'i-Khedut Registration Application ID', ready: true },
@@ -175,7 +191,6 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
         });
         const data = await res.json();
         if (isMounted && data.success && data.financialScenarios) {
-          // Merge API data with checklist and visual benchmarks
           setReport({
             ...defaultReport,
             reportId: data.reportId || defaultReport.reportId,
@@ -235,13 +250,15 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          /* Hide non-report application chrome */
-          #dashboard-main-content,
-          nav,
+          /* Hide all headers, navbars, footers, and floating action buttons */
           header,
+          nav,
           footer,
+          #dashboard-main-content,
           .print\\:hidden,
-          .no-print {
+          .no-print,
+          #network-status-badge-container,
+          #kisan-floating-bar {
             display: none !important;
           }
           #printable-report-modal {
@@ -284,7 +301,7 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Official decision report with simulation revenue, APMC benchmarks & government scheme checklists
+                Official decision report with simulation revenue, APMC benchmarks & top 3 government scheme checklists
               </p>
             </div>
           </div>
@@ -297,16 +314,17 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-primary text-white text-xs sm:text-sm font-bold shadow-md hover:from-emerald-500 hover:to-primary-dark transition-all transform hover:scale-[1.02] cursor-pointer"
             >
               <Printer className="w-4 h-4" />
-              <span>Print / Save PDF (A4)</span>
+              <span>🖨️ Print / Save PDF</span>
             </button>
             <button
               type="button"
               onClick={onClose}
               id="close-report-modal"
-              className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer text-xs font-semibold"
               aria-label="Close report modal"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
+              <span>Close</span>
             </button>
           </div>
         </div>
@@ -345,11 +363,11 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
               </div>
               <div className="text-[11px] text-slate-500 mt-0.5 flex items-center sm:justify-end gap-1">
                 <Calendar className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Date: <strong>{currentReport.generatedDate}</strong> at {currentReport.generatedTime}</span>
+                <span>Current Date: <strong>{currentReport.generatedDate}</strong> at {currentReport.generatedTime}</span>
               </div>
               <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-200">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>GOVT APMC BENCHMARK COMPLIANT</span>
+                <span>Verified HarvestMitra AI Advisory</span>
               </div>
             </div>
           </div>
@@ -372,7 +390,7 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
 
               <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
                 <div className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
-                  <MapPin className="w-3 h-3 text-slate-500" /> Farm Location
+                  <MapPin className="w-3 h-3 text-slate-500" /> District & Location
                 </div>
                 <div className="text-sm font-black text-slate-800 mt-1">{currentReport.farmer.district}</div>
                 <div className="text-[10px] text-slate-500 mt-0.5">{currentReport.farmer.village}, {currentReport.farmer.state}</div>
@@ -380,7 +398,7 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
 
               <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
                 <div className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
-                  <Sprout className="w-3 h-3 text-slate-500" /> Crop & Acreage
+                  <Sprout className="w-3 h-3 text-slate-500" /> Primary Crops & Size
                 </div>
                 <div className="text-sm font-black text-slate-800 mt-1">{currentReport.farmer.crop}</div>
                 <div className="text-[10px] text-emerald-700 font-bold mt-0.5">
@@ -403,7 +421,7 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
             <div className="space-y-1">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[11px] font-black uppercase tracking-wider">
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                <span>HarvestMitra Recommendation</span>
+                <span>Verified HarvestMitra AI Advisory Recommendation</span>
               </div>
               <h3 className="text-base sm:text-lg font-black text-emerald-950">
                 {currentReport.revenueProjections.recommendationSummary.winningOption}
@@ -426,15 +444,15 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
             </div>
           </div>
 
-          {/* 4. Side-by-Side Revenue Projection Comparative Table */}
+          {/* 4. Side-by-Side 3-Scenario Financial Breakdown Table */}
           <div className="space-y-2 page-break-avoid">
             <div className="flex items-center justify-between">
               <div className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-emerald-700" />
-                <span>Section 2: Deterministic 3-Scenario Revenue Projection Breakdown</span>
+                <span>Section 2: 3-Scenario Financial Breakdown (Local Mandi vs. Regional APMC vs. Cold Storage Holding)</span>
               </div>
               <span className="text-[11px] text-slate-500 font-medium">
-                Simulation based on 1,500 kg Hybrid Tomatoes (Surat District)
+                Comparative Simulation (1,500 kg Hybrid Produce)
               </span>
             </div>
 
@@ -503,11 +521,11 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
             </div>
           </div>
 
-          {/* 5. Live APMC Mandi Benchmarks */}
+          {/* 5. Live APMC Mandi Price Benchmark Table */}
           <div className="space-y-2 page-break-avoid">
             <div className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-2">
               <Building2 className="w-4 h-4 text-emerald-700" />
-              <span>Section 3: Live APMC Mandi Benchmarks & Daily Price Spreads</span>
+              <span>Section 3: Live Mandi Price Benchmark Table</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -538,63 +556,78 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
             </div>
           </div>
 
-          {/* 6. Matched Government Scheme Document Checklist */}
+          {/* 6. Top 3 Eligible Government Schemes (PM-KISAN, PMFBY, i-Khedut) with Document Checklist & Readiness Score */}
           <div className="space-y-3 page-break-avoid">
-            <div className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-2">
-              <FileCheck className="w-4 h-4 text-emerald-700" />
-              <span>Section 4: Matched Government Scheme Verification & Document Checklist</span>
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-2">
+                <FileCheck className="w-4 h-4 text-emerald-700" />
+                <span>Section 4: Top 3 Eligible Government Schemes (Document Checklist & Readiness Score)</span>
+              </div>
+              <span className="text-[11px] text-emerald-800 font-bold bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                3 Schemes Verified
+              </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
               {currentReport.schemesChecklist.map((scheme, sIdx) => (
                 <div key={sIdx} className="bg-white border-2 border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-between">
                   <div>
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start justify-between gap-1.5">
                       <div>
-                        <h4 className="font-black text-slate-900 text-sm">{scheme.schemeName}</h4>
+                        <h4 className="font-black text-slate-900 text-sm leading-tight">{scheme.schemeName}</h4>
                         <p className="text-[10px] text-slate-500 mt-0.5">{scheme.ministry}</p>
                       </div>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-extrabold shrink-0">
-                        {scheme.status}
-                      </span>
                     </div>
 
-                    <div className="my-2.5 p-2 rounded-lg bg-emerald-50/70 border border-emerald-100 text-[11px] font-bold text-emerald-900 flex items-center gap-1.5">
-                      <Award className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span>Benefit: {scheme.benefit}</span>
+                    {/* Readiness Score Bar */}
+                    <div className="mt-2.5 mb-2 p-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                      <div className="flex items-center justify-between text-[11px] font-extrabold text-emerald-950">
+                        <span>Readiness Score:</span>
+                        <span className="text-emerald-700">{scheme.readinessScore}% Ready</span>
+                      </div>
+                      <div className="w-full bg-emerald-200 rounded-full h-1.5 mt-1 overflow-hidden">
+                        <div 
+                          className="bg-emerald-600 h-1.5 rounded-full" 
+                          style={{ width: `${scheme.readinessScore}%` }} 
+                        />
+                      </div>
                     </div>
 
-                    <div className="space-y-1.5 mt-2">
+                    <div className="my-2 text-[11px] font-medium text-emerald-900 flex items-start gap-1">
+                      <Award className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span>{scheme.benefit}</span>
+                    </div>
+
+                    <div className="space-y-1.5 mt-3">
                       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        Required Document Verification Checklist:
+                        Document Checklist:
                       </div>
                       {scheme.items.map((doc, dIdx) => (
-                        <div key={dIdx} className="flex items-center gap-2 text-[11px] text-slate-700">
+                        <div key={dIdx} className="flex items-center gap-1.5 text-[11px] text-slate-700">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          <span className="font-medium">{doc.name}</span>
+                          <span className="font-medium truncate">{doc.name}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
                   <div className="mt-3 pt-2 border-t border-slate-100 text-[10px] text-slate-400 flex items-center justify-between">
-                    <span>Aadhaar/7-12 Cross-Verified</span>
-                    <span className="text-emerald-700 font-bold">100% Eligible</span>
+                    <span>Aadhaar/7-12 Matched</span>
+                    <span className="text-emerald-700 font-bold">{scheme.status}</span>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* 7. Official Digital Verification Stamp, QR Code & Signatures */}
+          {/* 7. Digital Verification Seal & QR Placeholder ("Verified HarvestMitra AI Advisory") */}
           <div className="pt-4 border-t-2 border-dashed border-slate-300 grid grid-cols-1 sm:grid-cols-3 gap-6 items-center page-break-avoid">
             
-            {/* QR Code Block */}
+            {/* QR Placeholder Block */}
             <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3">
               <div className="w-20 h-20 bg-white p-1 rounded-lg border border-slate-300 flex items-center justify-center shrink-0">
                 {/* SVG High-Fidelity Agritech Verification QR Code */}
                 <svg viewBox="0 0 100 100" className="w-full h-full text-slate-900" fill="currentColor">
-                  {/* Position detection patterns */}
                   <rect x="0" y="0" width="30" height="30" fill="#064e3b" />
                   <rect x="5" y="5" width="20" height="20" fill="white" />
                   <rect x="10" y="10" width="10" height="10" fill="#064e3b" />
@@ -607,7 +640,6 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
                   <rect x="5" y="75" width="20" height="20" fill="white" />
                   <rect x="10" y="80" width="10" height="10" fill="#064e3b" />
 
-                  {/* Alignment & Data modules */}
                   <rect x="35" y="10" width="5" height="5" />
                   <rect x="45" y="10" width="10" height="5" />
                   <rect x="60" y="10" width="5" height="5" />
@@ -620,7 +652,6 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
                   <rect x="25" y="45" width="5" height="5" />
                   <rect x="10" y="55" width="10" height="5" />
 
-                  {/* Center seed symbol representation */}
                   <rect x="35" y="35" width="30" height="30" fill="#047857" rx="4" />
                   <circle cx="50" cy="50" r="8" fill="white" />
                   <circle cx="50" cy="50" r="4" fill="#047857" />
@@ -641,8 +672,8 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
               </div>
               <div className="text-[10px] text-slate-500">
                 <div className="font-bold text-slate-900 text-[11px]">Scan to Authenticate</div>
-                <div>APMC Mandi Gate Pass Portal</div>
-                <div className="font-mono text-[9px] text-emerald-800 font-bold mt-1">
+                <div className="text-emerald-800 font-bold">Verified HarvestMitra AI Advisory</div>
+                <div className="font-mono text-[9px] text-slate-500 font-bold mt-1">
                   {currentReport.digitalSignatureHash.slice(0, 18)}...
                 </div>
               </div>
@@ -650,7 +681,7 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
 
             {/* Official Circular Certified Seal */}
             <div className="flex justify-center">
-              <div className="w-28 h-28 rounded-full border-4 border-emerald-700 border-double flex flex-col items-center justify-center p-2 text-center text-emerald-800 relative bg-emerald-50/50 shadow-sm transform -rotate-3 select-none">
+              <div className="w-28 h-28 rounded-full border-4 border-emerald-700 border-double flex flex-col items-center justify-center p-2 text-center text-emerald-800 relative bg-emerald-50/50 shadow-sm transform -rotate-2 select-none">
                 <div className="text-[7.5px] font-black uppercase tracking-tighter leading-tight">
                   ★ HARVESTMITRA AI ★
                 </div>
@@ -658,8 +689,8 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
                   DECISION ENGINE
                 </div>
                 <div className="w-16 h-[1px] bg-emerald-700 my-0.5"></div>
-                <div className="text-[9px] font-black uppercase text-emerald-950">
-                  VERIFIED
+                <div className="text-[8px] font-black uppercase text-emerald-950">
+                  VERIFIED ADVISORY
                 </div>
                 <div className="w-16 h-[1px] bg-emerald-700 my-0.5"></div>
                 <div className="text-[6.5px] font-bold uppercase text-slate-600">
@@ -671,7 +702,7 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
               </div>
             </div>
 
-            {/* Signature & Seal Authorization Blocks */}
+            {/* Signatory Authorization Blocks */}
             <div className="space-y-4 text-xs">
               <div className="text-center sm:text-right">
                 <div className="inline-block border-t border-slate-700 pt-1.5 px-4 text-center">
@@ -692,7 +723,7 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
 
           {/* Footer Disclaimer */}
           <div className="pt-3 border-t border-slate-200 text-center text-[10px] text-slate-400">
-            HarvestMitra AI &bull; Government of India e-NAM & APMC State Market Data Synchronized &bull; Generated digitally with cryptographic tamper seal &bull; A4 Record Copy for Bank Credit & Mandi Processing
+            HarvestMitra AI &bull; Government of India e-NAM & APMC State Market Data Synchronized &bull; Generated digitally with cryptographic tamper seal &bull; A4 Record Copy for Bank Credit & Mandi Processing &bull; Verified HarvestMitra AI Advisory
           </div>
 
         </div>
