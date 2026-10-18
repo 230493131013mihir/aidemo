@@ -26,7 +26,7 @@ const FarmerProfile = sequelize.define(
             field: "farm_size_acres"
         },
         mainCrop: {
-            type: DataTypes.STRING(100),
+            type: DataTypes.STRING(255),
             defaultValue: "Tomato",
             field: "main_crop"
         },
