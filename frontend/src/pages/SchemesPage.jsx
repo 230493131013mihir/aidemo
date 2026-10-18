@@ -12,7 +12,8 @@ import {
   FileText, 
   Info,
   ShieldCheck,
-  ChevronRight
+  ChevronRight,
+  Printer
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -28,6 +29,7 @@ import SchemeCard from '../components/schemes/SchemeCard';
 import SchemeFinderWizard from '../components/schemes/SchemeFinderWizard';
 import SchemeDetailModal from '../components/schemes/SchemeDetailModal';
 import VoiceSearchButton from '../components/common/VoiceSearchButton';
+import PrintableReportModal from '../components/common/PrintableReportModal';
 
 const CATEGORIES = [
   { id: 'all', label: 'All Schemes' },
@@ -62,6 +64,7 @@ export default function SchemesPage() {
   const [showWizard, setShowWizard] = useState(false);
   const [selectedSchemeForModal, setSelectedSchemeForModal] = useState(null);
   const [isMatchActive, setIsMatchActive] = useState(false);
+  const [printModalOpen, setPrintModalOpen] = useState(false);
 
   // Load schemes from backend
   async function loadSchemes(query = search) {
@@ -247,6 +250,17 @@ export default function SchemesPage() {
                 <span>Saved Schemes ({savedSchemes.length})</span>
               </button>
             )}
+
+            {/* Print Farm Report Modal Action Button */}
+            <button
+              type="button"
+              onClick={() => setPrintModalOpen(true)}
+              id="schemes-print-farm-report-btn"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold text-white bg-white/10 hover:bg-white/20 border border-white/20 shadow-md backdrop-blur-md transition-all cursor-pointer"
+            >
+              <Printer className="w-4 h-4 text-emerald-400" />
+              <span>🖨️ Print Farm Report</span>
+            </button>
           </div>
         </div>
       </div>
@@ -492,6 +506,12 @@ export default function SchemesPage() {
           onClose={() => setSelectedSchemeForModal(null)}
         />
       )}
+
+      {/* 8. One-Click Printable Kisan Farm Decision Report Modal */}
+      <PrintableReportModal
+        isOpen={printModalOpen}
+        onClose={() => setPrintModalOpen(false)}
+      />
     </div>
   );
 }

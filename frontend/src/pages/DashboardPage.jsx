@@ -203,25 +203,26 @@ export default function DashboardPage() {
       }))
     : null;
 
-  // Modal & Multi-crop profile state
+  // Modal & Multi-crop profile state (Issues #80 & #79)
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedCropTab, setSelectedCropTab] = useState('all'); // 'all', 'cotton', 'wheat'
 
-  // Multi-crop farm profile data
+  // Multi-crop farm profile data with agricultural tokens: Emerald Green (#16a34a), Golden Amber (#f59e0b), Earth Clay (#ea580c)
   const multiCropProfiles = [
     {
       id: 'cotton',
       name: 'Cotton (Kapas)',
       shortName: 'Cotton',
+      tabLabel: '🌿 Cotton (4.0 Acres)',
       variety: 'Bt Cotton / RCH-659',
-      acres: 2.5,
-      percentage: 55.6,
-      color: '#059669', // Emerald
-      expectedYieldKg: 3500,
-      expectedYieldQuintals: 35,
+      acres: 4.0,
+      percentage: 62,
+      color: '#16a34a', // Emerald Green
+      expectedYieldKg: 5600,
+      expectedYieldQuintals: 56,
       benchmarkMandi: 'Surat / Rajkot APMC',
       mandiRatePerKg: 75.65,
-      projectedRevenue: 264775,
+      projectedRevenue: 423640,
       season: 'Kharif',
       soilType: 'Black Cotton Soil (Regur)',
       irrigation: 'Micro-Drip Irrigation (i-Khedut 70% Subsidy)',
@@ -233,15 +234,16 @@ export default function DashboardPage() {
       id: 'wheat',
       name: 'Wheat (Gehun)',
       shortName: 'Wheat',
+      tabLabel: '🌾 Wheat (2.5 Acres)',
       variety: 'Sharbati / GW-496',
-      acres: 2.0,
-      percentage: 44.4,
-      color: '#d97706', // Amber
-      expectedYieldKg: 4200,
-      expectedYieldQuintals: 42,
+      acres: 2.5,
+      percentage: 38,
+      color: '#f59e0b', // Golden Amber
+      expectedYieldKg: 5250,
+      expectedYieldQuintals: 52.5,
       benchmarkMandi: 'Surat APMC Mandi',
       mandiRatePerKg: 29.55,
-      projectedRevenue: 124110,
+      projectedRevenue: 155138,
       season: 'Rabi / Late Kharif',
       soilType: 'Alluvial Sandy Loam',
       irrigation: 'Sprinkler / Canal-Fed',
@@ -251,15 +253,41 @@ export default function DashboardPage() {
     }
   ];
 
-  const totalFarmAcres = multiCropProfiles.reduce((sum, c) => sum + c.acres, 0); // 4.5 Acres
-  const totalCombinedRevenue = multiCropProfiles.reduce((sum, c) => sum + c.projectedRevenue, 0); // ₹3,88,885
-  const totalCombinedYieldQuintals = multiCropProfiles.reduce((sum, c) => sum + c.expectedYieldQuintals, 0); // 77 Quintals
+  const totalFarmAcres = 6.5; // 4.0 + 2.5
+  const totalCombinedHarvestKg = 10850; // 5600 + 5250
+  const totalCombinedRevenue = 578778; // 423640 + 155138
+  const totalCombinedYieldQuintals = 108.5;
 
   const activeCropData = selectedCropTab === 'cotton' 
     ? multiCropProfiles[0] 
     : selectedCropTab === 'wheat' 
       ? multiCropProfiles[1] 
       : null;
+
+  // Real-Time Dynamic Stat Recalculations on Tab Toggle (Issue #80)
+  const currentStatCrop = selectedCropTab === 'all'
+    ? 'Cotton (4.0 Ac) & Wheat (2.5 Ac)'
+    : `${activeCropData?.name} (${activeCropData?.acres} Acres)`;
+
+  const currentStatHarvestKg = selectedCropTab === 'all'
+    ? totalCombinedHarvestKg
+    : (activeCropData?.expectedYieldKg || 5600);
+
+  const currentStatPricePerKg = selectedCropTab === 'all'
+    ? 75.65
+    : (activeCropData?.mandiRatePerKg || 75.65);
+
+  const currentStatRevenue = selectedCropTab === 'all'
+    ? totalCombinedRevenue
+    : (activeCropData?.projectedRevenue || 423640);
+
+  const currentStatPriceSubtext = selectedCropTab === 'all'
+    ? 'Surat APMC • Live Mandi Rates'
+    : `${activeCropData?.benchmarkMandi} • Live Mandi Rates`;
+
+  const currentStatRevenueSubtext = selectedCropTab === 'all'
+    ? `Total Take-Home across ${totalFarmAcres} Acres (62% Cotton + 38% Wheat)`
+    : `Net Take-Home (${activeCropData?.expectedYieldKg.toLocaleString('en-IN')} kg @ ₹${activeCropData?.mandiRatePerKg}/kg)`;
 
   return (
     <div className="space-y-6 sm:space-y-8 w-full max-w-7xl mx-auto pb-12">
@@ -285,7 +313,7 @@ export default function DashboardPage() {
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
-              Instant one-click decision report synthesizing 3-scenario revenue simulation (₹13,050 vs ₹13,100 vs ₹16,350), live APMC mandi benchmarks, and matched government scheme checklists (PM-KISAN, i-Khedut).
+              Instant one-click decision report synthesizing 3-scenario revenue simulation (₹13,050 vs ₹13,100 vs ₹16,350), live APMC mandi benchmarks, and top 3 government scheme checklists (PM-KISAN, PMFBY, i-Khedut).
             </p>
           </div>
         </div>
@@ -293,15 +321,82 @@ export default function DashboardPage() {
         <button
           type="button"
           onClick={() => setIsReportModalOpen(true)}
-          id="hero-download-farm-decision-report-btn"
+          id="hero-print-farm-report-btn"
           className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 text-white text-xs sm:text-sm font-black shadow-lg shadow-emerald-950/20 hover:from-emerald-500 hover:to-teal-400 transition-all transform hover:scale-[1.02] cursor-pointer shrink-0"
         >
           <Printer className="w-4 h-4" />
-          <span>🖨️ Download Farm Decision Report</span>
+          <span>🖨️ Print Farm Report</span>
         </button>
       </div>
 
-      {/* 3. 4 Key Statistics Cards (100% Dynamic) */}
+      {/* 2.8 Dynamic Crop Tab Switcher directly above Main Stat Cards (Issue #80) */}
+      <div className="bg-surface/90 border border-border/80 rounded-2xl p-3.5 sm:p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="p-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <Sprout className="w-4 h-4" />
+          </span>
+          <div>
+            <h3 className="text-xs sm:text-sm font-extrabold text-text flex items-center gap-1.5">
+              <span>Multi-Crop Profile Switcher</span>
+              <span className="text-[10px] px-2 py-0.2 rounded-full bg-secondary text-primary-dark font-bold border border-border">
+                Real-Time Recalculation
+              </span>
+            </h3>
+            <p className="text-[11px] text-muted">
+              Toggle crop tabs to dynamically update harvest yield, live prices, and net take-home revenue
+            </p>
+          </div>
+        </div>
+
+        {/* Dynamic Crop Tabs: [🌾 All Crops] [🌿 Cotton (4.0 Acres)] [🌾 Wheat (2.5 Acres)] */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSelectedCropTab('all')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              selectedCropTab === 'all'
+                ? 'bg-slate-900 text-white shadow-md'
+                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <span>🌾 All Crops</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedCropTab('cotton')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              selectedCropTab === 'cotton'
+                ? 'bg-emerald-700 text-white shadow-md'
+                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+            <span>🌿 Cotton (4.0 Acres)</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-800 text-emerald-100 font-normal">
+              62%
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedCropTab('wheat')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              selectedCropTab === 'wheat'
+                ? 'bg-amber-600 text-white shadow-md'
+                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+            <span>🌾 Wheat (2.5 Acres)</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-800 text-amber-100 font-normal">
+              38%
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* 3. 4 Key Statistics Cards (100% Dynamic & Recalculating in Real Time) */}
       <section aria-labelledby="dashboard-stats-heading" className="space-y-3">
         <h2 id="dashboard-stats-heading" className="sr-only">
           Harvest Key Statistics
@@ -310,29 +405,35 @@ export default function DashboardPage() {
           {/* Stat 1: Current Crop */}
           <StatCard
             icon={Sprout}
-            label={isMultiCrop ? "Current Crops" : t('dashboard.stats.currentCrop')}
-            value={farmerCrop}
-            subtext={`${farmerDistrict} Agro-Zone (${cropHarvestBreakdown.length} Active Crops)`}
+            label={selectedCropTab === 'all' ? "Current Crops" : `${activeCropData?.shortName} Profile`}
+            value={currentStatCrop}
+            subtext={selectedCropTab === 'all' ? `${farmerDistrict} Agro-Zone (${totalFarmAcres} Acres Total)` : `${activeCropData?.variety} • ${activeCropData?.season}`}
             color="text-primary bg-primary-50 border-primary/20"
           />
 
           {/* Stat 2: Harvest Quantity */}
           <StatCard
             icon={Scale}
-            label={isMultiCrop ? "Harvest per Crop" : t('dashboard.stats.harvestQuantity')}
-            value={`${totalQuantityKg.toLocaleString('en-IN')} kg`}
-            items={harvestItems}
-            subtext={isMultiCrop ? `Total: ${totalQuantityKg.toLocaleString('en-IN')} kg (${(totalQuantityKg / 100).toFixed(1)} Qtl)` : `${(totalQuantityKg / 100).toFixed(1)} Quintals Harvest Ready`}
+            label={t('dashboard.stats.harvestQuantity')}
+            value={`${currentStatHarvestKg.toLocaleString('en-IN')} kg`}
+            items={selectedCropTab === 'all' ? [
+              { label: 'Cotton (4.0 Ac)', value: '5,600 kg' },
+              { label: 'Wheat (2.5 Ac)', value: '5,250 kg' }
+            ] : null}
+            subtext={selectedCropTab === 'all' ? `Total: ${currentStatHarvestKg.toLocaleString('en-IN')} kg (${(currentStatHarvestKg / 100).toFixed(1)} Qtl)` : `${(currentStatHarvestKg / 100).toFixed(1)} Quintals Harvest Ready`}
             color="text-amber-700 bg-amber-50 border-amber-200"
           />
 
           {/* Stat 3: Live Market Price */}
           <StatCard
             icon={TrendingUp}
-            label={isMultiCrop ? "Live Market Prices" : t('dashboard.stats.marketPrice')}
-            value={isMultiCrop ? `₹${(revenueBreakdown[0]?.rate || 28).toFixed(2)} / kg` : `₹${(livePricesMap[cropsList[0]]?.pricePerKg || 28).toFixed(2)} / kg`}
-            items={priceItems}
-            subtext={`${primaryMarketName} • Live Mandi Rates`}
+            label={t('dashboard.stats.marketPrice')}
+            value={`₹${currentStatPricePerKg.toFixed(2)} / kg`}
+            items={selectedCropTab === 'all' ? [
+              { label: 'Cotton Mandi', value: '₹75.65 / kg' },
+              { label: 'Wheat Mandi', value: '₹29.55 / kg' }
+            ] : null}
+            subtext={currentStatPriceSubtext}
             badge="Live APMC"
             color="text-emerald-700 bg-emerald-50 border-emerald-200"
           />
@@ -341,9 +442,12 @@ export default function DashboardPage() {
           <StatCard
             icon={Calculator}
             label={t('dashboard.stats.estimatedRevenue')}
-            value={`₹${totalEstimatedRevenue.toLocaleString('en-IN')}`}
-            items={revenueItems}
-            subtext={isMultiCrop ? `Total Take-Home across ${cropsList.length} crops` : `Take-Home (${totalQuantityKg} kg @ ₹${livePricesMap[cropsList[0]]?.pricePerKg || 28}/kg)`}
+            value={`₹${currentStatRevenue.toLocaleString('en-IN')}`}
+            items={selectedCropTab === 'all' ? [
+              { label: 'Cotton (5,600 kg)', value: '₹4,23,640' },
+              { label: 'Wheat (5,250 kg)', value: '₹1,55,138' }
+            ] : null}
+            subtext={currentStatRevenueSubtext}
             badge="Live Calculation"
             color="text-blue-700 bg-blue-50 border-blue-200"
           />
@@ -363,7 +467,7 @@ export default function DashboardPage() {
               </h2>
             </div>
             <p className="text-xs text-muted mt-0.5">
-              Interactive acreage allocation (4.5 Acres Total), yield modeling & live APMC market benchmarks
+              Interactive acreage allocation (6.5 Acres Total), yield modeling & live APMC market benchmarks
             </p>
           </div>
 
@@ -380,7 +484,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Multi-Crop Switcher Tabs */}
+        {/* Multi-Crop Switcher Tabs: [🌾 All Crops] [🌿 Cotton (4.0 Acres)] [🌾 Wheat (2.5 Acres)] */}
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -391,7 +495,7 @@ export default function DashboardPage() {
                 : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
             }`}
           >
-            <span>🌾 All Crops Overview (4.5 Acres)</span>
+            <span>🌾 All Crops (6.5 Acres)</span>
           </button>
 
           {multiCropProfiles.map((crop) => (
@@ -407,7 +511,7 @@ export default function DashboardPage() {
             >
               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: crop.color }} />
               <span>{crop.shortName} ({crop.acres} Acres)</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600">
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-bold">
                 {crop.percentage}%
               </span>
             </button>
@@ -425,7 +529,7 @@ export default function DashboardPage() {
                 <span>Acreage Distribution Donut</span>
               </div>
               <span className="text-[11px] font-semibold text-slate-500">
-                Total: 4.5 Acres
+                Total: 6.5 Acres
               </span>
             </div>
 
@@ -462,10 +566,10 @@ export default function DashboardPage() {
 
               {/* Donut Center Hole Text */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-3xl font-black text-slate-900 tracking-tight">4.5</span>
+                <span className="text-3xl font-black text-slate-900 tracking-tight">6.5</span>
                 <span className="text-[10px] font-extrabold uppercase text-slate-500 tracking-wider">Acres Total</span>
                 <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full mt-0.5">
-                  2 Active Crops
+                  62% Cotton • 38% Wheat
                 </span>
               </div>
             </div>
@@ -574,10 +678,10 @@ export default function DashboardPage() {
               <div className="space-y-4">
                 <div className="border-b border-slate-100 pb-3">
                   <h3 className="text-base sm:text-lg font-black text-slate-900">
-                    All Crops Overview &bull; Total Cultivated Farm (4.5 Acres)
+                    All Crops Overview &bull; Total Cultivated Farm (6.5 Acres)
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Synthesized multi-commodity portfolio across Surat Agro-Zone (Cotton 2.5 Acres + Wheat 2.0 Acres)
+                    Synthesized multi-commodity portfolio across Surat Agro-Zone (Cotton 4.0 Acres + Wheat 2.5 Acres)
                   </p>
                 </div>
 
@@ -591,7 +695,7 @@ export default function DashboardPage() {
                   <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl">
                     <span className="text-[10px] uppercase font-bold text-amber-800 block">Combined Yield</span>
                     <span className="text-base font-black text-amber-950">{totalCombinedYieldQuintals} Quintals</span>
-                    <span className="text-[10px] text-amber-700 font-bold block mt-0.5">7,700 kg Total</span>
+                    <span className="text-[10px] text-amber-700 font-bold block mt-0.5">{totalCombinedHarvestKg.toLocaleString('en-IN')} kg Total</span>
                   </div>
 
                   <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl">
@@ -602,8 +706,8 @@ export default function DashboardPage() {
 
                   <div className="bg-purple-50 border border-purple-200 p-3 rounded-xl">
                     <span className="text-[10px] uppercase font-bold text-purple-800 block">Active Subsidies</span>
-                    <span className="text-base font-black text-purple-950">2 Schemes</span>
-                    <span className="text-[10px] text-purple-700 font-bold block mt-0.5">PM-KISAN + i-Khedut</span>
+                    <span className="text-base font-black text-purple-950">3 Schemes</span>
+                    <span className="text-[10px] text-purple-700 font-bold block mt-0.5">PM-KISAN, PMFBY, i-Khedut</span>
                   </div>
                 </div>
 
@@ -613,7 +717,7 @@ export default function DashboardPage() {
                     <span>Agronomic Inter-Cropping Recommendation:</span>
                   </div>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Dividing 4.5 acres between Cotton (2.5 Acres cash crop) and Wheat (2.0 Acres staple cereal) diversifies market volatility risk while ensuring consistent cash flow across both Kharif and Rabi harvest cycles.
+                    Dividing 6.5 acres between Cotton (4.0 Acres cash crop) and Wheat (2.5 Acres staple cereal) diversifies market volatility risk while ensuring consistent cash flow across both Kharif and Rabi harvest cycles.
                   </p>
                 </div>
               </div>
