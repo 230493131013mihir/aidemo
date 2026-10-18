@@ -4,8 +4,24 @@ import {
   Sprout, 
   Scale, 
   TrendingUp, 
-  Calculator 
+  Calculator,
+  Printer,
+  Layers,
+  PieChart as PieChartIcon,
+  CheckCircle2,
+  Calendar,
+  Sparkles,
+  ArrowRight,
+  ShieldCheck,
+  FileText
 } from 'lucide-react';
+import { 
+  ResponsiveContainer, 
+  PieChart, 
+  Pie, 
+  Cell, 
+  Tooltip as RechartsTooltip 
+} from 'recharts';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { dashboardDemoData } from '../data/dashboardDemoData';
@@ -23,8 +39,35 @@ import RecentActivity from '../components/dashboard/RecentActivity';
 import TransportSummary from '../components/dashboard/TransportSummary';
 import MitraAssistantCard from '../components/dashboard/MitraAssistantCard';
 import QuickActions from '../components/dashboard/QuickActions';
+import PrintableReportModal from '../components/common/PrintableReportModal';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+
+function AcreageTooltip({ active, payload }) {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-slate-900/95 text-white p-3 rounded-xl shadow-xl border border-slate-700 text-xs space-y-1 backdrop-blur-md">
+        <p className="font-extrabold text-sm flex items-center gap-1.5" style={{ color: data.color }}>
+          <span>●</span> {data.name}
+        </p>
+        <p className="text-slate-300">
+          Land Allocation: <strong className="text-white">{data.acres} Acres</strong> ({data.percentage}%)
+        </p>
+        <p className="text-slate-300">
+          Expected Yield: <strong className="text-white">{data.expectedYieldQuintals} Quintals</strong>
+        </p>
+        <p className="text-emerald-400 font-bold">
+          Benchmark Mandi: {data.benchmarkMandi}
+        </p>
+        <p className="text-amber-400 font-bold">
+          Proj. Value: ₹{data.projectedRevenue.toLocaleString('en-IN')}
+        </p>
+      </div>
+    );
+  }
+  return null;
+}
 
 export default function DashboardPage() {
   const { t } = useLanguage();
@@ -160,6 +203,64 @@ export default function DashboardPage() {
       }))
     : null;
 
+  // Modal & Multi-crop profile state
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [selectedCropTab, setSelectedCropTab] = useState('all'); // 'all', 'cotton', 'wheat'
+
+  // Multi-crop farm profile data
+  const multiCropProfiles = [
+    {
+      id: 'cotton',
+      name: 'Cotton (Kapas)',
+      shortName: 'Cotton',
+      variety: 'Bt Cotton / RCH-659',
+      acres: 2.5,
+      percentage: 55.6,
+      color: '#059669', // Emerald
+      expectedYieldKg: 3500,
+      expectedYieldQuintals: 35,
+      benchmarkMandi: 'Surat / Rajkot APMC',
+      mandiRatePerKg: 75.65,
+      projectedRevenue: 264775,
+      season: 'Kharif',
+      soilType: 'Black Cotton Soil (Regur)',
+      irrigation: 'Micro-Drip Irrigation (i-Khedut 70% Subsidy)',
+      harvestReadiness: '85% (Ready in 12 days)',
+      readinessPercent: 85,
+      status: 'Optimal Maturation'
+    },
+    {
+      id: 'wheat',
+      name: 'Wheat (Gehun)',
+      shortName: 'Wheat',
+      variety: 'Sharbati / GW-496',
+      acres: 2.0,
+      percentage: 44.4,
+      color: '#d97706', // Amber
+      expectedYieldKg: 4200,
+      expectedYieldQuintals: 42,
+      benchmarkMandi: 'Surat APMC Mandi',
+      mandiRatePerKg: 29.55,
+      projectedRevenue: 124110,
+      season: 'Rabi / Late Kharif',
+      soilType: 'Alluvial Sandy Loam',
+      irrigation: 'Sprinkler / Canal-Fed',
+      harvestReadiness: '92% (Harvest Ready)',
+      readinessPercent: 92,
+      status: 'Ready for APMC Dispatch'
+    }
+  ];
+
+  const totalFarmAcres = multiCropProfiles.reduce((sum, c) => sum + c.acres, 0); // 4.5 Acres
+  const totalCombinedRevenue = multiCropProfiles.reduce((sum, c) => sum + c.projectedRevenue, 0); // ₹3,88,885
+  const totalCombinedYieldQuintals = multiCropProfiles.reduce((sum, c) => sum + c.expectedYieldQuintals, 0); // 77 Quintals
+
+  const activeCropData = selectedCropTab === 'cotton' 
+    ? multiCropProfiles[0] 
+    : selectedCropTab === 'wheat' 
+      ? multiCropProfiles[1] 
+      : null;
+
   return (
     <div className="space-y-6 sm:space-y-8 w-full max-w-7xl mx-auto pb-12">
       {/* 1. Dashboard Header */}
@@ -167,6 +268,38 @@ export default function DashboardPage() {
 
       {/* 2. Farmer Profile Summary */}
       <ProfileSummary />
+
+      {/* 2.5 Action Bar: Printable Kisan Farm Decision Report Banner */}
+      <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-950 rounded-3xl p-4 sm:p-6 text-white shadow-xl border border-emerald-800/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3.5">
+          <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-500 text-white shadow-md shrink-0">
+            <Printer className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base sm:text-lg font-black text-white tracking-tight">
+                Kisan Farm Summary & Mandi Decision Report
+              </h2>
+              <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                Official A4 Print Layout
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+              Instant one-click decision report synthesizing 3-scenario revenue simulation (₹13,050 vs ₹13,100 vs ₹16,350), live APMC mandi benchmarks, and matched government scheme checklists (PM-KISAN, i-Khedut).
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsReportModalOpen(true)}
+          id="hero-download-farm-decision-report-btn"
+          className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 text-white text-xs sm:text-sm font-black shadow-lg shadow-emerald-950/20 hover:from-emerald-500 hover:to-teal-400 transition-all transform hover:scale-[1.02] cursor-pointer shrink-0"
+        >
+          <Printer className="w-4 h-4" />
+          <span>🖨️ Download Farm Decision Report</span>
+        </button>
+      </div>
 
       {/* 3. 4 Key Statistics Cards (100% Dynamic) */}
       <section aria-labelledby="dashboard-stats-heading" className="space-y-3">
@@ -214,6 +347,295 @@ export default function DashboardPage() {
             badge="Live Calculation"
             color="text-blue-700 bg-blue-50 border-blue-200"
           />
+        </div>
+      </section>
+
+      {/* 3.5 Multi-Crop Farm Profile Switcher with Interactive Recharts Acreage Distribution Chart */}
+      <section aria-labelledby="multi-crop-heading" className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/70 pb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200">
+                <PieChartIcon className="w-4 h-4" />
+              </span>
+              <h2 id="multi-crop-heading" className="text-lg sm:text-xl font-bold text-text">
+                Multi-Crop Farm Profile & Acreage Distribution
+              </h2>
+            </div>
+            <p className="text-xs text-muted mt-0.5">
+              Interactive acreage allocation (4.5 Acres Total), yield modeling & live APMC market benchmarks
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsReportModalOpen(true)}
+              id="multicrop-download-report-btn"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold transition-all cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5 text-emerald-600" />
+              <span>🖨️ Download Farm Decision Report</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Multi-Crop Switcher Tabs */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSelectedCropTab('all')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              selectedCropTab === 'all'
+                ? 'bg-slate-900 text-white shadow-md'
+                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <span>🌾 All Crops Overview (4.5 Acres)</span>
+          </button>
+
+          {multiCropProfiles.map((crop) => (
+            <button
+              key={crop.id}
+              type="button"
+              onClick={() => setSelectedCropTab(crop.id)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                selectedCropTab === crop.id
+                  ? 'bg-emerald-700 text-white shadow-md'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: crop.color }} />
+              <span>{crop.shortName} ({crop.acres} Acres)</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600">
+                {crop.percentage}%
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Multi-Crop Visual Canvas: Recharts Donut + Detailed Spec Card */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          {/* Left Column (5 Cols): Interactive Recharts Acreage Donut Chart */}
+          <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <PieChartIcon className="w-4 h-4 text-emerald-600" />
+                <span>Acreage Distribution Donut</span>
+              </div>
+              <span className="text-[11px] font-semibold text-slate-500">
+                Total: 4.5 Acres
+              </span>
+            </div>
+
+            {/* Donut Chart Container */}
+            <div className="relative py-2 flex items-center justify-center">
+              <div className="w-full h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={multiCropProfiles}
+                      dataKey="acres"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={68}
+                      outerRadius={98}
+                      paddingAngle={5}
+                      onClick={(entry) => setSelectedCropTab(entry.id)}
+                      cursor="pointer"
+                    >
+                      {multiCropProfiles.map((entry) => (
+                        <Cell 
+                          key={entry.id} 
+                          fill={entry.color} 
+                          stroke={selectedCropTab === entry.id ? '#0f172a' : '#ffffff'}
+                          strokeWidth={selectedCropTab === entry.id ? 3 : 2}
+                        />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip content={<AcreageTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Donut Center Hole Text */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-3xl font-black text-slate-900 tracking-tight">4.5</span>
+                <span className="text-[10px] font-extrabold uppercase text-slate-500 tracking-wider">Acres Total</span>
+                <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full mt-0.5">
+                  2 Active Crops
+                </span>
+              </div>
+            </div>
+
+            {/* Legend & Interactive Switcher Chips */}
+            <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-100 text-xs">
+              {multiCropProfiles.map((crop) => (
+                <button
+                  key={crop.id}
+                  type="button"
+                  onClick={() => setSelectedCropTab(crop.id)}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    selectedCropTab === crop.id
+                      ? 'border-slate-800 bg-slate-50 shadow-sm'
+                      : 'border-slate-200 hover:border-slate-300 bg-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: crop.color }} />
+                    <span className="truncate">{crop.shortName}</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1 flex justify-between items-center">
+                    <span>{crop.acres} Acres</span>
+                    <strong className="text-slate-700">{crop.percentage}%</strong>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right Column (7 Cols): Crop Profile Details Panel */}
+          <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between">
+            {activeCropData ? (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: activeCropData.color }} />
+                      <h3 className="text-base sm:text-lg font-black text-slate-900">
+                        {activeCropData.name}
+                      </h3>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                        {activeCropData.season}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                      Variety: <strong>{activeCropData.variety}</strong> &bull; {activeCropData.soilType}
+                    </p>
+                  </div>
+
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold self-start sm:self-auto">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{activeCropData.status}</span>
+                  </span>
+                </div>
+
+                {/* Metric Tiles Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Land Share</span>
+                    <span className="text-base font-black text-slate-900">{activeCropData.acres} Acres</span>
+                    <span className="text-[10px] text-emerald-700 font-bold block mt-0.5">{activeCropData.percentage}% of Farm</span>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Expected Yield</span>
+                    <span className="text-base font-black text-slate-900">{activeCropData.expectedYieldQuintals} Qtl</span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5">{activeCropData.expectedYieldKg.toLocaleString('en-IN')} kg</span>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Mandi Rate</span>
+                    <span className="text-base font-black text-emerald-700">₹{activeCropData.mandiRatePerKg.toFixed(2)}</span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5">{activeCropData.benchmarkMandi}</span>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Proj. Take-Home</span>
+                    <span className="text-base font-black text-blue-700">₹{activeCropData.projectedRevenue.toLocaleString('en-IN')}</span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5">Est. Realization</span>
+                  </div>
+                </div>
+
+                {/* Harvest Maturation & Irrigation Bar */}
+                <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-xl p-3.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-700">Harvest Readiness Index:</span>
+                    <strong className="text-emerald-700">{activeCropData.harvestReadiness}</strong>
+                  </div>
+                  <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                    <div 
+                      className="h-2.5 rounded-full transition-all duration-500" 
+                      style={{ 
+                        width: `${activeCropData.readinessPercent}%`, 
+                        backgroundColor: activeCropData.color 
+                      }} 
+                    />
+                  </div>
+                  <div className="text-[11px] text-slate-600 flex items-center justify-between pt-1">
+                    <span>Irrigation Method: <strong>{activeCropData.irrigation}</strong></span>
+                    <span className="text-emerald-800 font-bold">Govt Subsidy Verified</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="border-b border-slate-100 pb-3">
+                  <h3 className="text-base sm:text-lg font-black text-slate-900">
+                    All Crops Overview &bull; Total Cultivated Farm (4.5 Acres)
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Synthesized multi-commodity portfolio across Surat Agro-Zone (Cotton 2.5 Acres + Wheat 2.0 Acres)
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-emerald-800 block">Total Cultivated</span>
+                    <span className="text-base font-black text-emerald-950">{totalFarmAcres} Acres</span>
+                    <span className="text-[10px] text-emerald-700 font-bold block mt-0.5">100% Utilized</span>
+                  </div>
+
+                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-amber-800 block">Combined Yield</span>
+                    <span className="text-base font-black text-amber-950">{totalCombinedYieldQuintals} Quintals</span>
+                    <span className="text-[10px] text-amber-700 font-bold block mt-0.5">7,700 kg Total</span>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-blue-800 block">Combined Value</span>
+                    <span className="text-base font-black text-blue-950">₹{totalCombinedRevenue.toLocaleString('en-IN')}</span>
+                    <span className="text-[10px] text-blue-700 font-bold block mt-0.5">Across 2 Crops</span>
+                  </div>
+
+                  <div className="bg-purple-50 border border-purple-200 p-3 rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-purple-800 block">Active Subsidies</span>
+                    <span className="text-base font-black text-purple-950">2 Schemes</span>
+                    <span className="text-[10px] text-purple-700 font-bold block mt-0.5">PM-KISAN + i-Khedut</span>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 space-y-1.5">
+                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-emerald-600" />
+                    <span>Agronomic Inter-Cropping Recommendation:</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Dividing 4.5 acres between Cotton (2.5 Acres cash crop) and Wheat (2.0 Acres staple cereal) diversifies market volatility risk while ensuring consistent cash flow across both Kharif and Rabi harvest cycles.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Action Bar inside the card */}
+            <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-xs text-slate-500 font-medium">
+                Want a complete simulation with logistics and cold storage?
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsReportModalOpen(true)}
+                id="multicrop-cta-report-btn"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-xs font-bold transition-all cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5 text-emerald-400" />
+                <span>🖨️ Download Farm Decision Report</span>
+              </button>
+            </div>
+          </div>
+
         </div>
       </section>
 
@@ -274,6 +696,29 @@ export default function DashboardPage() {
         </h2>
         <QuickActions />
       </section>
+
+      {/* One-Click Printable Kisan Farm Decision Report Modal */}
+      <PrintableReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        reportData={{
+          farmer: {
+            name: user?.name || 'Ramesh Patel',
+            phone: user?.phone || '+91 98765 43210',
+            village: user?.FarmerProfile?.village || 'Bardoli',
+            district: `${farmerDistrict} District`,
+            state: user?.FarmerProfile?.state || 'Gujarat',
+            farmSizeAcres: `${totalFarmAcres} Acres`,
+            crop: selectedCropTab === 'cotton' 
+              ? 'Cotton (2.5 Acres)' 
+              : selectedCropTab === 'wheat' 
+                ? 'Wheat (2.0 Acres)' 
+                : 'Hybrid Tomatoes & Multi-Crop (4.5 Acres)',
+            quantityKg: 1500,
+            quantityQuintals: 15
+          }
+        }}
+      />
     </div>
   );
 }

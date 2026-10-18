@@ -4,6 +4,7 @@ import Navbar from '../components/navigation/Navbar';
 import Sidebar from '../components/navigation/Sidebar';
 import KisanFloatingBar from '../components/common/KisanFloatingBar';
 import GuestModeBanner from '../components/common/GuestModeBanner';
+import NetworkStatusBadge from '../components/common/NetworkStatusBadge';
 import { useLanguage } from '../context/LanguageContext';
 import { Bell, Sparkles } from 'lucide-react';
 
@@ -52,6 +53,9 @@ export default function DashboardLayout() {
           </main>
         </div>
       </div>
+
+      {/* Ambient Low-Connectivity Network Status Badge (Online / Offline APMC Cache) */}
+      <NetworkStatusBadge />
 
       {/* Floating Accessibility & Voice Assistant Bar */}
       <KisanFloatingBar />
