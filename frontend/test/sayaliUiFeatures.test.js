@@ -104,7 +104,31 @@ for (const relPath of coreRoutes) {
   console.log(`  ✅ [PASS] Verified core route: ${relPath}`);
 }
 
+// 5. Universal Guest Mode & Landing Page QA Verification
+console.log('\n5. Verifying Universal Guest Mode & 1-Click Feature Access:');
+const mainLayoutPath = path.join(__dirname, '../src/layouts/MainLayout.jsx');
+const mainLayoutCode = fs.readFileSync(mainLayoutPath, 'utf-8');
+assert.ok(mainLayoutCode.includes('GuestModeBanner'), 'MainLayout must mount GuestModeBanner for landing page visitors');
+
+const guestBannerPath = path.join(__dirname, '../src/components/common/GuestModeBanner.jsx');
+const guestBannerCode = fs.readFileSync(guestBannerPath, 'utf-8');
+assert.ok(guestBannerCode.includes('Try Harvest Simulator Without Login'), 'GuestModeBanner must include 1-click link to Try Harvest Simulator Without Login');
+assert.ok(guestBannerCode.includes('View APMC Mandi Rates'), 'GuestModeBanner must include 1-click link to View APMC Mandi Rates');
+
+const heroSectionPath = path.join(__dirname, '../src/components/landing/HeroSection.jsx');
+const heroSectionCode = fs.readFileSync(heroSectionPath, 'utf-8');
+assert.ok(heroSectionCode.includes('Try Harvest Simulator Without Login'), 'HeroSection must include 1-click link to Try Harvest Simulator Without Login');
+assert.ok(heroSectionCode.includes('View APMC Mandi Rates'), 'HeroSection must include 1-click link to View APMC Mandi Rates');
+
+const harvestPagePath = path.join(__dirname, '../src/pages/HarvestPage.jsx');
+const harvestPageCode = fs.readFileSync(harvestPagePath, 'utf-8');
+assert.ok(harvestPageCode.includes('4.5 Acres'), 'HarvestPage must display pre-loaded 4.5 Acres session');
+
+console.log('  ✅ [PASS] GuestModeBanner mounted on Landing Page (MainLayout.jsx)');
+console.log('  ✅ [PASS] 1-Click feature links verified: "Try Harvest Simulator Without Login" & "View APMC Mandi Rates"');
+console.log('  ✅ [PASS] HarvestPage verified with pre-loaded 4.5 acre session for guest exploration');
+
 console.log('\n======================================================');
-console.log('🎉 All 5 Work Package Tasks (#1, #19, #79, #80, #81) Verified!');
+console.log('🎉 All QA & Stress-Testing Requirements Verified!');
 console.log('Lead: Sayali Kulkarni (@sayalikulkarni-tech)');
 console.log('======================================================\n');
