@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HarvestMitra AI — Master Presentation Blueprint & Speaking Script</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #059669;
+      --primary-dark: #047857;
+      --primary-light: #ecfdf5;
+      --accent: #d97706;
+      --dark: #0f172a;
+      --slate: #334155;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --card-bg: #ffffff;
+      --bg: #f8fafc;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg);
+      color: var(--dark);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      padding: 30px 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 50px 60px;
+      border-radius: 24px;
+      box-shadow: 0 20px 40px -15px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04);
+    }
+
+    /* Print Controls */
+    .print-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+      color: white;
+      padding: 16px 24px;
+      border-radius: 16px;
+      margin-bottom: 35px;
+      box-shadow: 0 10px 25px -5px rgba(5, 150, 105, 0.3);
+    }
+    .print-bar h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .print-btn {
+      background: #ffffff;
+      color: #065f46;
+      border: none;
+      padding: 10px 22px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      transition: all 0.2s ease;
+    }
+    .print-btn:hover {
+      background: #f0fdf4;
+      transform: translateY(-1px);
+    }
+
+    /* Document Header */
+    .doc-header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 25px;
+      margin-bottom: 30px;
+    }
+    .badge-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+    .badge-primary { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+    .badge-dark { background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
+    .badge-amber { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+
+    h1.doc-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 32px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+    .doc-subtitle {
+      font-size: 15px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    /* Grid Specs */
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      padding: 16px;
+      border-radius: 14px;
+      margin-bottom: 35px;
+    }
+    .meta-item span {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+    }
+    .meta-item strong {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--dark);
+    }
+
+    /* Section Styling */
+    h2.section-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--dark);
+      margin-top: 35px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #f1f5f9;
+    }
+    h2.section-title .step-number {
+      background: var(--primary);
+      color: white;
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+    }
+
+    /* Timeline Box */
+    .timeline-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 25px;
+    }
+    .timeline-table th {
+      background: #f1f5f9;
+      padding: 12px 14px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--slate);
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .timeline-table td {
+      padding: 12px 14px;
+      font-size: 13px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+    }
+    .timeline-table tr:last-child td {
+      border-bottom: none;
+    }
+    .speaker-tag {
+      font-weight: 800;
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 6px;
+      display: inline-block;
+    }
+    .tag-mihir { background: #dcfce7; color: #166534; }
+    .tag-sayali { background: #f3e8ff; color: #6b21a8; }
+    .tag-prashant { background: #e0f2fe; color: #075985; }
+    .tag-varun { background: #fef3c7; color: #92400e; }
+
+    /* Member Cards */
+    .member-card {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px;
+      margin-bottom: 20px;
+      background: #ffffff;
+      position: relative;
+      border-left: 5px solid var(--primary);
+    }
+    .member-card.mihir { border-left-color: #10b981; }
+    .member-card.sayali { border-left-color: #a855f7; }
+    .member-card.prashant { border-left-color: #0284c7; }
+    .member-card.varun { border-left-color: #f59e0b; }
+
+    .member-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .member-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--dark);
+    }
+    .member-role {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .cue-pill {
+      background: #f1f5f9;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      color: #475569;
+    }
+
+    .speech-box {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      padding: 14px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      color: #1e293b;
+      margin: 10px 0;
+      font-style: italic;
+    }
+    .speech-box strong {
+      font-style: normal;
+      color: #0f172a;
+    }
+
+    .feature-list {
+      list-style: none;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+    .feature-list li {
+      margin-bottom: 6px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .feature-list li::before {
+      content: "✓";
+      color: var(--primary);
+      font-weight: 900;
+    }
+
+    /* Screen Walkthrough Steps */
+    .step-box {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      gap: 15px;
+      padding: 12px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+    .step-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 800;
+      font-size: 11px;
+      background: #f1f5f9;
+      color: #334155;
+      padding: 4px 8px;
+      border-radius: 6px;
+      text-align: center;
+      height: fit-content;
+    }
+
+    /* Q&A Table */
+    .qa-card {
+      background: #fdfefe;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+    .qa-q {
+      font-weight: 800;
+      font-size: 13px;
+      color: #0f172a;
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .qa-a {
+      font-size: 12.5px;
+      color: #334155;
+    }
+    .qa-owner {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* Page Breaks for Printing */
+    .page-break {
+      page-break-after: always;
+      break-after: page;
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+      .container {
+        box-shadow: none;
+        padding: 0;
+        max-width: 100%;
+      }
+      .print-bar {
+        display: none !important;
+      }
+      .page-break {
+        page-break-after: always;
+        break-after: page;
+      }
+      @page {
+        size: A4;
+        margin: 14mm 16mm;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <!-- Top Action Bar -->
+    <div class="print-bar">
+      <div>
+        <h3>🌾 HarvestMitra AI — Official Presentation Script</h3>
+        <p style="font-size: 12px; opacity: 0.85;">Phase 07 Execution Blueprint & Judge Demonstration Guide</p>
+      </div>
+      <button class="print-btn" onclick="window.print()">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2m-10 0v4h8v-4m-8-4h.01"/></svg>
+        Save as PDF / Print
+      </button>
+    </div>
+
+    <!-- Header Section -->
+    <header class="doc-header">
+      <div class="badge-row">
+        <span class="badge badge-primary">Phase 07: Live Demo</span>
+        <span class="badge badge-dark">10-Minute Presentation</span>
+        <span class="badge badge-amber">Production Ready</span>
+      </div>
+      <h1 class="doc-title">Final Project Presentation Blueprint & Speaking Scripts</h1>
+      <p class="doc-subtitle">A synchronized, minute-by-minute guide for Leader Mihir Jadav and the engineering squad.</p>
+    </header>
+
+    <!-- Meta Details Grid -->
+    <div class="meta-grid">
+      <div class="meta-item">
+        <span>Team Lead</span>
+        <strong>Mihir Jadav</strong>
+      </div>
+      <div class="meta-item">
+        <span>Engineering Squad</span>
+        <strong>Varun, Prashant, Sayali</strong>
+      </div>
+      <div class="meta-item">
+        <span>Target Dates</span>
+        <strong>20 – 22 Oct 2026</strong>
+      </div>
+      <div class="meta-item">
+        <span>GitHub Status</span>
+        <strong>40 Merged PRs (0 Open)</strong>
+      </div>
+    </div>
+
+    <!-- Section 1: Presentation Timeline -->
+    <h2 class="section-title"><span class="step-number">1</span> 10-Minute Synchronized Stage Timeline</h2>
+    <table class="timeline-table">
+      <thead>
+        <tr>
+          <th>Time Slot</th>
+          <th>Speaker</th>
+          <th>Screen / Module Demonstrated</th>
+          <th>Objective</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>00:00 – 02:30</strong></td>
+          <td><span class="speaker-tag tag-mihir">🟢 MIHIR (Lead)</span></td>
+          <td>Slide Deck + Landing Page (<code>/</code>)</td>
+          <td>Hook judges with 20–30% distress selling problem, mission & architecture.</td>
+        </tr>
+        <tr>
+          <td><strong>02:30 – 04:00</strong></td>
+          <td><span class="speaker-tag tag-sayali">🟣 SAYALI</span></td>
+          <td>Guest Hero ➔ Dashboard (<code>/dashboard</code>)</td>
+          <td>Demonstrate Guest Mode, Acreage Donut chart & Printable A4 Farm Report.</td>
+        </tr>
+        <tr>
+          <td><strong>04:00 – 05:30</strong></td>
+          <td><span class="speaker-tag tag-prashant">🔵 PRASHANT</span></td>
+          <td>Harvest Simulator (<code>/harvest</code>)</td>
+          <td>Explain 3-scenario selling math, 106 APMC Mandis & price alerts.</td>
+        </tr>
+        <tr>
+          <td><strong>05:30 – 07:00</strong></td>
+          <td><span class="speaker-tag tag-varun">🟡 VARUN</span></td>
+          <td>Mitra Chat (<code>/chat</code>) ➔ Transport (<code>/transport</code>)</td>
+          <td>Perform live Hindi/Marathi Voice STT/TTS & Digital Gate Pass with QR.</td>
+        </tr>
+        <tr>
+          <td><strong>07:00 – 08:30</strong></td>
+          <td><span class="speaker-tag tag-mihir">🟢 MIHIR (Lead)</span></td>
+          <td>Admin Console (<code>/admin</code>) + Closing</td>
+          <td>Show role security, APMC price governance, production metrics & ROI.</td>
+        </tr>
+        <tr>
+          <td><strong>08:30 – 10:00</strong></td>
+          <td><span class="speaker-tag tag-mihir">🟢 ALL MEMBERS</span></td>
+          <td>Live System / Q&A</td>
+          <td>Mihir deflects technical questions to respective module architects.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="page-break"></div>
+
+    <!-- Section 2: Detailed Member Scripts -->
+    <h2 class="section-title"><span class="step-number">2</span> Member-by-Member Exact Speaking Scripts</h2>
+
+    <!-- MIHIR SCRIPT -->
+    <div class="member-card mihir">
+      <div class="member-card-header">
+        <div>
+          <div class="member-title">🟢 Mihir Jadav — Team Leader & Stage Director</div>
+          <div class="member-role">Controls the screen, delivers opening hook, architecture & closing</div>
+        </div>
+        <span class="cue-pill">Slot: 00:00–02:30 & 07:00–08:30</span>
+      </div>
+      <p><strong>Opening Speech (Deliver with high energy and confidence):</strong></p>
+      <div class="speech-box">
+        "Respected judges and evaluators, I am Mihir Jadav, Team Leader for HarvestMitra AI.<br><br>
+        In India, 86% of smallholder farmers suffer an estimated 20% to 30% financial loss every single harvest season. Why? Because they are forced into distress selling at local village mandis due to opaque pricing, lack of holding power, and solo freight costs.<br><br>
+        To solve this, our team engineered <strong>HarvestMitra AI</strong> — a unified agricultural decision-support and shared-logistics ecosystem. Rather than offering basic AI summaries, we built a production platform that combines real deterministic financial comparison, 106 live Maharashtra APMCs, multilingual voice interaction, and pooled transport.<br><br>
+        I will now guide you through our production software. Sayali, please showcase our farmer experience."
+      </div>
+      <p><strong>Closing Speech:</strong></p>
+      <div class="speech-box">
+        "To summarize: HarvestMitra AI is not a prototype. We have merged 40 pull requests, resolved all open issues, and enforced 100% test coverage with zero security leaks. We are ready to empower millions of farmers across Bharat. Thank you."
+      </div>
+    </div>
+
+    <!-- SAYALI SCRIPT -->
+    <div class="member-card sayali">
+      <div class="member-card-header">
+        <div>
+          <div class="member-title">🟣 Sayali Kulkarni — Frontend UI/UX Specialist</div>
+          <div class="member-role">Explains Universal Guest Mode, Acreage Charts & Printable Farm Report</div>
+        </div>
+        <span class="cue-pill">Slot: 02:30–04:00 (90 Seconds)</span>
+      </div>
+      <p><strong>Speaking Script:</strong></p>
+      <div class="speech-box">
+        "Thank you, Mihir. In designing HarvestMitra, our primary objective was <strong>zero rural friction</strong>.<br><br>
+        First, we introduced <strong>Universal Guest Mode</strong>. A rural farmer should never be blocked by a login wall just to check crop prices. As you can see, anyone can click 'Explore Without Login' and immediately run harvest calculations.<br><br>
+        On the Farmer Dashboard, we built a <strong>Multi-Crop Profile Switcher</strong>. Farmers cultivating Cotton and Wheat can toggle tabs seamlessly, while our interactive Recharts Donut chart calculates their acreage distribution and expected net yield in real-time.<br><br>
+        Finally, recognizing that many farmers need physical documentation for bank loans or APMC clearances, we built the <strong>One-Click Printable Farm Decision Report</strong> (Issue #79). With standard A4 print styling, all web headers and floating buttons disappear, producing a clean, loan-ready advisory summary. Over to Prashant for our financial engine."
+      </div>
+    </div>
+
+    <!-- PRASHANT SCRIPT -->
+    <div class="member-card prashant">
+      <div class="member-card-header">
+        <div>
+          <div class="member-title">🔵 Prashant Warule — Core Logic & APMC Database Architect</div>
+          <div class="member-role">Explains 3-Scenario Mathematical Engine & APMC Mandi Trends</div>
+        </div>
+        <span class="cue-pill">Slot: 04:00–05:30 (90 Seconds)</span>
+      </div>
+      <p><strong>Speaking Script:</strong></p>
+      <div class="speech-box">
+        "Thank you, Sayali. At the core of HarvestMitra is our <strong>Smart Harvest Decision Simulator</strong>.<br><br>
+        We intentionally avoided letting generative AI invent financial numbers. Instead, my <code>mathEngine.js</code> evaluates three factual selling scenarios: Option 1 — Selling Today at the Local Mandi; Option 2 — Storing for 5–7 Days with perishability and holding fee calculations; and Option 3 — Dispatching to a Regional APMC terminal like Mumbai Vashi or Pune.<br><br>
+        Our backend tracks <strong>106 APMC Mandis</strong> across Maharashtra with 3,722 live records. To detect price movements before crashes occur, our <code>mandiSyncService</code> calculates 3-day and 7-day Simple Moving Averages (SMA3 vs SMA7). When an arbitrage opportunity or price drop is detected, our alert engine immediately dispatches localized SMS and WhatsApp alerts in Marathi and Hindi. Varun will now show our voice AI and transport network."
+      </div>
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- VARUN SCRIPT -->
+    <div class="member-card varun">
+      <div class="member-card-header">
+        <div>
+          <div class="member-title">🟡 Varun Patil — AI Engineer & Logistics Specialist</div>
+          <div class="member-role">Demonstrates Mitra Voice STT/TTS & Shared Transport Gate Pass</div>
+        </div>
+        <span class="cue-pill">Slot: 05:30–07:00 (90 Seconds)</span>
+      </div>
+      <p><strong>Speaking Script (Includes Live Voice Action):</strong></p>
+      <div class="speech-box">
+        "Thank you, Prashant. Because literacy should never be a barrier to technology, we engineered the <strong>Mitra Multilingual Voice Assistant</strong>.<br><br>
+        <em>[Varun clicks the microphone icon and speaks live in Hindi]:</em><br>
+        <strong>'टमाटर कब बेचना चाहिए?'</strong><br>
+        <em>[Mitra responds aloud via Text-to-Speech].</em><br><br>
+        Notice that our voice engine operates in Marathi, Hindi, Gujarati, and English. If internet connectivity drops, our <strong>Deterministic Fallback Engine</strong> continues answering in under 15 milliseconds without hallucinating prices.<br><br>
+        Furthermore, solo transport is the single largest expense for small farmers. Our <strong>Shared Transport Pooling Engine</strong> clusters farmers heading along the same highway corridor, cutting freight costs by 50% to 70%. We enforce a single-trip active lock on drivers, and issue this <strong>Digital Mandi Gate Pass</strong> complete with driver credentials and an official security QR verification seal. Back to Mihir."
+      </div>
+    </div>
+
+    <!-- Section 3: Live Screen Choreography -->
+    <h2 class="section-title"><span class="step-number">3</span> Live Demo Choreography (What to Click on Screen)</h2>
+
+    <div class="step-box">
+      <div class="step-tag">STEP 1</div>
+      <div>
+        <strong>Landing Page (<code>/</code>):</strong> Mihir shows guest banner, clicks <em>"Explore Without Login"</em>. Demonstrates instant accessibility.
+      </div>
+    </div>
+
+    <div class="step-box">
+      <div class="step-tag">STEP 2</div>
+      <div>
+        <strong>Farmer Dashboard (<code>/dashboard</code>):</strong> Sayali switches tabs between Cotton & Wheat. Clicks <em>"🖨️ Print Farm Report"</em> and presses <code>Ctrl+P</code> to show the clean A4 print preview.
+      </div>
+    </div>
+
+    <div class="step-box">
+      <div class="step-tag">STEP 3</div>
+      <div>
+        <strong>Harvest Simulator (<code>/harvest</code>):</strong> Prashant inputs 1500 kg Tomato. Compares Option 1 vs Option 2 vs Option 3. Clicks <em>"Book Shared Truck for Winning Mandi"</em>.
+      </div>
+    </div>
+
+    <div class="step-box">
+      <div class="step-tag">STEP 4</div>
+      <div>
+        <strong>Shared Transport (<code>/transport</code>):</strong> Varun shows the pre-filled booking, 4-step live tracking stepper, and opens the <em>"Digital Mandi Gate Pass"</em> modal showing the QR code.
+      </div>
+    </div>
+
+    <div class="step-box">
+      <div class="step-tag">STEP 5</div>
+      <div>
+        <strong>Mitra AI Assistant (<code>/chat</code>):</strong> Varun tests the live microphone button with a voice query in Hindi/Marathi.
+      </div>
+    </div>
+
+    <div class="step-box">
+      <div class="step-tag">STEP 6</div>
+      <div>
+        <strong>Admin Console (<code>/admin</code>):</strong> Mihir logs in as Admin, shows real-time user metrics and APMC price moderation controls.
+      </div>
+    </div>
+
+    <!-- Section 4: Judge Q&A Defense -->
+    <h2 class="section-title"><span class="step-number">4</span> Judge Q&A Defense Strategy</h2>
+
+    <div class="qa-card">
+      <div class="qa-q">
+        <span>Q1: "How do you handle zero internet connectivity in remote villages?"</span>
+        <span class="qa-owner tag-varun">Varun</span>
+      </div>
+      <div class="qa-a">
+        "We built a dual-layer offline architecture: Sayali's frontend caches recent mandi rates and checklists in LocalStorage via our Network Badge, while my backend uses a local deterministic rule engine so Mitra AI answers without needing external cloud APIs."
+      </div>
+    </div>
+
+    <div class="qa-card">
+      <div class="qa-q">
+        <span>Q2: "What prevents AI from hallucinating incorrect mandi rates?"</span>
+        <span class="qa-owner tag-prashant">Prashant</span>
+      </div>
+      <div class="qa-a">
+        "Generative AI never calculates financial projections in our app. All revenue and cost formulas are executed by my strict mathematical engine (`mathEngine.js`) connected to verified APMC MySQL records."
+      </div>
+    </div>
+
+    <div class="qa-card">
+      <div class="qa-q">
+        <span>Q3: "How secure is your platform against unauthorized access?"</span>
+        <span class="qa-owner tag-mihir">Mihir</span>
+      </div>
+      <div class="qa-a">
+        "We implemented JWT token authentication with role-based access control. Admin endpoints return 403 Forbidden to farmers, passwords use bcrypt hashing with 10 salt rounds, and all guest sessions are sandboxed."
+      </div>
+    </div>
+
+    <div class="qa-card">
+      <div class="qa-q">
+        <span>Q4: "Can non-English speaking farmers use this effectively?"</span>
+        <span class="qa-owner tag-sayali">Sayali</span>
+      </div>
+      <div class="qa-a">
+        "Yes, our design system offers full multilingual support across Marathi, Hindi, Gujarati, and English, coupled with Web Speech STT/TTS and high-contrast visual charts so literacy is never a barrier."
+      </div>
+    </div>
+
+    <!-- Footer Seal -->
+    <div style="margin-top: 35px; padding-top: 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted);">
+      <div>HarvestMitra AI &bull; Built for Agricultural Decision Support &bull; Team Mihir Jadav</div>
+      <div style="font-weight: 700;">Document Ref: HM-PHASE07-BLUEPRINT</div>
+    </div>
+
+  </div>
+
+</body>
+</html>

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
   AlertCircle, 
   CheckCircle2, 
@@ -39,6 +40,7 @@ function speakAloud(text) {
 }
 
 export default function TransportPage() {
+  const location = useLocation();
   const { user, token, updateLocalUser } = useAuth();
   const { showToast } = useToast();
 
@@ -129,6 +131,39 @@ export default function TransportPage() {
       }
     }
   }, [user]);
+
+  // Auto-fill booking form when navigating from Smart Harvest Simulator
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const targetDest = location.state?.destination || searchParams.get('destination');
+    const targetWeight = location.state?.weightKg || location.state?.weight || searchParams.get('weight');
+    const targetCrop = location.state?.crop || searchParams.get('crop');
+
+    if (targetDest) {
+      setDestination(targetDest);
+    }
+    if (targetWeight && Number(targetWeight) > 0) {
+      setWeight(Number(targetWeight));
+    }
+    if (targetCrop) {
+      setCropName(targetCrop);
+    }
+    if (targetDest || targetWeight) {
+      setActiveTab('farmer');
+      showToast({
+        type: 'celebrate',
+        title: '🚚 Auto-Filled from Harvest Simulator!',
+        message: `Set destination to "${targetDest || 'Winning APMC'}" for ${targetWeight || '500'} kg load. Ready to dispatch.`,
+        duration: 4000
+      });
+      setTimeout(() => {
+        const formElement = document.getElementById('booking-dispatch-form');
+        if (formElement) {
+          formElement.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 150);
+    }
+  }, [location.state, location.search]);
 
   async function loadMyRequests() {
     if (!token) return;
