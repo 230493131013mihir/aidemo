@@ -121,6 +121,10 @@ export function AuthProvider({ children }) {
       throw new Error(payload.message || 'Registration failed');
     }
 
+    if (payload.token && payload.user) {
+      handleAuthSuccess(payload.token, payload.user);
+    }
+
     return payload;
   }
 

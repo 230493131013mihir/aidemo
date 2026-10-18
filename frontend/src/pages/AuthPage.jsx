@@ -292,28 +292,18 @@ export default function AuthPage({ mode = 'login' }) {
           facilities: form.facilities
         });
 
-        const msg = payload.message || 'Account registered successfully! Please login with your credentials.';
+        const msg = payload.message || 'Account registered successfully! Entering your dashboard...';
         setSuccess(msg);
 
         showToast({
           type: 'celebrate',
           title: '🙏 Registration Complete!',
-          message: `Thank you, ${form.name.trim()}! Your ${role === 'mandi' ? 'Mandi Official' : role === 'transporter' ? 'Transporter' : 'Farmer'} profile is now active.`,
-          duration: 5000,
+          message: `Welcome, ${form.name.trim()}! Your ${role === 'mandi' ? 'Mandi Official' : role === 'transporter' ? 'Transporter' : 'Farmer'} profile is active. Opening dashboard...`,
+          duration: 3000,
         });
 
-        // 3D Celebration Modal for Registration
-        setModalState({
-          isOpen: true,
-          mode: 'register',
-          data: {
-            name: form.name.trim(),
-            role,
-            phone: form.phone.replace(/\D/g, '').slice(-10),
-            email: form.email.trim(),
-            district: role === 'farmer' ? form.district : role === 'mandi' ? form.mandiName : form.baseMandi,
-          },
-        });
+        // Directly navigate to dashboard after registration without showing login page
+        navigate('/dashboard');
       } else {
         // INSTANT LOGIN REDIRECT (Requirement 5: No delay, no countdown, immediate redirect)
         const loggedUser = await login(form.email.trim(), form.password);
@@ -354,7 +344,7 @@ export default function AuthPage({ mode = 'login' }) {
 
   function handleModalProceed() {
     setModalState((prev) => ({ ...prev, isOpen: false }));
-    navigate('/login');
+    navigate('/dashboard');
   }
 
   return (

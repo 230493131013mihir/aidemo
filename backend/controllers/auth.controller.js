@@ -228,9 +228,17 @@ const register = async (req, res) => {
 
         const roleTitle = assignedRole === "transporter" ? "Transporter" : assignedRole === "mandi" ? "Mandi Official" : "Farmer";
 
+        // Generate JWT token for seamless auto-login on registration
+        const token = jwt.sign(
+            { id: user.id, email: user.email, role: user.role },
+            process.env.JWT_SECRET || "fallback_secret_key_harvestmitra_2026",
+            { expiresIn: "7d" }
+        );
+
         return res.status(201).json({
             success: true,
-            message: `Account registered successfully as ${roleTitle}! Please login with your credentials.`,
+            message: `Account registered successfully as ${roleTitle}!`,
+            token,
             registeredEmail: user.email,
             role: user.role,
             user: {
