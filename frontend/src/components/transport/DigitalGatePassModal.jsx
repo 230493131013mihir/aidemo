@@ -180,7 +180,7 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
 
           {/* QR Code and Cargo Specs Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-4 items-center">
-            {/* Deterministic SVG QR Code */}
+            {/* Deterministic SVG QR Code & Verification Seal */}
             <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border border-slate-200 shadow-sm mx-auto sm:mx-0">
               <svg viewBox={`0 0 ${size} ${size}`} className="w-28 h-28">
                 {matrix.map((row, r) =>
@@ -198,38 +198,58 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
                   )
                 )}
               </svg>
-              <span className="text-[9px] font-mono font-bold text-muted mt-1 uppercase">Scan to Verify</span>
+              <div className="flex items-center gap-1 text-[9px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 mt-1.5 shadow-2xs">
+                <ShieldCheck className="w-3 h-3 text-emerald-600 shrink-0" />
+                <span>QR VERIFICATION SEAL</span>
+              </div>
             </div>
 
             {/* Core Details List */}
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between py-1 border-b border-border/60">
+            <div className="space-y-1.5 text-xs">
+              <div className="flex justify-between py-0.5 border-b border-border/60">
                 <span className="text-muted font-medium">Farmer Name:</span>
                 <span className="font-bold text-text">{booking.farmerName}</span>
               </div>
 
-              <div className="flex justify-between py-1 border-b border-border/60">
+              <div className="flex justify-between py-0.5 border-b border-border/60">
                 <span className="text-muted font-medium">Produce / Crop:</span>
                 <span className="font-bold text-primary">{booking.cropName}</span>
               </div>
 
-              <div className="flex justify-between py-1 border-b border-border/60">
+              <div className="flex justify-between py-0.5 border-b border-border/60">
                 <span className="text-muted font-medium">Shipment Weight:</span>
                 <span className="font-bold text-text font-mono">{booking.weightKg} kg</span>
               </div>
 
-              <div className="flex justify-between py-1 border-b border-border/60">
+              <div className="flex justify-between py-0.5 border-b border-border/60">
+                <span className="text-muted font-medium">Assigned Driver:</span>
+                <span className="font-bold text-emerald-900">{booking.driverName || 'Sanjay Shinde (Verified Driver)'}</span>
+              </div>
+
+              <div className="flex justify-between py-0.5 border-b border-border/60">
+                <span className="text-muted font-medium">Vehicle Number:</span>
+                <span className="font-mono font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{booking.vehicleNumber || 'MH-12-RN-4120'}</span>
+              </div>
+
+              <div className="flex justify-between py-0.5 border-b border-border/60">
                 <span className="text-muted font-medium">Destination APMC:</span>
                 <span className="font-bold text-emerald-700">{booking.destinationMarket}</span>
               </div>
 
-              <div className="flex justify-between py-1 border-b border-border/60">
+              <div className="flex justify-between py-0.5 border-b border-border/60">
+                <span className="text-muted font-medium">Arrival Timestamp (ETA):</span>
+                <span className="font-semibold text-amber-800 font-mono">
+                  {booking.arrivalTimestamp || (booking.estimatedDurationMinutes ? `${new Date(Date.now() + Number(booking.estimatedDurationMinutes) * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (~${booking.estimatedDurationMinutes} mins)` : `${booking.pickupDate} • 07:30 AM Entry Slot`)}
+                </span>
+              </div>
+
+              <div className="flex justify-between py-0.5 border-b border-border/60">
                 <span className="text-muted font-medium">Pickup Date:</span>
                 <span className="font-medium text-text">{booking.pickupDate}</span>
               </div>
 
-              <div className="flex justify-between py-1">
-                <span className="text-muted font-medium">Assigned Vehicle:</span>
+              <div className="flex justify-between py-0.5">
+                <span className="text-muted font-medium">Vehicle Type:</span>
                 <span className="font-semibold text-text">{booking.vehicleType || 'Shared Transport Pool'}</span>
               </div>
             </div>

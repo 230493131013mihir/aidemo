@@ -37,7 +37,7 @@ const I18N = {
     advisoryActive: 'District Rain Advisory Active',
     advisoryClear: 'Favorable Weather Conditions',
     actionTipsTitle: 'Recommended Actions for Farmers:',
-    simulatorAction: 'Review Harvest Timing & Transport Plans',
+    simulatorAction: 'Apply to Simulator',
     demoNotice: 'Demo Weather Data',
     demoNoticeSub: 'Live weather service is not configured. Information shown is for demonstration only.',
     lastUpdated: 'Last Updated:',
@@ -57,12 +57,32 @@ const I18N = {
     advisoryActive: 'जिला वर्षा परामर्श जारी',
     advisoryClear: 'अनुकूल मौसम स्थिति',
     actionTipsTitle: 'किसानों के लिए अनुशंसित सुझाव:',
-    simulatorAction: 'कटाई समय व परिवहन योजना की समीक्षा करें',
+    simulatorAction: 'Apply to Simulator',
     demoNotice: 'डेमो मौसम डेटा',
     demoNoticeSub: 'लाइव मौसम सेवा कॉन्फ़िगर नहीं है। दिखाई गई जानकारी केवल डेमो उद्देश्य के लिए है।',
     lastUpdated: 'अंतिम अपडेट:',
     loading: 'जिले का मौसम डेटा लोड हो रहा है...',
     errorTitle: 'मौसम डेटा प्राप्त करने में असमर्थ'
+  },
+  gu: {
+    title: 'હવામાન અને જિલ્લા વરસાદી સલાહકાર',
+    subtitle: 'પાક લણણી અને પરિવહનના યોગ્ય સમય માટે સ્થાનિક હવામાન આગાહી',
+    selectDistrict: 'જિલ્લો પસંદ કરો:',
+    currentWeather: 'હાલનું હવામાન',
+    rainProbability: 'વરસાદની શક્યતા',
+    humidity: 'ભેજ (હ્યુમિડિટી)',
+    wind: 'પવનની ગતિ',
+    rainfall: 'વરસાદ',
+    forecastTitle: '૩-દિવસીય આગાહી',
+    advisoryActive: 'જિલ્લા વરસાદી સલાહ સક્રિય',
+    advisoryClear: 'લણણી માટે અનુકૂળ હવામાન',
+    actionTipsTitle: 'ખેડૂતો માટે મહત્વપૂર્ણ સૂચનો:',
+    simulatorAction: 'Apply to Simulator',
+    demoNotice: 'ડેમો હવામાન ડેટા',
+    demoNoticeSub: 'લાઈવ હવામાન સેવા ઉપલબ્ધ છે. માહિતી ખેડૂત માર્ગદર્શન માટે છે.',
+    lastUpdated: 'છેલ્લું અપડેટ:',
+    loading: 'જિલ્લાનું હવામાન ડેટા લોડ થઈ રહ્યું છે...',
+    errorTitle: 'હવામાન ડેટા મેળવવામાં નિષ્ફળ'
   },
   mr: {
     title: 'हवामान आणि जिल्हा पाऊस सल्लागार',
@@ -77,7 +97,7 @@ const I18N = {
     advisoryActive: 'जिल्हा पाऊस सतर्कता सल्ला',
     advisoryClear: 'काढणीसाठी अनुकूल हवामान',
     actionTipsTitle: 'शेतकऱ्यांसाठी महत्त्वाच्या कृती:',
-    simulatorAction: 'काढणी वेळ आणि वाहतूक नियोजनाचा आढावा घ्या',
+    simulatorAction: 'Apply to Simulator',
     demoNotice: 'डेमो हवामान डेटा',
     demoNoticeSub: 'थेट हवामान सेवा कॉन्फिगर केलेली नाही. माहिती केवळ प्रात्यक्षिकासाठी आहे.',
     lastUpdated: 'शेवटचे अपडेट:',
@@ -134,7 +154,7 @@ export default function WeatherAdvisoryWidget({
     if (found) setSelectedState(found.state);
   };
 
-  const isRainAdvisory = weatherData?.advisory?.level === 'RAIN_ADVISORY';
+  const isRainAdvisory = weatherData?.advisory?.level === 'RAIN_ADVISORY' || (weatherData?.weather?.rainProbability >= 60);
   const rainProb = weatherData?.weather?.rainProbability ?? 0;
 
   return (
@@ -255,8 +275,17 @@ export default function WeatherAdvisoryWidget({
                     <div className="mt-3.5">
                       <button
                         type="button"
-                        onClick={onNavigateToSimulator}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white shadow-xs transition-colors"
+                        onClick={() => {
+                          if (typeof onNavigateToSimulator === 'function') {
+                            onNavigateToSimulator({
+                              district: selectedDistrict,
+                              rainProbability: rainProb,
+                              humidity: weatherData?.weather?.humidity ?? 65,
+                              damageRisk: rainProb >= 60 ? 15 : 5
+                            });
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white shadow-xs transition-colors cursor-pointer"
                       >
                         <span>{t.simulatorAction}</span>
                         <ArrowRight className="w-3.5 h-3.5" />

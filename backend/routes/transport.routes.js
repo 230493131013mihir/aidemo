@@ -19,6 +19,9 @@ function normalizeTransportInput(body, reqUser = {}) {
     if (!Number.isInteger(weightKg) || weightKg <= 0) {
         return { error: "weightKg must be a positive integer" };
     }
+    if (weightKg > 5000) {
+        return { error: "Overload dispatch prevented: weightKg exceeds maximum single vehicle limit of 5000 kg" };
+    }
     const pickupDate = String(body.pickupDate);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(pickupDate) || Number.isNaN(Date.parse(`${pickupDate}T00:00:00Z`))) {
         return { error: "pickupDate must use YYYY-MM-DD format" };

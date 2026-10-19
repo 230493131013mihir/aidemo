@@ -34,32 +34,46 @@ const WELCOME_MESSAGES = {
     disclaimer: "बाजार भाव आणि आकडेवारी महाराष्ट्र APMC डेटावर आधारित आहे."
   },
   hi: {
-    text: "नमस्ते! मैं मित्रा असिस्टेंट (Mitra Assistant) हूं। आप मुझसे महाराष्ट्र मंडी भाव, आज फसल बेचें या रुकें, साझा परिवहन (भाड़ा बचत), या मौसम की जानकारी पूछ सकते हैं।",
-    disclaimer: "मंडी के आंकड़े महाराष्ट्र APMC डेटा पर आधारित हैं।"
+    text: "नमस्ते! मैं मित्रा असिस्टेंट (Mitra Assistant) हूं। आप मुझसे महाराष्ट्र व गुजरात मंडी भाव, आज फसल बेचें या रुकें, साझा परिवहन (भाड़ा बचत), या मौसम की जानकारी पूछ सकते हैं।",
+    disclaimer: "मंडी के आंकड़े सत्यापित APMC डेटा पर आधारित हैं।"
+  },
+  gu: {
+    text: "નમસ્તે! હું મિત્રા આસિસ્ટન્ટ (Mitra Assistant) છું. તમે મને એપીએમસી (APMC) બજાર ભાવ, આજે પાક વેચવો કે રાહ જોવી, શૅર્ડ ટ્રાન્સપોર્ટ (ભાડા બચત), અથવા હવામાન આગાહી પૂછી શકો છો.",
+    disclaimer: "બજાર ભાવ અને આંકડા ગુજરાત/મહારાષ્ટ્ર APMC ડેટા પર આધારિત છે."
   },
   en: {
-    text: "Namaste! I am Mitra Assistant. Ask me about Maharashtra APMC Mandi prices, whether you should sell today or hold, shared transport pooling, or weather forecasts.",
-    disclaimer: "Demonstration data mode active (Maharashtra APMC)."
+    text: "Namaste! I am Mitra Assistant. Ask me about Maharashtra & Gujarat APMC Mandi prices, whether you should sell today or hold, shared transport pooling, or weather forecasts.",
+    disclaimer: "Demonstration data mode active (APMC Live/Sample)."
   }
 };
 
 const SUGGESTED_QUERIES = {
   mr: [
+    "पीएम-किसान (PM-KISAN) योजना पात्रता व लाभ",
+    "पंतप्रधान पीक विमा योजना (PMFBY) नियम",
+    "i-Khedut / महाडीबीटी ठिबक सिंचन अनुदान",
     "आज टोमॅटोचा भाव काय आहे?",
-    "पीएम-किसान व महाडीबीटी योजनेची पात्रता काय आहे?",
-    "पीक विमा व कृषी अनुदानाची माहिती सांगा",
     "सामायिक वाहनाने वाहतूक खर्च कसा वाचवावा?"
   ],
   hi: [
+    "पीएम-किसान (PM-KISAN) योजना पात्रता एवं लाभ",
+    "प्रधानमंत्री फसल बीमा योजना (PMFBY) नियम",
+    "आई-खेड़ूत (i-Khedut) ड्रिप व कृषि उपकरण सब्सिडी",
     "आज टमाटर का मंडी भाव क्या है?",
-    "पीएम-किसान योजना की पात्रता क्या है?",
-    "महाराष्ट्र महाडीबीटी पोर्टल पर ट्रैक्टर व ड्रिप सब्सिडी कैसे मिलेगी?",
     "साझा वाहन से भाड़ा कैसे बचाएं?"
   ],
+  gu: [
+    "પીએમ-કિસાન (PM-KISAN) યોજનાની પાત્રતા અને સહાય",
+    "પીએમ પાક વીમા યોજના (PMFBY) ના નિયમો",
+    "આઈ-ખેડૂત (i-Khedut) ટપક સિંચાઈ અને ટ્રેક્ટર સબસિડી",
+    "આજે ટામેટાંનો ભાવ શું છે?",
+    "શેર્ડ વાહનથી પરિવહન ખર્ચ કેવી રીતે બચાવવો?"
+  ],
   en: [
+    "PM-KISAN eligibility & subsidy rules",
+    "PMFBY crop insurance claim guidelines",
+    "i-Khedut portal drip irrigation subsidy",
     "What is today's tomato rate in Maharashtra?",
-    "What are the eligibility rules for PM-KISAN?",
-    "How can I apply for Maharashtra MahaDBT tractor & drip subsidy?",
     "How can I save on shared transport?"
   ]
 };

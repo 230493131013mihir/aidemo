@@ -85,13 +85,97 @@ export default function CorridorFreightCalculator({ onApplyCorridor, defaultWeig
         </button>
       </div>
 
+      {/* Corridor Search & Route Filtering Controls */}
+      <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
+          <div className="flex items-center gap-2">
+            <Search className="w-4 h-4 text-emerald-600" />
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              🛣️ Highway Corridor Route Search & Live Filter
+            </span>
+          </div>
+          {(originFilter || destinationFilter) && (
+            <button
+              type="button"
+              onClick={() => {
+                setOriginFilter('');
+                setDestinationFilter('');
+              }}
+              className="text-xs text-rose-600 hover:text-rose-800 font-bold cursor-pointer"
+            >
+              ✕ Reset Route Filters
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div>
+            <label className="text-[11px] font-bold text-slate-600 uppercase block mb-1">
+              Filter by Origin (e.g. Pune, Nashik, Kolhapur):
+            </label>
+            <input
+              type="text"
+              value={originFilter}
+              onChange={(e) => setOriginFilter(e.target.value)}
+              placeholder="Search origin e.g. Pune or Nashik..."
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+            />
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {['All', 'Pune', 'Nashik', 'Kolhapur', 'Nagpur'].map((orig) => (
+                <button
+                  key={orig}
+                  type="button"
+                  onClick={() => setOriginFilter(orig === 'All' ? '' : orig)}
+                  className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                    (orig === 'All' && !originFilter) || (originFilter.toLowerCase() === orig.toLowerCase())
+                      ? 'bg-emerald-600 text-white border-emerald-600 font-bold'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  {orig}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-slate-600 uppercase block mb-1">
+              Filter by Destination (e.g. Mumbai Vashi APMC):
+            </label>
+            <input
+              type="text"
+              value={destinationFilter}
+              onChange={(e) => setDestinationFilter(e.target.value)}
+              placeholder="Search destination e.g. Vashi or Pune..."
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+            />
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {['All', 'Vashi APMC', 'Pune APMC', 'Amravati APMC'].map((dest) => (
+                <button
+                  key={dest}
+                  type="button"
+                  onClick={() => setDestinationFilter(dest === 'All' ? '' : dest)}
+                  className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                    (dest === 'All' && !destinationFilter) || (destinationFilter.toLowerCase().includes(dest.toLowerCase().split(' ')[0]))
+                      ? 'bg-emerald-600 text-white border-emerald-600 font-bold'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  {dest}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Corridor Selection Pills */}
       <div className="space-y-2">
         <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-          Select Maharashtra Agricultural Transport Corridor:
+          Select Agricultural Transport Corridor ({filteredCorridors.length} available):
         </label>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-          {CORRIDORS.map((corridor) => {
+          {filteredCorridors.map((corridor) => {
             const isSelected = corridor.id === selectedCorridorId;
             return (
               <button

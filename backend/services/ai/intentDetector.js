@@ -27,11 +27,22 @@ const INTENT_PATTERNS = {
     /(कापणी|काढणी|विकू|विकायचे|विकावे|ठेवू|साठवण|कधी विकावे|आज विकावे|फायदा होईल)/i
   ],
 
+  government_scheme: [
+    // English
+    /\b(scheme|schemes|subsidy|subsidies|pm-kisan|pmkisan|fasal bima|pmfby|ikhedut|khedut|kcc|kisan credit card|soil health|krishi yojana|yojana|yojna|grant|financial assistance|tractor subsidy|drip subsidy)\b/i,
+    // Hindi
+    /(योजना|योजनाएं|सब्सिडी|अनुदान|पीएम-किसान|पीएम किसान|फसल बीमा|सरकारी सहायता|कृषि योजना|केसीसी|ऋण|सहायता राशि|पात्रता)/i,
+    // Gujarati
+    /(યોજના|યોજનાઓ|સબસિડી|સહાય|આઈ-ખેડૂત|ખેડૂત સહાય|પીએમ કિસાન|પાક વીમો|ટ્રેક્ટર સબસિડી|ટપક સિંચાઈ|પાત્રતા)/i,
+    // Marathi
+    /(योजना|अनुदान|सबसिडी|पीएम किसान|पीएम-किसान|पीक विमा|शासकीय मदत|कृषी योजना|कर्ज माफी|ट्रॅक्टर सबसिडी|पात्रता)/i
+  ],
+
   revenue_calculation: [
     // English
     /\b(revenue|profit|income|net revenue|gross revenue|calculate|calculation|earning|expenses|total cost)\b/i,
     // Hindi
-    /(कमाई|मुनाफा|लाभ|शुद्ध कमाई|कुल कमाई|खर्च|लागत|हिसाब|गणना)/i,
+    /(कमाई|मुनाफा|शुद्ध लाभ|कुल लाभ|शुद्ध कमाई|कुल कमाई|खर्च|लागत|हिसाब|गणना)/i,
     // Gujarati
     /(ચોખ્ખો નફો|કુલ આવક|નફો|ખર્ચ|ગણતરી|હિસાબ|આવક)/i,
     // Marathi
@@ -58,17 +69,6 @@ const INTENT_PATTERNS = {
     /(હવામાન|વરસાદ|વાતાવરણ|તાપમાન|આગાહી)/i,
     // Marathi
     /(हवामान|पाऊस|तापमान|अंदाज|वादळ)/i
-  ],
-
-  government_scheme: [
-    // English
-    /\b(scheme|schemes|subsidy|subsidies|pm-kisan|pmkisan|fasal bima|pmfby|ikhedut|khedut|kcc|kisan credit card|soil health|krishi yojana|yojana|yojna|grant|financial assistance|tractor subsidy|drip subsidy)\b/i,
-    // Hindi
-    /(योजना|योजनाएं|सब्सिडी|अनुदान|पीएम-किसान|फसल बीमा|सरकारी सहायता|कृषि योजना|केसीसी|ऋण|सहायता राशि)/i,
-    // Gujarati
-    /(યોજના|યોજનાઓ|સબસિડી|સહાય|આઈ-ખેડૂત|ખેડૂત સહાય|પીએમ કિસાન|પાક વીમો|ટ્રેક્ટર સબસિડી|ટપક સિંચાઈ)/i,
-    // Marathi
-    /(योजना|अनुदान|सबसिडी|पीएम किसान|पीक विमा|शासकीय मदत|कृषी योजना|कर्ज माफी|ट्रॅक्टर सबसिडी)/i
   ],
 
   profile: [

@@ -372,6 +372,18 @@ export default function TransportPage() {
     setError('');
     setMessage('');
 
+    if (Number(weight) > 5000) {
+      const errMsg = 'Overload Warning: Single vehicle shared dispatch cannot exceed the 5,000 kg safety limit. Please reduce weight or split across multiple trucks.';
+      setError(errMsg);
+      showToast({
+        type: 'warning',
+        title: '⚠️ Overloaded Dispatch Prevented',
+        message: errMsg,
+        duration: 6000
+      });
+      return;
+    }
+
     if (!token || token === 'guest' || user?.isGuest) {
       if (!cropName.trim() || !pickupLocation.trim()) {
         const errMsg = 'Please fill in crop commodity and pickup location.';
@@ -717,7 +729,7 @@ export default function TransportPage() {
                     className="px-3 py-1.5 rounded-xl border border-emerald-400/30 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition-colors"
                   >
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>View Gate Pass</span>
+                    <span>Digital Mandi Gate Pass</span>
                   </button>
                 </div>
               </div>
@@ -1025,9 +1037,19 @@ export default function TransportPage() {
                   required
                   value={weight}
                   onChange={(e) => setWeight(e.target.value)}
-                  className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary"
+                  className={`w-full rounded-xl border px-3.5 py-2 text-sm outline-none transition-colors ${
+                    Number(weight) > 5000
+                      ? 'border-amber-500 bg-amber-50/30 focus:border-amber-600'
+                      : 'border-border focus:border-primary'
+                  }`}
                   placeholder="500"
                 />
+                {Number(weight) > 5000 && (
+                  <div className="mt-1 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 flex items-start gap-1.5 font-semibold">
+                    <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                    <span>⚠️ Weight limit guard: Weight exceeds 5,000 kg max capacity. Reduce weight to prevent overloaded dispatch.</span>
+                  </div>
+                )}
               </label>
             </div>
 
@@ -1054,11 +1076,13 @@ export default function TransportPage() {
                 )}
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="btn-primary py-2.5 px-6 rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm"
+                  disabled={submitting || Number(weight) > 5000}
+                  className={`btn-primary py-2.5 px-6 rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm ${
+                    Number(weight) > 5000 ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
                   <PlusCircle className="w-4 h-4" />
-                  <span>{submitting ? 'Connecting...' : 'Book & Issue Gate Pass'}</span>
+                  <span>{submitting ? 'Connecting...' : 'Request Shared Truck Pool'}</span>
                 </button>
               </div>
             </div>
@@ -1159,7 +1183,7 @@ export default function TransportPage() {
           {!isUserTransporter && <section className="rounded-3xl border border-border bg-white shadow-xs overflow-hidden">
             <div className="px-6 py-4 bg-slate-50 border-b border-border flex items-center justify-between">
               <div>
-                <h2 className="font-bold text-sm text-text">My Live Transport Bookings & Tracking</h2>
+                <h2 className="font-bold text-sm text-text">My Transport Requests & Live Tracking</h2>
                 <p className="text-[11px] text-muted">Stored in MySQL • Your requests, assigned transporter, and digital mandi gate passes</p>
               </div>
               <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-lg bg-white border border-slate-200">
@@ -1230,7 +1254,7 @@ export default function TransportPage() {
                             className="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
                           >
                             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Mandi Gate Pass</span>
+                            <span>Digital Mandi Gate Pass</span>
                           </button>
                         </div>
                       </div>
