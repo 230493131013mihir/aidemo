@@ -121,6 +121,45 @@ async function runSecurityTests() {
     if (err) console.error(`         →  ${err}`);
   }
 
+  const bcrypt = require("bcryptjs");
+  const sequelize = require("../config/database");
+  const { User } = require("../models");
+  const seed = require("../seed");
+
+  // Ensure test database is connected and synchronized
+  await sequelize.authenticate();
+  await sequelize.sync();
+
+  // Ensure demo and admin accounts are properly seeded and match test credentials
+  let adminUser = await User.findOne({ where: { email: ADMIN_CREDENTIALS.email } });
+  let farmerUser = await User.findOne({ where: { email: FARMER_CREDENTIALS.email } });
+
+  if (!adminUser || !farmerUser) {
+    if (typeof seed === "function") {
+      await seed();
+    }
+    adminUser = await User.findOne({ where: { email: ADMIN_CREDENTIALS.email } });
+    farmerUser = await User.findOne({ where: { email: FARMER_CREDENTIALS.email } });
+  }
+
+  if (adminUser) {
+    const isMatch = await bcrypt.compare(ADMIN_CREDENTIALS.password, adminUser.password);
+    if (!isMatch) {
+      adminUser.password = await bcrypt.hash(ADMIN_CREDENTIALS.password, 10);
+      adminUser.role = "admin";
+      await adminUser.save();
+    }
+  }
+
+  if (farmerUser) {
+    const isMatch = await bcrypt.compare(FARMER_CREDENTIALS.password, farmerUser.password);
+    if (!isMatch) {
+      farmerUser.password = await bcrypt.hash(FARMER_CREDENTIALS.password, 10);
+      farmerUser.role = "farmer";
+      await farmerUser.save();
+    }
+  }
+
   await startServer();
 
   try {
