@@ -26,6 +26,14 @@ export default function ProtectedRoute({ children, requiredRole }) {
     return children;
   }
 
+  // Profile strictly requires verified authentication
+  if (requiredRole === 'auth') {
+    if (!isAuthenticated) {
+      return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+    return children;
+  }
+
   // Role validation for transporter
   if (requiredRole === 'transporter' && user?.role !== 'transporter' && !user?.isGuest) {
     return <Navigate to="/dashboard" replace />;

@@ -43,22 +43,6 @@ export default function AuthPage({ mode = 'login' }) {
   const { showToast } = useToast();
   const isRegister = mode === 'register';
 
-  // Requirement: When user refreshes / reloads while on /register, return to the landing page without login
-  useEffect(() => {
-    if (isRegister) {
-      try {
-        const navEntries = window.performance?.getEntriesByType?.('navigation');
-        const isReload = (navEntries && navEntries[0]?.type === 'reload') ||
-                         (window.performance?.navigation?.type === 1);
-        if (isReload) {
-          navigate('/', { replace: true });
-        }
-      } catch (e) {
-        // Safe ignore
-      }
-    }
-  }, [isRegister, navigate]);
-
   // 4-Way Role Selector: 'farmer', 'transporter', 'mandi', 'admin'
   const [role, setRole] = useState('farmer');
 

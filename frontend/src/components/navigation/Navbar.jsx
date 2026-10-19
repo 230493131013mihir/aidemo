@@ -34,10 +34,11 @@ export default function Navbar() {
   const navItems = React.useMemo(() => {
     if (!isAuthenticated) {
       return [
-        { href: '/#features', label: 'Features', icon: Calculator },
-        { href: '/#workflow', label: 'How It Works', icon: Truck },
-        { to: '/schemes-preview', label: 'Govt Schemes', icon: Landmark },
-        { to: '/markets', label: 'Live Mandis', icon: TrendingUp },
+        { to: '/dashboard', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard },
+        { to: '/markets', label: t('nav.markets', 'Live Mandis'), icon: TrendingUp },
+        { to: '/harvest', label: t('nav.harvest', 'Harvest Simulator'), icon: Calculator },
+        { to: '/weather', label: t('nav.weather', 'Agri Weather'), icon: CloudSunRain },
+        { to: '/schemes', label: t('nav.schemes', 'Govt Schemes'), icon: Landmark },
       ];
     }
 

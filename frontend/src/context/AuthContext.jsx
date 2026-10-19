@@ -29,13 +29,13 @@ export const GUEST_USER = {
 };
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) || 'guest');
+  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) || null);
   const [user, setUser] = useState(() => {
     try {
       const stored = localStorage.getItem(USER_KEY);
-      return stored ? JSON.parse(stored) : GUEST_USER;
+      return stored ? JSON.parse(stored) : null;
     } catch {
-      return GUEST_USER;
+      return null;
     }
   });
   const [loading, setLoading] = useState(true);
@@ -44,11 +44,25 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     async function verifySession() {
       const savedToken = localStorage.getItem(TOKEN_KEY);
+      const savedUser = localStorage.getItem(USER_KEY);
+
       if (!savedToken || savedToken === 'guest') {
-        setToken('guest');
-        setUser((prev) => prev && !prev.isGuest ? prev : GUEST_USER);
+        setToken(null);
+        setUser(null);
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
         setLoading(false);
         return;
+      }
+
+      // Hydrate state from localStorage immediately to prevent refresh flicker
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+          setToken(savedToken);
+        } catch (e) {
+          // ignore
+        }
       }
 
       try {
@@ -65,15 +79,15 @@ export function AuthProvider({ children }) {
             setToken(savedToken);
             localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
           } else {
-            setUser(GUEST_USER);
-            setToken('guest');
+            logout();
           }
-        } else {
-          setUser(GUEST_USER);
-          setToken('guest');
+        } else if (response.status === 401 || response.status === 403) {
+          // Token expired or invalid
+          logout();
         }
       } catch (err) {
-        console.warn('Session verification fallback to stored user:', err.message);
+        // Network offline or server starting: retain cached user session so refresh does not kick user out
+        console.warn('Session verification offline fallback:', err.message);
       } finally {
         setLoading(false);
       }
@@ -172,14 +186,18 @@ export function AuthProvider({ children }) {
   }
 
   function logout() {
-    setToken('guest');
-    setUser(GUEST_USER);
+    setToken(null);
+    setUser(null);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    // Explicitly navigate to home page on logout
+    if (window.location.pathname !== '/') {
+      window.location.href = '/';
+    }
   }
 
-  const isGuest = Boolean(user?.isGuest || token === 'guest');
   const isAuthenticated = Boolean(user && token && !user.isGuest && token !== 'guest');
+  const isGuest = !isAuthenticated;
 
   const value = {
     user,

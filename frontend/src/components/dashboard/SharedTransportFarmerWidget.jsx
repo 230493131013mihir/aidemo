@@ -211,7 +211,18 @@ export default function SharedTransportFarmerWidget({
 
   // Handle Booking Creation
   const handleCreateBooking = async (e) => {
-    if (e) e.preventDefault();
+    // Authentication guard: Unauthenticated visitors can view but cannot book
+    if (!token || !user || user.isGuest) {
+      showToast({ 
+        type: 'warning', 
+        title: 'Login Required', 
+        message: 'Please login or create an account to book transport dispatch. Guests can explore routes and prices in read-only mode.' 
+      });
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 1500);
+      return;
+    }
 
     if (!selectedCrop || !pickupLocation.trim() || !destination.trim()) {
       showToast({ type: 'error', title: 'Missing Information', message: 'Please select crop, pickup and destination.' });
@@ -227,8 +238,8 @@ export default function SharedTransportFarmerWidget({
 
     try {
       const payload = {
-        farmerName: user?.name || farmerProfile?.name || 'Mihir Jadav',
-        farmerPhone: user?.phone || farmerProfile?.phone || '9999999991',
+        farmerName: user.name,
+        farmerPhone: user.phone || '',
         cropName: selectedCrop,
         quantity: Number(quantity),
         quantityUnit: quantityUnit,

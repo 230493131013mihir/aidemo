@@ -24,7 +24,6 @@ import {
 } from 'recharts';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { dashboardDemoData } from '../data/dashboardDemoData';
 
 // Dashboard Components
 import DashboardHeader from '../components/dashboard/DashboardHeader';
@@ -730,8 +729,14 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <MarketTrendChart />
-          <RevenueComparisonChart />
+          <MarketTrendChart 
+            initialCrop={crops.length ? crops[0].cropName : 'Tomato'} 
+            district={farmerDistrict} 
+          />
+          <RevenueComparisonChart 
+            crops={crops} 
+            totalHarvestKg={totalCombinedHarvestKg} 
+          />
         </div>
       </section>
 
@@ -740,7 +745,7 @@ export default function DashboardPage() {
         <h2 id="dashboard-planning-history-heading" className="sr-only">
           Planning History
         </h2>
-        <PlanningHistoryChart />
+        <PlanningHistoryChart crops={crops} />
       </section>
 
       {/* 6.5 Clearly Visible Crop-Based Shared Transport & Vehicle Booking Section */}
