@@ -41,6 +41,7 @@ import MitraAssistantCard from '../components/dashboard/MitraAssistantCard';
 import QuickActions from '../components/dashboard/QuickActions';
 import PrintableReportModal from '../components/common/PrintableReportModal';
 import RegisteredCropsManager from '../components/dashboard/RegisteredCropsManager';
+import SharedTransportFarmerWidget from '../components/dashboard/SharedTransportFarmerWidget';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
@@ -740,6 +741,14 @@ export default function DashboardPage() {
           Planning History
         </h2>
         <PlanningHistoryChart />
+      </section>
+
+      {/* 6.5 Clearly Visible Crop-Based Shared Transport & Vehicle Booking Section */}
+      <section id="farmer-shared-transport-section" aria-labelledby="dashboard-transport-heading">
+        <h2 id="dashboard-transport-heading" className="sr-only">
+          Crop-Based Shared Transport and Vehicle Booking
+        </h2>
+        <SharedTransportFarmerWidget registeredCrops={crops} />
       </section>
 
       {/* 7. Operations Triad: Recent Activity, Transport Pooling & Mitra AI */}
