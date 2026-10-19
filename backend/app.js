@@ -17,6 +17,9 @@ const transportRoutes = require('./routes/transportRoutes');
 
 const app = express();
 
+// Security: Hide server technology disclosure
+app.disable('x-powered-by');
+
 // Middlewares
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
