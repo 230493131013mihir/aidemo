@@ -325,7 +325,6 @@ export default function HarvestPage() {
       });
     }
   }, [weatherParams]);
-  });
 
   // Synced Live prices per crop from API or fallback
   const [pricesByCrop, setPricesByCrop] = useState(() => {
