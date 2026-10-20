@@ -3,7 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { Sprout } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-export default function ProtectedRoute({ children, requiredRole }) {
+export default function ProtectedRoute({ children, requiredRole, requireAuth = false }) {
   const { user, isAuthenticated, loading } = useAuth();
   const location = useLocation();
 
@@ -29,6 +29,11 @@ export default function ProtectedRoute({ children, requiredRole }) {
   // Role validation for transporter
   if (requiredRole === 'transporter' && user?.role !== 'transporter' && !user?.isGuest) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // Routes requiring explicit authentication (e.g. My Profile)
+  if (requireAuth && (!isAuthenticated || user?.isGuest)) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // Universal Guest Mode: Allow unauthenticated visitors to use all farmer features

@@ -196,8 +196,12 @@ export default function Sidebar({ className = '' }) {
             {isAuthenticated ? (
               <button
                 type="button"
-                onClick={logout}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors group"
+                id="sidebar-sign-out-btn"
+                onClick={(e) => {
+                  e.preventDefault();
+                  logout();
+                }}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors group text-left"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <LogOut className="w-4 h-4 shrink-0" />

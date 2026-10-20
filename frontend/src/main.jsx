@@ -9,14 +9,14 @@ import App from './App.jsx';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <LanguageProvider>
-      <AuthProvider>
-        <ToastProvider>
-          <BrowserRouter>
+    <BrowserRouter>
+      <LanguageProvider>
+        <AuthProvider>
+          <ToastProvider>
             <App />
-          </BrowserRouter>
-        </ToastProvider>
-      </AuthProvider>
-    </LanguageProvider>
+          </ToastProvider>
+        </AuthProvider>
+      </LanguageProvider>
+    </BrowserRouter>
   </StrictMode>,
 );

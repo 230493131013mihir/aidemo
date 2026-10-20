@@ -939,9 +939,17 @@ const getRelevantMandis = async (req, res) => {
     }
 };
 
+const logout = async (req, res) => {
+    return res.status(200).json({
+        success: true,
+        message: "Successfully signed out of HarvestMitra session."
+    });
+};
+
 module.exports = {
     register,
     login,
+    logout,
     getMe,
     demoLogin,
     updateProfile,
@@ -951,3 +959,4 @@ module.exports = {
     getRelevantFarmers,
     getRelevantMandis
 };
+

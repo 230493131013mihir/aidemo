@@ -52,7 +52,14 @@ export default function AppRoutes() {
         <Route path="/assistant" element={<ChatPage />} />
         <Route path="/schemes" element={<SchemesPage />} />
         <Route path="/farmer/schemes" element={<SchemesPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute requireAuth={true}>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/admin"
           element={
