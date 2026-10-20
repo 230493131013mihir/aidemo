@@ -233,9 +233,10 @@ The entire platform has been rigorously tested across both backend and frontend 
 
 ---
 
-## 🔗 GitHub PR Creation Links
+## 🔗 Live Official GitHub Issues & Pull Requests
 
-To open Pull Requests directly on GitHub with branch comparisons:  
-👉 **[Open PR: Issue #117 (Pre-Presentation Audit & Hooks Compliance)](https://github.com/230493131013mihir/aidemo/pull/new/feature/issue-117-final-pre-presentation-audit)**  
-👉 **[Open PR: Issue #118 (Strict Auth Guard on Prices, Home Redirect & Header Cleanup)](https://github.com/230493131013mihir/aidemo/pull/new/feature/issue-118-strict-auth-guard-and-header-cleanup)**  
-👉 **[Open PR: Combined Pre-Presentation Audit & Auth Guards](https://github.com/230493131013mihir/aidemo/pull/new/feature/issue-117-118-pre-presentation-audit-and-auth-guards)**  
+The issues and Pull Requests have been created directly on GitHub:  
+- 📌 **Issue #121:** [Pre-Presentation System Audit, React 19 Hooks Compliance & 1-Click Demo Quick Fill](https://github.com/230493131013mihir/aidemo/issues/121)  
+- 🚀 **Pull Request #122:** [PR: Pre-Presentation Full Audit, React 19 Hooks Compliance & 1-Click Demo Quick Fill](https://github.com/230493131013mihir/aidemo/pull/122)  
+- 📌 **Issue #123:** [Strict Authentication Guard on Mandi Prices, Localhost Home Redirect & Header Cleanup](https://github.com/230493131013mihir/aidemo/issues/123)  
+- 🚀 **Pull Request #124:** [PR: Strict Authentication Guard on Mandi Prices, Localhost Home Redirect & Header Cleanup](https://github.com/230493131013mihir/aidemo/pull/124)  
