@@ -111,6 +111,8 @@ Below is the master status and completion log of all project issues worked on ac
 | **PHASE2-03**| Role-Segregated Profiles & Farmer Harvest Quantity (kg) | Prashant Parmar (`@prashant`) | **2026-10-14 16:48:08** | `34a9b1d` |
 | **PHASE2-04**| Admin 10-Item Pagination, Sorting & Logistics Oversight | Varun Patil / Varun Trivedi | **2026-10-15 12:32:28** | `863d610`, `a28b141` |
 | **PHASE2-05**| Landing Page Feature Badges & Production Locales | Mihir Jadav (`@230493131013mihir`) | **2026-10-14 18:14:55** | `00d5ed1` |
+| **ISSUE-117**| Pre-Presentation Audit, React 19 Hooks Fix & 1-Click Demo Fill | Mihir Jadav (`@230493131013mihir`) | **2026-10-20 12:48:00** | `6f5de53` |
+| **ISSUE-118**| Strict Auth Guard on Mandi Prices, Localhost Home Redirect & Header Cleanup | Mihir Jadav (`@230493131013mihir`) | **2026-10-20 13:04:50** | `cced933` |
 
 ---
 
@@ -231,7 +233,9 @@ The entire platform has been rigorously tested across both backend and frontend 
 
 ---
 
-## 🔗 GitHub PR Creation Link
+## 🔗 GitHub PR Creation Links
 
-To open this Pull Request directly on GitHub with comparison:  
-👉 **[Open Pull Request on GitHub: compare/main...feature/admin-pagination-sorting](https://github.com/230493131013mihir/aidemo/compare/main...feature/admin-pagination-sorting?expand=1)**
+To open Pull Requests directly on GitHub with branch comparisons:  
+👉 **[Open PR: Issue #117 (Pre-Presentation Audit & Hooks Compliance)](https://github.com/230493131013mihir/aidemo/pull/new/feature/issue-117-final-pre-presentation-audit)**  
+👉 **[Open PR: Issue #118 (Strict Auth Guard on Prices, Home Redirect & Header Cleanup)](https://github.com/230493131013mihir/aidemo/pull/new/feature/issue-118-strict-auth-guard-and-header-cleanup)**  
+👉 **[Open PR: Combined Pre-Presentation Audit & Auth Guards](https://github.com/230493131013mihir/aidemo/pull/new/feature/issue-117-118-pre-presentation-audit-and-auth-guards)**  
