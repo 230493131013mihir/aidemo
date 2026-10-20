@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext(null);
 
@@ -29,6 +30,7 @@ export const GUEST_USER = {
 };
 
 export function AuthProvider({ children }) {
+  const navigate = useNavigate();
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) || null);
   const [user, setUser] = useState(() => {
     try {
@@ -185,14 +187,46 @@ export function AuthProvider({ children }) {
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
   }
 
-  function logout() {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    // Explicitly navigate to home page on logout
-    if (window.location.pathname !== '/') {
-      window.location.href = '/';
+  function logout(options) {
+    const redirectTo = options && typeof options.redirectTo === 'string' ? options.redirectTo : '/';
+    const currentToken = token || localStorage.getItem(TOKEN_KEY);
+
+    // Secure server-side notification if token was active (non-blocking)
+    if (currentToken && currentToken !== 'guest') {
+      try {
+        fetch(`${API_BASE_URL}/api/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${currentToken}`,
+          },
+        }).catch(() => {
+          // Graceful fallback: Network failure does not prevent local secure logout
+        });
+      } catch (_) {
+        // Safe ignore
+      }
+    }
+
+    // 1. Reset user state to clean guest
+    setToken('guest');
+    setUser(GUEST_USER);
+
+    // 2. Clear all authentication credentials & user tokens from storage
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem('harvestmitra_admin_token');
+      sessionStorage.clear();
+    } catch (_) {
+      // Safe ignore storage access errors
+    }
+
+    // 3. Immediately redirect to public Home Page
+    if (typeof navigate === 'function') {
+      navigate(redirectTo, { replace: true });
+    } else if (typeof window !== 'undefined') {
+      window.location.replace(redirectTo);
     }
   }
 

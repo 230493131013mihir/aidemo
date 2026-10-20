@@ -52,7 +52,7 @@ export default function AppRoutes() {
         <Route
           path="/profile"
           element={
-            <ProtectedRoute requiredRole="auth">
+            <ProtectedRoute requiredRole="auth" requireAuth={true}>
               <ProfilePage />
             </ProtectedRoute>
           }

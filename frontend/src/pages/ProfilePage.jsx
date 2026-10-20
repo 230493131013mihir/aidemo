@@ -19,7 +19,8 @@ import {
   Navigation,
   ExternalLink,
   Award,
-  Key
+  Key,
+  LogOut
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -27,7 +28,7 @@ import LanguageSelector from '../components/common/LanguageSelector';
 
 export default function ProfilePage() {
   const { t } = useLanguage();
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, logout } = useAuth();
 
   const userRole = user?.role || 'farmer';
   const farmerProfile = user?.FarmerProfile;
@@ -205,6 +206,17 @@ export default function ProfilePage() {
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>{userRole.toUpperCase()} • MySQL Synced</span>
           </span>
+
+          <button
+            type="button"
+            id="profile-sign-out-btn"
+            onClick={() => logout()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors shadow-2xs"
+            title="Sign out of HarvestMitra AI"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out</span>
+          </button>
         </div>
       </div>
 

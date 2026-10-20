@@ -3,7 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { Sprout } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-export default function ProtectedRoute({ children, requiredRole }) {
+export default function ProtectedRoute({ children, requiredRole, requireAuth = false }) {
   const { user, isAuthenticated, loading } = useAuth();
   const location = useLocation();
 
@@ -33,7 +33,7 @@ export default function ProtectedRoute({ children, requiredRole }) {
   }
 
   // Profile strictly requires verified authentication
-  if (requiredRole === 'auth') {
+  if (requiredRole === 'auth' || (requireAuth && (!isAuthenticated || user?.isGuest))) {
     return children;
   }
 
