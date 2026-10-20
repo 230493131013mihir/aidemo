@@ -24,12 +24,18 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: backend
-        run: npm ci
+        run: npm install
 
       - name: Run API Security & RBAC Tests
         working-directory: backend
+        env:
+          DB_DIALECT: sqlite
+          JWT_SECRET: harvestmitra_super_secret_jwt_token_key_2026_hackathon
         run: node test/api_security.test.js
 
       - name: Run All Backend Unit & Integration Tests
         working-directory: backend
+        env:
+          DB_DIALECT: sqlite
+          JWT_SECRET: harvestmitra_super_secret_jwt_token_key_2026_hackathon
         run: npm test
