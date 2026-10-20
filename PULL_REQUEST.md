@@ -196,6 +196,9 @@ The entire platform has been rigorously tested across both backend and frontend 
 | `backend/test/marketWeatherApi.test.js` | Market filtering & weather advisory API contracts | ✅ PASS |
 | `backend/services/testMathEngine.js` | 3-way financial scenario calculations & spoilage risk | ✅ PASS |
 | `backend/services/testTransport.js` | Route matching, capacity limits & cost-splitting | ✅ PASS |
+| `frontend/src/pages/DashboardPage.jsx` | Unconditional React 19 hook order via `FarmerDashboard` | ✅ PASS |
+| `frontend/src/pages/AdminPage.jsx` | Unconditional `useMemo` hooks order ahead of RBAC | ✅ PASS |
+| `frontend/src/pages/AuthPage.jsx` | 1-Click Presentation Demo Quick-Fill for Farmer/Driver/Admin | ✅ PASS |
 
 ---
 

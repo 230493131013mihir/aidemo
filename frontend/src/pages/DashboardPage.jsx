@@ -86,6 +86,10 @@ export default function DashboardPage() {
   }
 
   // 3. Farmer views full crop analytics & harvest decision dashboard
+  return <FarmerDashboard user={user} t={t} />;
+}
+
+function FarmerDashboard({ user, t }) {
   const profile = user?.FarmerProfile;
   const farmerDistrict = profile?.district || 'Pune';
   const farmerState = profile?.state || 'Maharashtra';
