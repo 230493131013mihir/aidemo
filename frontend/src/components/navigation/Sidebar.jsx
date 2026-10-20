@@ -68,7 +68,7 @@ export default function Sidebar({ className = '' }) {
         title: 'Analytics & Planning',
         items: [
           { to: '/dashboard', label: t('nav.dashboard', 'Farmer Dashboard'), icon: LayoutDashboard },
-          { to: '/markets', label: t('nav.markets', 'Live Mandis'), icon: TrendingUp },
+          { to: '/markets', label: t('nav.markets', 'Mandi Prices'), icon: TrendingUp },
           { to: '/harvest', label: t('nav.harvest', 'Harvest Simulator'), icon: Calculator },
         ]
       },

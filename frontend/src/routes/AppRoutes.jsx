@@ -21,19 +21,16 @@ import ProtectedRoute from '../components/common/ProtectedRoute';
 export default function AppRoutes() {
   return (
     <Routes>
-      {/* Public Landing & Preview Views (Accessible without login to view UI) */}
+      {/* Public Landing & Marketing View */}
       <Route element={<MainLayout />}>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/simulator" element={<HarvestPage />} />
-        <Route path="/harvest-preview" element={<HarvestPage />} />
-        <Route path="/prices" element={<MarketsPage />} />
-        <Route path="/assistant" element={<ChatPage />} />
         <Route path="/schemes-preview" element={<SchemesPage isPreview={true} />} />
+        <Route path="/harvest-preview" element={<HarvestPage isPreview={true} />} />
       </Route>
       <Route path="/login" element={<AuthPage mode="login" />} />
       <Route path="/register" element={<AuthPage mode="register" />} />
 
-      {/* Internal Application & Dashboard Routes (Protected at layout root) */}
+      {/* Application & Feature Workspace Routes */}
       <Route
         element={
           <ProtectedRoute>
@@ -55,7 +52,7 @@ export default function AppRoutes() {
         <Route
           path="/profile"
           element={
-            <ProtectedRoute requireAuth={true}>
+            <ProtectedRoute requiredRole="auth" requireAuth={true}>
               <ProfilePage />
             </ProtectedRoute>
           }

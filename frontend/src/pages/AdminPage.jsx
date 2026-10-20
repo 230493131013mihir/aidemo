@@ -407,58 +407,6 @@ export default function AdminPage() {
     }
   }
 
-  // STRICT ACCESS RESTRICTION:
-  // If user is logged in as a normal Farmer or Transporter, do NOT allow admin access or demo switch!
-  if (isAuthenticated && user?.role && user.role !== 'admin' && !token) {
-    return (
-      <div className="max-w-2xl mx-auto py-16 px-4">
-        <div className="rounded-3xl border border-red-200 bg-white p-8 sm:p-10 shadow-xl text-center space-y-6">
-          <div className="w-16 h-16 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto shadow-sm">
-            <ShieldAlert className="w-9 h-9" />
-          </div>
-
-          <div className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-red-700 bg-red-50 border border-red-200 px-3.5 py-1 rounded-full">
-              Privilege Restriction Active
-            </span>
-            <h1 className="text-2xl font-black text-text">
-              APMC Administrator Console
-            </h1>
-            <p className="text-sm text-muted max-w-md mx-auto leading-relaxed">
-              This administrative control panel is restricted to certified APMC Mandi Regulators. You are currently logged in with a{' '}
-              <strong className="text-primary font-bold capitalize">{user.role}</strong> account ({user.name}).
-            </p>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-left max-w-md mx-auto space-y-2">
-            <div className="flex justify-between">
-              <span className="text-muted font-medium">Logged-in User:</span>
-              <span className="font-bold text-text">{user.name}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted font-medium">Role:</span>
-              <span className="font-bold text-primary capitalize">{user.role}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted font-medium">Status:</span>
-              <span className="font-semibold text-emerald-700">Farmer Dashboard Access Only</span>
-            </div>
-          </div>
-
-          <div className="pt-2">
-            <Link
-              to="/dashboard"
-              className="btn-primary inline-flex items-center gap-2 py-3 px-8 rounded-xl text-sm font-bold shadow-md"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Return to Farmer Dashboard</span>
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // Filtered & Sorted prices for display
   const filteredAndSortedPrices = useMemo(() => {
     const list = prices.filter((p) => {
@@ -566,6 +514,58 @@ export default function AdminPage() {
     const start = (schemePage - 1) * ITEMS_PER_PAGE;
     return filteredAndSortedSchemes.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredAndSortedSchemes, schemePage]);
+
+  // STRICT ACCESS RESTRICTION:
+  // If user is logged in as a normal Farmer or Transporter, do NOT allow admin access or demo switch!
+  if (isAuthenticated && user?.role && user.role !== 'admin' && !token) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 px-4">
+        <div className="rounded-3xl border border-red-200 bg-white p-8 sm:p-10 shadow-xl text-center space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto shadow-sm">
+            <ShieldAlert className="w-9 h-9" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-red-700 bg-red-50 border border-red-200 px-3.5 py-1 rounded-full">
+              Privilege Restriction Active
+            </span>
+            <h1 className="text-2xl font-black text-text">
+              APMC Administrator Console
+            </h1>
+            <p className="text-sm text-muted max-w-md mx-auto leading-relaxed">
+              This administrative control panel is restricted to certified APMC Mandi Regulators. You are currently logged in with a{' '}
+              <strong className="text-primary font-bold capitalize">{user.role}</strong> account ({user.name}).
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-left max-w-md mx-auto space-y-2">
+            <div className="flex justify-between">
+              <span className="text-muted font-medium">Logged-in User:</span>
+              <span className="font-bold text-text">{user.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted font-medium">Role:</span>
+              <span className="font-bold text-primary capitalize">{user.role}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted font-medium">Status:</span>
+              <span className="font-semibold text-emerald-700">Farmer Dashboard Access Only</span>
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <Link
+              to="/dashboard"
+              className="btn-primary inline-flex items-center gap-2 py-3 px-8 rounded-xl text-sm font-bold shadow-md"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Return to Farmer Dashboard</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   async function toggleSchemeStatus(schemeId, currentActive) {
     try {

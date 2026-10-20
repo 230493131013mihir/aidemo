@@ -13,8 +13,48 @@ export default function ProfileSummary() {
     return null;
   }
 
+  // If visitor is unauthenticated, show polite visitor prompt
+  if (!isAuthenticated) {
+    return (
+      <div className="rounded-3xl p-6 bg-gradient-to-br from-white via-emerald-50/30 to-slate-50 border border-emerald-900/10 shadow-md space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-600 to-primary text-white flex items-center justify-center font-bold text-xl shadow-md">
+              🌾
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                APMC Mandi & Crop Explorer
+              </h2>
+              <p className="text-xs text-slate-600 font-medium">
+                Live wholesale price discovery, weather radar, and profit simulation
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/login"
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-800 border border-slate-300 hover:bg-slate-50 transition-colors shadow-2xs"
+            >
+              Login
+            </Link>
+            <Link
+              to="/register"
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:bg-emerald-700 transition-colors shadow-xs"
+            >
+              Register Farm
+            </Link>
+          </div>
+        </div>
+        <p className="text-xs text-slate-600 bg-emerald-50/80 p-3 rounded-xl border border-emerald-200/60">
+          💡 You are browsing in read-only guest mode. You can view all live APMC prices and calculate market spreads. To save your own farm land acreage, manage multi-crop harvest inventory, or book shared transport, please log in or register.
+        </p>
+      </div>
+    );
+  }
+
   const profile = user?.FarmerProfile;
-  const farmerName = isAuthenticated && user?.name ? user.name : 'Registered Farmer';
+  const farmerName = user?.name || 'Registered Farmer';
 
   const location = profile?.district
     ? `${profile.district}${profile.state ? `, ${profile.state}` : ''}`

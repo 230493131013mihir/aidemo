@@ -58,10 +58,11 @@ export default function Navbar() {
   const navItems = React.useMemo(() => {
     if (!isAuthenticated) {
       return [
-        { href: '/#features', label: 'Features', icon: Calculator },
-        { href: '/#workflow', label: 'How It Works', icon: Truck },
-        { to: '/schemes-preview', label: 'Govt Schemes', icon: Landmark },
-        { to: '/markets', label: 'Live Mandis', icon: TrendingUp },
+        { to: '/dashboard', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard },
+        { to: '/markets', label: t('nav.markets', 'Mandi Prices'), icon: TrendingUp },
+        { to: '/harvest', label: t('nav.harvest', 'Harvest Simulator'), icon: Calculator },
+        { to: '/weather', label: t('nav.weather', 'Agri Weather'), icon: CloudSunRain },
+        { to: '/schemes', label: t('nav.schemes', 'Govt Schemes'), icon: Landmark },
       ];
     }
 
@@ -86,7 +87,7 @@ export default function Navbar() {
     // Farmer
     return [
       { to: '/dashboard', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard },
-      { to: '/markets', label: t('nav.markets', 'Live Mandis'), icon: TrendingUp },
+      { to: '/markets', label: t('nav.markets', 'Mandi Prices'), icon: TrendingUp },
       { to: '/harvest', label: t('nav.harvest', 'Harvest Intelligence'), icon: Calculator },
       { to: '/schemes', label: t('nav.schemes', 'Govt Schemes'), icon: Landmark },
       { to: '/transport', label: t('nav.transport', 'Transport Pooling'), icon: Truck },
@@ -113,7 +114,7 @@ export default function Navbar() {
                 Harvest<span className="text-primary">Mitra</span>
               </span>
               <span className="text-[10px] text-muted font-bold tracking-wide">
-                Live Mandi & Logistics
+                Smart Decisions. Better Harvests.
               </span>
             </div>
           </Link>

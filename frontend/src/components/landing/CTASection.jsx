@@ -53,12 +53,11 @@ export default function CTASection() {
               </Link>
 
               <Link
-                to="/markets"
-                id="cta-bottom-explore-demo"
+                to="/login"
+                id="cta-bottom-login"
                 className="w-full sm:w-auto text-base px-8 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold border border-white/25 backdrop-blur-md transition-all flex items-center justify-center gap-2 shadow-lg"
               >
-                <TrendingUp className="w-4 h-4 text-emerald-400" aria-hidden="true" />
-                <span>{t('cta.exploreDemo')}</span>
+                <span>Farmer Login</span>
               </Link>
             </div>
 

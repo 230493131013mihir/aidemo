@@ -43,22 +43,6 @@ export default function AuthPage({ mode = 'login' }) {
   const { showToast } = useToast();
   const isRegister = mode === 'register';
 
-  // Requirement: When user refreshes / reloads while on /register, return to the landing page without login
-  useEffect(() => {
-    if (isRegister) {
-      try {
-        const navEntries = window.performance?.getEntriesByType?.('navigation');
-        const isReload = (navEntries && navEntries[0]?.type === 'reload') ||
-                         (window.performance?.navigation?.type === 1);
-        if (isReload) {
-          navigate('/', { replace: true });
-        }
-      } catch (e) {
-        // Safe ignore
-      }
-    }
-  }, [isRegister, navigate]);
-
   // 4-Way Role Selector: 'farmer', 'transporter', 'mandi', 'admin'
   const [role, setRole] = useState('farmer');
 
@@ -1040,28 +1024,48 @@ export default function AuthPage({ mode = 'login' }) {
                 </div>
               )}
 
-              {/* Admin 1-Click Credentials Helper on Login */}
-              {!isRegister && role === 'admin' && (
-                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs flex items-center justify-between gap-3 shadow-2xs">
+              {/* 1-Click Presentation Demo Credentials Helpers */}
+              {!isRegister && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border border-emerald-200 text-xs flex items-center justify-between gap-3 shadow-xs">
                   <div className="min-w-0">
-                    <p className="font-bold text-amber-950 flex items-center gap-1.5">
-                      <Shield className="w-3.5 h-3.5 text-amber-700" />
-                      <span>APMC Master Administrator</span>
+                    <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>
+                        {role === 'admin'
+                          ? 'APMC Master Admin Demo'
+                          : role === 'transporter'
+                          ? 'Verified Transporter Fleet Demo'
+                          : role === 'mandi'
+                          ? 'APMC Mandi Secretary Demo'
+                          : 'Maharashtra Farmer Demo'}
+                      </span>
                     </p>
-                    <p className="text-[11px] text-amber-800 font-mono mt-0.5 truncate">
-                      admin@harvestmitra.local • Admin@12345
+                    <p className="text-[11px] text-slate-600 font-mono mt-0.5 truncate">
+                      {role === 'admin'
+                        ? 'admin@harvestmitra.local • Admin@12345'
+                        : role === 'transporter'
+                        ? 'transporter@harvestmitra.local • Transporter@12345'
+                        : 'demo@harvestmitra.local • Demo@12345'}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => {
-                      updateField('email', 'admin@harvestmitra.local');
-                      updateField('password', 'Admin@12345');
+                      if (role === 'admin') {
+                        updateField('email', 'admin@harvestmitra.local');
+                        updateField('password', 'Admin@12345');
+                      } else if (role === 'transporter') {
+                        updateField('email', 'transporter@harvestmitra.local');
+                        updateField('password', 'Transporter@12345');
+                      } else {
+                        updateField('email', 'demo@harvestmitra.local');
+                        updateField('password', 'Demo@12345');
+                      }
                       setError('');
                     }}
-                    className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all shrink-0 cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-hover active:scale-95 text-white font-bold text-xs shadow-xs transition-all shrink-0 cursor-pointer flex items-center gap-1"
                   >
-                    ⚡ Auto-Fill
+                    <span>⚡ Quick Fill</span>
                   </button>
                 </div>
               )}
