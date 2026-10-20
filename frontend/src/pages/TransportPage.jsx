@@ -402,16 +402,16 @@ export default function TransportPage() {
           destinationMarket: destination || 'Pune APMC',
           pickupDate: date || new Date().toISOString().slice(0, 10),
           status: 'assigned',
-          gatePassCode: `HM-GP-DEMO-${Math.floor(1000 + Math.random() * 9000)}`,
+          gatePassCode: `MH-APMC-DEMO-${Math.floor(1000 + Math.random() * 9000)}`,
           driverName: 'Sanjay Shinde (Verified Driver)',
           driverPhone: '9876543210',
           vehicleType: 'Mahindra Bolero Maxi Truck',
-          vehicleNumber: 'GJ-05-AB-4921',
+          vehicleNumber: 'MH-12-RN-4921',
           estimatedDurationMinutes: 120,
           estimatedSharedCost: Math.round(Number(weight || 500) * 1.8),
           createdAt: new Date().toISOString()
         };
-        setActiveFarmerBooking(guestBooking);
+        setMyRequests((prev) => [guestBooking, ...prev]);
         setSelectedGatePass(guestBooking);
         setSubmitting(false);
         showToast({
@@ -469,6 +469,7 @@ export default function TransportPage() {
         duration: 5000,
       });
 
+      setSelectedGatePass(payload.data);
       await loadMyRequests();
     } catch (err) {
       setError(err.message || 'Unable to save transport request');
@@ -480,16 +481,46 @@ export default function TransportPage() {
 
   // Join shared vehicle pool
   async function handleJoinPool(pool) {
-    if (!token || isUserTransporter) {
+    if (isUserTransporter) {
       showToast({
-        type: 'error',
-        title: 'Login Required',
-        message: 'Sign in as a farmer to book an available transporter.',
+        type: 'warning',
+        title: 'Role Restriction',
+        message: 'Transporters cannot book cargo slots.',
       });
       return;
     }
 
     const estimatedCost = Math.round(pool.cost * (Number(weight || 500) / Math.max(pool.capacityKg, 1)));
+
+    if (!token || token === 'guest' || user?.isGuest) {
+      const guestBooking = {
+        id: `guest-${Date.now()}`,
+        farmerName: farmerName.trim() || user?.name || 'Guest Farmer (अतिथी शेतकरी)',
+        cropName: cropName.trim() || 'Produce',
+        weightKg: Number(weight || 500),
+        pickupLocation: pickupLocation.trim() || 'Pune, Maharashtra',
+        destinationMarket: pool.route || destination || 'Pune APMC',
+        pickupDate: pool.date || date || new Date().toISOString().slice(0, 10),
+        status: 'accepted',
+        gatePassCode: `MH-APMC-POOL-${Math.floor(1000 + Math.random() * 9000)}`,
+        driverName: pool.driver || 'Sanjay Shinde (Verified Driver)',
+        driverPhone: '9876543210',
+        vehicleType: pool.vehicle || 'Mahindra Bolero Maxi Truck',
+        vehicleNumber: pool.vehicleNumber || 'MH-12-RN-4921',
+        estimatedDurationMinutes: 120,
+        estimatedSharedCost: estimatedCost,
+        createdAt: new Date().toISOString()
+      };
+      setMyRequests((prev) => [guestBooking, ...prev]);
+      setSelectedGatePass(guestBooking);
+      showToast({
+        type: 'celebrate',
+        title: '🎉 Shared Slot Booked & Confirmed!',
+        message: `Reserved ${pool.vehicle} with ${pool.driver}. Estimated cost: ${formatINR(estimatedCost)}. Gate pass issued.`,
+        duration: 5000,
+      });
+      return;
+    }
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/transport/bookings`, {

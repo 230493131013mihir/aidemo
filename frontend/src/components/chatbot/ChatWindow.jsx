@@ -27,6 +27,7 @@ import {
   isSpeechSynthesisSupported
 } from '../../services/speechService';
 import { sendChatMessage, getOrCreateSessionId } from '../../services/chatService';
+import { useLanguage } from '../../context/LanguageContext';
 
 const WELCOME_MESSAGES = {
   mr: {
@@ -81,12 +82,17 @@ const SUGGESTED_QUERIES = {
 export default function ChatWindow({
   isOpen = true,
   onClose = null,
-  contextData = {}
+  contextData = {},
+  initialLanguage = null
 }) {
-  // 1. Language state: restore from localStorage or default to 'mr'
+  const { language: globalLanguage, setLanguage: setGlobalLanguage } = useLanguage?.() || {};
+
+  // 1. Language state: restore from initialLanguage, globalLanguage, localStorage or default to 'mr'
   const [selectedLanguage, setSelectedLanguage] = useState(() => {
     try {
-      const saved = localStorage.getItem('mitraLanguage');
+      const init = initialLanguage || globalLanguage;
+      if (init && SUPPORTED_LANGUAGES[init]) return init;
+      const saved = localStorage.getItem('mitraLanguage') || localStorage.getItem('harvestmitra_lang');
       return saved && SUPPORTED_LANGUAGES[saved] ? saved : 'mr';
     } catch (_) {
       return 'mr';
@@ -131,15 +137,49 @@ export default function ChatWindow({
     scrollToBottom();
   }, [messages, isLoading]);
 
-  // Persist language change
+  // Persist language change & update welcome message if no conversation yet
   const handleLanguageChange = (newLang) => {
+    if (!newLang || !SUPPORTED_LANGUAGES[newLang]) return;
     setSelectedLanguage(newLang);
     try {
       localStorage.setItem('mitraLanguage', newLang);
+      localStorage.setItem('harvestmitra_lang', newLang);
     } catch (_) {}
+    if (setGlobalLanguage) {
+      setGlobalLanguage(newLang);
+    }
+    // Clear any previous error notification banner
+    setApiErrorNotice(null);
     // If speaking, stop on language change
     handleStopSpeaking();
+
+    // If chat is fresh (only the initial welcome message),
+    // update the welcome message to the newly selected language
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0].sender === 'assistant') {
+        const welcome = WELCOME_MESSAGES[newLang] || WELCOME_MESSAGES.en;
+        return [
+          {
+            id: 'welcome_' + Date.now(),
+            sender: 'assistant',
+            text: welcome.text,
+            disclaimer: welcome.disclaimer,
+            mode: 'fallback',
+            timestamp: Date.now()
+          }
+        ];
+      }
+      return prev;
+    });
   };
+
+  // Sync when initialLanguage or globalLanguage changes from header/navbar
+  useEffect(() => {
+    const active = initialLanguage || globalLanguage;
+    if (active && SUPPORTED_LANGUAGES[active] && active !== selectedLanguage) {
+      handleLanguageChange(active);
+    }
+  }, [initialLanguage, globalLanguage]);
 
   // Persist voice toggle
   const handleToggleVoiceAutoRead = () => {

@@ -77,7 +77,7 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
 
   if (!isOpen || !booking) return null;
 
-  const passId = booking.gatePassCode || `GJ-APMC-${Math.floor(100000 + Math.random() * 900000)}`;
+  const passId = booking.gatePassCode || `MH-APMC-${Math.floor(100000 + Math.random() * 900000)}`;
   const qrString = `HARVESTMITRA:PASS:${passId}|FARMER:${booking.farmerName}|CROP:${booking.cropName}|QTY:${booking.weightKg}KG|DEST:${booking.destinationMarket}|VEHICLE:${booking.vehicleType || 'Any'}`;
   const { matrix, size } = generateQRMatrix(qrString);
 
@@ -125,33 +125,93 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-lg rounded-3xl bg-white border border-border shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+    <div id="digital-gate-pass-modal-backdrop" className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+      {/* Dedicated Print Stylesheet for High-Fidelity APMC Gate Pass Output */}
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 12mm 15mm;
+          }
+          body {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          /* Hide application background chrome, navbars, and floating tools */
+          header,
+          nav,
+          aside,
+          footer,
+          #dashboard-main-content,
+          .print\\:hidden,
+          .no-print,
+          #network-status-badge-container,
+          #kisan-floating-bar,
+          #mitra-chat-floating-btn {
+            display: none !important;
+          }
+          /* Make modal container static and full-width */
+          #digital-gate-pass-modal-backdrop {
+            position: static !important;
+            background: #ffffff !important;
+            padding: 0 !important;
+            display: block !important;
+            inset: auto !important;
+            backdrop-filter: none !important;
+          }
+          #digital-gate-pass-card {
+            border: 2px solid #059669 !important;
+            box-shadow: none !important;
+            max-width: 100% !important;
+            max-height: none !important;
+            overflow: visible !important;
+            border-radius: 16px !important;
+            page-break-inside: avoid !important;
+          }
+          #digital-gate-pass-header {
+            background: #0f172a !important;
+            color: #ffffff !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .print-action-hidden {
+            display: none !important;
+          }
+          /* Ensure crisp black pixels for the QR code */
+          svg rect {
+            fill: #000000 !important;
+          }
+        }
+      `}</style>
+
+      <div id="digital-gate-pass-card" className="relative w-full max-w-lg rounded-3xl bg-white border border-border shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
         {/* Modal Header */}
-        <div className="p-4 sm:p-5 border-b border-border bg-slate-900 text-white flex items-center justify-between">
+        <div id="digital-gate-pass-header" className="p-4 sm:p-5 border-b border-border bg-slate-900 text-white flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
               <h3 className="font-extrabold text-base leading-tight">Digital APMC Mandi Gate Pass</h3>
-              <p className="text-[11px] text-slate-300 font-mono">e-NAM & State Mandi Authority Verified</p>
+              <p className="text-[11px] text-slate-300 font-mono">e-NAM & Maharashtra State Mandi Authority Clearance</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 print-action-hidden">
             <button
               type="button"
               onClick={handleVoiceRead}
               title="Read Gate Pass Aloud"
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors cursor-pointer"
             >
               <Volume2 className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -193,6 +253,7 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
                         width="1"
                         height="1"
                         className="fill-slate-900"
+                        style={{ fill: '#000000' }}
                       />
                     ) : null
                   )
@@ -265,15 +326,21 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
               Driver must carry verified weighing slip. In-transit cargo insured under APMC Transit Scheme.
             </p>
           </div>
+
+          {/* Official Print Clearance Watermark Stamp (Visible Only When Printed) */}
+          <div className="hidden print:block text-center pt-3 border-t border-slate-300 text-[10px] text-slate-500 font-mono space-y-1">
+            <p className="font-bold text-slate-700">Issued via HarvestMitra National Agritech & APMC Logistics Portal</p>
+            <p>Government of Maharashtra Agriculture Marketing Board • Single-Trip APMC Transit Authorization</p>
+          </div>
         </div>
 
-        {/* Modal Actions Footer */}
-        <div className="p-4 border-t border-border bg-slate-50 flex flex-wrap items-center justify-between gap-2">
+        {/* Modal Actions Footer (Hidden on print) */}
+        <div className="p-4 border-t border-border bg-slate-50 flex flex-wrap items-center justify-between gap-2 print-action-hidden print:hidden">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleCopyPassId}
-              className="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-xs font-bold text-text flex items-center gap-1.5 transition-colors"
+              className="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-xs font-bold text-text flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Copy className="w-3.5 h-3.5" />
               <span>Copy Pass ID</span>
@@ -281,8 +348,9 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
 
             <button
               type="button"
+              id="print-gate-pass-btn"
               onClick={handlePrint}
-              className="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-xs font-bold text-text flex items-center gap-1.5 transition-colors"
+              className="px-3 py-2 rounded-xl border border-emerald-600 bg-emerald-50 hover:bg-emerald-100 text-xs font-bold text-emerald-800 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Print Gate Pass</span>
@@ -292,7 +360,7 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
           <button
             type="button"
             onClick={handleShareWhatsApp}
-            className="btn-primary px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm"
+            className="btn-primary px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
             <Share2 className="w-3.5 h-3.5" />
             <span>Share to WhatsApp</span>

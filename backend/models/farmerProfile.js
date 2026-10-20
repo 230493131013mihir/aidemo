@@ -49,6 +49,56 @@ const FarmerProfile = sequelize.define(
             type: DataTypes.STRING(20),
             defaultValue: "en",
             field: "preferred_language"
+        },
+        agristackId: {
+            type: DataTypes.STRING(100),
+            allowNull: true,
+            field: "agristack_id"
+        },
+        isGovtVerified: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
+            field: "is_govt_verified"
+        },
+        govtVerifiedLandAcres: {
+            type: DataTypes.DECIMAL(5, 2),
+            allowNull: true,
+            field: "govt_verified_land_acres"
+        },
+        surveyNumber: {
+            type: DataTypes.STRING(100),
+            allowNull: true,
+            field: "survey_number"
+        },
+        aadhaarLinked: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
+            field: "aadhaar_linked"
+        },
+        dbtAccountLinked: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
+            field: "dbt_account_linked"
+        },
+        fpoName: {
+            type: DataTypes.STRING(200),
+            allowNull: true,
+            field: "fpo_name"
+        },
+        fpoRegistrationNumber: {
+            type: DataTypes.STRING(100),
+            allowNull: true,
+            field: "fpo_registration_number"
+        },
+        memberFarmerCount: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            field: "member_farmer_count"
+        },
+        roleSubtype: {
+            type: DataTypes.STRING(50),
+            allowNull: true,
+            field: "role_subtype"
         }
     },
     { tableName: "farmer_profiles", underscored: true }

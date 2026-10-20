@@ -5,7 +5,7 @@
  */
 
 const aiService = require('../services/ai/aiService');
-const { detectIntent, detectLanguage, extractCropMention, extractQuantity } = require('../services/ai/intentDetector');
+const { detectIntent, detectLanguage, normalizeLanguage, extractCropMention, extractQuantity } = require('../services/ai/intentDetector');
 const { buildContext } = require('../services/ai/contextBuilder');
 const marketService = require('../services/marketService');
 const weatherService = require('../services/weatherService');
@@ -59,9 +59,9 @@ async function handleChatMessage(req, res) {
     const cleanMessage = message.trim();
 
     // 2. Language Determination
-    const resolvedLang = userProvidedLang
-      ? userProvidedLang
-      : detectLanguage(cleanMessage, req.user?.preferred_language || 'en');
+    const resolvedLang = normalizeLanguage(
+      userProvidedLang || detectLanguage(cleanMessage, req.user?.preferred_language || 'en')
+    );
 
     // 3. Intent Detection
     const detectedIntent = detectIntent(cleanMessage);

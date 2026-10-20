@@ -12,9 +12,11 @@ import {
   ChevronUp, 
   ShieldCheck, 
   Calendar,
-  Sparkles
+  Sparkles,
+  Award
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import TextToSpeechButton from '../common/TextToSpeechButton';
 
 export default function SchemeCard({ 
@@ -24,7 +26,14 @@ export default function SchemeCard({
   onOpenDetails 
 }) {
   const { language } = useLanguage();
+  const { user } = useAuth();
   const [showMatchDetails, setShowMatchDetails] = useState(false);
+
+  const farmerProfile = user?.FarmerProfile || user?.farmerProfile;
+  const isAgristackVerified = Boolean(
+    scheme.isAgristackPreApproved || 
+    (farmerProfile?.isGovtVerified && scheme.eligibilityOutcome === 'potentially_eligible')
+  );
 
   // Multilingual field picker (Strictly Marathi, Hindi, and English)
   const displayName = language === 'mr' && (scheme.nameMr || scheme.nameEn)
@@ -62,6 +71,10 @@ export default function SchemeCard({
 
   // Audio text to speak aloud for illiterate farmers in selected language
   const speechText = `${displayName}. ${displayDesc || ''}. Key Benefits: ${displayBenefits || ''}. ${
+    isAgristackVerified
+      ? 'This scheme is pre-verified with your official Agristack 7/12 land records for direct benefit transfer.'
+      : ''
+  } ${
     scheme.eligibilityOutcome === 'potentially_eligible'
       ? 'You are potentially eligible for this scheme.'
       : scheme.eligibilityOutcome === 'more_info_required'
@@ -74,7 +87,7 @@ export default function SchemeCard({
       {/* Top subtle glow */}
       <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-500/10 transition-colors" />
 
-      {/* Top Row: Category + State + Audio Readout & Bookmark Buttons */}
+      {/* Top Row: Category + State + Agristack Pill + Audio Readout & Bookmark Buttons */}
       <div className="relative z-10 flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${cat.color}`}>
@@ -83,6 +96,12 @@ export default function SchemeCard({
           <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
             {scheme.scope === 'central' ? 'Central Scheme' : `State: ${scheme.stateApplicability}`}
           </span>
+          {isAgristackVerified && (
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold border bg-emerald-50 text-emerald-800 border-emerald-300 flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3 text-emerald-600" />
+              <span>Agristack Verified</span>
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
@@ -117,6 +136,28 @@ export default function SchemeCard({
         <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
           {displayDesc}
         </p>
+
+        {/* Agristack Pre-Approved Fast-Track Banner */}
+        {isAgristackVerified && (
+          <div className="p-2.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 text-xs flex items-center justify-between gap-2 shadow-2xs">
+            <div className="flex items-center gap-2 truncate">
+              <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Award className="w-4 h-4 text-emerald-100" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-black uppercase text-emerald-800 tracking-wider block">
+                  Agristack Pre-Approved for Direct Benefit Transfer (DBT)
+                </span>
+                <p className="text-[11px] font-semibold text-emerald-950 truncate">
+                  Survey #{farmerProfile?.surveyNumber || '142/2A'} • Aadhaar e-KYC & Bank Seeded
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] bg-emerald-200/70 text-emerald-900 font-bold px-2 py-0.5 rounded-full shrink-0">
+              ⚡ Paperwork-Free
+            </span>
+          </div>
+        )}
 
         {/* Highlighted Benefit Box */}
         <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-50/70 to-slate-50 border border-emerald-100/80 text-xs text-slate-800 space-y-1">

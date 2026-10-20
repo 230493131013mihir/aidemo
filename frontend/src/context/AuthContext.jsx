@@ -166,6 +166,78 @@ export function AuthProvider({ children }) {
     return payload.user;
   }
 
+  async function sendOtp(data) {
+    const response = await fetch(`${API_BASE_URL}/api/auth/otp/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || 'Failed to dispatch verification code.');
+    }
+    return payload;
+  }
+
+  async function loginWithOtp(data) {
+    const response = await fetch(`${API_BASE_URL}/api/auth/otp/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || 'Verification failed.');
+    }
+    handleAuthSuccess(payload.token, payload.user);
+    return payload.user;
+  }
+
+  async function loginWithWhatsApp(data) {
+    const response = await fetch(`${API_BASE_URL}/api/auth/whatsapp/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || 'WhatsApp login failed.');
+    }
+    handleAuthSuccess(payload.token, payload.user);
+    return payload.user;
+  }
+
+  async function linkAgristack(agristackId) {
+    const currentToken = token || localStorage.getItem(TOKEN_KEY);
+    if (!currentToken || currentToken === 'guest') throw new Error('Please sign in to link your Agristack ID.');
+
+    const response = await fetch(`${API_BASE_URL}/api/auth/agristack/link`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${currentToken}`,
+      },
+      body: JSON.stringify({ agristackId }),
+    });
+
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || 'Failed to link Agristack profile.');
+    }
+
+    if (payload.profile) {
+      setUser((prev) => {
+        const next = {
+          ...prev,
+          FarmerProfile: { ...(prev.FarmerProfile || {}), ...payload.profile }
+        };
+        localStorage.setItem(USER_KEY, JSON.stringify(next));
+        return next;
+      });
+    }
+    return payload;
+  }
+
   function updateLocalUser(nextUser) {
     setUser(nextUser);
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
@@ -190,6 +262,10 @@ export function AuthProvider({ children }) {
     login,
     register,
     demoLogin,
+    sendOtp,
+    loginWithOtp,
+    loginWithWhatsApp,
+    linkAgristack,
     updateProfile,
     updateLocalUser,
     logout,

@@ -120,16 +120,18 @@ function handleMarketPrice(context, lang) {
 
   const demoNoteMr = isDemo ? ' (उपलब्ध डेमो डेटावर आधारित)' : '';
 
+  const unitStr = market.unit || 'kg';
+
   if (lang === 'mr') {
-    return `${market.name} मध्ये ${cropName} चा भाव ₹${market.pricePerKg}/${market.unit} आहे${demoNoteMr}। अधिक माहितीसाठी आपण Market Explorer पाहू शकता.`;
+    return `${market.name} मध्ये ${cropName} चा भाव ₹${market.pricePerKg}/${unitStr} आहे${demoNoteMr}। अधिक माहितीसाठी आपण Market Explorer पाहू शकता.`;
   }
   if (lang === 'gu') {
-    return `${market.name} માં ${cropName} નો ભાવ ₹${market.pricePerKg}/${market.unit} છે${demoNoteGu}. વધુ વિગતો માટે તમે Market Explorer ચકાસી શકો છો.`;
+    return `${market.name} માં ${cropName} નો ભાવ ₹${market.pricePerKg}/${unitStr} છે${demoNoteGu}. વધુ વિગતો માટે તમે Market Explorer ચકાસી શકો છો.`;
   }
   if (lang === 'hi') {
-    return `${market.name} में ${cropName} का भाव ₹${market.pricePerKg}/${market.unit} है${demoNoteHi}। अधिक विवरण के लिए आप Market Explorer देख सकते हैं।`;
+    return `${market.name} में ${cropName} का भाव ₹${market.pricePerKg}/${unitStr} है${demoNoteHi}। अधिक विवरण के लिए आप Market Explorer देख सकते हैं।`;
   }
-  return `${cropName} price at ${market.name} is ₹${market.pricePerKg}/${market.unit}${demoNoteEn}.`;
+  return `${cropName} price at ${market.name} is ₹${market.pricePerKg}/${unitStr}${demoNoteEn}.`;
 }
 
 /**

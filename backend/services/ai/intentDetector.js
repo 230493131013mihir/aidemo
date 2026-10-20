@@ -38,17 +38,6 @@ const INTENT_PATTERNS = {
     /(योजना|अनुदान|सबसिडी|पीएम किसान|पीएम-किसान|पीक विमा|शासकीय मदत|कृषी योजना|कर्ज माफी|ट्रॅक्टर सबसिडी|पात्रता)/i
   ],
 
-  revenue_calculation: [
-    // English
-    /\b(revenue|profit|income|net revenue|gross revenue|calculate|calculation|earning|expenses|total cost)\b/i,
-    // Hindi
-    /(कमाई|मुनाफा|शुद्ध लाभ|कुल लाभ|शुद्ध कमाई|कुल कमाई|खर्च|लागत|हिसाब|गणना)/i,
-    // Gujarati
-    /(ચોખ્ખો નફો|કુલ આવક|નફો|ખર્ચ|ગણતરી|હિસાબ|આવક)/i,
-    // Marathi
-    /(नफा|कमाई|उत्पन्न|निव्वळ नफा|खर्च|लागत|हिशोब|हिशेब|गणना)/i
-  ],
-
   transport: [
     // English
     /\b(transport|vehicle|truck|tempo|pool|share transport|logistics|freight|delivery)\b/i,
@@ -58,6 +47,17 @@ const INTENT_PATTERNS = {
     /(વાહન|ગાડી|ટ્રક|ટેમ્પો|ભાડું|સહિયારું વાહન|ટ્રાન્સપોર્ટ)/i,
     // Marathi
     /(वाहतूक|गाडी|ट्रक|टेम्पो|भाडे|सामायिक वाहतूक|लॉजिस्टिक्स)/i
+  ],
+
+  revenue_calculation: [
+    // English
+    /\b(revenue|profit|income|net revenue|gross revenue|calculate|calculation|earning|expenses|total cost)\b/i,
+    // Hindi
+    /(कमाई|मुनाफा|शुद्ध लाभ|कुल लाभ|शुद्ध कमाई|कुल कमाई|खर्च|लागत|हिसाब|गणना)/i,
+    // Gujarati
+    /(ચોખ્ખો નફો|કુલ આવક|નફો|ખર્ચ|ગણતરી|હિસાબ|આવક)/i,
+    // Marathi
+    /(नफा|कमाई|उत्पन्न|निव्वळ नफा|खर्च|लागत|हिशोब|हिशेब|गणना)/i
   ],
 
   weather: [

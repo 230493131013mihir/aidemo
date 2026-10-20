@@ -3,10 +3,34 @@ const jwt = require("jsonwebtoken");
 const { User, FarmerProfile, TransporterProfile, MandiProfile, ContactRequest } = require("../models");
 const { Op } = require("sequelize");
 
+const otpService = require("../services/otpService");
+const agristackService = require("../services/agristackService");
+
 function formatUserResponse(userInstance) {
     if (!userInstance) return null;
     const data = userInstance.toJSON ? userInstance.toJSON() : { ...userInstance };
     delete data.password;
+
+    // Ensure profiles are accessible in both casing styles
+    const fp = data.FarmerProfile || data.farmerProfile || userInstance.FarmerProfile || userInstance.farmerProfile || (userInstance.getDataValue && userInstance.getDataValue("FarmerProfile")) || userInstance.dataValues?.FarmerProfile;
+    if (fp) {
+        const fpJson = fp.toJSON ? fp.toJSON() : fp;
+        data.FarmerProfile = fpJson;
+        data.farmerProfile = fpJson;
+    }
+    const tp = data.TransporterProfile || data.transporterProfile || userInstance.TransporterProfile || userInstance.transporterProfile || (userInstance.getDataValue && userInstance.getDataValue("TransporterProfile")) || userInstance.dataValues?.TransporterProfile;
+    if (tp) {
+        const tpJson = tp.toJSON ? tp.toJSON() : tp;
+        data.TransporterProfile = tpJson;
+        data.transporterProfile = tpJson;
+    }
+    const mp = data.MandiProfile || data.mandiProfile || userInstance.MandiProfile || userInstance.mandiProfile || (userInstance.getDataValue && userInstance.getDataValue("MandiProfile")) || userInstance.dataValues?.MandiProfile;
+    if (mp) {
+        const mpJson = mp.toJSON ? mp.toJSON() : mp;
+        data.MandiProfile = mpJson;
+        data.mandiProfile = mpJson;
+    }
+
     return data;
 }
 
@@ -31,7 +55,17 @@ async function ensureFarmerProfile(userId, defaults = {}) {
             farmSizeAcres: defaults.farmSizeAcres || 3.5,
             mainCrop: defaults.mainCrop || "Tomato",
             currentHarvestKg: defaults.currentHarvestKg || 500,
-            preferredLanguage: defaults.preferredLanguage || "en"
+            preferredLanguage: defaults.preferredLanguage || "en",
+            agristackId: defaults.agristackId || null,
+            isGovtVerified: Boolean(defaults.isGovtVerified),
+            govtVerifiedLandAcres: defaults.govtVerifiedLandAcres || null,
+            surveyNumber: defaults.surveyNumber || null,
+            aadhaarLinked: Boolean(defaults.aadhaarLinked),
+            dbtAccountLinked: Boolean(defaults.dbtAccountLinked),
+            fpoName: defaults.fpoName || null,
+            fpoRegistrationNumber: defaults.fpoRegistrationNumber || null,
+            memberFarmerCount: defaults.memberFarmerCount || null,
+            roleSubtype: defaults.roleSubtype || "smallholder"
         });
     }
     return profile;
@@ -171,7 +205,7 @@ const register = async (req, res) => {
         // 7. Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const assignedRole = role === "transporter" ? "transporter" : role === "mandi" ? "mandi" : "farmer";
+        const assignedRole = role === "transporter" ? "transporter" : role === "mandi" ? "mandi" : role === "fpo_leader" ? "fpo_leader" : "farmer";
 
         // 8. Create user in MySQL
         const user = await User.create({
@@ -211,7 +245,7 @@ const register = async (req, res) => {
                 facilities: facilities || "Electronic Auction, Direct Payment, Weighbridge, Cold Storage"
             });
         } else {
-            // Farmer
+            // Farmer or FPO Leader
             let formattedMainCrop = "Tomato";
             if (Array.isArray(mainCrop)) {
                 formattedMainCrop = mainCrop.map(c => String(c).trim()).filter(Boolean).join(", ");
@@ -246,21 +280,30 @@ const register = async (req, res) => {
                 }
             }
 
+            const isFpo = assignedRole === "fpo_leader";
+
             profile = await FarmerProfile.create({
                 userId: user.id,
                 district: district ? district.trim() : "Pune",
                 state: "Maharashtra",
                 village: village ? village.trim() : "",
-                farmSizeAcres: farmSizeAcres && !Number.isNaN(Number(farmSizeAcres)) ? Number(farmSizeAcres) : 3.5,
+                farmSizeAcres: farmSizeAcres && !Number.isNaN(Number(farmSizeAcres)) ? Number(farmSizeAcres) : (isFpo ? 50.0 : 3.5),
                 mainCrop: formattedMainCrop,
                 customCrop: customCrop ? String(customCrop).trim() : null,
                 currentHarvestKg: computedHarvestKg,
                 productQuantities: normalizedQuantitiesStr,
-                preferredLanguage: preferredLanguage || "en"
+                preferredLanguage: preferredLanguage || "en",
+                roleSubtype: isFpo ? "fpo_leader" : "smallholder",
+                fpoName: req.body.fpoName || (isFpo ? `${district.trim()} Kisan Samruddhi FPO` : null),
+                fpoRegistrationNumber: req.body.fpoRegistrationNumber || (isFpo ? `FPO-MH-${Math.floor(1000 + Math.random() * 9000)}` : null),
+                memberFarmerCount: req.body.memberFarmerCount ? Number(req.body.memberFarmerCount) : (isFpo ? 45 : null),
+                agristackId: req.body.agristackId || null,
+                isGovtVerified: Boolean(req.body.agristackId),
+                surveyNumber: req.body.surveyNumber || null
             });
         }
 
-        const roleTitle = assignedRole === "transporter" ? "Transporter" : assignedRole === "mandi" ? "Mandi Official" : "Farmer";
+        const roleTitle = assignedRole === "transporter" ? "Transporter" : assignedRole === "mandi" ? "Mandi Official" : assignedRole === "fpo_leader" ? "FPO Leader" : "Farmer";
 
         // Generate JWT token for seamless auto-login on registration
         const token = jwt.sign(
@@ -886,6 +929,338 @@ const getRelevantMandis = async (req, res) => {
     }
 };
 
+// =========================
+// SEND OTP (SMS / WhatsApp)
+// =========================
+const sendOtp = async (req, res) => {
+    try {
+        const { channel = "sms", role = "farmer", name = "" } = req.body;
+        const phone = req.body.phone || req.body.phoneNumber;
+        if (!phone) {
+            return res.status(400).json({ success: false, message: "Mobile number is required." });
+        }
+        const result = await otpService.sendOtp({ phone, channel, role, name });
+        return res.status(200).json(result);
+    } catch (err) {
+        return res.status(400).json({ success: false, message: err.message || "Failed to send OTP." });
+    }
+};
+
+// =========================
+// VERIFY OTP & LOGIN / REGISTER
+// =========================
+const verifyOtp = async (req, res) => {
+    try {
+        const { role = "farmer", name = "", district = "Pune", state = "Maharashtra", agristackId } = req.body;
+        const phone = req.body.phone || req.body.phoneNumber;
+        const otp = req.body.otp || req.body.code;
+        if (!phone || !otp) {
+            return res.status(400).json({ success: false, message: "Mobile number and OTP are required." });
+        }
+
+        const verifyResult = await otpService.verifyOtp({ phone, otp });
+        if (!verifyResult.valid) {
+            return res.status(400).json({ success: false, message: verifyResult.message });
+        }
+
+        const cleanPhone = verifyResult.phone;
+
+        // Find existing user by phone OR synthetic email
+        let user = await User.findOne({
+            where: {
+                [Op.or]: [
+                    { phone: cleanPhone },
+                    { email: `farmer_${cleanPhone}@harvestmitra.local` }
+                ]
+            },
+            include: [{ model: FarmerProfile }, { model: TransporterProfile }, { model: MandiProfile }]
+        });
+
+        let isNewUser = false;
+
+        if (!user) {
+            isNewUser = true;
+            const targetRole = role === "transporter" ? "transporter" : role === "mandi" ? "mandi" : role === "fpo_leader" ? "fpo_leader" : "farmer";
+            const displayName = name && name.trim()
+                ? name.trim()
+                : targetRole === "fpo_leader"
+                ? `FPO Aggregator (+91 ${cleanPhone.slice(-4)})`
+                : targetRole === "transporter"
+                ? `Transporter (+91 ${cleanPhone.slice(-4)})`
+                : targetRole === "mandi"
+                ? `Mandi Agent (+91 ${cleanPhone.slice(-4)})`
+                : `Kisan (+91 ${cleanPhone.slice(-4)})`;
+
+            const randomPassword = await bcrypt.hash(`otp_auth_${cleanPhone}_${Date.now()}`, 10);
+
+            user = await User.create({
+                name: displayName,
+                email: `farmer_${cleanPhone}@harvestmitra.local`,
+                phone: cleanPhone,
+                password: randomPassword,
+                role: targetRole
+            });
+
+            if (targetRole === "farmer" || targetRole === "fpo_leader") {
+                const agristackLookup = agristackService.lookupRegistry({
+                    identifier: agristackId,
+                    phone: cleanPhone,
+                    district,
+                    state,
+                    name: displayName
+                });
+
+                const data = agristackLookup.data;
+                const profile = await FarmerProfile.create({
+                    userId: user.id,
+                    district: data.landRecord?.district || district,
+                    state: data.landRecord?.state || state,
+                    village: data.landRecord?.village || "Rural Panchayat",
+                    farmSizeAcres: data.landRecord?.verifiedAcres || (targetRole === "fpo_leader" ? 50.0 : 3.5),
+                    mainCrop: data.verifiedCrops?.join(", ") || "Tomato",
+                    currentHarvestKg: 500,
+                    preferredLanguage: "mr",
+                    agristackId: data.agristackId,
+                    isGovtVerified: true,
+                    govtVerifiedLandAcres: data.landRecord?.verifiedAcres || (targetRole === "fpo_leader" ? 50.0 : 3.5),
+                    surveyNumber: data.landRecord?.surveyNumber || "142/2A",
+                    aadhaarLinked: true,
+                    dbtAccountLinked: true,
+                    roleSubtype: targetRole === "fpo_leader" ? "fpo_leader" : "smallholder",
+                    fpoName: targetRole === "fpo_leader" ? `${district} Kisan Samruddhi FPO` : null,
+                    memberFarmerCount: targetRole === "fpo_leader" ? 45 : null
+                });
+                user.FarmerProfile = profile;
+                user.setDataValue("FarmerProfile", profile);
+            } else if (targetRole === "transporter") {
+                const profile = await ensureTransporterProfile(user.id, { name: displayName, phone: cleanPhone, baseMandi: `${district} APMC` });
+                user.TransporterProfile = profile;
+                user.setDataValue("TransporterProfile", profile);
+            } else if (targetRole === "mandi") {
+                const profile = await ensureMandiProfile(user.id, { name: displayName, phone: cleanPhone, district });
+                user.MandiProfile = profile;
+                user.setDataValue("MandiProfile", profile);
+            }
+        } else {
+            // Existing user
+            if (user.role === "farmer" || user.role === "fpo_leader") {
+                if (!user.FarmerProfile) {
+                    const prof = await ensureFarmerProfile(user.id, { district, state, roleSubtype: user.role });
+                    user.FarmerProfile = prof;
+                    user.setDataValue("FarmerProfile", prof);
+                }
+                if (agristackId) {
+                    const lookup = agristackService.lookupRegistry({ identifier: agristackId, phone: cleanPhone, district, state, name: user.name });
+                    const updated = await agristackService.linkToFarmerProfile(user.id, lookup.data);
+                    user.FarmerProfile = updated;
+                    user.setDataValue("FarmerProfile", updated);
+                }
+            } else if (user.role === "transporter" && !user.TransporterProfile) {
+                user.setDataValue("TransporterProfile", await ensureTransporterProfile(user.id, { name: user.name, phone: user.phone }));
+            } else if (user.role === "mandi" && !user.MandiProfile) {
+                user.setDataValue("MandiProfile", await ensureMandiProfile(user.id, { name: user.name, phone: user.phone }));
+            }
+        }
+
+        const token = jwt.sign(
+            { id: user.id, role: user.role },
+            process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon",
+            { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: isNewUser ? "Welcome to HarvestMitra AI! Verified via OTP." : "Welcome back! Login verified successfully.",
+            token,
+            isNewUser,
+            user: formatUserResponse(user)
+        });
+    } catch (err) {
+        console.error("verifyOtp error:", err);
+        return res.status(500).json({ success: false, message: err.message || "Server error verifying OTP." });
+    }
+};
+
+// =========================
+// 1-CLICK WHATSAPP AUTHENTICATION
+// =========================
+const whatsappLogin = async (req, res) => {
+    try {
+        const { name = "", role = "farmer", district = "Pune", state = "Maharashtra", agristackId } = req.body;
+        const phone = req.body.phone || req.body.phoneNumber;
+        if (!phone) {
+            return res.status(400).json({ success: false, message: "Mobile number is required for WhatsApp verification." });
+        }
+
+        const cleanPhone = String(phone).replace(/\D/g, "").slice(-10);
+        if (cleanPhone.length !== 10) {
+            return res.status(400).json({ success: false, message: "Please provide a valid 10-digit mobile number." });
+        }
+
+        await otpService.quickWhatsAppVerify({ phone: cleanPhone, name, role });
+
+        let user = await User.findOne({
+            where: {
+                [Op.or]: [
+                    { phone: cleanPhone },
+                    { email: `farmer_${cleanPhone}@harvestmitra.local` }
+                ]
+            },
+            include: [{ model: FarmerProfile }, { model: TransporterProfile }, { model: MandiProfile }]
+        });
+
+        let isNewUser = false;
+
+        if (!user) {
+            isNewUser = true;
+            const targetRole = role === "transporter" ? "transporter" : role === "mandi" ? "mandi" : role === "fpo_leader" ? "fpo_leader" : "farmer";
+            const displayName = name && name.trim()
+                ? name.trim()
+                : targetRole === "fpo_leader"
+                ? `FPO Aggregator (+91 ${cleanPhone.slice(-4)})`
+                : targetRole === "transporter"
+                ? `Transporter (+91 ${cleanPhone.slice(-4)})`
+                : targetRole === "mandi"
+                ? `Mandi Agent (+91 ${cleanPhone.slice(-4)})`
+                : `Kisan (+91 ${cleanPhone.slice(-4)})`;
+
+            const randomPassword = await bcrypt.hash(`whatsapp_auth_${cleanPhone}_${Date.now()}`, 10);
+
+            user = await User.create({
+                name: displayName,
+                email: `farmer_${cleanPhone}@harvestmitra.local`,
+                phone: cleanPhone,
+                password: randomPassword,
+                role: targetRole
+            });
+
+            if (targetRole === "farmer" || targetRole === "fpo_leader") {
+                const agristackLookup = agristackService.lookupRegistry({
+                    identifier: agristackId,
+                    phone: cleanPhone,
+                    district,
+                    state,
+                    name: displayName
+                });
+
+                const data = agristackLookup.data;
+                const profile = await FarmerProfile.create({
+                    userId: user.id,
+                    district: data.landRecord?.district || district,
+                    state: data.landRecord?.state || state,
+                    village: data.landRecord?.village || "Rural Panchayat",
+                    farmSizeAcres: data.landRecord?.verifiedAcres || (targetRole === "fpo_leader" ? 50.0 : 3.5),
+                    mainCrop: data.verifiedCrops?.join(", ") || "Tomato",
+                    currentHarvestKg: 500,
+                    preferredLanguage: "mr",
+                    agristackId: data.agristackId,
+                    isGovtVerified: true,
+                    govtVerifiedLandAcres: data.landRecord?.verifiedAcres || (targetRole === "fpo_leader" ? 50.0 : 3.5),
+                    surveyNumber: data.landRecord?.surveyNumber || "142/2A",
+                    aadhaarLinked: true,
+                    dbtAccountLinked: true,
+                    roleSubtype: targetRole === "fpo_leader" ? "fpo_leader" : "smallholder",
+                    fpoName: targetRole === "fpo_leader" ? `${district} Kisan Samruddhi FPO` : null,
+                    memberFarmerCount: targetRole === "fpo_leader" ? 45 : null
+                });
+                user.FarmerProfile = profile;
+                user.setDataValue("FarmerProfile", profile);
+            } else if (targetRole === "transporter") {
+                const profile = await ensureTransporterProfile(user.id, { name: displayName, phone: cleanPhone, baseMandi: `${district} APMC` });
+                user.TransporterProfile = profile;
+                user.setDataValue("TransporterProfile", profile);
+            } else if (targetRole === "mandi") {
+                const profile = await ensureMandiProfile(user.id, { name: displayName, phone: cleanPhone, district });
+                user.MandiProfile = profile;
+                user.setDataValue("MandiProfile", profile);
+            }
+        } else {
+            if (user.role === "farmer" || user.role === "fpo_leader") {
+                if (!user.FarmerProfile) {
+                    const prof = await ensureFarmerProfile(user.id, { district, state, roleSubtype: user.role });
+                    user.FarmerProfile = prof;
+                    user.setDataValue("FarmerProfile", prof);
+                }
+                if (agristackId) {
+                    const lookup = agristackService.lookupRegistry({ identifier: agristackId, phone: cleanPhone, district, state, name: user.name });
+                    const updated = await agristackService.linkToFarmerProfile(user.id, lookup.data);
+                    user.FarmerProfile = updated;
+                    user.setDataValue("FarmerProfile", updated);
+                }
+            } else if (user.role === "transporter" && !user.TransporterProfile) {
+                user.setDataValue("TransporterProfile", await ensureTransporterProfile(user.id, { name: user.name, phone: user.phone }));
+            } else if (user.role === "mandi" && !user.MandiProfile) {
+                user.setDataValue("MandiProfile", await ensureMandiProfile(user.id, { name: user.name, phone: user.phone }));
+            }
+        }
+
+        const token = jwt.sign(
+            { id: user.id, role: user.role },
+            process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon",
+            { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "1-Click WhatsApp authentication verified successfully!",
+            token,
+            isNewUser,
+            user: formatUserResponse(user)
+        });
+    } catch (err) {
+        console.error("whatsappLogin error:", err);
+        return res.status(500).json({ success: false, message: err.message || "Server error during WhatsApp authentication." });
+    }
+};
+
+// =========================
+// AGRISTACK & PM-KISAN VERIFICATION
+// =========================
+const linkAgristack = async (req, res) => {
+    try {
+        const { agristackId } = req.body;
+        const userId = req.user.id;
+
+        const user = await User.findByPk(userId, { include: [{ model: FarmerProfile }] });
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found." });
+        }
+
+        const lookup = agristackService.lookupRegistry({
+            identifier: agristackId,
+            phone: user.phone,
+            district: user.FarmerProfile?.district || "Pune",
+            state: user.FarmerProfile?.state || "Maharashtra",
+            name: user.name
+        });
+
+        const updatedProfile = await agristackService.linkToFarmerProfile(userId, lookup.data);
+
+        return res.status(200).json({
+            success: true,
+            message: "Agristack & 7/12 Land Records successfully verified and linked!",
+            profile: updatedProfile,
+            agristackData: lookup.data
+        });
+    } catch (err) {
+        console.error("linkAgristack error:", err);
+        return res.status(500).json({ success: false, message: err.message || "Failed to link Agristack identity." });
+    }
+};
+
+const lookupAgristack = async (req, res) => {
+    try {
+        const { id, phone } = req.query;
+        const lookup = agristackService.lookupRegistry({ identifier: id, phone });
+        return res.status(200).json({
+            success: true,
+            ...lookup
+        });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
 module.exports = {
     register,
     login,
@@ -896,5 +1271,10 @@ module.exports = {
     getContactRequests,
     updateContactRequestStatus,
     getRelevantFarmers,
-    getRelevantMandis
+    getRelevantMandis,
+    sendOtp,
+    verifyOtp,
+    whatsappLogin,
+    linkAgristack,
+    lookupAgristack
 };
