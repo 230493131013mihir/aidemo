@@ -40,7 +40,8 @@ export function AuthProvider({ children }) {
       return null;
     }
   });
-  const [loading, setLoading] = useState(true);
+  // Initialize loading to false because token and user are synchronously read from localStorage
+  const [loading, setLoading] = useState(false);
 
   // Sync session on mount / token change
   useEffect(() => {
@@ -53,7 +54,6 @@ export function AuthProvider({ children }) {
         setUser(null);
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
-        setLoading(false);
         return;
       }
 

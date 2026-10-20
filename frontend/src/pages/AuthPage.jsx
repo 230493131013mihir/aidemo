@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   AlertCircle,
   CheckCircle2,
@@ -39,6 +39,7 @@ const STANDARD_CROPS = [
 
 export default function AuthPage({ mode = 'login' }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, register } = useAuth();
   const { showToast } = useToast();
   const isRegister = mode === 'register';
@@ -341,6 +342,12 @@ export default function AuthPage({ mode = 'login' }) {
           message: `Welcome back, ${loggedUser?.name || 'User'}! Connecting to live Maharashtra APMCs...`,
           duration: 2500,
         });
+
+        const fromPath = location.state?.from?.pathname;
+        if (fromPath && fromPath !== '/' && fromPath !== '/login') {
+          navigate(fromPath, { replace: true });
+          return;
+        }
 
         const userRole = loggedUser?.role || role;
         if (userRole === 'admin') {

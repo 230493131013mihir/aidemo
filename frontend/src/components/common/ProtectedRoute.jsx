@@ -19,9 +19,9 @@ export default function ProtectedRoute({ children, requiredRole, requireAuth = f
   }
 
   // Unauthenticated visitors cannot access prices, dashboard, or features without login
-  // Redirects unauthenticated visitors to localhost home page (/) on visit or refresh
+  // Redirects unauthenticated visitors to /login with return location preserved
   if (!isAuthenticated) {
-    return <Navigate to="/" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // Admin routes strictly require verified administrator credentials
