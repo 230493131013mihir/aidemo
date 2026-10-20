@@ -50,11 +50,6 @@ export default function MarketsPage() {
               onResult={(transcript) => setSearchQuery(transcript)}
             />
           </div>
-
-          <span className="badge-tag bg-primary/10 text-primary border border-primary/20 hidden md:inline-flex">
-            <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Live APMC Mandi Data</span>
-          </span>
         </div>
       </div>
 

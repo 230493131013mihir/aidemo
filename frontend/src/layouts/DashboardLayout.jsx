@@ -3,7 +3,6 @@ import { Outlet } from 'react-router-dom';
 import Navbar from '../components/navigation/Navbar';
 import Sidebar from '../components/navigation/Sidebar';
 import KisanFloatingBar from '../components/common/KisanFloatingBar';
-import GuestModeBanner from '../components/common/GuestModeBanner';
 import NetworkStatusBadge from '../components/common/NetworkStatusBadge';
 import { useLanguage } from '../context/LanguageContext';
 import { Bell, Sparkles } from 'lucide-react';
@@ -19,9 +18,6 @@ export default function DashboardLayout() {
 
       {/* Top Navbar */}
       <Navbar />
-
-      {/* Universal Guest Mode Banner */}
-      <GuestModeBanner />
 
       {/* Main Workspace Body with Sidebar & Content */}
       <div className="flex-1 flex max-w-7xl w-full mx-auto min-w-0 overflow-x-hidden">

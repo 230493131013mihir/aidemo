@@ -18,9 +18,15 @@ export default function ProtectedRoute({ children, requiredRole }) {
     );
   }
 
+  // Unauthenticated visitors cannot access prices, dashboard, or features without login
+  // Redirects unauthenticated visitors to localhost home page (/) on visit or refresh
+  if (!isAuthenticated) {
+    return <Navigate to="/" state={{ from: location }} replace />;
+  }
+
   // Admin routes strictly require verified administrator credentials
   if (requiredRole === 'admin') {
-    if (!isAuthenticated || user?.role !== 'admin' || user?.isGuest) {
+    if (user?.role !== 'admin' || user?.isGuest) {
       return <Navigate to="/login" state={{ from: location }} replace />;
     }
     return children;
@@ -28,9 +34,6 @@ export default function ProtectedRoute({ children, requiredRole }) {
 
   // Profile strictly requires verified authentication
   if (requiredRole === 'auth') {
-    if (!isAuthenticated) {
-      return <Navigate to="/login" state={{ from: location }} replace />;
-    }
     return children;
   }
 
@@ -39,6 +42,5 @@ export default function ProtectedRoute({ children, requiredRole }) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Universal Guest Mode: Allow unauthenticated visitors to use all farmer features
   return children;
 }

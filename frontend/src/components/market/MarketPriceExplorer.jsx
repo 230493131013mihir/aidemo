@@ -144,7 +144,7 @@ export default function MarketPriceExplorer({
   initialSearchQuery = ''
 }) {
   const t = I18N[selectedLanguage] || I18N.en;
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { showToast } = useToast();
 
   const isMandiUser = user?.role === 'mandi';
@@ -309,6 +309,16 @@ export default function MarketPriceExplorer({
 
   // Open Contact Mandi Modal with immediate confirmation toast
   const handleOpenContactMandi = (item) => {
+    if (!isAuthenticated) {
+      showToast({
+        type: 'error',
+        title: '🔒 Login Required',
+        message: 'Please log in to your farmer account to connect with APMC traders.',
+        duration: 4000
+      });
+      return;
+    }
+
     showToast({
       type: 'success',
       title: '🤝 APMC Trader Desk Connected',
