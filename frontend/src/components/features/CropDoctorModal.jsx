@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   X, 
   Sparkles, 
@@ -12,9 +13,14 @@ import {
   Stethoscope, 
   ShieldCheck, 
   Info,
-  Layers
+  Layers,
+  Lock,
+  LogIn,
+  UserPlus,
+  ShieldAlert
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 
 // Native Web Speech Reader helper
 function speakAloud(text) {
@@ -77,12 +83,76 @@ const SAMPLE_DIAGNOSES = [
 ];
 
 export default function CropDoctorModal({ isOpen, onClose }) {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const { showToast } = useToast();
   const [selectedCase, setSelectedCase] = useState(SAMPLE_DIAGNOSES[0]);
   const [analyzing, setAnalyzing] = useState(false);
   const [customImage, setCustomImage] = useState(null);
 
   if (!isOpen) return null;
+
+  if (!isAuthenticated) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+        <div className="relative w-full max-w-md rounded-3xl bg-white border border-border shadow-2xl overflow-hidden p-6 text-center space-y-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          
+          <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-primary border border-emerald-200 mx-auto flex items-center justify-center shadow-xs">
+            <Lock className="w-8 h-8 text-primary" />
+          </div>
+
+          <div className="space-y-1.5">
+            <h3 className="font-extrabold text-xl text-text">Farmer Login Required</h3>
+            <p className="text-xs text-muted leading-relaxed">
+              AI Kisan Crop Doctor provides instant computer vision plant pathology & APMC certified treatment prescriptions exclusively for registered farmers.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-left text-xs text-amber-900 space-y-1">
+            <p className="font-bold flex items-center gap-1.5 text-amber-950">
+              <ShieldAlert className="w-4 h-4 text-amber-700" />
+              <span>Feature Restricted Without Login</span>
+            </p>
+            <p className="text-[11px] text-amber-800">
+              Please sign in with your farmer account or register to run leaf scans and receive certified fungicide dosages.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                navigate('/login');
+              }}
+              className="w-full btn-primary py-2.5 px-4 text-sm font-bold shadow-xs cursor-pointer flex items-center justify-center gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign In to Access Crop Doctor</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                navigate('/register');
+              }}
+              className="w-full btn-secondary py-2.5 px-4 text-sm font-bold shadow-xs cursor-pointer flex items-center justify-center gap-2"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Register as New Farmer</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   function handleImageUpload(e) {
     const file = e.target.files?.[0];
