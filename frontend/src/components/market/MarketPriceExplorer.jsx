@@ -358,10 +358,11 @@ export default function MarketPriceExplorer({
     try {
       const token = localStorage.getItem('harvestmitra_token');
       const payload = {
-        receiverId: contactModal.targetItem?.userId || contactModal.targetItem?.id,
+        receiverId: contactModal.targetItem?.userId || contactModal.targetItem?.id || 1,
         receiverRole: contactModal.targetType,
         mandiName: contactModal.targetType === 'mandi' ? contactModal.targetItem?.market_name : undefined,
-        crop: contactModal.crop,
+        cropName: contactModal.crop || 'Agri Produce',
+        crop: contactModal.crop || 'Agri Produce',
         quantityKg: Number(contactModal.quantityKg) || 500,
         message: contactModal.message
       };

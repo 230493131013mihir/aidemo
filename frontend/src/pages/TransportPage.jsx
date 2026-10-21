@@ -285,11 +285,12 @@ export default function TransportPage() {
     loadActiveTrip();
 
     if (!token) return;
-    // Dynamic live auto-polling every 4 seconds so farmers and drivers see instant updates
+    // Dynamic live auto-polling every 3 seconds so farmers and drivers see instant updates
     const interval = setInterval(() => {
       loadMyRequests();
       loadActiveTrip();
-    }, 4000);
+      loadTransporters();
+    }, 3000);
     return () => clearInterval(interval);
   }, [token]);
 
@@ -337,23 +338,39 @@ export default function TransportPage() {
     }
   }
 
-  // Show only currently available registered transporters.
+  // Show only currently available registered transporters (exclude assigned/busy drivers).
   const allPools = useMemo(() => {
-    return transportersList.filter((tr) => Number(tr.userId) !== Number(user?.id)).map((tr) => ({
-      id: `live-${tr.id}`,
-      transporterId: tr.userId,
-      driver: tr.driverName || 'Verified Driver',
-      route: tr.baseMandi || tr.currentRoute || 'Pune APMC',
-      date: date,
-      vehicle: tr.vehicleType || 'Commercial Farm Truck',
-      vehicleNumber: tr.vehicleNumber || 'MH-12-RN-4921',
-      capacityKg: tr.capacityKg || 2000,
-      usedKg: 0,
-      cost: (tr.ratePerKm || 20) * 85, // estimated base route cost
-      farmers: 0,
-      isLiveRegistered: true,
-    }));
-  }, [transportersList, user?.id, date]);
+    return transportersList
+      .filter((tr) => {
+        if (Number(tr.userId) === Number(user?.id)) return false;
+        if (tr.isAvailable === false) return false;
+
+        // Check if this driver/transporter is already assigned to ANY active booking of this farmer
+        const isAssignedToActiveTrip = (myRequests || []).some(
+          (req) =>
+            ['driver_assigned', 'in_transit', 'accepted', 'confirmed', 'pending', 'open'].includes(req.status) &&
+            (Number(req.transporterId) === Number(tr.userId) ||
+              (req.driverName && tr.driverName && req.driverName.toLowerCase().trim() === tr.driverName.toLowerCase().trim()))
+        );
+        if (isAssignedToActiveTrip) return false;
+
+        return true;
+      })
+      .map((tr) => ({
+        id: `live-${tr.id}`,
+        transporterId: tr.userId,
+        driver: tr.driverName || 'Verified Driver',
+        route: tr.baseMandi || tr.currentRoute || 'Pune APMC',
+        date: date,
+        vehicle: tr.vehicleType || 'Commercial Farm Truck',
+        vehicleNumber: tr.vehicleNumber || 'MH-12-RN-4921',
+        capacityKg: tr.capacityKg || 2000,
+        usedKg: 0,
+        cost: (tr.ratePerKm || 20) * 85, // estimated base route cost
+        farmers: 0,
+        isLiveRegistered: true,
+      }));
+  }, [transportersList, user?.id, date, myRequests]);
 
   // Filter registered vehicles by destination and available capacity.
   const matches = useMemo(() => {
@@ -1111,85 +1128,99 @@ export default function TransportPage() {
               <span className="text-xs text-muted">Live vehicle availability</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {matches.map((pool) => {
-                const available = pool.capacityKg - pool.usedKg;
-                const sharedCost = Math.round(pool.cost * (Number(weight || 500) / Math.max(pool.capacityKg, 1)));
+            {matches.length === 0 ? (
+              <div className="p-6 rounded-3xl bg-emerald-50/70 border border-emerald-200 text-center space-y-1.5 shadow-2xs">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+                  <CheckCheck className="w-4 h-4" />
+                </div>
+                <p className="text-xs font-bold text-emerald-950">
+                  Active Driver Assigned & Dispatched
+                </p>
+                <p className="text-[11px] text-emerald-800">
+                  Your assigned goods carrier is actively scheduled. Live milestone progress is tracked below.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {matches.map((pool) => {
+                  const available = pool.capacityKg - pool.usedKg;
+                  const sharedCost = Math.round(pool.cost * (Number(weight || 500) / Math.max(pool.capacityKg, 1)));
 
-                return (
-                  <article
-                    key={pool.id}
-                    className="rounded-3xl border border-border bg-white p-5 shadow-xs flex flex-col justify-between space-y-4 hover:border-primary/40 hover:shadow-md transition-all relative overflow-hidden"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-extrabold text-base text-text">{pool.vehicle}</h3>
-                          {pool.isLiveRegistered && (
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                              Verified Transporter
-                            </span>
-                          )}
+                  return (
+                    <article
+                      key={pool.id}
+                      className="rounded-3xl border border-border bg-white p-5 shadow-xs flex flex-col justify-between space-y-4 hover:border-primary/40 hover:shadow-md transition-all relative overflow-hidden"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-extrabold text-base text-text">{pool.vehicle}</h3>
+                            {pool.isLiveRegistered && (
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                                Verified Transporter
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted mt-0.5">
+                            Driver: <span className="font-bold text-text">{pool.driver}</span> • Reg:{' '}
+                            <span className="font-mono">{pool.vehicleNumber || 'GJ-05-TR-2026'}</span>
+                          </p>
                         </div>
-                        <p className="text-xs text-muted mt-0.5">
-                          Driver: <span className="font-bold text-text">{pool.driver}</span> • Reg:{' '}
-                          <span className="font-mono">{pool.vehicleNumber || 'GJ-05-TR-2026'}</span>
-                        </p>
+
+                        <span className="badge-tag bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold">
+                          {available} kg available
+                        </span>
                       </div>
 
-                      <span className="badge-tag bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold">
-                        {available} kg available
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="rounded-xl bg-slate-50 p-2.5 flex items-center gap-2 border border-slate-200">
-                        <MapPin className="w-4 h-4 text-primary shrink-0" />
-                        <span className="font-semibold truncate">{pool.route}</span>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="rounded-xl bg-slate-50 p-2.5 flex items-center gap-2 border border-slate-200">
+                          <MapPin className="w-4 h-4 text-primary shrink-0" />
+                          <span className="font-semibold truncate">{pool.route}</span>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 p-2.5 flex items-center gap-2 border border-slate-200">
+                          <Users className="w-4 h-4 text-primary shrink-0" />
+                          <span className="font-semibold">Capacity: {pool.capacityKg} kg</span>
+                        </div>
                       </div>
-                      <div className="rounded-xl bg-slate-50 p-2.5 flex items-center gap-2 border border-slate-200">
-                        <Users className="w-4 h-4 text-primary shrink-0" />
-                        <span className="font-semibold">Capacity: {pool.capacityKg} kg</span>
-                      </div>
-                    </div>
 
-                    <div className="rounded-2xl border border-primary/20 bg-primary-50/70 p-3.5 flex items-center justify-between">
-                      <div>
-                        <p className="text-[11px] text-muted uppercase font-bold tracking-wider">Estimated Booking Cost</p>
-                <p className="text-xl font-black text-primary font-mono">{formatINR(sharedCost)}</p>
+                      <div className="rounded-2xl border border-primary/20 bg-primary-50/70 p-3.5 flex items-center justify-between">
+                        <div>
+                          <p className="text-[11px] text-muted uppercase font-bold tracking-wider">Estimated Booking Cost</p>
+                          <p className="text-xl font-black text-primary font-mono">{formatINR(sharedCost)}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs text-emerald-800 font-bold bg-emerald-100/90 px-2.5 py-1 rounded-lg border border-emerald-300">Estimated fare</span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-xs text-emerald-800 font-bold bg-emerald-100/90 px-2.5 py-1 rounded-lg border border-emerald-300">Estimated fare</span>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleJoinPool(pool)}
+                          className="btn-primary flex-1 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-xs"
+                        >
+                          <Truck className="w-4 h-4" />
+                          <span>Book Transport & Get Pass</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            speakAloud(
+                              `Vehicle: ${pool.vehicle}. Driver: ${pool.driver}. Operating from ${pool.route}. Estimated fare: ${sharedCost} rupees.`
+                            )
+                          }
+                          title="Listen to Trip Details"
+                          className="p-2.5 rounded-xl border border-border bg-slate-50 hover:bg-slate-100 text-muted hover:text-text transition-colors"
+                        >
+                          <Volume2 className="w-4 h-4" />
+                        </button>
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleJoinPool(pool)}
-                        className="btn-primary flex-1 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-xs"
-                      >
-                        <Truck className="w-4 h-4" />
-                        <span>Book Transport & Get Pass</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          speakAloud(
-                            `Vehicle: ${pool.vehicle}. Driver: ${pool.driver}. Operating from ${pool.route}. Estimated fare: ${sharedCost} rupees.`
-                          )
-                        }
-                        title="Listen to Trip Details"
-                        className="p-2.5 rounded-xl border border-border bg-slate-50 hover:bg-slate-100 text-muted hover:text-text transition-colors"
-                      >
-                        <Volume2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           {/* Farmer booking history. */}

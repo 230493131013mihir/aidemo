@@ -627,11 +627,15 @@ router.get("/incoming-requests", requireRole("transporter", "admin"), async (req
         const { crop, vehicleType, status, bookingType, pickupLocation, destinationMarket } = req.query;
 
         const where = {};
-        if (status) {
+        if (status === "pending") {
+            where.status = { [Op.in]: ["pending", "open"] };
+        } else if (status === "confirmed" || status === "accepted" || status === "driver_assigned") {
+            where.status = { [Op.in]: ["confirmed", "accepted", "driver_assigned"] };
+        } else if (status && status !== "all") {
             where.status = status;
         } else {
-            // Default: show open, pending, and confirmed requests
-            where.status = { [Op.in]: ["open", "pending", "confirmed", "matched"] };
+            // Default: show open, pending, confirmed, accepted, driver_assigned requests
+            where.status = { [Op.in]: ["open", "pending", "confirmed", "accepted", "driver_assigned", "matched"] };
         }
 
         if (crop) where.cropName = { [Op.like]: `%${crop.trim()}%` };
@@ -704,6 +708,19 @@ router.put("/bookings/:id/accept", requireRole("transporter", "admin"), async (r
             tripStartTime: new Date()
         });
 
+        // Mark transporter as actively on duty so they are removed from available booking pools
+        await TransporterProfile.update(
+            { isAvailable: false },
+            { where: { userId: req.user.id } }
+        ).catch(() => {});
+
+        if (vehicleId) {
+            await Vehicle.update(
+                { isAvailable: false, status: "in_transit" },
+                { where: { id: vehicleId } }
+            ).catch(() => {});
+        }
+
         return res.json({
             success: true,
             data: booking,
@@ -762,6 +779,19 @@ router.put("/bookings/:id/status", requireRole("transporter", "admin"), async (r
             status: nextStatus,
             ...(nextStatus === "in_transit" ? { tripStartTime: new Date() } : {})
         });
+
+        if (["delivered", "completed", "cancelled"].includes(nextStatus)) {
+            await TransporterProfile.update(
+                { isAvailable: true },
+                { where: { userId: booking.transporterId || req.user.id } }
+            ).catch(() => {});
+            if (booking.vehicleId) {
+                await Vehicle.update(
+                    { isAvailable: true, status: "available" },
+                    { where: { id: booking.vehicleId } }
+                ).catch(() => {});
+            }
+        }
 
         return res.json({
             success: true,
