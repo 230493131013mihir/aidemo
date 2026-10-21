@@ -707,8 +707,14 @@ export default function MarketPriceExplorer({
                           </div>
 
                           {/* Verified APMC Tag */}
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border bg-emerald-50 text-emerald-800 border-emerald-300">
-                            VERIFIED APMC
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border ${
+                            (item.dataType === 'verified_live' || item.data_type === 'verified_live')
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : 'bg-amber-50 text-amber-800 border-amber-300'
+                          }`}>
+                            {(item.dataType === 'verified_live' || item.data_type === 'verified_live')
+                              ? 'Verified Rates'
+                              : 'DEMO / Sample Data'}
                           </span>
                         </div>
 

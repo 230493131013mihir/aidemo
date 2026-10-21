@@ -6,11 +6,14 @@
 
 const express = require('express');
 const router = express.Router();
+const authMiddleware = require('../middleware/auth.middleware');
 const {
   handleGetFarmDecisionReport,
   handlePrintFarmDecisionReport,
   handleDownloadFarmDecisionReport
 } = require('../controllers/reportController');
+
+router.use(authMiddleware);
 
 // JSON & Flexible Format Endpoints
 router.get('/farm-decision', handleGetFarmDecisionReport);

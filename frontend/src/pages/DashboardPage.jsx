@@ -41,6 +41,7 @@ import QuickActions from '../components/dashboard/QuickActions';
 import PrintableReportModal from '../components/common/PrintableReportModal';
 import RegisteredCropsManager from '../components/dashboard/RegisteredCropsManager';
 import SharedTransportFarmerWidget from '../components/dashboard/SharedTransportFarmerWidget';
+import apiClient from '../services/apiClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
@@ -141,19 +142,20 @@ function FarmerDashboard({ user, t }) {
   const [selectedCropTab, setSelectedCropTab] = useState('all');
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
+  // Clear crops on logout
+  useEffect(() => {
+    const handleLogout = () => {
+      setCrops([]);
+    };
+    window.addEventListener('harvestmitra:logout', handleLogout);
+    return () => window.removeEventListener('harvestmitra:logout', handleLogout);
+  }, []);
+
   // Fetch farmer registered crops from backend API
   const fetchFarmerCrops = async () => {
     try {
       setLoadingCrops(true);
-      const token = localStorage.getItem('harvestmitra_token') || 'guest';
-      const headers = { 'Content-Type': 'application/json' };
-      if (token && token !== 'guest') {
-        headers.Authorization = `Bearer ${token}`;
-      } else {
-        headers['x-guest-mode'] = 'true';
-      }
-
-      const res = await fetch(`${API_BASE_URL}/api/farmer/crops`, { headers });
+      const res = await apiClient('/api/farmer/crops');
       const json = await res.json();
       if (json.success && Array.isArray(json.crops)) {
         setCrops(json.crops);

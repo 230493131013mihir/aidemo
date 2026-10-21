@@ -57,18 +57,6 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      // If active session is a demo presentation persona, keep it instantly active
-      if (savedToken.startsWith('demo_token_')) {
-        if (savedUser) {
-          try {
-            setUser(JSON.parse(savedUser));
-            setToken(savedToken);
-          } catch (_) {}
-        }
-        setLoading(false);
-        return;
-      }
-
       // Hydrate state from localStorage immediately to prevent refresh flicker
       if (savedUser) {
         try {
@@ -229,7 +217,12 @@ export function AuthProvider({ children }) {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
       localStorage.removeItem('harvestmitra_admin_token');
+      localStorage.removeItem('mitra_chat_session_id');
+      localStorage.removeItem('harvestmitra_guest_saved');
       sessionStorage.clear();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('harvestmitra:logout'));
+      }
     } catch (_) {
       // Safe ignore storage access errors
     }
@@ -239,57 +232,6 @@ export function AuthProvider({ children }) {
       navigate(redirectTo, { replace: true });
     } else if (typeof window !== 'undefined') {
       window.location.replace(redirectTo);
-    }
-  }
-
-  function switchPersona(targetRole) {
-    if (targetRole === 'transporter') {
-      const transporterUser = {
-        id: 2,
-        name: 'Varun Patil (Express Agri Logistics)',
-        email: 'transporter@harvestmitra.local',
-        phone: '9822012345',
-        role: 'transporter',
-        isGuest: false,
-        TransporterProfile: {
-          driverName: 'Varun Patil',
-          phone: '9822012345',
-          vehicleType: 'Mahindra Bolero Maxi Truck',
-          vehicleNumber: 'MH-12-RN-4921',
-          capacityKg: 2200,
-          baseMandi: 'Pune APMC',
-          ratePerKm: 25,
-        }
-      };
-      setUser(transporterUser);
-      setToken('demo_token_transporter');
-      localStorage.setItem(USER_KEY, JSON.stringify(transporterUser));
-      localStorage.setItem(TOKEN_KEY, 'demo_token_transporter');
-    } else {
-      const farmerUser = {
-        id: 1,
-        name: 'Ramesh Patel (Demo Farmer)',
-        email: 'demo@harvestmitra.local',
-        phone: '9822011111',
-        role: 'farmer',
-        isGuest: false,
-        FarmerProfile: {
-          farmSizeAcres: 3.5,
-          mainCrop: 'Tomato',
-          typicalYieldKg: 1200,
-          currentHarvestKg: 500,
-          state: 'Maharashtra',
-          district: 'Pune',
-          preferredLanguage: 'mr',
-          productQuantities: {
-            'Tomato': 500
-          }
-        }
-      };
-      setUser(farmerUser);
-      setToken('demo_token_farmer');
-      localStorage.setItem(USER_KEY, JSON.stringify(farmerUser));
-      localStorage.setItem(TOKEN_KEY, 'demo_token_farmer');
     }
   }
 
@@ -307,7 +249,6 @@ export function AuthProvider({ children }) {
     demoLogin,
     updateProfile,
     updateLocalUser,
-    switchPersona,
     logout,
   };
 

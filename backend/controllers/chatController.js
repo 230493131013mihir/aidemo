@@ -58,10 +58,11 @@ async function handleChatMessage(req, res) {
 
     const cleanMessage = message.trim();
 
-    // 2. Language Determination
+    // 2. Language Determination: Use user's language or detect
+    const userLang = req.user?.preferredLanguage || req.user?.preferred_language;
     const resolvedLang = userProvidedLang
       ? userProvidedLang
-      : detectLanguage(cleanMessage, req.user?.preferred_language || 'en');
+      : (userLang || detectLanguage(cleanMessage, 'en'));
 
     // 3. Intent Detection
     const detectedIntent = detectIntent(cleanMessage);
@@ -102,7 +103,7 @@ async function handleChatMessage(req, res) {
     const enrichedParams = {
       ...callerContext,
       farmer: {
-        name: req.user?.full_name || callerContext.farmer?.name || 'Farmer',
+        name: req.user?.name || req.user?.full_name || callerContext.farmer?.name || 'Farmer',
         location: req.user?.district || callerContext.farmer?.location || 'Surat, Gujarat',
         preferredLanguage: resolvedLang,
         ...(callerContext.farmer || {})

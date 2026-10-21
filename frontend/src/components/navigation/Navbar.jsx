@@ -42,6 +42,7 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
     logout();
   }
 
+  const isAdmin = user?.role === 'admin';
   const isTransporter = user?.role === 'transporter';
   const userName = user?.name || 'Farmer';
   const userRole = isAdmin ? 'Admin' : isTransporter ? 'Transporter' : 'Farmer';

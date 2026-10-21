@@ -17,7 +17,8 @@ import {
   ArrowRight,
   ShieldAlert,
   Phone,
-  QrCode
+  QrCode,
+  CheckCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -25,6 +26,7 @@ import DigitalGatePassModal from '../components/transport/DigitalGatePassModal';
 import CorridorFreightCalculator from '../components/transport/CorridorFreightCalculator';
 import SharedTransportFarmerWidget from '../components/dashboard/SharedTransportFarmerWidget';
 import TransporterDashboard from '../components/dashboard/TransporterDashboard';
+import apiClient from '../services/apiClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
@@ -167,12 +169,24 @@ export default function TransportPage() {
     }
   }, [location.state, location.search]);
 
+  // Clear per-user transport state on logout
+  useEffect(() => {
+    const handleLogout = () => {
+      setMyRequests([]);
+      setOpenCargoList([]);
+      setActiveTrip(null);
+      setFarmerName('');
+      setMessage('');
+      setError('');
+    };
+    window.addEventListener('harvestmitra:logout', handleLogout);
+    return () => window.removeEventListener('harvestmitra:logout', handleLogout);
+  }, []);
+
   async function loadMyRequests() {
     if (!token) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transport/my-requests`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiClient('/api/transport/my-requests');
       const payload = await response.json();
       if (response.ok && payload.success) {
         setMyRequests(payload.data || []);
@@ -185,9 +199,7 @@ export default function TransportPage() {
   async function loadTransporters() {
     if (isUserTransporter) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transport/transporters`, {
-        headers: { Authorization: `Bearer ${token || 'guest'}` },
-      });
+      const response = await apiClient('/api/transport/transporters');
       const payload = await response.json().catch(() => ({}));
       if (response.ok && payload.success && Array.isArray(payload.data) && payload.data.length > 0) {
         setTransportersList(payload.data);
@@ -248,9 +260,7 @@ export default function TransportPage() {
   async function loadOpenCargo() {
     if (!token || !isUserTransporter) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transport/open-cargo`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiClient('/api/transport/open-cargo');
       const payload = await response.json();
       if (response.ok && payload.success) {
         setOpenCargoList(payload.data || []);
@@ -264,9 +274,7 @@ export default function TransportPage() {
     if (!token || !isUserTransporter) return;
     setLoadingActiveTrip(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transport/active-trip`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiClient('/api/transport/active-trip');
       const payload = await response.json();
       if (response.ok && payload.success) {
         setActiveTrip(payload.hasActiveTrip ? payload.activeTrip : null);
@@ -645,6 +653,29 @@ export default function TransportPage() {
       await loadMyRequests();
     } catch (err) {
       showToast({ type: 'error', title: 'Accept Failed', message: err.message });
+    }
+  }
+
+  // Farmer confirms delivery received
+  async function handleConfirmReceived(requestId) {
+    try {
+      const response = await apiClient(`/api/transport/requests/${requestId}/confirm`, {
+        method: 'PUT',
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.message || 'Failed to confirm delivery');
+
+      showToast({
+        type: 'celebrate',
+        title: '✅ Delivery Confirmed!',
+        message: 'Trip marked as completed. Thank you for using HarvestMitra transport!',
+        duration: 4000,
+      });
+
+      await loadMyRequests();
+      await loadActiveTrip();
+    } catch (err) {
+      showToast({ type: 'error', title: 'Confirm Failed', message: err.message });
     }
   }
 
@@ -1274,7 +1305,9 @@ export default function TransportPage() {
                         <div className="flex items-center gap-2">
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                              isDelivered
+                              req.status === 'completed'
+                                ? 'bg-slate-100 text-slate-800 border border-slate-300'
+                                : isDelivered
                                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                                 : isInTransit
                                 ? 'bg-purple-100 text-purple-800 border border-purple-300'
@@ -1283,7 +1316,9 @@ export default function TransportPage() {
                                 : 'bg-amber-100 text-amber-800 border border-amber-300'
                             }`}
                           >
-                            {isDelivered
+                            {req.status === 'completed'
+                              ? '✅ Trip Completed'
+                              : isDelivered
                               ? '🏁 Delivered at APMC'
                               : isInTransit
                               ? '🛣️ On The Road (In Transit)'
@@ -1291,6 +1326,17 @@ export default function TransportPage() {
                               ? '🚚 Driver Assigned & En Route'
                               : '⏳ Waiting for Driver Pickup'}
                           </span>
+
+                          {isDelivered && (
+                            <button
+                              type="button"
+                              onClick={() => handleConfirmReceived(req.id)}
+                              className="px-3 py-1.5 rounded-xl border border-emerald-500 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Confirm received</span>
+                            </button>
+                          )}
 
                           <button
                             type="button"

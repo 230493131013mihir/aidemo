@@ -40,9 +40,21 @@ export default function ProtectedRoute({ children, requiredRole, requireAuth = f
     return children;
   }
 
-  // Role validation for transporter
-  if (requiredRole === 'transporter' && user?.role !== 'transporter' && !user?.isGuest) {
-    return <Navigate to="/dashboard" replace />;
+  // Allow shared pages without role blocking
+  const SHARED_PATHS = ['/dashboard', '/markets', '/prices', '/weather', '/chat', '/assistant', '/profile', '/schemes', '/farmer/schemes'];
+  const isSharedPage = SHARED_PATHS.some((path) => location.pathname === path || location.pathname.startsWith(path + '/'));
+
+  if (!isSharedPage && user?.role !== 'admin') {
+    // Farmer-specific pages (crop harvest simulator / management)
+    const isFarmerOnly = location.pathname.startsWith('/harvest') || location.pathname.startsWith('/simulator') || requiredRole === 'farmer';
+    if (isFarmerOnly && user?.role !== 'farmer') {
+      return <Navigate to="/dashboard" replace />;
+    }
+
+    // Transporter-specific pages
+    if (requiredRole === 'transporter' && user?.role !== 'transporter') {
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
   return children;
