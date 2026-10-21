@@ -19,6 +19,7 @@ import LanguageSelector from './LanguageSelector';
 import VoiceControls from './VoiceControls';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
+import KisanAIAssistant from './KisanAIAssistant';
 import {
   SUPPORTED_LANGUAGES,
   speakMessage,
@@ -126,6 +127,7 @@ export default function ChatWindow({
   const [isLoading, setIsLoading] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState(null);
   const [apiErrorNotice, setApiErrorNotice] = useState(null);
+  const [showKisanEarSettings, setShowKisanEarSettings] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Auto-scroll to latest message
@@ -136,6 +138,21 @@ export default function ChatWindow({
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading]);
+
+  // Global Wake-Word Event Listener ("Hey Mitra" / "नमस्ते मित्रा")
+  useEffect(() => {
+    const handleWakeWordEvent = (e) => {
+      const { query } = e.detail || {};
+      if (query && query.trim()) {
+        handleSendMessage(query);
+      }
+    };
+
+    window.addEventListener('harvestmitra:wake-word-triggered', handleWakeWordEvent);
+    return () => {
+      window.removeEventListener('harvestmitra:wake-word-triggered', handleWakeWordEvent);
+    };
+  }, [selectedLanguage, messages]);
 
   // Persist language change & update welcome message if no conversation yet
   const handleLanguageChange = (newLang) => {
@@ -345,12 +362,14 @@ export default function ChatWindow({
 
         {/* Right: Controls (Voice toggle, Language, Reset, Close) */}
         <div className="flex items-center gap-2">
-          {/* Voice Auto-Read Toggle */}
+          {/* Voice Auto-Read & Continuous Wake-Word Toggle */}
           <VoiceControls
             voiceAutoRead={voiceAutoRead}
             onToggleVoiceAutoRead={handleToggleVoiceAutoRead}
             isSpeaking={Boolean(speakingMessageId)}
             onStopSpeaking={handleStopSpeaking}
+            isContinuous={showKisanEarSettings}
+            onToggleContinuous={() => setShowKisanEarSettings((prev) => !prev)}
           />
 
           {/* Multilingual Selector */}
@@ -385,6 +404,16 @@ export default function ChatWindow({
           )}
         </div>
       </header>
+
+      {/* Kisan AI Voice Assistant Continuous Ear & Sensitivity Drawer */}
+      {showKisanEarSettings && (
+        <div className="border-b border-emerald-300/40 bg-emerald-950/95 p-3 sm:p-4 animate-fadeIn">
+          <KisanAIAssistant
+            onSendMessage={handleSendMessage}
+            initialLanguage={selectedLanguage}
+          />
+        </div>
+      )}
 
       {/* Global Notice Banner if any */}
       {apiErrorNotice && (

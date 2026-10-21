@@ -1,24 +1,42 @@
-/**
- * VoiceControls.jsx
- * Voice mode toggle and browser speech capability status indicator
- * HarvestMitra AI - ISSUE-10
- */
-
 import React from 'react';
-import { Volume2, VolumeX, Mic, AlertCircle } from 'lucide-react';
+import { Volume2, VolumeX, Mic, Radio, AlertCircle } from 'lucide-react';
 import { isSpeechRecognitionSupported, isSpeechSynthesisSupported } from '../../services/speechService';
 
 export default function VoiceControls({
   voiceAutoRead = false,
   onToggleVoiceAutoRead,
   isSpeaking = false,
-  onStopSpeaking
+  onStopSpeaking,
+  isContinuous = false,
+  onToggleContinuous = null
 }) {
   const sttSupported = isSpeechRecognitionSupported();
   const ttsSupported = isSpeechSynthesisSupported();
 
   return (
     <div className="flex items-center gap-2">
+      {/* Continuous Wake-Word Mode Toggle */}
+      {sttSupported && onToggleContinuous && (
+        <button
+          type="button"
+          onClick={onToggleContinuous}
+          className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+            isContinuous
+              ? 'bg-emerald-500/30 border-emerald-400 text-emerald-200 animate-pulse shadow-xs'
+              : 'bg-emerald-950/40 border-emerald-800/40 text-emerald-400/80 hover:bg-emerald-900/40'
+          }`}
+          title={isContinuous ? 'Continuous "Hey Mitra" listening is ON' : 'Turn ON hands-free "Hey Mitra" continuous ear'}
+          aria-label={isContinuous ? 'Disable continuous ear' : 'Enable continuous ear'}
+        >
+          {isContinuous ? (
+            <Radio className="w-3.5 h-3.5 text-emerald-300 animate-spin-slow" />
+          ) : (
+            <Mic className="w-3.5 h-3.5 text-emerald-400" />
+          )}
+          <span className="hidden md:inline">{isContinuous ? 'Ear: ON' : 'Ear: OFF'}</span>
+        </button>
+      )}
+
       {isSpeaking && (
         <button
           type="button"

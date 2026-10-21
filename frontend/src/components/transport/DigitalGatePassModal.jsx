@@ -91,6 +91,37 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
   }
 
   function handleShareWhatsApp() {
+    try {
+      fetch('/api/alerts/whatsapp/send-gatepass', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gatePassCode: passId,
+          farmerName: booking.farmerName,
+          farmerPhone: booking.farmerPhone || '+91 98765 43210',
+          cropName: booking.cropName,
+          weightKg: booking.weightKg,
+          pickupLocation: booking.pickupLocation,
+          destinationMarket: booking.destinationMarket,
+          pickupDate: booking.pickupDate,
+          driverName: booking.driverName,
+          driverPhone: booking.driverPhone,
+          vehicleNumber: booking.vehicleNumber,
+          vehicleType: booking.vehicleType,
+          language: 'mr'
+        })
+      }).then((r) => r.json()).then((res) => {
+        if (res?.success) {
+          showToast({
+            type: 'whatsapp',
+            title: '💬 WhatsApp Gate Pass Dispatched',
+            message: `Official e-Gate Pass token ${passId} dispatched with live QR clearance!`,
+            duration: 6000
+          });
+        }
+      }).catch(() => {});
+    } catch (_) {}
+
     const text = `🌾 *HarvestMitra Digital APMC Mandi Gate Pass*\n\n` +
       `🆔 *Pass ID:* ${passId}\n` +
       `👤 *Farmer:* ${booking.farmerName}\n` +
@@ -99,6 +130,7 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
       `🏛️ *Destination APMC:* ${booking.destinationMarket}\n` +
       `🚚 *Vehicle:* ${booking.vehicleType || 'Commercial Freight'}\n` +
       `📅 *Date:* ${booking.pickupDate}\n` +
+      `🔗 *QR Token:* https://harvestmitra.in/gatepass?code=${encodeURIComponent(passId)}\n` +
       `✅ *Status:* Verified e-Gate Clearance\n\n` +
       `_Issued by HarvestMitra Agritech System_`;
 

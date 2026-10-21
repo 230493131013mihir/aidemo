@@ -325,7 +325,15 @@ class WeatherService {
           'Cover harvested produce with waterproof tarpaulins or move to dry shelter.',
           'Coordinate with transport partners to ensure vehicles have covered cargo beds.',
           'Review harvest timing: avoid picking perishable crops immediately before or during heavy rain.'
-        ]
+        ],
+        whatsappPreview: {
+          title: '🌧️ Heavy Rain Warning WhatsApp Alert (>60%)',
+          channel: 'WhatsApp Cloud API',
+          message: `⚠️ *HarvestMitra Heavy Rain Warning*\nRain probability is ${prob}% (exceeds ${activeThreshold}% threshold).\nDelay harvest or move produce to dry shelter!\nAction: Cover cargo with waterproof tarpaulins.\nDetails: https://harvestmitra.in/weather`,
+          isHeavyRain: true,
+          rainProbability: prob,
+          threshold: activeThreshold
+        }
       };
     }
 
@@ -433,6 +441,16 @@ class WeatherService {
           rainChance: rainProb,
           advice: openMeteo.advice,
           advisory,
+          whatsappAlertPreview: rainProb >= 60 ? {
+            channel: 'WhatsApp Cloud API',
+            title: `🌧️ Heavy Rain Warning WhatsApp Alert (${rainProb}%)`,
+            recipient: params.farmerPhone || params.phone || '+91 98765 43210',
+            district: districtQuery,
+            rainProbability: rainProb,
+            threshold: 60,
+            isHeavyRain: true,
+            message: `⚠️ *HarvestMitra Heavy Rain Warning: ${districtQuery}*\nRain probability is ${rainProb}% (>60% threshold).\nDelay harvest or move produce to dry shelter!\nAction: Cover cargo with waterproof tarpaulins.\nDetails: https://harvestmitra.in/weather?district=${encodeURIComponent(districtQuery)}`
+          } : null,
           dataStatus: 'LIVE',
           source: 'Open-Meteo Live Agro Telemetry',
           statusNotice: 'Verified Live Open-Meteo Agro Weather Feed',
@@ -503,6 +521,16 @@ class WeatherService {
         detail: `Favorable atmospheric conditions in ${demo.district} agro-climatic zone.`
       },
       advisory,
+      whatsappAlertPreview: demo.rainProbability >= 60 ? {
+        channel: 'WhatsApp Cloud API',
+        title: `🌧️ Heavy Rain Warning WhatsApp Alert (${demo.rainProbability}%)`,
+        recipient: params.farmerPhone || params.phone || '+91 98765 43210',
+        district: demo.district,
+        rainProbability: demo.rainProbability,
+        threshold: 60,
+        isHeavyRain: true,
+        message: `⚠️ *HarvestMitra Heavy Rain Warning: ${demo.district}*\nRain probability is ${demo.rainProbability}% (>60% threshold).\nDelay harvest or move produce to dry shelter!\nAction: Cover cargo with waterproof tarpaulins.\nDetails: https://harvestmitra.in/weather?district=${encodeURIComponent(demo.district)}`
+      } : null,
       dataStatus: 'DEMO',
       source: 'HarvestMitra Demo Weather Dataset',
       statusNotice: 'Demo Weather Data (Live weather service fallback)',
@@ -524,6 +552,7 @@ class WeatherService {
       success: true,
       location: fullWeather.location,
       advisory: fullWeather.advisory,
+      whatsappAlertPreview: fullWeather.whatsappAlertPreview || null,
       rainProbability: fullWeather.weather.rainProbability,
       condition: fullWeather.weather.condition,
       dataStatus: fullWeather.dataStatus,
