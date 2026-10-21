@@ -672,8 +672,8 @@ router.put("/bookings/:id/accept", requireRole("transporter", "admin"), async (r
 
         // Locate vehicle to assign
         let vehicle = null;
-        if (req.body.vehicleId) {
-            vehicle = await Vehicle.findOne({ where: { id: req.body.vehicleId, userId: req.user.id } });
+        if (req.body.vehicleId && req.body.vehicleId !== 'primary' && !isNaN(Number(req.body.vehicleId))) {
+            vehicle = await Vehicle.findOne({ where: { id: Number(req.body.vehicleId), userId: req.user.id } });
         }
         if (!vehicle) {
             vehicle = await Vehicle.findOne({ where: { userId: req.user.id, isAvailable: true } });

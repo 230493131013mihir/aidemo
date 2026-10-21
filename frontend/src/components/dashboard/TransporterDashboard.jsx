@@ -145,7 +145,7 @@ export default function TransporterDashboard() {
 
   // Accept / Reject Modal State
   const [selectedRequestForAction, setSelectedRequestForAction] = useState(null);
-  const [assignedVehicleId, setAssignedVehicleId] = useState('');
+  const [assignedVehicleId, setAssignedVehicleId] = useState('primary');
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -153,7 +153,7 @@ export default function TransporterDashboard() {
   const [sharedTrips, setSharedTrips] = useState([]);
   const [loadingSharedTrips, setLoadingSharedTrips] = useState(false);
   const [selectedForGrouping, setSelectedForGrouping] = useState([]);
-  const [groupVehicleId, setGroupVehicleId] = useState('');
+  const [groupVehicleId, setGroupVehicleId] = useState('primary');
   const [groupingTrip, setGroupingTrip] = useState(false);
 
   // Load Transporter Stats
@@ -181,9 +181,12 @@ export default function TransporterDashboard() {
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setMyFleet(json.data);
-        if (json.data.length > 0 && !assignedVehicleId) {
-          setAssignedVehicleId(json.data[0].id);
-          setGroupVehicleId(json.data[0].id);
+        if (json.data.length > 0) {
+          setAssignedVehicleId((prev) => (!prev || prev === 'primary' ? json.data[0].id : prev));
+          setGroupVehicleId((prev) => (!prev || prev === 'primary' ? json.data[0].id : prev));
+        } else {
+          setAssignedVehicleId('primary');
+          setGroupVehicleId('primary');
         }
       }
     } catch (err) {
@@ -331,7 +334,11 @@ export default function TransporterDashboard() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          vehicleId: assignedVehicleId || null
+          vehicleId: (assignedVehicleId && assignedVehicleId !== 'primary') ? assignedVehicleId : null,
+          vehicleType: stats.vehicleType || user?.TransporterProfile?.vehicleType || 'Commercial Agri Carrier',
+          vehicleNumber: stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber || 'MH-12-RN-4921',
+          driverName: user?.name || 'Assigned Driver',
+          driverPhone: user?.phone || '9876543210'
         })
       });
       const json = await res.json();
@@ -786,7 +793,14 @@ export default function TransporterDashboard() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setSelectedRequestForAction({ type: 'accept', booking: req })}
+                        onClick={() => {
+                          if (myFleet.length > 0) {
+                            setAssignedVehicleId(myFleet[0].id);
+                          } else {
+                            setAssignedVehicleId('primary');
+                          }
+                          setSelectedRequestForAction({ type: 'accept', booking: req });
+                        }}
                         className="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
                       >
                         <Check className="w-3.5 h-3.5" />
@@ -861,12 +875,17 @@ export default function TransporterDashboard() {
                   onChange={(e) => setGroupVehicleId(e.target.value)}
                   className="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-white font-semibold outline-none focus:border-primary"
                 >
-                  <option value="">Select Vehicle...</option>
-                  {myFleet.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.vehicleType} ({v.registrationNumber}) • {v.capacityKg} kg
+                  {myFleet.length > 0 ? (
+                    myFleet.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.vehicleType} ({v.registrationNumber}) • {v.capacityKg} kg
+                      </option>
+                    ))
+                  ) : (
+                    <option value="primary">
+                      {stats.vehicleType || 'Commercial Goods Carrier'} ({stats.vehicleNumber || 'MH-12-RN-4921'}) • {stats.capacityKg || 2200} kg [Primary Profile]
                     </option>
-                  ))}
+                  )}
                 </select>
               </div>
 
@@ -1216,19 +1235,41 @@ export default function TransporterDashboard() {
 
             {selectedRequestForAction.type === 'accept' ? (
               <div className="space-y-3 text-xs">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-800">Assign Vehicle from Fleet *</label>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-slate-800">Assign Vehicle from Fleet *</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddVehicleModal(true)}
+                      className="text-primary hover:underline text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <PlusCircle className="w-3.5 h-3.5" />
+                      <span>Add Extra Vehicle</span>
+                    </button>
+                  </div>
                   <select
                     value={assignedVehicleId}
                     onChange={(e) => setAssignedVehicleId(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2 font-semibold outline-none focus:border-primary bg-white"
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 font-semibold outline-none focus:border-primary bg-white text-slate-800"
                   >
-                    {myFleet.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.vehicleType} ({v.registrationNumber}) • Capacity {v.capacityKg} kg
+                    {myFleet.length > 0 ? (
+                      myFleet.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.vehicleType} ({v.registrationNumber}) • Capacity {v.capacityKg} kg
+                        </option>
+                      ))
+                    ) : (
+                      <option value="primary">
+                        {stats.vehicleType || user?.TransporterProfile?.vehicleType || 'Commercial Agri Carrier'} ({stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber || 'MH-12-RN-4921'}) • Capacity {stats.capacityKg || user?.TransporterProfile?.capacityKg || 2200} kg [Primary Profile]
                       </option>
-                    ))}
+                    )}
                   </select>
+                  {myFleet.length === 0 && (
+                    <div className="flex items-center gap-1.5 p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 font-medium">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+                      <span>Auto-assigned your registered profile carrier ({stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber || 'MH-12-RN-4921'}).</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-2 flex justify-end gap-2">
