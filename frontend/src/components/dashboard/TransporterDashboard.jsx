@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import DigitalGatePassModal from '../transport/DigitalGatePassModal';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
@@ -148,6 +149,7 @@ export default function TransporterDashboard() {
   const [assignedVehicleId, setAssignedVehicleId] = useState('primary');
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [selectedGatePass, setSelectedGatePass] = useState(null);
 
   // Shared Trips Pooling
   const [sharedTrips, setSharedTrips] = useState([]);
@@ -327,6 +329,10 @@ export default function TransporterDashboard() {
   async function handleAcceptBooking(bookingId) {
     setActionLoading(true);
     try {
+      const selectedVehicle = (assignedVehicleId && assignedVehicleId !== 'primary')
+        ? myFleet.find((v) => String(v.id) === String(assignedVehicleId))
+        : null;
+
       const res = await fetch(`${API_BASE_URL}/api/transport/bookings/${bookingId}/accept`, {
         method: 'PUT',
         headers: {
@@ -334,11 +340,11 @@ export default function TransporterDashboard() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          vehicleId: (assignedVehicleId && assignedVehicleId !== 'primary') ? assignedVehicleId : null,
-          vehicleType: stats.vehicleType || user?.TransporterProfile?.vehicleType || 'Commercial Agri Carrier',
-          vehicleNumber: stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber || 'MH-12-RN-4921',
-          driverName: user?.name || 'Assigned Driver',
-          driverPhone: user?.phone || '9876543210'
+          vehicleId: selectedVehicle?.id || (assignedVehicleId !== 'primary' ? assignedVehicleId : null),
+          vehicleType: selectedVehicle?.vehicleType || stats.vehicleType || user?.TransporterProfile?.vehicleType || 'Commercial Agri Carrier',
+          vehicleNumber: selectedVehicle?.registrationNumber || stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber || 'MH-12-RN-4921',
+          driverName: selectedVehicle?.driverName || user?.name || 'Assigned Driver',
+          driverPhone: selectedVehicle?.driverPhone || user?.phone || '9876543210'
         })
       });
       const json = await res.json();
@@ -352,8 +358,8 @@ export default function TransporterDashboard() {
       });
 
       setSelectedRequestForAction(null);
-      loadIncomingRequests();
-      loadTransporterStats();
+      await loadIncomingRequests();
+      await loadTransporterStats();
     } catch (err) {
       showToast({ type: 'error', title: 'Accept Failed', message: err.message });
     } finally {
@@ -588,6 +594,108 @@ export default function TransporterDashboard() {
           <span className="text-xs text-emerald-700 font-semibold">Direct Mandi Payouts</span>
         </div>
       </section>
+
+      {/* 2.5 ACTIVE TRIP IN PROGRESS (Transporter Live Dispatch Console) */}
+      {activeTrip && (
+        <section className="rounded-3xl border-2 border-emerald-500/40 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white p-5 sm:p-7 shadow-xl space-y-4 animate-in fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3.5">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 flex items-center justify-center font-bold">
+                <Truck className="w-6 h-6 animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                    🛣️ Active Trip in Progress
+                  </span>
+                  <span className="text-xs text-slate-300 font-mono">
+                    Pass: {activeTrip.gatePassCode || `MH-APMC-${activeTrip.id}`}
+                  </span>
+                </div>
+                <h3 className="text-base sm:text-lg font-black text-white mt-0.5">
+                  {activeTrip.cropName} ({activeTrip.weightKg} kg) ➔ {activeTrip.destinationMarket}
+                </h3>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider ${
+                  activeTrip.status === 'delivered'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
+                    : activeTrip.status === 'in_transit'
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-400/40'
+                    : 'bg-blue-500/20 text-blue-300 border border-blue-400/40'
+                }`}
+              >
+                {activeTrip.status === 'delivered'
+                  ? '🏁 Delivered at Mandi'
+                  : activeTrip.status === 'in_transit'
+                  ? '🛣️ In Transit (On Highway)'
+                  : '🚚 Driver Assigned & Ready'}
+              </span>
+
+              {activeTrip.status === 'driver_assigned' || activeTrip.status === 'accepted' ? (
+                <button
+                  type="button"
+                  onClick={() => handleUpdateStatus(activeTrip.id, 'in_transit')}
+                  className="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-md"
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  <span>Start Transit (Depart)</span>
+                </button>
+              ) : activeTrip.status === 'in_transit' ? (
+                <button
+                  type="button"
+                  onClick={() => handleUpdateStatus(activeTrip.id, 'delivered')}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-md"
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  <span>Mark Delivered at APMC</span>
+                </button>
+              ) : (
+                <span className="text-[11px] text-emerald-300 font-bold px-2 py-1 bg-emerald-500/10 rounded-lg">
+                  ✅ Awaiting Farmer Confirmation
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setSelectedGatePass(activeTrip)}
+                className="px-3 py-1.5 rounded-xl border border-white/20 hover:bg-white/10 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Mandi Pass</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">Farmer Consignor</span>
+              <span className="font-bold text-white block truncate">{activeTrip.farmerName}</span>
+              <span className="text-[11px] text-emerald-400 font-mono">{activeTrip.farmerPhone || 'Direct via App'}</span>
+            </div>
+            <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">Assigned Fleet Carrier</span>
+              <span className="font-bold text-white block truncate">{activeTrip.vehicleType || stats.vehicleType}</span>
+              <span className="text-[11px] text-amber-300 font-mono font-bold">{activeTrip.vehicleNumber || stats.vehicleNumber}</span>
+            </div>
+            <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">Origin Pickup</span>
+              <span className="font-bold text-white truncate block">{activeTrip.pickupLocation}</span>
+              <span className="text-[10px] text-slate-400">{activeTrip.pickupDate}</span>
+            </div>
+            <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">Trip Freight Fee</span>
+              <span className="font-black text-emerald-400 text-sm font-mono block">
+                {formatINR(activeTrip.estimatedSharedCost || 1200)}
+              </span>
+              <span className="text-[10px] text-slate-300">Direct APMC Settlement</span>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* 3. Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
@@ -1325,6 +1433,13 @@ export default function TransporterDashboard() {
           </div>
         </div>
       )}
+
+      {/* Digital Mandi Gate Pass Modal */}
+      <DigitalGatePassModal
+        isOpen={Boolean(selectedGatePass)}
+        onClose={() => setSelectedGatePass(null)}
+        booking={selectedGatePass}
+      />
     </div>
   );
 }

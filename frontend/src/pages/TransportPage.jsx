@@ -92,7 +92,10 @@ export default function TransportPage() {
 
   // Active or latest farmer booking for live tracking card
   const activeFarmerBooking = useMemo(() => {
-    return myRequests.find((r) => ['accepted', 'in_transit'].includes(r.status)) || (myRequests.length > 0 ? myRequests[0] : null);
+    return (
+      myRequests.find((r) => ['accepted', 'driver_assigned', 'in_transit', 'delivered'].includes(r.status)) ||
+      (myRequests.length > 0 ? myRequests[0] : null)
+    );
   }, [myRequests]);
 
   // Apply selected highway corridor to booking form
@@ -779,23 +782,34 @@ export default function TransportPage() {
                 <div className="flex items-center gap-2">
                   <span
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider ${
-                      activeFarmerBooking.status === 'delivered'
+                      ['delivered', 'completed'].includes(activeFarmerBooking.status)
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
                         : activeFarmerBooking.status === 'in_transit'
                         ? 'bg-purple-500/20 text-purple-300 border border-purple-400/40'
-                        : activeFarmerBooking.status === 'accepted'
+                        : ['accepted', 'driver_assigned'].includes(activeFarmerBooking.status)
                         ? 'bg-blue-500/20 text-blue-300 border border-blue-400/40'
                         : 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
                     }`}
                   >
-                    {activeFarmerBooking.status === 'delivered'
+                    {['delivered', 'completed'].includes(activeFarmerBooking.status)
                       ? '🏁 Delivered at Mandi'
                       : activeFarmerBooking.status === 'in_transit'
                       ? '🛣️ In Transit to APMC'
-                      : activeFarmerBooking.status === 'accepted'
+                      : ['accepted', 'driver_assigned'].includes(activeFarmerBooking.status)
                       ? '🚚 Driver Assigned & En Route'
                       : '⏳ Requested (Awaiting Transporter)'}
                   </span>
+
+                  {activeFarmerBooking.status === 'delivered' && (
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmReceived(activeFarmerBooking.id)}
+                      className="px-3 py-1.5 rounded-xl border border-emerald-400 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Confirm Received</span>
+                    </button>
+                  )}
 
                   <button
                     type="button"
@@ -865,11 +879,11 @@ export default function TransportPage() {
                     className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-emerald-500 transition-all duration-500 z-0"
                     style={{
                       width:
-                        activeFarmerBooking.status === 'delivered'
+                        ['delivered', 'completed'].includes(activeFarmerBooking.status)
                           ? '100%'
                           : activeFarmerBooking.status === 'in_transit'
                           ? '66%'
-                          : activeFarmerBooking.status === 'accepted'
+                          : ['accepted', 'driver_assigned'].includes(activeFarmerBooking.status)
                           ? '33%'
                           : '0%',
                     }}
@@ -888,16 +902,16 @@ export default function TransportPage() {
                   <div className="relative z-10 flex flex-col items-center">
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-md ${
-                        ['accepted', 'in_transit', 'delivered'].includes(activeFarmerBooking.status)
+                        ['accepted', 'driver_assigned', 'in_transit', 'delivered', 'completed'].includes(activeFarmerBooking.status)
                           ? 'bg-emerald-500 text-white'
                           : 'bg-slate-800 text-slate-400 border border-slate-700'
                       }`}
                     >
-                      {['accepted', 'in_transit', 'delivered'].includes(activeFarmerBooking.status) ? '✓' : '2'}
+                      {['accepted', 'driver_assigned', 'in_transit', 'delivered', 'completed'].includes(activeFarmerBooking.status) ? '✓' : '2'}
                     </div>
                     <span
                       className={`text-[11px] font-bold mt-1.5 ${
-                        ['accepted', 'in_transit', 'delivered'].includes(activeFarmerBooking.status)
+                        ['accepted', 'driver_assigned', 'in_transit', 'delivered', 'completed'].includes(activeFarmerBooking.status)
                           ? 'text-white'
                           : 'text-slate-400'
                       }`}
@@ -1165,10 +1179,14 @@ export default function TransportPage() {
                   <CheckCheck className="w-4 h-4" />
                 </div>
                 <p className="text-xs font-bold text-emerald-950">
-                  Active Driver Assigned & Dispatched
+                  {['accepted', 'driver_assigned', 'in_transit'].includes(activeFarmerBooking?.status)
+                    ? 'Active Driver Assigned & Dispatched'
+                    : 'No Vehicles Currently Available for Selected Route/Capacity'}
                 </p>
                 <p className="text-[11px] text-emerald-800">
-                  Your assigned goods carrier is actively scheduled. Live milestone progress is tracked below.
+                  {['accepted', 'driver_assigned', 'in_transit'].includes(activeFarmerBooking?.status)
+                    ? `Assigned vehicle (${activeFarmerBooking.vehicleNumber || 'Agri Carrier'}) with driver ${activeFarmerBooking.driverName || 'Verified Driver'}. Live tracking is active above.`
+                    : 'Submit the dispatch booking form above to broadcast your produce load to registered transporters.'}
                 </p>
               </div>
             ) : (
@@ -1271,9 +1289,9 @@ export default function TransportPage() {
             ) : (
               <div className="divide-y divide-border/60">
                 {myRequests.map((req) => {
-                  const isAccepted = req.status === 'accepted' || req.status === 'in_transit' || req.status === 'delivered';
-                  const isInTransit = req.status === 'in_transit' || req.status === 'delivered';
-                  const isDelivered = req.status === 'delivered';
+                  const isAccepted = ['accepted', 'driver_assigned', 'in_transit', 'delivered', 'completed'].includes(req.status);
+                  const isInTransit = ['in_transit', 'delivered', 'completed'].includes(req.status);
+                  const isDelivered = ['delivered', 'completed'].includes(req.status);
 
                   return (
                     <div

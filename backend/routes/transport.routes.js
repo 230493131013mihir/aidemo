@@ -716,10 +716,10 @@ router.put("/bookings/:id/accept", requireRole("transporter", "admin"), async (r
             });
         }
 
-        const driverName = req.body.driverName || vehicle?.driverName || transporterProfile?.driverName || req.user.name || "Assigned Driver";
-        const driverPhone = req.body.driverPhone || vehicle?.driverPhone || transporterProfile?.phone || req.user.phone || "9876543210";
-        const vehicleType = req.body.vehicleType || vehicle?.vehicleType || transporterProfile?.vehicleType || "Mahindra Bolero Maxi Truck";
-        const vehicleNumber = req.body.vehicleNumber || vehicle?.registrationNumber || transporterProfile?.vehicleNumber || "MH-12-RN-4921";
+        const driverName = (vehicle && vehicle.driverName) || req.body.driverName || transporterProfile?.driverName || req.user.name || "Assigned Driver";
+        const driverPhone = (vehicle && vehicle.driverPhone) || req.body.driverPhone || transporterProfile?.phone || req.user.phone || "9876543210";
+        const vehicleType = (vehicle && vehicle.vehicleType) || req.body.vehicleType || transporterProfile?.vehicleType || "Mahindra Bolero Maxi Truck";
+        const vehicleNumber = (vehicle && vehicle.registrationNumber) || req.body.vehicleNumber || transporterProfile?.vehicleNumber || "MH-12-RN-4921";
         const vehicleId = vehicle?.id || null;
 
         const [affectedRows] = await TransportRequest.update({
