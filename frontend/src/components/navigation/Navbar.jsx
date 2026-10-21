@@ -24,7 +24,7 @@ import LanguageSelector from '../common/LanguageSelector';
 
 export default function Navbar() {
   const { t } = useLanguage();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, switchPersona } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef(null);
@@ -79,6 +79,8 @@ export default function Navbar() {
       return [
         { to: '/dashboard', label: 'Logistics Dashboard', icon: LayoutDashboard },
         { to: '/transport', label: 'Cargo Trips & Gate Pass', icon: Truck },
+        { to: '/markets', label: t('nav.markets', 'Mandi Prices'), icon: TrendingUp },
+        { to: '/harvest', label: t('nav.harvest', 'Harvest Simulator'), icon: Calculator },
         { to: '/weather', label: 'Route Weather', icon: CloudSunRain },
         { to: '/profile', label: 'Profile', icon: User },
       ];
@@ -156,6 +158,38 @@ export default function Navbar() {
                 <span className="sm:hidden">Pass</span>
               </NavLink>
             )}
+
+            {/* 1-Click Presentation Role Switcher (Farmer vs Transporter) */}
+            <div className="flex items-center rounded-xl bg-slate-100 p-0.5 border border-slate-200 text-xs font-bold">
+              <button
+                type="button"
+                id="persona-switch-farmer"
+                onClick={() => switchPersona('farmer')}
+                className={`px-2 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
+                  user?.role !== 'transporter' && user?.role !== 'admin'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                }`}
+                title="Switch to Farmer Presentation Mode"
+              >
+                <Sprout className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Farmer</span>
+              </button>
+              <button
+                type="button"
+                id="persona-switch-transporter"
+                onClick={() => switchPersona('transporter')}
+                className={`px-2 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
+                  user?.role === 'transporter'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                }`}
+                title="Switch to Transporter Presentation Mode"
+              >
+                <Truck className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Transporter</span>
+              </button>
+            </div>
 
             {/* Language Selector */}
             <div className="hidden sm:block">

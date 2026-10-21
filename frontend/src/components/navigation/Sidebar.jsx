@@ -58,6 +58,15 @@ export default function Sidebar({ className = '' }) {
             { to: '/transport', label: 'Cargo Trips & Gate Pass', icon: Truck },
             { to: '/weather', label: 'Route Weather Alerts', icon: CloudSunRain },
           ]
+        },
+        {
+          title: 'Market & Agritech Suite',
+          items: [
+            { to: '/markets', label: t('nav.markets', 'Mandi Prices'), icon: TrendingUp },
+            { to: '/harvest', label: t('nav.harvest', 'Harvest Simulator'), icon: Calculator },
+            { to: '/schemes', label: t('nav.schemes', 'Govt Schemes'), icon: Landmark, badge: 'Gov' },
+            { to: '/chat', label: t('nav.chat', 'Mitra AI Advisory'), icon: Bot, badge: 'AI' },
+          ]
         }
       ];
     }

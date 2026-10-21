@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Truck,
@@ -24,7 +24,8 @@ import {
   Calendar,
   Sparkles,
   HelpCircle,
-  Tag
+  Tag,
+  Bell
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -37,6 +38,44 @@ function formatINR(value) {
     currency: 'INR',
     maximumFractionDigits: 0,
   }).format(Number(value) || 0);
+}
+
+// Synthesizes a clean mobile SMS / chime alert tone using Web Audio API
+function playBookingNotificationChime() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const now = ctx.currentTime;
+
+    // Tone 1: High crisp ping (880 Hz / A5)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(880, now);
+    osc1.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
+    gain1.gain.setValueAtTime(0.3, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.35);
+
+    // Tone 2: Harmonious confirmation chime (1760 Hz / A6)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(1320, now + 0.12);
+    osc2.frequency.exponentialRampToValueAtTime(1760, now + 0.28);
+    gain2.gain.setValueAtTime(0.32, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.55);
+  } catch (err) {
+    console.warn('AudioContext alert tone:', err.message);
+  }
 }
 
 const VEHICLE_TYPES = [
@@ -61,6 +100,8 @@ export default function TransporterDashboard() {
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState('requests'); // 'requests' | 'shared-pools' | 'fleet'
+  const prevRequestIdsRef = useRef(new Set());
+  const isInitialLoadRef = useRef(true);
 
   // Stats
   const [stats, setStats] = useState({
@@ -153,8 +194,8 @@ export default function TransporterDashboard() {
   }
 
   // Load Incoming Booking Requests
-  async function loadIncomingRequests() {
-    setLoadingRequests(true);
+  async function loadIncomingRequests(isSilent = false) {
+    if (!isSilent) setLoadingRequests(true);
     try {
       const params = new URLSearchParams();
       if (filterCrop) params.append('crop', filterCrop);
@@ -167,12 +208,47 @@ export default function TransporterDashboard() {
       });
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
+        // Detect newly arrived booking requests during live presentation
+        if (!isInitialLoadRef.current && prevRequestIdsRef.current.size > 0) {
+          const brandNewBookings = json.data.filter(
+            (r) => !prevRequestIdsRef.current.has(r.id) && (r.status === 'pending' || r.status === 'open' || r.status === 'confirmed')
+          );
+
+          if (brandNewBookings.length > 0) {
+            // 1. Play realistic audible SMS / chime tone
+            playBookingNotificationChime();
+
+            const latest = brandNewBookings[0];
+            // 2. Pop up high-impact celebration toast alert
+            showToast({
+              type: 'celebrate',
+              title: '🔔 New Produce Booking Alert!',
+              message: `Farmer ${latest.farmerName} just booked ${latest.weightKg} kg ${latest.cropName} → ${latest.destinationMarket}! Fare: ${formatINR(latest.estimatedSharedCost || 425)}`,
+              duration: 7000
+            });
+
+            // 3. Spoken voice announcement
+            if ('speechSynthesis' in window) {
+              try {
+                window.speechSynthesis.cancel();
+                const speech = new SpeechSynthesisUtterance(`New booking alert from ${latest.farmerName} for ${latest.cropName}.`);
+                speech.rate = 1.0;
+                window.speechSynthesis.speak(speech);
+              } catch (_) {}
+            }
+          }
+        }
+
+        // Keep set of seen IDs synced
+        json.data.forEach((r) => prevRequestIdsRef.current.add(r.id));
+        isInitialLoadRef.current = false;
+
         setIncomingRequests(json.data);
       }
     } catch (err) {
       console.warn('Could not load incoming requests:', err.message);
     } finally {
-      setLoadingRequests(false);
+      if (!isSilent) setLoadingRequests(false);
     }
   }
 
@@ -198,8 +274,16 @@ export default function TransporterDashboard() {
     if (token) {
       loadTransporterStats();
       loadMyFleet();
-      loadIncomingRequests();
+      loadIncomingRequests(false);
       loadSharedTrips();
+
+      // Dynamic auto-polling every 3 seconds to catch live bookings from other browser windows
+      const pollInterval = setInterval(() => {
+        loadIncomingRequests(true);
+        loadTransporterStats();
+      }, 3000);
+
+      return () => clearInterval(pollInterval);
     }
   }, [token, filterCrop, filterVehicleType, filterStatus, filterBookingType]);
 

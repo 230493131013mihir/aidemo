@@ -57,6 +57,18 @@ export function AuthProvider({ children }) {
         return;
       }
 
+      // If active session is a demo presentation persona, keep it instantly active
+      if (savedToken.startsWith('demo_token_')) {
+        if (savedUser) {
+          try {
+            setUser(JSON.parse(savedUser));
+            setToken(savedToken);
+          } catch (_) {}
+        }
+        setLoading(false);
+        return;
+      }
+
       // Hydrate state from localStorage immediately to prevent refresh flicker
       if (savedUser) {
         try {
@@ -208,9 +220,9 @@ export function AuthProvider({ children }) {
       }
     }
 
-    // 1. Reset user state to clean guest
-    setToken('guest');
-    setUser(GUEST_USER);
+    // 1. Reset user state to unauthenticated
+    setToken(null);
+    setUser(null);
 
     // 2. Clear all authentication credentials & user tokens from storage
     try {
@@ -230,6 +242,57 @@ export function AuthProvider({ children }) {
     }
   }
 
+  function switchPersona(targetRole) {
+    if (targetRole === 'transporter') {
+      const transporterUser = {
+        id: 2,
+        name: 'Varun Patil (Express Agri Logistics)',
+        email: 'transporter@harvestmitra.local',
+        phone: '9822012345',
+        role: 'transporter',
+        isGuest: false,
+        TransporterProfile: {
+          driverName: 'Varun Patil',
+          phone: '9822012345',
+          vehicleType: 'Mahindra Bolero Maxi Truck',
+          vehicleNumber: 'MH-12-RN-4921',
+          capacityKg: 2200,
+          baseMandi: 'Pune APMC',
+          ratePerKm: 25,
+        }
+      };
+      setUser(transporterUser);
+      setToken('demo_token_transporter');
+      localStorage.setItem(USER_KEY, JSON.stringify(transporterUser));
+      localStorage.setItem(TOKEN_KEY, 'demo_token_transporter');
+    } else {
+      const farmerUser = {
+        id: 1,
+        name: 'Ramesh Patel (Demo Farmer)',
+        email: 'demo@harvestmitra.local',
+        phone: '9822011111',
+        role: 'farmer',
+        isGuest: false,
+        FarmerProfile: {
+          farmSizeAcres: 3.5,
+          mainCrop: 'Tomato',
+          typicalYieldKg: 1200,
+          currentHarvestKg: 500,
+          state: 'Maharashtra',
+          district: 'Pune',
+          preferredLanguage: 'mr',
+          productQuantities: {
+            'Tomato': 500
+          }
+        }
+      };
+      setUser(farmerUser);
+      setToken('demo_token_farmer');
+      localStorage.setItem(USER_KEY, JSON.stringify(farmerUser));
+      localStorage.setItem(TOKEN_KEY, 'demo_token_farmer');
+    }
+  }
+
   const isAuthenticated = Boolean(user && token && !user.isGuest && token !== 'guest');
   const isGuest = !isAuthenticated;
 
@@ -244,6 +307,7 @@ export function AuthProvider({ children }) {
     demoLogin,
     updateProfile,
     updateLocalUser,
+    switchPersona,
     logout,
   };
 

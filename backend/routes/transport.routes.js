@@ -148,6 +148,9 @@ async function ensureTransportSchema() {
             for (const [column, definition] of Object.entries(requiredColumns)) {
                 if (!columns[column]) await queryInterface.addColumn("transport_requests", column, definition);
             }
+            try {
+                await sequelize.query("ALTER TABLE transport_requests MODIFY COLUMN status VARCHAR(32) NOT NULL DEFAULT 'pending'");
+            } catch (_) {}
         })().catch((error) => {
             transportSchemaReady = null;
             throw error;

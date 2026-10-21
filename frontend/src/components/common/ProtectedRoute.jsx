@@ -18,8 +18,8 @@ export default function ProtectedRoute({ children, requiredRole, requireAuth = f
     );
   }
 
-  // Unauthenticated visitors cannot access prices, dashboard, or features without login
-  // Redirects unauthenticated visitors to /login with return location preserved
+  // Strict Security: Unauthenticated visitors cannot access protected features without logging in
+  // Any unauthenticated attempt to access dashboard, prices, transport, etc. redirects directly to /login
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
@@ -34,6 +34,9 @@ export default function ProtectedRoute({ children, requiredRole, requireAuth = f
 
   // Profile strictly requires verified authentication
   if (requiredRole === 'auth' || (requireAuth && (!isAuthenticated || user?.isGuest))) {
+    if (!isAuthenticated || user?.isGuest) {
+      return <Navigate to="/login" state={{ from: location }} replace />;
+    }
     return children;
   }
 
