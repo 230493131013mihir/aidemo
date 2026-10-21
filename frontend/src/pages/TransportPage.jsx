@@ -17,12 +17,14 @@ import {
   ArrowRight,
   ShieldAlert,
   Phone,
-  QrCode
+  QrCode,
+  Navigation
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import DigitalGatePassModal from '../components/transport/DigitalGatePassModal';
 import CorridorFreightCalculator from '../components/transport/CorridorFreightCalculator';
+import LiveDriverTrackingMap from '../components/transport/LiveDriverTrackingMap';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
@@ -85,11 +87,31 @@ export default function TransportPage() {
 
   // Modal for Digital Mandi Gate Pass
   const [selectedGatePass, setSelectedGatePass] = useState(null);
+  const [showGpsMap, setShowGpsMap] = useState(true);
 
   // Active or latest farmer booking for live tracking card
   const activeFarmerBooking = useMemo(() => {
-    return myRequests.find((r) => ['accepted', 'in_transit'].includes(r.status)) || (myRequests.length > 0 ? myRequests[0] : null);
-  }, [myRequests]);
+    return (
+      myRequests.find((r) => ['accepted', 'in_transit'].includes(r.status)) ||
+      (myRequests.length > 0 ? myRequests[0] : null) || {
+        id: 'DEMO-9421',
+        gatePassCode: 'MH-APMC-9421',
+        farmerName: user?.name || 'Varun Patil',
+        farmerPhone: user?.phone || '9822994411',
+        cropName: 'Tomato',
+        weightKg: 1200,
+        pickupLocation: 'Nashik Rural Farm #4',
+        destinationMarket: 'Mumbai Vashi Mega APMC',
+        pickupDate: new Date().toISOString().slice(0, 10),
+        driverName: 'Dnyaneshwar Shinde',
+        driverPhone: '9822044120',
+        vehicleType: 'Tata 407 (Agri Freight)',
+        vehicleNumber: 'MH-12-RN-4120',
+        status: 'in_transit',
+        estimatedDurationMinutes: 102
+      }
+    );
+  }, [myRequests, user]);
 
   // Apply selected highway corridor to booking form
   const handleApplyCorridor = (data) => {
@@ -756,6 +778,15 @@ export default function TransportPage() {
 
                   <button
                     type="button"
+                    onClick={() => setShowGpsMap((prev) => !prev)}
+                    className="px-3 py-1.5 rounded-xl border border-blue-400/30 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>{showGpsMap ? 'Hide GPS Radar' : '🛰️ Live Driver GPS Map'}</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setSelectedGatePass(activeFarmerBooking)}
                     className="px-3 py-1.5 rounded-xl border border-emerald-400/30 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition-colors"
                   >
@@ -913,6 +944,16 @@ export default function TransportPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Interactive Real-Time Live GPS Driver Highway Radar Map */}
+              {showGpsMap && (
+                <div className="mt-4 pt-1 animate-in fade-in duration-300">
+                  <LiveDriverTrackingMap
+                    booking={activeFarmerBooking}
+                    isExpandedDefault={false}
+                  />
+                </div>
+              )}
 
               {/* Dynamic Live Cargo Route Checkpoint & Telemetry Radar */}
               <div className="mt-4 p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
