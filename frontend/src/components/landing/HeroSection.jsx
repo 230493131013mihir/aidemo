@@ -12,9 +12,11 @@ import {
   Compass
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function HeroSection() {
   const { t } = useLanguage();
+  const { isAuthenticated } = useAuth();
 
   return (
     <section 
@@ -80,11 +82,11 @@ export default function HeroSection() {
               </Link>
 
               <Link
-                to="/dashboard"
+                to={isAuthenticated ? '/dashboard' : '/register'}
                 id="hero-primary-cta"
                 className="w-full sm:w-auto text-sm px-5 py-3.5 rounded-2xl bg-emerald-900/40 hover:bg-emerald-900/60 text-emerald-300 font-semibold border border-emerald-500/30 transition-all flex items-center justify-center gap-1.5"
               >
-                <span>{t('hero.getStarted')}</span>
+                <span>{isAuthenticated ? 'Go to Dashboard →' : `${t('hero.getStarted')} (Register)`}</span>
               </Link>
             </div>
 

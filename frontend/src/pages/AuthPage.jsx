@@ -24,7 +24,8 @@ import {
   Users,
   Award,
   RefreshCw,
-  Send
+  Send,
+  ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -46,25 +47,28 @@ const STANDARD_CROPS = [
 
 export default function AuthPage({ mode = 'login' }) {
   const navigate = useNavigate();
-  const { login, register, sendOtp, loginWithOtp, loginWithWhatsApp } = useAuth();
+  const { login, register, demoLogin, sendOtp, loginWithOtp, loginWithWhatsApp } = useAuth();
   const { showToast } = useToast();
   const isRegister = mode === 'register';
 
-  // Requirement: When user refreshes / reloads while on /register, return to the landing page without login
-  useEffect(() => {
-    if (isRegister) {
-      try {
-        const navEntries = window.performance?.getEntriesByType?.('navigation');
-        const isReload = (navEntries && navEntries[0]?.type === 'reload') ||
-                         (window.performance?.navigation?.type === 1);
-        if (isReload) {
-          navigate('/', { replace: true });
-        }
-      } catch (e) {
-        // Safe ignore
-      }
+  async function handleQuickDemoFarmerLogin() {
+    setLoading(true);
+    setError('');
+    try {
+      const user = await demoLogin();
+      showToast({
+        type: 'celebrate',
+        title: '🌾 Demo Farmer Active!',
+        message: `Welcome, ${user?.name || 'Farmer'}! Logging into HarvestMitra...`,
+        duration: 2500
+      });
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.message || 'Demo login failed');
+    } finally {
+      setLoading(false);
     }
-  }, [isRegister, navigate]);
+  }
 
   // 5-Way Role Selector: 'farmer', 'fpo_leader', 'transporter', 'mandi', 'admin'
   const [role, setRole] = useState('farmer');
@@ -431,6 +435,14 @@ export default function AuthPage({ mode = 'login' }) {
     setError('');
     setSuccess('');
 
+    if (!isRegister && authMethod === 'otp' && role !== 'admin') {
+      if (otpStep === 'phone') {
+        return handleSendOtp('sms');
+      } else {
+        return handleVerifyOtp();
+      }
+    }
+
     if (isRegister) {
       const validationError = validateRegister();
       if (validationError) {
@@ -654,6 +666,34 @@ export default function AuthPage({ mode = 'login' }) {
                 ? 'Manage collective produce batches and coordinate group transport.'
                 : 'Enter your 10-digit mobile number for instant password-free OTP login or use your registered email.'}
             </p>
+          </div>
+
+          {/* Top-Level Mode Selector: Login vs Register */}
+          <div className="p-1 rounded-2xl bg-slate-100 border border-slate-200 grid grid-cols-2 gap-1 text-xs sm:text-sm font-bold">
+            <Link
+              to="/login"
+              onClick={() => { setError(''); setSuccess(''); }}
+              className={`py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all text-center ${
+                !isRegister
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
+              }`}
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Login to Account</span>
+            </Link>
+            <Link
+              to="/register"
+              onClick={() => { setError(''); setSuccess(''); }}
+              className={`py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all text-center ${
+                isRegister
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
+              }`}
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Register Account</span>
+            </Link>
           </div>
 
           {/* 5-Way Role Selection Tabs */}
@@ -923,20 +963,32 @@ export default function AuthPage({ mode = 'login' }) {
                     </button>
                   </div>
 
-                  {/* Quick Demo Pre-fill Helper */}
-                  <div className="pt-2 text-center">
+                  {/* Quick Demo Pre-fill & 1-Click Instant Login */}
+                  <div className="pt-2 space-y-2 border-t border-slate-200">
                     <button
                       type="button"
-                      onClick={() => {
-                        setOtpPhone('9822012345');
-                        setOtpName('Ramesh Patel');
-                        setOtpAgristackId('PMK-MH-98201');
-                        setRole('farmer');
-                      }}
-                      className="text-[11px] text-slate-500 hover:text-primary font-semibold underline cursor-pointer"
+                      onClick={handleQuickDemoFarmerLogin}
+                      disabled={loading}
+                      className="w-full py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
                     >
-                      ⚡ Fill Sample Smallholder Farmer (+91 9822012345)
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                      <span>⚡ 1-Click Demo Farmer Login (Mihir Jadav • 3.5 Acres)</span>
                     </button>
+
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOtpPhone('9822012345');
+                          setOtpName('Ramesh Patel');
+                          setOtpAgristackId('PMK-MH-98201');
+                          setRole('farmer');
+                        }}
+                        className="text-[11px] text-slate-500 hover:text-primary font-semibold underline cursor-pointer"
+                      >
+                        ⚡ Fill Sample Smallholder Farmer (+91 9822012345)
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -1019,6 +1071,28 @@ export default function AuthPage({ mode = 'login' }) {
               {/* Registration Specific Fields */}
               {isRegister && (
                 <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-1">
+                    <span className="text-xs font-bold text-text">Account Information</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const unique = Math.floor(1000 + Math.random() * 9000);
+                        updateField('name', 'Ramesh Patil');
+                        updateField('phone', `982200${unique}`);
+                        updateField('email', `farmer_${unique}@harvestmitra.local`);
+                        updateField('password', 'Farmer@123');
+                        updateField('district', 'Pune');
+                        updateField('village', 'Haveli');
+                        updateField('farmSizeAcres', '4.5');
+                        updateField('currentHarvestKg', '500');
+                        setError('');
+                      }}
+                      className="text-[11px] text-emerald-700 font-bold hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <span>⚡ Auto-Fill Sample Details</span>
+                    </button>
+                  </div>
                   <label className="block space-y-1">
                     <span className="text-xs font-semibold text-muted uppercase tracking-wider">
                       {role === 'mandi'
@@ -1502,6 +1576,32 @@ export default function AuthPage({ mode = 'login' }) {
                       />
                     </div>
                   </label>
+                </div>
+              )}
+
+              {/* Farmer 1-Click Credentials Helper on Login */}
+              {!isRegister && role === 'farmer' && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs flex items-center justify-between gap-3 shadow-2xs">
+                  <div className="min-w-0">
+                    <p className="font-bold text-emerald-950 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Verified Demo Farmer Account</span>
+                    </p>
+                    <p className="text-[11px] text-emerald-800 font-mono mt-0.5 truncate">
+                      demo@harvestmitra.local • Demo@12345
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateField('email', 'demo@harvestmitra.local');
+                      updateField('password', 'Demo@12345');
+                      setError('');
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all shrink-0 cursor-pointer"
+                  >
+                    ⚡ Auto-Fill
+                  </button>
                 </div>
               )}
 

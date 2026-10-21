@@ -2,9 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Sparkles, ArrowRight, TrendingUp, CheckCircle2 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function CTASection() {
   const { t } = useLanguage();
+  const { isAuthenticated } = useAuth();
 
   return (
     <section 
@@ -44,11 +46,11 @@ export default function CTASection() {
             {/* Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
               <Link
-                to="/register"
+                to={isAuthenticated ? '/dashboard' : '/register'}
                 id="cta-bottom-get-started"
                 className="btn-primary w-full sm:w-auto text-base px-8 py-3.5 shadow-xl hover:shadow-2xl transition-all font-bold flex items-center justify-center gap-2 group"
               >
-                <span>{t('cta.getStarted')}</span>
+                <span>{isAuthenticated ? 'Go to Dashboard →' : t('cta.getStarted')}</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
               </Link>
 

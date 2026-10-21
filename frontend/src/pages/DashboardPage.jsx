@@ -101,7 +101,8 @@ export default function DashboardPage() {
   const fetchFarmerCrops = async () => {
     try {
       setLoadingCrops(true);
-      const token = localStorage.getItem('harvestmitra_token') || 'guest';
+      const token = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('harvestmitra_token')) || 
+                    (typeof localStorage !== 'undefined' && localStorage.getItem('harvestmitra_token')) || 'guest';
       const headers = { 'Content-Type': 'application/json' };
       if (token && token !== 'guest') {
         headers.Authorization = `Bearer ${token}`;

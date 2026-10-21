@@ -7,6 +7,17 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000
 const TOKEN_KEY = 'harvestmitra_token';
 const USER_KEY = 'harvestmitra_user';
 
+// Clean up legacy persistent localStorage tokens so user is not automatically logged in across browser restarts
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem('harvestmitra_admin_token');
+  } catch {
+    // Storage access safety
+  }
+}
+
 export const GUEST_USER = {
   id: 'guest',
   name: 'Guest Farmer (अतिथी शेतकरी)',
@@ -29,10 +40,16 @@ export const GUEST_USER = {
 };
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) || 'guest');
+  const [token, setToken] = useState(() => {
+    try {
+      return (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(TOKEN_KEY)) || 'guest';
+    } catch {
+      return 'guest';
+    }
+  });
   const [user, setUser] = useState(() => {
     try {
-      const stored = localStorage.getItem(USER_KEY);
+      const stored = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(USER_KEY) : null;
       return stored ? JSON.parse(stored) : GUEST_USER;
     } catch {
       return GUEST_USER;
@@ -43,7 +60,11 @@ export function AuthProvider({ children }) {
   // Sync session on mount / token change
   useEffect(() => {
     async function verifySession() {
-      const savedToken = localStorage.getItem(TOKEN_KEY);
+      let savedToken = null;
+      try {
+        savedToken = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(TOKEN_KEY) : null;
+      } catch {}
+
       if (!savedToken || savedToken === 'guest') {
         setToken('guest');
         setUser((prev) => prev && !prev.isGuest ? prev : GUEST_USER);
@@ -63,14 +84,24 @@ export function AuthProvider({ children }) {
           if (payload.success && payload.user) {
             setUser(payload.user);
             setToken(savedToken);
-            localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+            if (typeof sessionStorage !== 'undefined') {
+              sessionStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+            }
           } else {
             setUser(GUEST_USER);
             setToken('guest');
+            if (typeof sessionStorage !== 'undefined') {
+              sessionStorage.removeItem(TOKEN_KEY);
+              sessionStorage.removeItem(USER_KEY);
+            }
           }
         } else {
           setUser(GUEST_USER);
           setToken('guest');
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem(TOKEN_KEY);
+            sessionStorage.removeItem(USER_KEY);
+          }
         }
       } catch (err) {
         console.warn('Session verification fallback to stored user:', err.message);
@@ -85,11 +116,22 @@ export function AuthProvider({ children }) {
   function handleAuthSuccess(newToken, newUser) {
     setToken(newToken);
     setUser(newUser);
-    if (newToken) {
-      localStorage.setItem(TOKEN_KEY, newToken);
-    }
-    if (newUser) {
-      localStorage.setItem(USER_KEY, JSON.stringify(newUser));
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        if (newToken) {
+          sessionStorage.setItem(TOKEN_KEY, newToken);
+        }
+        if (newUser) {
+          sessionStorage.setItem(USER_KEY, JSON.stringify(newUser));
+        }
+      }
+      // Ensure localStorage has no lingering persistent credentials
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+      }
+    } catch (e) {
+      console.warn('SessionStorage write error:', e);
     }
   }
 
@@ -144,8 +186,8 @@ export function AuthProvider({ children }) {
   }
 
   async function updateProfile(profileData) {
-    const currentToken = token || localStorage.getItem(TOKEN_KEY);
-    if (!currentToken) throw new Error('Not authenticated');
+    const currentToken = token || (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(TOKEN_KEY));
+    if (!currentToken || currentToken === 'guest') throw new Error('Not authenticated');
 
     const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
       method: 'PUT',
@@ -162,7 +204,9 @@ export function AuthProvider({ children }) {
     }
 
     setUser(payload.user);
-    localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+    }
     return payload.user;
   }
 
@@ -208,7 +252,7 @@ export function AuthProvider({ children }) {
   }
 
   async function linkAgristack(agristackId) {
-    const currentToken = token || localStorage.getItem(TOKEN_KEY);
+    const currentToken = token || (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(TOKEN_KEY));
     if (!currentToken || currentToken === 'guest') throw new Error('Please sign in to link your Agristack ID.');
 
     const response = await fetch(`${API_BASE_URL}/api/auth/agristack/link`, {
@@ -231,7 +275,9 @@ export function AuthProvider({ children }) {
           ...prev,
           FarmerProfile: { ...(prev.FarmerProfile || {}), ...payload.profile }
         };
-        localStorage.setItem(USER_KEY, JSON.stringify(next));
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem(USER_KEY, JSON.stringify(next));
+        }
         return next;
       });
     }
@@ -240,14 +286,22 @@ export function AuthProvider({ children }) {
 
   function updateLocalUser(nextUser) {
     setUser(nextUser);
-    localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(USER_KEY, JSON.stringify(nextUser));
+    }
   }
 
   function logout() {
     setToken('guest');
     setUser(GUEST_USER);
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(USER_KEY);
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+    }
   }
 
   const isGuest = Boolean(user?.isGuest || token === 'guest');

@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Sprout, Menu, X, Sparkles } from 'lucide-react';
+import { Sprout, Menu, X, Sparkles, LogOut } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import LanguageSelector from '../common/LanguageSelector';
 
 export default function Header() {
   const { t } = useLanguage();
+  const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -82,24 +84,50 @@ export default function Header() {
             {/* Language Selector */}
             <LanguageSelector id="header-language-selector" />
 
-            {/* Login & Register Buttons (Exclusively shown on landing page) */}
-            <div className="flex items-center gap-2">
-              <Link
-                to="/login"
-                id="header-login-btn"
-                className="btn-secondary text-xs sm:text-sm py-2 px-3.5 shadow-xs"
-              >
-                <span>Login</span>
-              </Link>
-              <Link
-                to="/register"
-                id="header-register-btn"
-                className="btn-primary text-xs sm:text-sm py-2 px-3.5 sm:px-4 shadow-xs"
-              >
-                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
-                <span>Register</span>
-              </Link>
-            </div>
+            {/* Auth Actions: Profile Pill when logged in, Login & Register when unauthenticated */}
+            {isAuthenticated ? (
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/dashboard"
+                  id="header-dashboard-btn"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border border-emerald-300 bg-emerald-50 text-emerald-900 shadow-xs hover:bg-emerald-100 transition-colors"
+                  title={`Logged in as ${user?.name || 'User'}`}
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  </span>
+                  <span className="truncate max-w-[110px]">{user?.name?.split(' ')[0] || 'User'}</span>
+                  <span className="text-[10px] text-muted hidden sm:inline font-normal">Dashboard →</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={logout}
+                  title="Sign out"
+                  className="p-1.5 rounded-xl border border-border text-muted hover:text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/login"
+                  id="header-login-btn"
+                  className="btn-secondary text-xs sm:text-sm py-2 px-3.5 shadow-xs"
+                >
+                  <span>Login</span>
+                </Link>
+                <Link
+                  to="/register"
+                  id="header-register-btn"
+                  className="btn-primary text-xs sm:text-sm py-2 px-3.5 sm:px-4 shadow-xs"
+                >
+                  <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
+                  <span>Register</span>
+                </Link>
+              </div>
+            )}
 
             {/* Mobile Hamburger Toggle */}
             <button
@@ -160,22 +188,44 @@ export default function Header() {
             <LanguageSelector variant="segmented" className="w-full justify-center" />
 
             <div className="pt-2">
-              <div className="grid grid-cols-2 gap-2">
-                <Link
-                  to="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="btn-secondary text-xs py-2 px-3 text-center justify-center"
-                >
-                  <span>Login</span>
-                </Link>
-                <Link
-                  to="/register"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="btn-primary text-xs py-2 px-3 text-center justify-center"
-                >
-                  <span>Register</span>
-                </Link>
-              </div>
+              {isAuthenticated ? (
+                <div className="space-y-2">
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="btn-primary w-full text-xs py-2.5 px-3 text-center justify-center flex items-center gap-2"
+                  >
+                    <span>Go to Dashboard ({user?.name || 'Farmer'})</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full rounded-xl border border-border py-2 text-xs font-bold text-red-600 hover:bg-red-50 text-center"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="btn-secondary text-xs py-2 px-3 text-center justify-center"
+                  >
+                    <span>Login</span>
+                  </Link>
+                  <Link
+                    to="/register"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="btn-primary text-xs py-2 px-3 text-center justify-center"
+                  >
+                    <span>Register</span>
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>

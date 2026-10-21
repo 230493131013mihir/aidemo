@@ -242,7 +242,8 @@ export default function MarketPriceExplorer({
       async function loadMandiPortalData() {
         setLoadingMandiData(true);
         try {
-          const token = localStorage.getItem('harvestmitra_token');
+          const token = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('harvestmitra_token')) || 
+                        (typeof localStorage !== 'undefined' && localStorage.getItem('harvestmitra_token'));
           const [fRes, reqRes] = await Promise.all([
             fetch(`${API_BASE_URL}/api/auth/relevant-farmers`, {
               headers: { Authorization: `Bearer ${token}` }
@@ -346,7 +347,8 @@ export default function MarketPriceExplorer({
     setContactModal(prev => ({ ...prev, submitting: true }));
 
     try {
-      const token = localStorage.getItem('harvestmitra_token');
+      const token = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('harvestmitra_token')) || 
+                    (typeof localStorage !== 'undefined' && localStorage.getItem('harvestmitra_token'));
       const payload = {
         receiverId: contactModal.targetItem?.userId || contactModal.targetItem?.id,
         receiverRole: contactModal.targetType,
