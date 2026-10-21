@@ -1,109 +1,104 @@
 /**
  * LiveDriverTrackingMap.jsx
- * Interactive Real-Time GPS & Highway Telemetry Radar for HarvestMitra AI
- * Tracks driver vehicle location, bearing, speed, ETA, and checkpoints between farm and APMC
- * Supports both Live Browser Geolocation (navigator.geolocation) & Simulated Corridor Highway Stream
- * Technologies: Leaflet, OpenStreetMap, TailwindCSS, Lucide-react
+ * Dynamic Interactive Real-Time GPS & Highway Telemetry Radar for HarvestMitra AI
+ * Features:
+ *  - 160+ Dense High-Resolution Highway Path Interpolation (Nashik, Pune, Ahmednagar, Mumbai APMC)
+ *  - Fluid Continuous Vehicle Gliding with Smooth Bearing Rotation & Speed Fluctuations
+ *  - Interactive Highway Scrubber (0% to 100% route timeline dragging)
+ *  - Dynamic Playback Speed Multipliers (1x Real-Time, 2x Express, 5x Turbo, 10x Hyperwarp)
+ *  - Auto-Follow Camera (Smooth Leaflet Tracking Cockpit View)
+ *  - Dynamic Monsoon Rain & Ghat Fog Advisory Simulator
+ *  - Live Driver Phone GPS Streaming via navigator.geolocation.watchPosition
+ *  - Automatic Sync with Backend Live Telemetry Hub (/api/transport/telemetry/:passCode)
+ *  - React-safe Telemetry Callback to Parent Component (onTelemetryUpdate)
  * HarvestMitra AI
  */
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
   Truck,
-  MapPin,
   Navigation,
   Play,
   Pause,
   RotateCcw,
   Phone,
-  Clock,
-  ShieldCheck,
   Compass,
-  Zap,
   Maximize2,
   Minimize2,
   AlertTriangle,
-  LocateFixed
+  LocateFixed,
+  CloudRain,
+  Eye,
+  Sliders,
+  Activity
 } from 'lucide-react';
 
-// Maharashtra Major Mandi & District Coordinates Catalog
-const MAHARASHTRA_COORDINATES = {
-  'Nashik': [19.9975, 73.7898],
-  'Nashik APMC': [19.9975, 73.7898],
-  'Lasalgaon': [20.1477, 74.2259],
-  'Lasalgaon APMC': [20.1477, 74.2259],
-  'Pune': [18.4975, 73.8647],
-  'Pune APMC': [18.4975, 73.8647],
-  'Pune APMC (Gultekdi)': [18.4975, 73.8647],
-  'Mumbai': [19.0760, 72.9986],
-  'Mumbai Vashi Mega APMC': [19.0760, 72.9986],
-  'Mumbai APMC': [19.0760, 72.9986],
-  'Ahmednagar': [19.0952, 74.7496],
-  'Ahmednagar APMC': [19.0952, 74.7496],
-  'Kolhapur': [16.7050, 74.2433],
-  'Kolhapur APMC': [16.7050, 74.2433],
-  'Solapur': [17.6599, 75.9064],
-  'Solapur APMC': [17.6599, 75.9064],
-  'Jalgaon': [21.0077, 75.5626],
-  'Jalgaon APMC': [21.0077, 75.5626],
-  'Nagpur': [21.1458, 79.0882],
-  'Nagpur APMC': [21.1458, 79.0882],
-  'Sangli': [16.8524, 74.5815],
-  'Sangli APMC': [16.8524, 74.5815],
-  'Satara': [17.6805, 73.9997],
-  'Satara APMC': [17.6805, 73.9997],
-  'Surat': [21.1702, 72.8311],
-  'Surat APMC': [21.1702, 72.8311]
-};
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
-// Realistic Highway Corridor GPS Waypoint Chains
-const HIGHWAY_CORRIDORS = {
-  // Nashik to Mumbai (NH-160 / Kasara Ghat Corridor)
-  nashik_mumbai: [
-    [19.9975, 73.7898], // Nashik APMC
-    [19.8821, 73.6934], // Wadivarhe
-    [19.7042, 73.5356], // Igatpuri
-    [19.6644, 73.4735], // Kasara Ghat Pass
-    [19.5210, 73.3421], // Shahapur Bypass
-    [19.3820, 73.2341], // Padgha Toll
-    [19.2437, 73.1355], // Kalyan Bypass Junction
-    [19.1860, 73.0234], // Airoli Navi Mumbai
-    [19.0760, 72.9986]  // Vashi Mega APMC
-  ],
+// Maharashtra Highway Corridor Waypoints with Realistic Road Geometries & Checkpoints
+const CORRIDOR_PROFILES = {
+  // Nashik to Mumbai (NH-160 / Kasara Ghat Corridor) - 168 km
+  nashik_mumbai: {
+    name: 'Nashik ➔ Mumbai Vashi APMC (NH-160 & Kasara Ghat)',
+    totalDistanceKm: 168,
+    checkpoints: [
+      { name: '🌾 Nashik Rural Farm Gate #4', lat: 19.9975, lng: 73.7898, targetSpeed: 30, zone: 'Farm Gate' },
+      { name: '🛣️ Wadivarhe Toll Plaza (NH-160)', lat: 19.8821, lng: 73.6934, targetSpeed: 62, zone: 'Highway' },
+      { name: '⛰️ Igatpuri Hill Crest & Fog Zone', lat: 19.7042, lng: 73.5356, targetSpeed: 52, zone: 'Ghat Approach' },
+      { name: '🌧️ Kasara Ghat Hairpin Pass', lat: 19.6644, lng: 73.4735, targetSpeed: 38, zone: 'Ghat Pass' },
+      { name: '🚧 Shahapur Agri Freight Bypass', lat: 19.5210, lng: 73.3421, targetSpeed: 64, zone: 'Express Stretch' },
+      { name: '⚖️ Padgha Toll & Weighbridge Bay', lat: 19.3820, lng: 73.2341, targetSpeed: 32, zone: 'Weighbridge' },
+      { name: '🌉 Kalyan-Bhiwandi Junction Flyover', lat: 19.2437, lng: 73.1355, targetSpeed: 58, zone: 'Corridor' },
+      { name: '🏙️ Airoli Creek Gateway (Navi Mumbai)', lat: 19.1860, lng: 73.0234, targetSpeed: 48, zone: 'Urban Approach' },
+      { name: '🏛️ Mumbai Vashi Mega APMC Bay #4', lat: 19.0760, lng: 72.9986, targetSpeed: 20, zone: 'Mandi Yard' }
+    ]
+  },
 
-  // Pune to Mumbai (Mumbai-Pune Yashwantrao Chavan Expressway)
-  pune_mumbai: [
-    [18.4975, 73.8647], // Pune Gultekdi APMC
-    [18.6298, 73.7997], // Pimpri-Chinchwad
-    [18.7180, 73.6740], // Talegaon Toll Plaza
-    [18.7557, 73.4091], // Lonavala Khandala Ghat
-    [18.9102, 73.2045], // Khalapur Toll Plaza
-    [19.0125, 73.1042], // Panvel Expressway Terminal
-    [19.0760, 72.9986]  // Vashi Mega APMC
-  ],
+  // Pune to Mumbai (Yashwantrao Chavan Expressway) - 148 km
+  pune_mumbai: {
+    name: 'Pune ➔ Mumbai Vashi APMC (Yashwantrao Chavan Expressway)',
+    totalDistanceKm: 148,
+    checkpoints: [
+      { name: '🌾 Pune Gultekdi APMC Loading Yard', lat: 18.4975, lng: 73.8647, targetSpeed: 30, zone: 'Farm Gate' },
+      { name: '🛣️ Pimpri-Chinchwad Expressway Start', lat: 18.6298, lng: 73.7997, targetSpeed: 65, zone: 'Highway' },
+      { name: '⚖️ Talegaon Toll Plaza', lat: 18.7180, lng: 73.6740, targetSpeed: 35, zone: 'Weighbridge' },
+      { name: '⛰️ Khandala-Lonavala Ghat Curves', lat: 18.7557, lng: 73.4091, targetSpeed: 45, zone: 'Ghat Pass' },
+      { name: '🚧 Khalapur Expressway Toll Plaza', lat: 18.9102, lng: 73.2045, targetSpeed: 70, zone: 'Express Stretch' },
+      { name: '🌉 Panvel Expressway Terminal', lat: 19.0125, lng: 73.1042, targetSpeed: 55, zone: 'Urban Approach' },
+      { name: '🏛️ Mumbai Vashi Mega APMC Bay #2', lat: 19.0760, lng: 72.9986, targetSpeed: 20, zone: 'Mandi Yard' }
+    ]
+  },
 
-  // Nashik to Pune (NH-60 Corridor)
-  nashik_pune: [
-    [19.9975, 73.7898], // Nashik APMC
-    [19.7214, 73.8821], // Sinnar Bypass
-    [19.3421, 74.0041], // Sangamner
-    [19.0215, 73.9512], // Alephata
-    [18.8820, 73.9142], // Narayangaon
-    [18.7124, 73.8621], // Chakan MIDC
-    [18.4975, 73.8647]  // Pune Gultekdi APMC
-  ],
+  // Nashik to Pune (NH-60 Corridor) - 212 km
+  nashik_pune: {
+    name: 'Nashik ➔ Pune Gultekdi APMC (NH-60 Corridor)',
+    totalDistanceKm: 212,
+    checkpoints: [
+      { name: '🌾 Nashik Rural Farm Gate', lat: 19.9975, lng: 73.7898, targetSpeed: 30, zone: 'Farm Gate' },
+      { name: '🛣️ Sinnar Bypass (NH-60)', lat: 19.7214, lng: 73.8821, targetSpeed: 64, zone: 'Highway' },
+      { name: '🌾 Sangamner Agri Interchange', lat: 19.3421, lng: 74.0041, targetSpeed: 58, zone: 'Corridor' },
+      { name: '🚧 Alephata Market Crossing', lat: 19.0215, lng: 73.9512, targetSpeed: 45, zone: 'Market Zone' },
+      { name: '🍅 Narayangaon Tomato Hub Checkpoint', lat: 18.8820, lng: 73.9142, targetSpeed: 52, zone: 'Corridor' },
+      { name: '🏙️ Chakan Industrial Corridor', lat: 18.7124, lng: 73.8621, targetSpeed: 50, zone: 'Urban Approach' },
+      { name: '🏛️ Pune Gultekdi APMC Mandi', lat: 18.4975, lng: 73.8647, targetSpeed: 20, zone: 'Mandi Yard' }
+    ]
+  },
 
-  // Ahmednagar to Mumbai (NH-61 / Malshej-Kalyan)
-  ahmednagar_mumbai: [
-    [19.0952, 74.7496], // Ahmednagar APMC
-    [19.1234, 74.3120], // Parner Bypass
-    [19.2410, 73.8741], // Otur
-    [19.3412, 73.5412], // Malshej Ghat
-    [19.2437, 73.1355], // Kalyan Bypass
-    [19.0760, 72.9986]  // Vashi Mega APMC
-  ]
+  // Ahmednagar to Mumbai (NH-61 / Malshej Ghat) - 245 km
+  ahmednagar_mumbai: {
+    name: 'Ahmednagar ➔ Mumbai Vashi APMC (NH-61 & Malshej Ghat)',
+    totalDistanceKm: 245,
+    checkpoints: [
+      { name: '🌾 Ahmednagar APMC Market Yard', lat: 19.0952, lng: 74.7496, targetSpeed: 30, zone: 'Farm Gate' },
+      { name: '🛣️ Parner Bypass Highway (NH-61)', lat: 19.1234, lng: 74.3120, targetSpeed: 62, zone: 'Highway' },
+      { name: '🌾 Otur Agri Market Checkpoint', lat: 19.2410, lng: 73.8741, targetSpeed: 54, zone: 'Corridor' },
+      { name: '⛰️ Malshej Ghat Scenic Pass', lat: 19.3412, lng: 73.5412, targetSpeed: 36, zone: 'Ghat Pass' },
+      { name: '🌉 Kalyan Bypass & Flyover', lat: 19.2437, lng: 73.1355, targetSpeed: 52, zone: 'Urban Approach' },
+      { name: '🏛️ Mumbai Vashi Mega APMC', lat: 19.0760, lng: 72.9986, targetSpeed: 20, zone: 'Mandi Yard' }
+    ]
+  }
 };
 
 /**
@@ -141,60 +136,154 @@ function getDistanceKm(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+/**
+ * Generate Dense Interpolated High-Resolution Highway Coordinates
+ * Converts sparse milestones into 150-250 smooth sub-steps
+ */
+function generateDenseHighwayCoordinates(checkpoints, stepsPerSegment = 22) {
+  const denseCoordinates = [];
+  let cumulativeDistance = 0;
+
+  for (let i = 0; i < checkpoints.length - 1; i++) {
+    const cpStart = checkpoints[i];
+    const cpEnd = checkpoints[i + 1];
+    const segmentDistance = getDistanceKm(cpStart.lat, cpStart.lng, cpEnd.lat, cpEnd.lng);
+
+    for (let step = 0; step < stepsPerSegment; step++) {
+      const t = step / stepsPerSegment;
+      const lat = cpStart.lat + (cpEnd.lat - cpStart.lat) * t;
+      const lng = cpStart.lng + (cpEnd.lng - cpStart.lng) * t;
+
+      // Next point for bearing calculation
+      const nextT = (step + 1) / stepsPerSegment;
+      const nextLat = cpStart.lat + (cpEnd.lat - cpStart.lat) * nextT;
+      const nextLng = cpStart.lng + (cpEnd.lng - cpStart.lng) * nextT;
+      const bearing = calculateBearing(lat, lng, nextLat, nextLng);
+
+      const stepDist = segmentDistance * (1 / stepsPerSegment);
+      cumulativeDistance += stepDist;
+
+      // Target speed with realistic speed transitions
+      const baseSpeed = cpStart.targetSpeed + (cpEnd.targetSpeed - cpStart.targetSpeed) * t;
+
+      denseCoordinates.push({
+        lat,
+        lng,
+        bearing: Math.round(bearing),
+        speed: Math.round(baseSpeed),
+        checkpointName: t < 0.5 ? cpStart.name : cpEnd.name,
+        currentMilestone: cpStart.name,
+        nextMilestone: cpEnd.name,
+        distanceCoveredKm: Number(cumulativeDistance.toFixed(1)),
+        zone: t < 0.5 ? cpStart.zone : cpEnd.zone
+      });
+    }
+  }
+
+  // Final destination point
+  const lastCp = checkpoints[checkpoints.length - 1];
+  denseCoordinates.push({
+    lat: lastCp.lat,
+    lng: lastCp.lng,
+    bearing: denseCoordinates[denseCoordinates.length - 1]?.bearing || 240,
+    speed: 0,
+    checkpointName: lastCp.name,
+    currentMilestone: lastCp.name,
+    nextMilestone: '🏁 Weighbridge Inspection Cleared',
+    distanceCoveredKm: Number(cumulativeDistance.toFixed(1)),
+    zone: 'Destination APMC'
+  });
+
+  return denseCoordinates;
+}
+
 export default function LiveDriverTrackingMap({
   booking = null,
   isExpandedDefault = false,
-  className = ''
+  className = '',
+  onTelemetryUpdate = null
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const truckMarkerRef = useRef(null);
+  const accuracyCircleRef = useRef(null);
   const routePolylineRef = useRef(null);
   const coveredPolylineRef = useRef(null);
   const geoWatchIdRef = useRef(null);
-  const simTimerRef = useRef(null);
+  const animFrameTimerRef = useRef(null);
+  const backendPollingRef = useRef(null);
 
+  // Component States
   const [isExpanded, setIsExpanded] = useState(isExpandedDefault);
-  const [trackingMode, setTrackingMode] = useState('simulated'); // 'simulated' | 'real_gps'
+  const [trackingMode, setTrackingMode] = useState('simulated'); // 'simulated' | 'real_gps' | 'backend_sync'
   const [isPlaying, setIsPlaying] = useState(true);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1); // 1x | 2x | 4x
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [currentProgressPct, setCurrentProgressPct] = useState(38); // default ~38% along route
-  const [currentSpeedKmh, setCurrentSpeedKmh] = useState(58);
-  const [currentBearing, setCurrentBearing] = useState(240);
-  const [distanceRemainingKm, setDistanceRemainingKm] = useState(32);
-  const [etaMinutes, setEtaMinutes] = useState(42);
+  const [playbackSpeed, setPlaybackSpeed] = useState(2); // 1x | 2x | 5x | 10x
+  const [autoFollow, setAutoFollow] = useState(true); // Follow vehicle camera
+  const [isSimulatingRain, setIsSimulatingRain] = useState(false); // Dynamic monsoon weather advisory
+  const [currentIndex, setCurrentIndex] = useState(65); // Initial point along route (~38%)
+  const [liveSpeedKmh, setLiveSpeedKmh] = useState(58);
+  const [liveBearing, setLiveBearing] = useState(236);
+  const [liveOdometerCoveredKm, setLiveOdometerCoveredKm] = useState(54.2);
+  const [liveDistanceRemainingKm, setLiveDistanceRemainingKm] = useState(89.8);
+  const [liveEtaMinutes, setLiveEtaMinutes] = useState(98);
+  const [currentMilestoneText, setCurrentMilestoneText] = useState('⛰️ Kasara Ghat Curves (NH-160)');
+  const [nextMilestoneText, setNextMilestoneText] = useState('🚧 Shahapur Agri Freight Bypass');
   const [hasGpsError, setHasGpsError] = useState(false);
-  const [gpsAccuracyMeters, setGpsAccuracyMeters] = useState(null);
+  const [lastBackendSyncTime, setLastBackendSyncTime] = useState(null);
 
-  // Derive origin & destination names
+  // Booking particulars
   const originName = booking?.pickupLocation || booking?.location || 'Nashik Rural Farm #4';
   const destinationName = booking?.destinationMarket || booking?.destination || 'Mumbai Vashi Mega APMC';
   const driverName = booking?.driverName || 'Dnyaneshwar Shinde';
   const driverPhone = booking?.driverPhone || '9822044120';
   const vehicleNumber = booking?.vehicleNumber || 'MH-12-RN-4120';
   const vehicleType = booking?.vehicleType || 'Tata 407 (Agri Freight)';
-  const cropInfo = `${booking?.weightKg || 1200} kg ${booking?.cropName || 'Produce'}`;
+  const cropInfo = `${booking?.weightKg || 1200} kg ${booking?.cropName || 'Tomato'}`;
+  const passCode = booking?.gatePassCode || 'MH-APMC-9421';
 
-  // Resolve best matching highway waypoints
-  const resolveCorridorWaypoints = useCallback(() => {
+  // Determine appropriate corridor profile
+  const selectedProfile = useMemo(() => {
     const text = `${originName} ${destinationName}`.toLowerCase();
-    if (text.includes('pune') && text.includes('mumbai')) {
-      return HIGHWAY_CORRIDORS.pune_mumbai;
-    }
-    if (text.includes('nashik') && text.includes('pune')) {
-      return HIGHWAY_CORRIDORS.nashik_pune;
-    }
-    if (text.includes('ahmednagar') && text.includes('mumbai')) {
-      return HIGHWAY_CORRIDORS.ahmednagar_mumbai;
-    }
-    // Default to Nashik - Mumbai Highway Corridor
-    return HIGHWAY_CORRIDORS.nashik_mumbai;
+    if (text.includes('pune') && text.includes('mumbai')) return CORRIDOR_PROFILES.pune_mumbai;
+    if (text.includes('nashik') && text.includes('pune')) return CORRIDOR_PROFILES.nashik_pune;
+    if (text.includes('ahmednagar') && text.includes('mumbai')) return CORRIDOR_PROFILES.ahmednagar_mumbai;
+    return CORRIDOR_PROFILES.nashik_mumbai;
   }, [originName, destinationName]);
 
-  const waypoints = resolveCorridorWaypoints();
-  const originCoords = waypoints[0];
-  const destCoords = waypoints[waypoints.length - 1];
+  // Generate 160+ Dense GPS sub-steps
+  const denseRoute = useMemo(() => {
+    return generateDenseHighwayCoordinates(selectedProfile.checkpoints, 24);
+  }, [selectedProfile]);
+
+  const originCoords = useMemo(() => [denseRoute[0].lat, denseRoute[0].lng], [denseRoute]);
+  const destCoords = useMemo(
+    () => [denseRoute[denseRoute.length - 1].lat, denseRoute[denseRoute.length - 1].lng],
+    [denseRoute]
+  );
+  const totalCorridorKm = selectedProfile.totalDistanceKm || 168;
+  const progressPct = Math.round((currentIndex / (denseRoute.length - 1)) * 100);
+
+  const onTelemetryUpdateRef = useRef(onTelemetryUpdate);
+  useEffect(() => {
+    onTelemetryUpdateRef.current = onTelemetryUpdate;
+  }, [onTelemetryUpdate]);
+
+  // React-safe Telemetry Callback to Parent Component (outside render phase)
+  useEffect(() => {
+    if (typeof onTelemetryUpdateRef.current === 'function' && denseRoute[currentIndex]) {
+      onTelemetryUpdateRef.current({
+        speedKmh: liveSpeedKmh,
+        bearing: liveBearing,
+        distanceCoveredKm: liveOdometerCoveredKm,
+        distanceRemainingKm: liveDistanceRemainingKm,
+        etaMinutes: liveEtaMinutes,
+        checkpoint: currentMilestoneText,
+        nextCheckpoint: nextMilestoneText,
+        progressPct,
+        isSimulatingRain
+      });
+    }
+  }, [currentIndex, liveSpeedKmh, liveBearing, liveOdometerCoveredKm, liveDistanceRemainingKm, liveEtaMinutes, currentMilestoneText, nextMilestoneText, progressPct, isSimulatingRain]);
 
   // Initialize Leaflet Map
   useEffect(() => {
@@ -204,22 +293,20 @@ export default function LiveDriverTrackingMap({
       mapInstanceRef.current = null;
     }
 
-    // Create Map
     const map = L.map(mapContainerRef.current, {
       zoomControl: false,
       attributionControl: false
     }).setView(originCoords, 9);
 
-    // OpenStreetMap Clean Carto-Voyager / OSM Tile Layer
+    // OpenStreetMap Clean Tile Layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 18,
       subdomains: ['a', 'b', 'c']
     }).addTo(map);
 
-    // Zoom buttons in top-right
     L.control.zoom({ position: 'topright' }).addTo(map);
 
-    // 1. Origin Farm Gate Marker (Amber glowing icon)
+    // 1. Origin Farm Gate Marker
     const originIcon = L.divIcon({
       className: 'custom-map-icon',
       html: `
@@ -237,14 +324,14 @@ export default function LiveDriverTrackingMap({
     const originMarker = L.marker(originCoords, { icon: originIcon }).addTo(map);
     originMarker.bindPopup(`
       <div style="font-family: system-ui; padding: 4px; font-size: 12px; line-height: 1.4;">
-        <strong style="color: #b45309; font-size: 13px;">🌾 Farm Gate Pickup</strong><br/>
+        <strong style="color: #b45309; font-size: 13px;">🌾 Farm Gate Loading Point</strong><br/>
         <strong>Location:</strong> ${originName}<br/>
         <strong>Produce:</strong> ${cropInfo}<br/>
         <span style="color: #059669; font-weight: bold;">Status: Inspected & Loaded</span>
       </div>
     `);
 
-    // 2. Destination APMC Marker (Emerald glowing icon)
+    // 2. Destination APMC Marker
     const destIcon = L.divIcon({
       className: 'custom-map-icon',
       html: `
@@ -264,26 +351,27 @@ export default function LiveDriverTrackingMap({
       <div style="font-family: system-ui; padding: 4px; font-size: 12px; line-height: 1.4;">
         <strong style="color: #047857; font-size: 13px;">🏛️ Destination Mandi</strong><br/>
         <strong>APMC:</strong> ${destinationName}<br/>
-        <strong>Gate Clearance:</strong> Verified Pass<br/>
+        <strong>Gate Clearance:</strong> Verified Pass (${passCode})<br/>
         <span style="color: #2563eb; font-weight: bold;">Weighbridge Bay: Active</span>
       </div>
     `);
 
-    // 3. Planned Corridor Route Polyline (dashed emerald/slate)
-    const plannedPolyline = L.polyline(waypoints, {
+    // 3. Planned Corridor Polyline (dashed emerald)
+    const polylineCoords = denseRoute.map((p) => [p.lat, p.lng]);
+    const plannedPolyline = L.polyline(polylineCoords, {
       color: '#059669',
       weight: 5,
-      opacity: 0.85,
+      opacity: 0.6,
       dashArray: '8, 8',
       lineCap: 'round',
       lineJoin: 'round'
     }).addTo(map);
     routePolylineRef.current = plannedPolyline;
 
-    // 4. Covered Route Polyline (solid vibrant green)
-    const initialIndex = Math.min(Math.floor((waypoints.length - 1) * 0.38), waypoints.length - 1);
-    const coveredPoints = waypoints.slice(0, initialIndex + 1);
-    const coveredPolyline = L.polyline(coveredPoints, {
+    // 4. Covered Polyline (solid vibrant green)
+    const initialCut = Math.min(currentIndex, denseRoute.length - 1);
+    const coveredCoords = denseRoute.slice(0, initialCut + 1).map((p) => [p.lat, p.lng]);
+    const coveredPolyline = L.polyline(coveredCoords, {
       color: '#10b981',
       weight: 6,
       opacity: 0.95,
@@ -291,46 +379,39 @@ export default function LiveDriverTrackingMap({
     }).addTo(map);
     coveredPolylineRef.current = coveredPolyline;
 
-    // 5. Driver Truck Live Marker with Pulse & Heading Rotation
-    const initialTruckPos = waypoints[initialIndex] || originCoords;
-    const initialHeading = waypoints[initialIndex + 1]
-      ? calculateBearing(
-          initialTruckPos[0],
-          initialTruckPos[1],
-          waypoints[initialIndex + 1][0],
-          waypoints[initialIndex + 1][1]
-        )
-      : 240;
-
-    setCurrentBearing(Math.round(initialHeading));
-
+    // 5. Driver Truck Live Marker with Pulse & Dynamic Rotation
+    const initialPoint = denseRoute[initialCut] || denseRoute[0];
     const truckIcon = L.divIcon({
       className: 'custom-map-icon',
       html: `
-        <div id="truck-marker-container" style="position: relative; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px;">
-          <div style="position: absolute; width: 42px; height: 42px; border-radius: 9999px; background: rgba(16, 185, 129, 0.4); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-          <div style="width: 38px; height: 38px; border-radius: 12px; background: #0f172a; border: 2.5px solid #10b981; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); transform: rotate(${initialHeading}deg); transition: transform 0.4s ease;">
-            <span style="font-size: 18px;">🚚</span>
+        <div id="truck-marker-wrapper" style="position: relative; display: flex; align-items: center; justify-content: center; width: 46px; height: 46px;">
+          <div style="position: absolute; width: 44px; height: 44px; border-radius: 9999px; background: rgba(16, 185, 129, 0.4); animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+          <div id="truck-body-box" style="width: 38px; height: 38px; border-radius: 12px; background: #090d16; border: 2.5px solid #10b981; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.6); transform: rotate(${initialPoint.bearing}deg); transition: transform 0.25s linear;">
+            <span style="font-size: 19px;">🚚</span>
           </div>
-          <div style="position: absolute; bottom: -8px; background: #059669; color: white; font-family: monospace; font-size: 9px; font-weight: bold; padding: 1px 5px; border-radius: 9999px; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
-            58 km/h
+          <div id="truck-speed-pill" style="position: absolute; bottom: -8px; background: #059669; color: white; font-family: monospace; font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 9999px; white-space: nowrap; box-shadow: 0 2px 5px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2);">
+            ${initialPoint.speed} km/h
           </div>
         </div>
       `,
-      iconSize: [44, 44],
-      iconAnchor: [22, 22]
+      iconSize: [46, 46],
+      iconAnchor: [23, 23]
     });
 
-    const truckMarker = L.marker(initialTruckPos, { icon: truckIcon, zIndexOffset: 1000 }).addTo(map);
+    const truckMarker = L.marker([initialPoint.lat, initialPoint.lng], {
+      icon: truckIcon,
+      zIndexOffset: 1000
+    }).addTo(map);
+
     truckMarker.bindPopup(`
-      <div style="font-family: system-ui; padding: 6px; font-size: 12px; line-height: 1.5; min-width: 200px;">
+      <div style="font-family: system-ui; padding: 6px; font-size: 12px; line-height: 1.5; min-width: 210px;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
           <strong style="color: #0f172a; font-size: 13px;">🚚 ${driverName}</strong>
           <span style="background: #dcfce7; color: #166534; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px;">EN ROUTE</span>
         </div>
         <div><strong>Vehicle:</strong> ${vehicleNumber} (${vehicleType})</div>
-        <div><strong>Speed:</strong> <span style="color: #059669; font-weight: bold;">~58 km/h</span></div>
-        <div><strong>Tarp Protection:</strong> <span style="color: #059669; font-weight: bold;">Secured ✓</span></div>
+        <div><strong>Gate Pass:</strong> <span style="font-family: monospace; font-weight: bold; color: #059669;">${passCode}</span></div>
+        <div><strong>Cargo:</strong> ${cropInfo}</div>
         <div style="margin-top: 6px;">
           <a href="tel:${driverPhone}" style="display: inline-block; background: #10b981; color: white; text-decoration: none; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px;">
             📞 Call Driver (+91 ${driverPhone})
@@ -341,9 +422,9 @@ export default function LiveDriverTrackingMap({
 
     truckMarkerRef.current = truckMarker;
 
-    // Fit view to include origin, destination, and truck
-    const bounds = L.latLngBounds([originCoords, destCoords, initialTruckPos]);
-    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
+    // Fit bounds initially
+    const bounds = L.latLngBounds([originCoords, destCoords, [initialPoint.lat, initialPoint.lng]]);
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
 
     mapInstanceRef.current = map;
 
@@ -353,95 +434,96 @@ export default function LiveDriverTrackingMap({
         mapInstanceRef.current = null;
       }
     };
-  }, [waypoints, originCoords, destCoords, driverName, driverPhone, vehicleNumber, vehicleType, originName, destinationName, cropInfo]);
+  }, [denseRoute, originCoords, destCoords, originName, destinationName, driverName, driverPhone, vehicleNumber, vehicleType, cropInfo, passCode]);
 
-  // Handle Simulated Vehicle Movement Along Highway Corridor
+  // Smooth Continuous Simulation Animation Loop (High Frequency 60fps-style sub-stepping)
   useEffect(() => {
     if (trackingMode !== 'simulated' || !isPlaying) {
-      if (simTimerRef.current) clearInterval(simTimerRef.current);
+      if (animFrameTimerRef.current) clearInterval(animFrameTimerRef.current);
       return;
     }
 
-    const intervalMs = Math.max(400, Math.round(1800 / playbackSpeed));
+    const tickIntervalMs = Math.max(22, Math.round(280 / playbackSpeed));
 
-    simTimerRef.current = setInterval(() => {
-      setCurrentStepIndex((prevIndex) => {
-        const nextIndex = (prevIndex + 1) % waypoints.length;
-        const currentCoord = waypoints[nextIndex];
-        const nextCoord = waypoints[(nextIndex + 1) % waypoints.length];
+    animFrameTimerRef.current = setInterval(() => {
+      setCurrentIndex((prevIdx) => {
+        const nextIdx = (prevIdx + 1) % denseRoute.length;
+        const currentPt = denseRoute[nextIdx];
 
-        // Update bearing
-        const newBearing = calculateBearing(
-          currentCoord[0],
-          currentCoord[1],
-          nextCoord[0],
-          nextCoord[1]
-        );
-        setCurrentBearing(Math.round(newBearing));
+        // Apply dynamic rain speed cap if simulated
+        let effectiveSpeed = currentPt.speed;
+        if (isSimulatingRain) {
+          effectiveSpeed = Math.min(38, Math.round(effectiveSpeed * 0.65));
+        }
+        effectiveSpeed = Math.max(15, effectiveSpeed + Math.round((Math.random() - 0.5) * 3));
 
-        // Speed fluctuation (52-64 km/h highway average)
-        const speedJitter = 54 + Math.round(Math.sin(nextIndex) * 8);
-        setCurrentSpeedKmh(speedJitter);
+        const distCovered = currentPt.distanceCoveredKm;
+        const distRemaining = Math.max(0, Number((totalCorridorKm - distCovered).toFixed(1)));
+        const calculatedEta = Math.max(3, Math.round((distRemaining / (effectiveSpeed || 50)) * 60));
 
-        // Calculate remaining distance to APMC
-        const remainingKm = Math.round(
-          getDistanceKm(currentCoord[0], currentCoord[1], destCoords[0], destCoords[1])
-        );
-        setDistanceRemainingKm(remainingKm);
+        // Update local telemetry states
+        setLiveSpeedKmh(effectiveSpeed);
+        setLiveBearing(currentPt.bearing);
+        setLiveOdometerCoveredKm(distCovered);
+        setLiveDistanceRemainingKm(distRemaining);
+        setLiveEtaMinutes(calculatedEta);
+        setCurrentMilestoneText(currentPt.currentMilestone);
+        setNextMilestoneText(currentPt.nextMilestone);
 
-        // ETA calculation: distance / speed * 60
-        const calculatedEta = Math.max(5, Math.round((remainingKm / speedJitter) * 60));
-        setEtaMinutes(calculatedEta);
+        // Move Leaflet Marker & update rotation smoothly
+        if (truckMarkerRef.current) {
+          const latLng = [currentPt.lat, currentPt.lng];
+          truckMarkerRef.current.setLatLng(latLng);
 
-        // Progress percentage
-        const progress = Math.round((nextIndex / (waypoints.length - 1)) * 100);
-        setCurrentProgressPct(progress);
-
-        // Move Leaflet Truck Marker
-        if (truckMarkerRef.current && mapInstanceRef.current) {
-          truckMarkerRef.current.setLatLng(currentCoord);
-
-          // Update rotation & speed badge on HTML
           const truckIcon = L.divIcon({
             className: 'custom-map-icon',
             html: `
-              <div id="truck-marker-container" style="position: relative; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px;">
-                <div style="position: absolute; width: 42px; height: 42px; border-radius: 9999px; background: rgba(16, 185, 129, 0.4); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-                <div style="width: 38px; height: 38px; border-radius: 12px; background: #0f172a; border: 2.5px solid #10b981; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); transform: rotate(${Math.round(newBearing)}deg); transition: transform 0.4s ease;">
-                  <span style="font-size: 18px;">🚚</span>
+              <div id="truck-marker-wrapper" style="position: relative; display: flex; align-items: center; justify-content: center; width: 46px; height: 46px;">
+                <div style="position: absolute; width: 44px; height: 44px; border-radius: 9999px; background: rgba(16, 185, 129, 0.4); animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+                <div id="truck-body-box" style="width: 38px; height: 38px; border-radius: 12px; background: #090d16; border: 2.5px solid #10b981; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.6); transform: rotate(${currentPt.bearing}deg); transition: transform 0.25s linear;">
+                  <span style="font-size: 19px;">🚚</span>
                 </div>
-                <div style="position: absolute; bottom: -8px; background: #059669; color: white; font-family: monospace; font-size: 9px; font-weight: bold; padding: 1px 5px; border-radius: 9999px; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
-                  ${speedJitter} km/h
+                <div id="truck-speed-pill" style="position: absolute; bottom: -8px; background: ${isSimulatingRain ? '#0284c7' : '#059669'}; color: white; font-family: monospace; font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 9999px; white-space: nowrap; box-shadow: 0 2px 5px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2);">
+                  ${effectiveSpeed} km/h
                 </div>
               </div>
             `,
-            iconSize: [44, 44],
-            iconAnchor: [22, 22]
+            iconSize: [46, 46],
+            iconAnchor: [23, 23]
           });
           truckMarkerRef.current.setIcon(truckIcon);
+
+          // Smooth Camera Auto-Follow
+          if (autoFollow && mapInstanceRef.current && nextIdx % 4 === 0) {
+            mapInstanceRef.current.panTo(latLng, { animate: true, duration: 0.5 });
+          }
         }
 
-        // Update covered polyline
+        // Update glowing covered polyline
         if (coveredPolylineRef.current) {
-          const covered = waypoints.slice(0, nextIndex + 1);
-          coveredPolylineRef.current.setLatLngs(covered);
+          const coveredPts = denseRoute.slice(0, nextIdx + 1).map((p) => [p.lat, p.lng]);
+          coveredPolylineRef.current.setLatLngs(coveredPts);
         }
 
-        return nextIndex;
+        return nextIdx;
       });
-    }, intervalMs);
+    }, tickIntervalMs);
 
     return () => {
-      if (simTimerRef.current) clearInterval(simTimerRef.current);
+      if (animFrameTimerRef.current) clearInterval(animFrameTimerRef.current);
     };
-  }, [trackingMode, isPlaying, playbackSpeed, waypoints, destCoords]);
+  }, [trackingMode, isPlaying, playbackSpeed, denseRoute, totalCorridorKm, autoFollow, isSimulatingRain]);
 
-  // Handle Real Device Geolocation Streaming (Driver Mode)
+  // Live Real-World Phone Geolocation Streaming Mode
   useEffect(() => {
     if (trackingMode !== 'real_gps') {
       if (geoWatchIdRef.current && navigator.geolocation) {
         navigator.geolocation.clearWatch(geoWatchIdRef.current);
         geoWatchIdRef.current = null;
+      }
+      if (accuracyCircleRef.current && mapInstanceRef.current) {
+        mapInstanceRef.current.removeLayer(accuracyCircleRef.current);
+        accuracyCircleRef.current = null;
       }
       return;
     }
@@ -456,35 +538,48 @@ export default function LiveDriverTrackingMap({
     geoWatchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude, speed, heading, accuracy } = pos.coords;
-        setGpsAccuracyMeters(Math.round(accuracy));
 
         const latLng = [latitude, longitude];
         const kmh = speed ? Math.round(speed * 3.6) : 56;
-        setCurrentSpeedKmh(kmh);
+        setLiveSpeedKmh(kmh);
 
         if (heading !== null && !isNaN(heading)) {
-          setCurrentBearing(Math.round(heading));
+          setLiveBearing(Math.round(heading));
         }
 
-        // Distance to APMC
-        const remaining = Math.round(
-          getDistanceKm(latitude, longitude, destCoords[0], destCoords[1])
-        );
-        setDistanceRemainingKm(remaining);
-        setEtaMinutes(Math.max(5, Math.round((remaining / (kmh || 50)) * 60)));
+        const remaining = Math.round(getDistanceKm(latitude, longitude, destCoords[0], destCoords[1]));
+        const covered = Math.max(0, Math.round(getDistanceKm(originCoords[0], originCoords[1], latitude, longitude)));
+        setLiveDistanceRemainingKm(remaining);
+        setLiveOdometerCoveredKm(covered);
+        setLiveEtaMinutes(Math.max(5, Math.round((remaining / (kmh || 50)) * 60)));
 
         if (truckMarkerRef.current && mapInstanceRef.current) {
           truckMarkerRef.current.setLatLng(latLng);
-          mapInstanceRef.current.panTo(latLng);
+          if (autoFollow) {
+            mapInstanceRef.current.panTo(latLng);
+          }
+
+          if (!accuracyCircleRef.current) {
+            accuracyCircleRef.current = L.circle(latLng, {
+              radius: accuracy || 50,
+              color: '#3b82f6',
+              fillColor: '#60a5fa',
+              fillOpacity: 0.15,
+              weight: 1.5
+            }).addTo(mapInstanceRef.current);
+          } else {
+            accuracyCircleRef.current.setLatLng(latLng);
+            accuracyCircleRef.current.setRadius(accuracy || 50);
+          }
         }
       },
       (err) => {
-        console.warn('[LiveDriverTrackingMap] Geolocation stream error:', err.message);
+        console.warn('[LiveDriverTrackingMap] GPS error:', err.message);
         setHasGpsError(true);
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 3000,
+        maximumAge: 2000,
         timeout: 10000
       }
     );
@@ -494,33 +589,105 @@ export default function LiveDriverTrackingMap({
         navigator.geolocation.clearWatch(geoWatchIdRef.current);
         geoWatchIdRef.current = null;
       }
+      if (accuracyCircleRef.current && mapInstanceRef.current) {
+        mapInstanceRef.current.removeLayer(accuracyCircleRef.current);
+        accuracyCircleRef.current = null;
+      }
     };
-  }, [trackingMode, destCoords]);
+  }, [trackingMode, destCoords, originCoords, autoFollow]);
 
-  // Center on Vehicle Button Action
+  // Synchronize with Backend Telemetry Hub (/api/transport/telemetry/:passCode)
+  useEffect(() => {
+    if (trackingMode !== 'backend_sync') {
+      if (backendPollingRef.current) clearInterval(backendPollingRef.current);
+      return;
+    }
+
+    const pollBackendTelemetry = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/transport/telemetry/${passCode}`);
+        const data = await res.json();
+        if (data.success && data.telemetry) {
+          const t = data.telemetry;
+          if (t.latitude && t.longitude && truckMarkerRef.current) {
+            const latLng = [t.latitude, t.longitude];
+            truckMarkerRef.current.setLatLng(latLng);
+            if (autoFollow && mapInstanceRef.current) {
+              mapInstanceRef.current.panTo(latLng);
+            }
+          }
+          if (t.speedKmh) setLiveSpeedKmh(t.speedKmh);
+          if (t.heading) setLiveBearing(t.heading);
+          if (t.distanceRemainingKm) setLiveDistanceRemainingKm(t.distanceRemainingKm);
+          if (t.distanceCoveredKm) setLiveOdometerCoveredKm(t.distanceCoveredKm);
+          if (t.etaMinutes) setLiveEtaMinutes(t.etaMinutes);
+          if (t.checkpoint) setCurrentMilestoneText(t.checkpoint);
+          setLastBackendSyncTime(new Date().toLocaleTimeString());
+        }
+      } catch (err) {
+        console.warn('[LiveDriverTrackingMap] Backend sync poll warning:', err.message);
+      }
+    };
+
+    pollBackendTelemetry();
+    backendPollingRef.current = setInterval(pollBackendTelemetry, 3000);
+
+    return () => {
+      if (backendPollingRef.current) clearInterval(backendPollingRef.current);
+    };
+  }, [trackingMode, passCode, autoFollow]);
+
+  // Center Camera on Vehicle
   const handleCenterOnVehicle = () => {
     if (!mapInstanceRef.current || !truckMarkerRef.current) return;
     const pos = truckMarkerRef.current.getLatLng();
     mapInstanceRef.current.flyTo(pos, 13, { duration: 1.2 });
   };
 
-  // Reset Simulation to Start
+  // Full Route Reset to Origin Farm Gate
   const handleResetSimulation = () => {
-    setCurrentStepIndex(0);
-    setCurrentProgressPct(0);
+    setCurrentIndex(0);
+    const startPt = denseRoute[0];
     if (truckMarkerRef.current && mapInstanceRef.current) {
-      truckMarkerRef.current.setLatLng(originCoords);
-      mapInstanceRef.current.flyTo(originCoords, 11, { duration: 1.0 });
+      truckMarkerRef.current.setLatLng([startPt.lat, startPt.lng]);
+      mapInstanceRef.current.flyTo([startPt.lat, startPt.lng], 11, { duration: 1.0 });
     }
     if (coveredPolylineRef.current) {
-      coveredPolylineRef.current.setLatLngs([originCoords]);
+      coveredPolylineRef.current.setLatLngs([[startPt.lat, startPt.lng]]);
     }
+  };
+
+  // Interactive Route Scrubber Handler
+  const handleScrubberChange = (e) => {
+    const pct = Number(e.target.value);
+    const targetIdx = Math.min(
+      Math.floor((pct / 100) * (denseRoute.length - 1)),
+      denseRoute.length - 1
+    );
+    setCurrentIndex(targetIdx);
+    const targetPt = denseRoute[targetIdx];
+
+    if (truckMarkerRef.current) {
+      truckMarkerRef.current.setLatLng([targetPt.lat, targetPt.lng]);
+      if (autoFollow && mapInstanceRef.current) {
+        mapInstanceRef.current.panTo([targetPt.lat, targetPt.lng]);
+      }
+    }
+    if (coveredPolylineRef.current) {
+      const coveredPts = denseRoute.slice(0, targetIdx + 1).map((p) => [p.lat, p.lng]);
+      coveredPolylineRef.current.setLatLngs(coveredPts);
+    }
+    setLiveOdometerCoveredKm(targetPt.distanceCoveredKm);
+    setLiveDistanceRemainingKm(Math.max(0, Number((totalCorridorKm - targetPt.distanceCoveredKm).toFixed(1))));
+    setLiveSpeedKmh(targetPt.speed);
+    setCurrentMilestoneText(targetPt.currentMilestone);
+    setNextMilestoneText(targetPt.nextMilestone);
   };
 
   return (
     <div
       className={`relative rounded-3xl overflow-hidden border-2 border-emerald-500/30 bg-slate-950 text-white shadow-2xl transition-all duration-300 ${
-        isExpanded ? 'h-[580px] sm:h-[640px]' : 'h-[400px] sm:h-[460px]'
+        isExpanded ? 'h-[590px] sm:h-[650px]' : 'h-[420px] sm:h-[480px]'
       } ${className}`}
     >
       {/* Interactive Leaflet Map Surface */}
@@ -528,7 +695,7 @@ export default function LiveDriverTrackingMap({
 
       {/* Top Glassmorphism Status Bar */}
       <div className="absolute top-3 left-3 right-3 sm:right-auto z-10 flex flex-wrap items-center gap-2">
-        <div className="px-3.5 py-1.5 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-white/15 text-xs flex items-center gap-2.5 shadow-lg">
+        <div className="px-3 py-1.5 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-white/15 text-xs flex items-center gap-2.5 shadow-lg">
           <span className="relative flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
@@ -537,58 +704,78 @@ export default function LiveDriverTrackingMap({
             🛰️ Live Highway Radar
           </span>
           <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30">
-            {trackingMode === 'real_gps' ? 'DEVICE GPS ACTIVE' : 'CORRIDOR TELEMETRY'}
+            {trackingMode === 'real_gps'
+              ? 'PHONE GPS ACTIVE'
+              : trackingMode === 'backend_sync'
+              ? 'BACKEND SYNC'
+              : 'LIVE CORRIDOR STREAM'}
           </span>
         </div>
 
-        {/* Tracking Mode Switcher */}
+        {/* Tracking Mode Switcher (Simulated vs Real Phone GPS vs Cloud Sync) */}
         <div className="p-1 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-white/15 text-xs flex items-center gap-1 shadow-lg">
           <button
             type="button"
             onClick={() => setTrackingMode('simulated')}
-            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-colors ${
+            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all ${
               trackingMode === 'simulated'
                 ? 'bg-emerald-500 text-white shadow'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            Corridor Stream
+            Dynamic Stream
+          </button>
+          <button
+            type="button"
+            onClick={() => setTrackingMode('backend_sync')}
+            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition-all ${
+              trackingMode === 'backend_sync'
+                ? 'bg-purple-600 text-white shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Activity className="w-3 h-3" />
+            <span>Driver Cloud</span>
           </button>
           <button
             type="button"
             onClick={() => setTrackingMode('real_gps')}
-            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition-colors ${
+            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition-all ${
               trackingMode === 'real_gps'
                 ? 'bg-blue-600 text-white shadow'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <LocateFixed className="w-3 h-3" />
-            <span>Driver Phone GPS</span>
+            <span>Phone GPS</span>
           </button>
         </div>
       </div>
 
       {/* Floating HUD Telemetry Card (Bottom Left) */}
-      <div className="absolute bottom-3 left-3 right-3 sm:right-auto z-10 sm:max-w-sm rounded-2xl bg-slate-950/92 backdrop-blur-md border border-emerald-500/30 p-3.5 text-xs shadow-2xl space-y-2.5">
+      <div className="absolute bottom-3 left-3 right-3 sm:right-auto z-10 sm:max-w-md rounded-2xl bg-slate-950/94 backdrop-blur-md border border-emerald-500/30 p-3.5 text-xs shadow-2xl space-y-2.5">
         <div className="flex items-center justify-between border-b border-white/10 pb-2">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 font-bold">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 font-bold shrink-0">
               <Truck className="w-4 h-4" />
             </div>
             <div>
               <p className="font-extrabold text-white text-xs leading-none">{driverName}</p>
-              <p className="text-[10px] text-slate-400 font-mono mt-0.5">{vehicleNumber} • {vehicleType}</p>
+              <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                {vehicleNumber} • {vehicleType}
+              </p>
             </div>
           </div>
 
-          <a
-            href={`tel:${driverPhone}`}
-            className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[11px] flex items-center gap-1 shadow transition-colors"
-          >
-            <Phone className="w-3 h-3" />
-            <span>Call Driver</span>
-          </a>
+          <div className="flex items-center gap-2">
+            <a
+              href={`tel:${driverPhone}`}
+              className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[11px] flex items-center gap-1 shadow transition-colors"
+            >
+              <Phone className="w-3 h-3" />
+              <span>Call</span>
+            </a>
+          </div>
         </div>
 
         {/* 4-Item Telemetry Matrix */}
@@ -596,21 +783,21 @@ export default function LiveDriverTrackingMap({
           <div className="p-1.5 rounded-lg bg-white/5 border border-white/10">
             <span className="text-[9px] text-slate-400 block font-bold uppercase">Speed</span>
             <span className="font-mono font-black text-emerald-400 text-xs">
-              {currentSpeedKmh} <span className="text-[9px]">km/h</span>
+              {liveSpeedKmh} <span className="text-[9px]">km/h</span>
             </span>
           </div>
 
           <div className="p-1.5 rounded-lg bg-white/5 border border-white/10">
             <span className="text-[9px] text-slate-400 block font-bold uppercase">ETA</span>
             <span className="font-mono font-black text-amber-300 text-xs">
-              ~{etaMinutes} <span className="text-[9px]">min</span>
+              ~{liveEtaMinutes} <span className="text-[9px]">min</span>
             </span>
           </div>
 
           <div className="p-1.5 rounded-lg bg-white/5 border border-white/10">
-            <span className="text-[9px] text-slate-400 block font-bold uppercase">Distance</span>
+            <span className="text-[9px] text-slate-400 block font-bold uppercase">Covered</span>
             <span className="font-mono font-black text-white text-xs">
-              {distanceRemainingKm} <span className="text-[9px]">km</span>
+              {liveOdometerCoveredKm} <span className="text-[9px]">km</span>
             </span>
           </div>
 
@@ -618,32 +805,57 @@ export default function LiveDriverTrackingMap({
             <span className="text-[9px] text-slate-400 block font-bold uppercase">Bearing</span>
             <span className="font-mono font-black text-cyan-400 text-xs flex items-center justify-center gap-0.5">
               <Compass className="w-2.5 h-2.5" />
-              <span>{currentBearing}°</span>
+              <span>{liveBearing}°</span>
             </span>
           </div>
         </div>
 
-        {/* Highway Corridor & Cargo Weather Protection Notice */}
-        <div className="flex items-center justify-between text-[10px] text-slate-300 pt-1">
-          <span className="truncate max-w-[200px] text-slate-400">
-            🛣️ Route: {originName.split(' ')[0]} → {destinationName.split(' ')[0]} APMC
-          </span>
-          <span className="text-emerald-400 font-bold flex items-center gap-1">
-            <ShieldCheck className="w-3 h-3" />
-            <span>Tarp Secured</span>
-          </span>
+        {/* Current Checkpoint Banner */}
+        <div className="p-2 rounded-xl bg-slate-900/90 border border-white/10 space-y-1">
+          <div className="flex items-center justify-between text-[10px]">
+            <span className="text-slate-400 font-bold uppercase">Current Checkpoint</span>
+            <span className="font-mono text-emerald-300 font-bold">{progressPct}% Complete</span>
+          </div>
+          <p className="text-[11px] font-extrabold text-white truncate">{currentMilestoneText}</p>
         </div>
 
-        {/* Geolocation Notice / Error banner if GPS permission denied */}
+        {/* Interactive Timeline Scrubber Slider */}
+        <div className="space-y-1 pt-0.5">
+          <div className="flex items-center justify-between text-[10px] text-slate-400">
+            <span className="flex items-center gap-1">
+              <Sliders className="w-2.5 h-2.5 text-emerald-400" />
+              <span>Interactive Scrubber</span>
+            </span>
+            <span>{liveDistanceRemainingKm} km remaining</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={progressPct}
+            onChange={handleScrubberChange}
+            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+          />
+        </div>
+
+        {/* Weather / Rain Simulation Banner if active */}
+        {isSimulatingRain && (
+          <div className="p-1.5 rounded-lg bg-blue-500/20 border border-blue-400/40 text-blue-300 text-[10px] flex items-center gap-1.5 animate-in fade-in">
+            <CloudRain className="w-3.5 h-3.5 shrink-0 animate-bounce" />
+            <span>🌧️ Monsoon Advisory Active: Heavy Rain on Kasara Ghat. Speed Capped at 38 km/h. Tarp Double-Sealed.</span>
+          </div>
+        )}
+
+        {/* Geolocation Notice / Error banner */}
         {hasGpsError && (
           <div className="p-1.5 rounded bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[10px] flex items-center gap-1.5">
             <AlertTriangle className="w-3 h-3 shrink-0" />
-            <span>GPS access restricted on device. Reverted to Highway Corridor Stream.</span>
+            <span>Device GPS permission required. Switched to dynamic Highway Corridor Stream.</span>
           </div>
         )}
       </div>
 
-      {/* Top-Right Floating Controls (Center, Speed, Fullscreen) */}
+      {/* Top-Right Floating Controls (Center, Camera Follow, Rain Simulator, Speed, Fullscreen) */}
       <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
         <button
           type="button"
@@ -656,6 +868,28 @@ export default function LiveDriverTrackingMap({
 
         <button
           type="button"
+          onClick={() => setAutoFollow((f) => !f)}
+          title={autoFollow ? 'Disable Auto-Follow Camera' : 'Enable Auto-Follow Camera'}
+          className={`w-9 h-9 rounded-xl border border-white/15 backdrop-blur-md flex items-center justify-center shadow-lg transition-colors ${
+            autoFollow ? 'bg-emerald-500 text-slate-950 font-bold' : 'bg-slate-900/90 text-slate-400'
+          }`}
+        >
+          <Eye className="w-4 h-4" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsSimulatingRain((r) => !r)}
+          title={isSimulatingRain ? 'Clear Weather' : 'Simulate Monsoon Rain Advisory'}
+          className={`w-9 h-9 rounded-xl border border-white/15 backdrop-blur-md flex items-center justify-center shadow-lg transition-colors ${
+            isSimulatingRain ? 'bg-blue-600 text-white' : 'bg-slate-900/90 text-slate-400 hover:text-blue-400'
+          }`}
+        >
+          <CloudRain className="w-4 h-4" />
+        </button>
+
+        <button
+          type="button"
           onClick={() => setIsExpanded((prev) => !prev)}
           title={isExpanded ? 'Collapse Map' : 'Expand Fullscreen Radar'}
           className="w-9 h-9 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-white/15 backdrop-blur-md flex items-center justify-center shadow-lg transition-colors"
@@ -663,22 +897,22 @@ export default function LiveDriverTrackingMap({
           {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
         </button>
 
-        {/* Simulation Play/Pause & Speed Multiplier Controls */}
+        {/* Dynamic Simulation Cockpit Controls */}
         {trackingMode === 'simulated' && (
           <div className="rounded-xl bg-slate-900/90 border border-white/15 backdrop-blur-md p-1 flex flex-col items-center gap-1 shadow-lg">
             <button
               type="button"
               onClick={() => setIsPlaying((p) => !p)}
-              title={isPlaying ? 'Pause Simulation' : 'Resume Simulation'}
+              title={isPlaying ? 'Pause Dynamic Movement' : 'Resume Dynamic Movement'}
               className="w-7 h-7 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 flex items-center justify-center transition-colors"
             >
-              {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+              {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
             </button>
 
             <button
               type="button"
               onClick={handleResetSimulation}
-              title="Rewind to Farm Gate"
+              title="Rewind to Farm Gate (0%)"
               className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 flex items-center justify-center transition-colors"
             >
               <RotateCcw className="w-3 h-3" />
@@ -686,9 +920,9 @@ export default function LiveDriverTrackingMap({
 
             <button
               type="button"
-              onClick={() => setPlaybackSpeed((s) => (s === 1 ? 2 : s === 2 ? 4 : 1))}
-              title="Simulation Speed Multiplier"
-              className="text-[10px] font-mono font-bold text-amber-300 py-0.5 px-1 rounded hover:bg-white/10 transition-colors"
+              onClick={() => setPlaybackSpeed((s) => (s === 1 ? 2 : s === 2 ? 5 : s === 5 ? 10 : 1))}
+              title="Simulation Speed Multiplier (1x, 2x, 5x, 10x)"
+              className="text-[10px] font-mono font-black text-amber-300 py-0.5 px-1 rounded hover:bg-white/10 transition-colors"
             >
               {playbackSpeed}x
             </button>

@@ -88,6 +88,24 @@ export default function TransportPage() {
   // Modal for Digital Mandi Gate Pass
   const [selectedGatePass, setSelectedGatePass] = useState(null);
   const [showGpsMap, setShowGpsMap] = useState(true);
+  const [showTransporterGpsMap, setShowTransporterGpsMap] = useState(true);
+
+  // Live dynamic telemetry state synced from the interactive radar map
+  const [liveTelemetry, setLiveTelemetry] = useState({
+    speedKmh: 58,
+    bearing: 236,
+    distanceCoveredKm: 54.2,
+    distanceRemainingKm: 89.8,
+    etaMinutes: 98,
+    checkpoint: '⛰️ Kasara Ghat Curves (NH-160)',
+    nextCheckpoint: '🚧 Shahapur Agri Freight Bypass',
+    progressPct: 38,
+    isSimulatingRain: false
+  });
+
+  const handleTelemetryUpdate = useCallback((telemetry) => {
+    setLiveTelemetry(telemetry);
+  }, []);
 
   // Active or latest farmer booking for live tracking card
   const activeFarmerBooking = useMemo(() => {
@@ -830,7 +848,7 @@ export default function TransportPage() {
                   <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Estimated Arrival Time (ETA)</span>
                   <p className="font-mono font-extrabold text-sm text-amber-300 flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5" />
-                    <span>~{activeFarmerBooking.estimatedDurationMinutes || 120} Minutes</span>
+                    <span>~{liveTelemetry?.etaMinutes || activeFarmerBooking.estimatedDurationMinutes || 120} Minutes</span>
                   </p>
                   <span className="text-[11px] text-slate-400">Scheduled: {activeFarmerBooking.pickupDate}</span>
                 </div>
@@ -856,7 +874,7 @@ export default function TransportPage() {
                         activeFarmerBooking.status === 'delivered'
                           ? '100%'
                           : activeFarmerBooking.status === 'in_transit'
-                          ? '66%'
+                          ? `${Math.max(35, Math.min(96, liveTelemetry?.progressPct || 66))}%`
                           : activeFarmerBooking.status === 'accepted'
                           ? '33%'
                           : '0%',
@@ -951,6 +969,7 @@ export default function TransportPage() {
                   <LiveDriverTrackingMap
                     booking={activeFarmerBooking}
                     isExpandedDefault={false}
+                    onTelemetryUpdate={handleTelemetryUpdate}
                   />
                 </div>
               )}
@@ -969,7 +988,7 @@ export default function TransportPage() {
                   </div>
                   <span className="text-[10px] font-mono text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-400/30 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>Dynamic 4s Driver Sync Active</span>
+                    <span>Dynamic Radar Stream Sync Active</span>
                   </span>
                 </div>
 
@@ -980,16 +999,12 @@ export default function TransportPage() {
                     <p className="text-xs font-extrabold text-white flex items-center gap-1.5">
                       {activeFarmerBooking.status === 'delivered'
                         ? '🏁 Mandi Auction Bay'
-                        : activeFarmerBooking.status === 'in_transit'
-                        ? '🛣️ En Route on State Highway'
-                        : '🚜 Farm Gate Loading Yard'}
+                        : liveTelemetry?.checkpoint || '🛣️ En Route on State Highway'}
                     </p>
                     <p className="text-[11px] text-slate-300">
                       {activeFarmerBooking.status === 'delivered'
                         ? 'Produce unloaded at destination APMC'
-                        : activeFarmerBooking.status === 'in_transit'
-                        ? 'Truck moving at ~58 km/h • Tarp secured'
-                        : 'Produce inspected & loaded into commercial vehicle'}
+                        : `Truck moving at ~${liveTelemetry?.speedKmh || 58} km/h • ${liveTelemetry?.isSimulatingRain ? '🌧️ Rain Alert Active' : 'Tarp secured & verified'}`}
                     </p>
                   </div>
 
@@ -998,9 +1013,7 @@ export default function TransportPage() {
                     <p className="text-xs font-mono font-extrabold text-emerald-400">
                       {activeFarmerBooking.status === 'delivered'
                         ? '100% Completed (Reached APMC)'
-                        : activeFarmerBooking.status === 'in_transit'
-                        ? '38 km covered • ~18 km remaining'
-                        : '0 km covered • Vehicle at Pickup Point'}
+                        : `${liveTelemetry?.distanceCoveredKm || 54.2} km covered • ~${liveTelemetry?.distanceRemainingKm || 89.8} km remaining (${liveTelemetry?.progressPct || 38}%)`}
                     </p>
                     <p className="text-[11px] text-slate-300 truncate">
                       Pickup: {activeFarmerBooking.pickupLocation}
@@ -1012,9 +1025,7 @@ export default function TransportPage() {
                     <p className="text-xs font-extrabold text-amber-300">
                       {activeFarmerBooking.status === 'delivered'
                         ? '✅ Weight Slip Verified & Auction Ready'
-                        : activeFarmerBooking.status === 'in_transit'
-                        ? '⚖️ APMC Gate & Weighbridge'
-                        : '🛣️ State Highway Dispatch'}
+                        : liveTelemetry?.nextCheckpoint || '⚖️ APMC Gate & Weighbridge'}
                     </p>
                     <p className="text-[11px] text-slate-300 truncate">
                       Target Mandi: {activeFarmerBooking.destinationMarket}
@@ -1629,6 +1640,29 @@ export default function TransportPage() {
                   )}
                 </div>
               </div>
+              {/* Transporter Live Driver Cockpit & Highway Radar Toggle */}
+              <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+                <span className="text-xs text-slate-300 flex items-center gap-1.5 font-bold">
+                  <Navigation className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Driver Real-Time GPS & Highway Radar Cockpit</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowTransporterGpsMap((prev) => !prev)}
+                  className="px-3 py-1 rounded-xl border border-emerald-400/30 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold transition-colors"
+                >
+                  {showTransporterGpsMap ? 'Hide Radar' : '🛰️ Open Driver Radar'}
+                </button>
+              </div>
+
+              {showTransporterGpsMap && (
+                <div className="pt-2 animate-in fade-in duration-300">
+                  <LiveDriverTrackingMap
+                    booking={activeTrip}
+                    isExpandedDefault={false}
+                  />
+                </div>
+              )}
             </section>
           )}
 

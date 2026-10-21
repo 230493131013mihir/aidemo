@@ -66,6 +66,14 @@ function normalizeTransportInput(body, reqUser = {}) {
     };
 }
 
+// Import public telemetry handlers for Live Driver GPS & Highway Telemetry Radar
+const { handleGetTelemetry, handleUpdateTelemetry } = require("../controllers/transportController");
+
+// Public live telemetry endpoints (accessible for real-time radar polling without auth block)
+router.get("/telemetry", handleGetTelemetry);
+router.get("/telemetry/:passCode", handleGetTelemetry);
+router.post("/telemetry/update", handleUpdateTelemetry);
+
 router.use(authMiddleware);
 
 // Ensure transport columns introduced after the original table exists on older databases too.
