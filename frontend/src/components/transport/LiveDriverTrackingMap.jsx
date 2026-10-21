@@ -217,7 +217,7 @@ export default function LiveDriverTrackingMap({
   const [isExpanded, setIsExpanded] = useState(isExpandedDefault);
   const [trackingMode, setTrackingMode] = useState('simulated'); // 'simulated' | 'real_gps' | 'backend_sync'
   const [isPlaying, setIsPlaying] = useState(true);
-  const [playbackSpeed, setPlaybackSpeed] = useState(2); // 1x | 2x | 5x | 10x
+  const [playbackSpeed, setPlaybackSpeed] = useState(1); // 1x Natural | 2x Brisk | 4x Fast-Forward
   const [autoFollow, setAutoFollow] = useState(true); // Follow vehicle camera
   const [isSimulatingRain, setIsSimulatingRain] = useState(false); // Dynamic monsoon weather advisory
   const [currentIndex, setCurrentIndex] = useState(65); // Initial point along route (~38%)
@@ -386,7 +386,7 @@ export default function LiveDriverTrackingMap({
       html: `
         <div id="truck-marker-wrapper" style="position: relative; display: flex; align-items: center; justify-content: center; width: 46px; height: 46px;">
           <div style="position: absolute; width: 44px; height: 44px; border-radius: 9999px; background: rgba(16, 185, 129, 0.4); animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-          <div id="truck-body-box" style="width: 38px; height: 38px; border-radius: 12px; background: #090d16; border: 2.5px solid #10b981; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.6); transform: rotate(${initialPoint.bearing}deg); transition: transform 0.25s linear;">
+          <div id="truck-body-box" style="width: 38px; height: 38px; border-radius: 12px; background: #090d16; border: 2.5px solid #10b981; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.6); transform: rotate(${initialPoint.bearing}deg); transition: transform 0.6s ease-in-out;">
             <span style="font-size: 19px;">🚚</span>
           </div>
           <div id="truck-speed-pill" style="position: absolute; bottom: -8px; background: #059669; color: white; font-family: monospace; font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 9999px; white-space: nowrap; box-shadow: 0 2px 5px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2);">
@@ -443,7 +443,11 @@ export default function LiveDriverTrackingMap({
       return;
     }
 
-    const tickIntervalMs = Math.max(22, Math.round(280 / playbackSpeed));
+    // Calibrated natural cruising pace (readable, smooth, realistic highway radar):
+    // 1x = 1800ms per step (calm, clear checkpoint reading)
+    // 2x = 900ms per step (brisk)
+    // 4x = 450ms per step (fast demo)
+    const tickIntervalMs = Math.max(300, Math.round(1800 / playbackSpeed));
 
     animFrameTimerRef.current = setInterval(() => {
       setCurrentIndex((prevIdx) => {
@@ -480,7 +484,7 @@ export default function LiveDriverTrackingMap({
             html: `
               <div id="truck-marker-wrapper" style="position: relative; display: flex; align-items: center; justify-content: center; width: 46px; height: 46px;">
                 <div style="position: absolute; width: 44px; height: 44px; border-radius: 9999px; background: rgba(16, 185, 129, 0.4); animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-                <div id="truck-body-box" style="width: 38px; height: 38px; border-radius: 12px; background: #090d16; border: 2.5px solid #10b981; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.6); transform: rotate(${currentPt.bearing}deg); transition: transform 0.25s linear;">
+                <div id="truck-body-box" style="width: 38px; height: 38px; border-radius: 12px; background: #090d16; border: 2.5px solid #10b981; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.6); transform: rotate(${currentPt.bearing}deg); transition: transform 0.6s ease-in-out;">
                   <span style="font-size: 19px;">🚚</span>
                 </div>
                 <div id="truck-speed-pill" style="position: absolute; bottom: -8px; background: ${isSimulatingRain ? '#0284c7' : '#059669'}; color: white; font-family: monospace; font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 9999px; white-space: nowrap; box-shadow: 0 2px 5px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2);">
@@ -493,9 +497,9 @@ export default function LiveDriverTrackingMap({
           });
           truckMarkerRef.current.setIcon(truckIcon);
 
-          // Smooth Camera Auto-Follow
-          if (autoFollow && mapInstanceRef.current && nextIdx % 4 === 0) {
-            mapInstanceRef.current.panTo(latLng, { animate: true, duration: 0.5 });
+          // Smooth Camera Auto-Follow (gently pans every few steps)
+          if (autoFollow && mapInstanceRef.current && nextIdx % 2 === 0) {
+            mapInstanceRef.current.panTo(latLng, { animate: true, duration: 1.0 });
           }
         }
 
@@ -920,8 +924,8 @@ export default function LiveDriverTrackingMap({
 
             <button
               type="button"
-              onClick={() => setPlaybackSpeed((s) => (s === 1 ? 2 : s === 2 ? 5 : s === 5 ? 10 : 1))}
-              title="Simulation Speed Multiplier (1x, 2x, 5x, 10x)"
+              onClick={() => setPlaybackSpeed((s) => (s === 1 ? 2 : s === 2 ? 4 : 1))}
+              title="Simulation Speed Multiplier (1x Natural Cruising, 2x Brisk, 4x Fast-Forward)"
               className="text-[10px] font-mono font-black text-amber-300 py-0.5 px-1 rounded hover:bg-white/10 transition-colors"
             >
               {playbackSpeed}x
