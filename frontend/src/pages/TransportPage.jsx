@@ -18,11 +18,16 @@ import {
   ShieldAlert,
   Phone,
   QrCode,
-  CheckCheck
+  CheckCheck,
+  Star,
+  Lock,
+  CreditCard
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import DigitalGatePassModal from '../components/transport/DigitalGatePassModal';
+import EscrowPaymentModal from '../components/transport/EscrowPaymentModal';
+import DriverRatingModal from '../components/transport/DriverRatingModal';
 import CorridorFreightCalculator from '../components/transport/CorridorFreightCalculator';
 import SharedTransportFarmerWidget from '../components/dashboard/SharedTransportFarmerWidget';
 import TransporterDashboard from '../components/dashboard/TransporterDashboard';
@@ -89,6 +94,12 @@ export default function TransportPage() {
 
   // Modal for Digital Mandi Gate Pass
   const [selectedGatePass, setSelectedGatePass] = useState(null);
+
+  // Modal for UPI Freight Escrow Payment
+  const [escrowPaymentBooking, setEscrowPaymentBooking] = useState(null);
+
+  // Modal for Driver 5-Star Rating & Review
+  const [ratingBooking, setRatingBooking] = useState(null);
 
   // Active or latest farmer booking for live tracking card
   const activeFarmerBooking = useMemo(() => {
@@ -691,6 +702,26 @@ export default function TransportPage() {
         onClose={() => setSelectedGatePass(null)}
       />
 
+      {/* UPI Freight Escrow Payment Modal */}
+      <EscrowPaymentModal
+        isOpen={!!escrowPaymentBooking}
+        booking={escrowPaymentBooking}
+        onClose={() => setEscrowPaymentBooking(null)}
+        onPaymentSuccess={() => {
+          loadMyRequests();
+        }}
+      />
+
+      {/* Driver 5-Star Rating & Review Modal */}
+      <DriverRatingModal
+        isOpen={!!ratingBooking}
+        booking={ratingBooking}
+        onClose={() => setRatingBooking(null)}
+        onReviewSuccess={() => {
+          loadMyRequests();
+        }}
+      />
+
       {/* Top Banner with Photographic Background */}
       <section className="relative rounded-3xl overflow-hidden shadow-xl border border-emerald-900/30 text-white">
         <div 
@@ -823,7 +854,7 @@ export default function TransportPage() {
               </div>
 
               {/* Driver, Vehicle, ETA Information Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
                 <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
                   <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Assigned Driver</span>
                   <p className="font-extrabold text-sm text-white">
@@ -868,6 +899,43 @@ export default function TransportPage() {
                     <ArrowRight className="w-3 h-3 shrink-0" />
                     <span className="truncate">{activeFarmerBooking.destinationMarket}</span>
                   </p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Freight Escrow</span>
+                  {activeFarmerBooking.paymentStatus === 'in_escrow' ? (
+                    <div>
+                      <p className="font-extrabold text-sm text-amber-300 font-mono">
+                        ₹{Number(activeFarmerBooking.escrowAmount || activeFarmerBooking.estimatedSharedCost || 1200).toLocaleString('en-IN')}
+                      </p>
+                      <span className="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-400/30 inline-block mt-0.5">
+                        🛡️ Locked in Escrow
+                      </span>
+                    </div>
+                  ) : activeFarmerBooking.paymentStatus === 'paid' ? (
+                    <div>
+                      <p className="font-extrabold text-sm text-emerald-400 font-mono">
+                        ₹{Number(activeFarmerBooking.escrowAmount || activeFarmerBooking.estimatedSharedCost || 1200).toLocaleString('en-IN')}
+                      </p>
+                      <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-400/30 inline-block mt-0.5">
+                        ✅ Payout Released
+                      </span>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="font-extrabold text-sm text-slate-300 font-mono">
+                        ₹{Number(activeFarmerBooking.estimatedSharedCost || 1200).toLocaleString('en-IN')}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setEscrowPaymentBooking(activeFarmerBooking)}
+                        className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 hover:bg-emerald-500/30 px-2 py-0.5 rounded border border-emerald-400/40 inline-flex items-center gap-1 mt-0.5 cursor-pointer transition-colors"
+                      >
+                        <ShieldCheck className="w-3 h-3" />
+                        <span>Lock Escrow</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1344,6 +1412,43 @@ export default function TransportPage() {
                               ? '🚚 Driver Assigned & En Route'
                               : '⏳ Waiting for Driver Pickup'}
                           </span>
+
+                          {/* Escrow Status / Payment Action */}
+                          {req.paymentStatus === 'in_escrow' ? (
+                            <span className="px-3 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 flex items-center gap-1">
+                              <span>🛡️ ₹{Number(req.escrowAmount || req.estimatedSharedCost || 1200).toLocaleString('en-IN')} Escrow</span>
+                            </span>
+                          ) : req.paymentStatus === 'paid' ? (
+                            <span className="px-3 py-1 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-300 flex items-center gap-1">
+                              <span>✅ ₹{Number(req.escrowAmount || req.estimatedSharedCost || 1200).toLocaleString('en-IN')} Paid</span>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setEscrowPaymentBooking(req)}
+                              className="px-3 py-1.5 rounded-xl border border-emerald-600 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                            >
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                              <span>Pay Escrow (₹{Number(req.estimatedSharedCost || 1200).toLocaleString('en-IN')})</span>
+                            </button>
+                          )}
+
+                          {/* Driver Rating Action */}
+                          {req.driverRating ? (
+                            <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 flex items-center gap-1">
+                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                              <span>{req.driverRating}★ Rated</span>
+                            </span>
+                          ) : (isDelivered || req.status === 'completed') ? (
+                            <button
+                              type="button"
+                              onClick={() => setRatingBooking(req)}
+                              className="px-3 py-1.5 rounded-xl border border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                            >
+                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                              <span>Rate Driver</span>
+                            </button>
+                          ) : null}
 
                           {isDelivered && (
                             <button

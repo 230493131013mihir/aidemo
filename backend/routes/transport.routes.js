@@ -147,11 +147,20 @@ async function ensureTransportSchema() {
                 final_cost: { type: sequelize.Sequelize.INTEGER, allowNull: true },
                 gate_pass_code: { type: sequelize.Sequelize.STRING(64), allowNull: true },
                 rejection_reason: { type: sequelize.Sequelize.TEXT, allowNull: true },
-                cancellation_reason: { type: sequelize.Sequelize.TEXT, allowNull: true }
+                cancellation_reason: { type: sequelize.Sequelize.TEXT, allowNull: true },
+                payment_status: { type: sequelize.Sequelize.STRING(32), allowNull: true, defaultValue: "unpaid" },
+                escrow_amount: { type: sequelize.Sequelize.INTEGER, allowNull: true },
+                driver_rating: { type: sequelize.Sequelize.INTEGER, allowNull: true },
+                driver_review: { type: sequelize.Sequelize.TEXT, allowNull: true }
             };
             for (const [column, definition] of Object.entries(requiredColumns)) {
-                if (!columns[column]) await queryInterface.addColumn("transport_requests", column, definition);
+                if (!columns[column]) await queryInterface.addColumn("transport_requests", column, definition).catch(() => {});
             }
+            try {
+                const transporterCols = await queryInterface.describeTable("transporter_profiles").catch(() => ({}));
+                if (!transporterCols.rating) await queryInterface.addColumn("transporter_profiles", "rating", { type: sequelize.Sequelize.FLOAT, allowNull: true, defaultValue: 4.8 }).catch(() => {});
+                if (!transporterCols.total_ratings) await queryInterface.addColumn("transporter_profiles", "total_ratings", { type: sequelize.Sequelize.INTEGER, allowNull: true, defaultValue: 1 }).catch(() => {});
+            } catch (_) {}
             try {
                 await sequelize.query("ALTER TABLE transport_requests MODIFY COLUMN status VARCHAR(32) NOT NULL DEFAULT 'pending'");
             } catch (_) {}
@@ -1116,6 +1125,8 @@ router.get("/transporter-stats", requireRole("transporter"), async (req, res) =>
                 vehicleType: transporterProfile?.vehicleType || "Mahindra Bolero Maxi Truck",
                 vehicleNumber: transporterProfile?.vehicleNumber || "MH-12-RN-4921",
                 capacityKg: transporterProfile?.capacityKg || 2200,
+                rating: Number(transporterProfile?.rating || 4.8),
+                totalRatings: Number(transporterProfile?.totalRatings || 1),
                 isAvailable: activeTripsCount === 0,
                 activeTrip: activeTrips[0] || null
             }
@@ -1269,6 +1280,7 @@ router.put("/requests/:id/progress", requireRole("transporter"), async (req, res
 
 router.put("/requests/:id/confirm", requireRole("farmer"), async (req, res) => {
     try {
+        await ensureTransportSchema();
         const request = await TransportRequest.findByPk(req.params.id);
         if (!request) return res.status(404).json({ success: false, message: "Request not found" });
 
@@ -1280,16 +1292,149 @@ router.put("/requests/:id/confirm", requireRole("farmer"), async (req, res) => {
             return res.status(400).json({ success: false, message: "Delivery can only be confirmed when status is delivered." });
         }
 
-        await request.update({ status: "completed" });
+        const wasInEscrow = request.paymentStatus === "in_escrow";
+        await request.update({
+            status: "completed",
+            paymentStatus: wasInEscrow ? "paid" : (request.paymentStatus || "paid")
+        });
 
         return res.json({
             success: true,
             data: request,
-            message: "Delivery confirmed and trip marked as completed."
+            message: wasInEscrow
+                ? `Delivery confirmed! Trip completed and ₹${(request.escrowAmount || request.estimatedSharedCost || 1200).toLocaleString("en-IN")} escrow payout released to transporter.`
+                : "Delivery confirmed and trip marked as completed."
         });
     } catch (error) {
         console.error("Confirm request error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to confirm delivery" });
+    }
+});
+
+/**
+ * POST /api/transport/bookings/:id/pay
+ * Farmer locks freight fare in HarvestMitra Escrow via simulated UPI
+ */
+router.post("/bookings/:id/pay", requireRole("farmer"), async (req, res) => {
+    try {
+        await ensureTransportSchema();
+        const booking = await TransportRequest.findByPk(req.params.id);
+        if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
+
+        if (Number(booking.userId) !== Number(req.user.id)) {
+            return res.status(403).json({ success: false, message: "Not your booking." });
+        }
+
+        if (booking.paymentStatus === "in_escrow" || booking.paymentStatus === "paid") {
+            return res.status(400).json({ success: false, message: "Payment is already secured in escrow or settled." });
+        }
+
+        const amount = Number(booking.estimatedSharedCost || booking.finalCost || 1200);
+        const transactionId = `TXN-UPI-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+        await booking.update({
+            paymentStatus: "in_escrow",
+            escrowAmount: amount
+        });
+
+        return res.json({
+            success: true,
+            data: {
+                bookingId: booking.id,
+                paymentStatus: "in_escrow",
+                escrowAmount: amount,
+                transactionId,
+                paidAt: new Date().toISOString()
+            },
+            message: `Payment of ₹${amount.toLocaleString("en-IN")} secured in HarvestMitra Escrow! Funds will automatically transfer to transporter upon confirmed mandi delivery.`
+        });
+    } catch (error) {
+        console.error("Escrow pay error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to process escrow payment." });
+    }
+});
+
+/**
+ * POST /api/transport/bookings/:id/review
+ * Farmer rates and reviews driver/transporter after delivery
+ */
+router.post("/bookings/:id/review", requireRole("farmer"), async (req, res) => {
+    try {
+        await ensureTransportSchema();
+        const booking = await TransportRequest.findByPk(req.params.id);
+        if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
+
+        if (Number(booking.userId) !== Number(req.user.id)) {
+            return res.status(403).json({ success: false, message: "Not your booking." });
+        }
+
+        if (!["delivered", "completed"].includes(booking.status)) {
+            return res.status(400).json({ success: false, message: "Driver can only be reviewed after cargo delivery." });
+        }
+
+        const rating = Math.min(5, Math.max(1, Math.round(Number(req.body.rating) || 5)));
+        const review = req.body.review ? String(req.body.review).trim().slice(0, 500) : "Punctual delivery and safe cargo handling.";
+
+        await booking.update({
+            driverRating: rating,
+            driverReview: review
+        });
+
+        if (booking.transporterId) {
+            const profile = await TransporterProfile.findOne({ where: { userId: booking.transporterId } });
+            if (profile) {
+                const currentTotal = Number(profile.totalRatings || 1);
+                const currentRating = Number(profile.rating || 4.8);
+                const newTotal = currentTotal + 1;
+                const newRating = Number(((currentRating * currentTotal + rating) / newTotal).toFixed(1));
+                await profile.update({ rating: newRating, totalRatings: newTotal }).catch(() => {});
+            }
+        }
+
+        return res.json({
+            success: true,
+            data: booking,
+            message: `Thank you! Driver rating of ${rating}★ and review recorded.`
+        });
+    } catch (error) {
+        console.error("Review driver error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to submit driver review." });
+    }
+});
+
+/**
+ * GET /api/transport/transporters/:id/rating
+ * Public/authenticated view of transporter rating & reviews
+ */
+router.get("/transporters/:id/rating", async (req, res) => {
+    try {
+        await ensureTransportSchema();
+        const profile = await TransporterProfile.findOne({ where: { userId: req.params.id } });
+        if (!profile) return res.status(404).json({ success: false, message: "Transporter not found" });
+
+        const recentReviews = await TransportRequest.findAll({
+            where: {
+                transporterId: req.params.id,
+                driverRating: { [Op.ne]: null }
+            },
+            attributes: ["id", "farmerName", "cropName", "destinationMarket", "driverRating", "driverReview", "updatedAt"],
+            order: [["updatedAt", "DESC"]],
+            limit: 5
+        });
+
+        return res.json({
+            success: true,
+            data: {
+                transporterId: profile.userId,
+                driverName: profile.driverName,
+                rating: Number(profile.rating || 4.8),
+                totalRatings: Number(profile.totalRatings || 1),
+                reviews: recentReviews
+            }
+        });
+    } catch (error) {
+        console.error("Get rating error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to fetch transporter rating." });
     }
 });
 
@@ -1358,4 +1503,6 @@ router.post("/register-vehicle", requireRole("transporter"), async (req, res) =>
     }
 });
 
+router.ensureTransportSchema = ensureTransportSchema;
 module.exports = router;
+

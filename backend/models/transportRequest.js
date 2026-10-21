@@ -64,7 +64,27 @@ const TransportRequest = sequelize.define(
         },
         estimatedSharedCost: { type: DataTypes.INTEGER, field: "estimated_shared_cost" },
         finalCost: { type: DataTypes.INTEGER, allowNull: true, field: "final_cost" },
-        gatePassCode: { type: DataTypes.STRING(64), allowNull: true, field: "gate_pass_code" }
+        gatePassCode: { type: DataTypes.STRING(64), allowNull: true, field: "gate_pass_code" },
+        paymentStatus: {
+            type: DataTypes.STRING(32),
+            defaultValue: "unpaid",
+            field: "payment_status"
+        },
+        escrowAmount: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            field: "escrow_amount"
+        },
+        driverRating: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            field: "driver_rating"
+        },
+        driverReview: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+            field: "driver_review"
+        }
     },
     { tableName: "transport_requests", underscored: true }
 );
