@@ -215,7 +215,7 @@ export default function LiveDriverTrackingMap({
 
   // Component States
   const [isExpanded, setIsExpanded] = useState(isExpandedDefault);
-  const [trackingMode, setTrackingMode] = useState('simulated'); // 'simulated' | 'real_gps' | 'backend_sync'
+  const [isPhoneGpsActive, setIsPhoneGpsActive] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [playbackSpeed, setPlaybackSpeed] = useState(1); // 1x Natural | 2x Brisk | 4x Fast-Forward
   const [autoFollow, setAutoFollow] = useState(true); // Follow vehicle camera
@@ -436,9 +436,9 @@ export default function LiveDriverTrackingMap({
     };
   }, [denseRoute, originCoords, destCoords, originName, destinationName, driverName, driverPhone, vehicleNumber, vehicleType, cropInfo, passCode]);
 
-  // Smooth Continuous Simulation Animation Loop (High Frequency 60fps-style sub-stepping)
+  // Smooth Continuous Navigation along Maharashtra Highway Corridor
   useEffect(() => {
-    if (trackingMode !== 'simulated' || !isPlaying) {
+    if (isPhoneGpsActive || !isPlaying) {
       if (animFrameTimerRef.current) clearInterval(animFrameTimerRef.current);
       return;
     }
@@ -520,7 +520,7 @@ export default function LiveDriverTrackingMap({
 
   // Live Real-World Phone Geolocation Streaming Mode
   useEffect(() => {
-    if (trackingMode !== 'real_gps') {
+    if (!isPhoneGpsActive) {
       if (geoWatchIdRef.current && navigator.geolocation) {
         navigator.geolocation.clearWatch(geoWatchIdRef.current);
         geoWatchIdRef.current = null;
@@ -598,11 +598,11 @@ export default function LiveDriverTrackingMap({
         accuracyCircleRef.current = null;
       }
     };
-  }, [trackingMode, destCoords, originCoords, autoFollow]);
+  }, [isPhoneGpsActive, destCoords, originCoords, autoFollow]);
 
   // Synchronize with Backend Telemetry Hub (/api/transport/telemetry/:passCode)
   useEffect(() => {
-    if (trackingMode !== 'backend_sync') {
+    if (isPhoneGpsActive) {
       if (backendPollingRef.current) clearInterval(backendPollingRef.current);
       return;
     }
@@ -639,7 +639,7 @@ export default function LiveDriverTrackingMap({
     return () => {
       if (backendPollingRef.current) clearInterval(backendPollingRef.current);
     };
-  }, [trackingMode, passCode, autoFollow]);
+  }, [isPhoneGpsActive, passCode, autoFollow]);
 
   // Center Camera on Vehicle
   const handleCenterOnVehicle = () => {
@@ -699,61 +699,33 @@ export default function LiveDriverTrackingMap({
 
       {/* Top Glassmorphism Status Bar */}
       <div className="absolute top-3 left-3 right-3 sm:right-auto z-10 flex flex-wrap items-center gap-2">
-        <div className="px-3 py-1.5 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-white/15 text-xs flex items-center gap-2.5 shadow-lg">
+        <div className="px-3.5 py-1.5 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-white/15 text-xs flex items-center gap-2.5 shadow-lg">
           <span className="relative flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
           </span>
           <span className="font-extrabold text-white tracking-wide">
-            🛰️ Live Highway Radar
+            🛰️ Live Delivery Radar
           </span>
           <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30">
-            {trackingMode === 'real_gps'
-              ? 'PHONE GPS ACTIVE'
-              : trackingMode === 'backend_sync'
-              ? 'BACKEND SYNC'
-              : 'LIVE CORRIDOR STREAM'}
+            {isPhoneGpsActive ? 'PHONE GPS ACTIVE' : 'EN ROUTE TO APMC'}
           </span>
         </div>
 
-        {/* Tracking Mode Switcher (Simulated vs Real Phone GPS vs Cloud Sync) */}
-        <div className="p-1 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-white/15 text-xs flex items-center gap-1 shadow-lg">
-          <button
-            type="button"
-            onClick={() => setTrackingMode('simulated')}
-            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all ${
-              trackingMode === 'simulated'
-                ? 'bg-emerald-500 text-white shadow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Dynamic Stream
-          </button>
-          <button
-            type="button"
-            onClick={() => setTrackingMode('backend_sync')}
-            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition-all ${
-              trackingMode === 'backend_sync'
-                ? 'bg-purple-600 text-white shadow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Activity className="w-3 h-3" />
-            <span>Driver Cloud</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setTrackingMode('real_gps')}
-            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition-all ${
-              trackingMode === 'real_gps'
-                ? 'bg-blue-600 text-white shadow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <LocateFixed className="w-3 h-3" />
-            <span>Phone GPS</span>
-          </button>
-        </div>
+        {/* Clean Driver Phone GPS Button */}
+        <button
+          type="button"
+          onClick={() => setIsPhoneGpsActive((prev) => !prev)}
+          className={`px-3 py-1.5 rounded-2xl backdrop-blur-md border text-xs font-bold flex items-center gap-1.5 shadow-lg transition-all ${
+            isPhoneGpsActive
+              ? 'bg-blue-600 border-blue-400 text-white shadow-blue-500/30'
+              : 'bg-slate-900/90 border-white/15 text-slate-300 hover:text-white hover:bg-slate-800'
+          }`}
+          title={isPhoneGpsActive ? 'Switch to Highway Radar View' : 'Use Driver Smartphone Live GPS'}
+        >
+          <LocateFixed className="w-3.5 h-3.5" />
+          <span>{isPhoneGpsActive ? 'Using Phone GPS' : 'Driver Phone GPS'}</span>
+        </button>
       </div>
 
       {/* Floating HUD Telemetry Card (Bottom Left) */}
@@ -901,8 +873,8 @@ export default function LiveDriverTrackingMap({
           {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
         </button>
 
-        {/* Dynamic Simulation Cockpit Controls */}
-        {trackingMode === 'simulated' && (
+        {/* Dynamic Navigation Controls */}
+        {!isPhoneGpsActive && (
           <div className="rounded-xl bg-slate-900/90 border border-white/15 backdrop-blur-md p-1 flex flex-col items-center gap-1 shadow-lg">
             <button
               type="button"
