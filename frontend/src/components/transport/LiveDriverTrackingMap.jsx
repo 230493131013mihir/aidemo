@@ -211,7 +211,6 @@ export default function LiveDriverTrackingMap({
   const coveredPolylineRef = useRef(null);
   const geoWatchIdRef = useRef(null);
   const animFrameTimerRef = useRef(null);
-  const backendPollingRef = useRef(null);
 
   // Component States
   const [isExpanded, setIsExpanded] = useState(isExpandedDefault);
@@ -229,7 +228,6 @@ export default function LiveDriverTrackingMap({
   const [currentMilestoneText, setCurrentMilestoneText] = useState('⛰️ Kasara Ghat Curves (NH-160)');
   const [nextMilestoneText, setNextMilestoneText] = useState('🚧 Shahapur Agri Freight Bypass');
   const [hasGpsError, setHasGpsError] = useState(false);
-  const [lastBackendSyncTime, setLastBackendSyncTime] = useState(null);
 
   // Booking particulars
   const originName = booking?.pickupLocation || booking?.location || 'Nashik Rural Farm #4';
@@ -516,7 +514,7 @@ export default function LiveDriverTrackingMap({
     return () => {
       if (animFrameTimerRef.current) clearInterval(animFrameTimerRef.current);
     };
-  }, [trackingMode, isPlaying, playbackSpeed, denseRoute, totalCorridorKm, autoFollow, isSimulatingRain]);
+  }, [isPhoneGpsActive, isPlaying, playbackSpeed, denseRoute, totalCorridorKm, autoFollow, isSimulatingRain]);
 
   // Live Real-World Phone Geolocation Streaming Mode
   useEffect(() => {
@@ -576,6 +574,23 @@ export default function LiveDriverTrackingMap({
             accuracyCircleRef.current.setRadius(accuracy || 50);
           }
         }
+
+        // Broadcast driver phone GPS to backend telemetry hub
+        try {
+          fetch(`${API_BASE_URL}/api/transport/telemetry/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              passCode,
+              latitude,
+              longitude,
+              speedKmh: kmh,
+              heading: heading || 0,
+              distanceRemainingKm: remaining,
+              etaMinutes: Math.max(5, Math.round((remaining / (kmh || 50)) * 60))
+            })
+          }).catch(() => {});
+        } catch (_) {}
       },
       (err) => {
         console.warn('[LiveDriverTrackingMap] GPS error:', err.message);
@@ -598,48 +613,7 @@ export default function LiveDriverTrackingMap({
         accuracyCircleRef.current = null;
       }
     };
-  }, [isPhoneGpsActive, destCoords, originCoords, autoFollow]);
-
-  // Synchronize with Backend Telemetry Hub (/api/transport/telemetry/:passCode)
-  useEffect(() => {
-    if (isPhoneGpsActive) {
-      if (backendPollingRef.current) clearInterval(backendPollingRef.current);
-      return;
-    }
-
-    const pollBackendTelemetry = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/transport/telemetry/${passCode}`);
-        const data = await res.json();
-        if (data.success && data.telemetry) {
-          const t = data.telemetry;
-          if (t.latitude && t.longitude && truckMarkerRef.current) {
-            const latLng = [t.latitude, t.longitude];
-            truckMarkerRef.current.setLatLng(latLng);
-            if (autoFollow && mapInstanceRef.current) {
-              mapInstanceRef.current.panTo(latLng);
-            }
-          }
-          if (t.speedKmh) setLiveSpeedKmh(t.speedKmh);
-          if (t.heading) setLiveBearing(t.heading);
-          if (t.distanceRemainingKm) setLiveDistanceRemainingKm(t.distanceRemainingKm);
-          if (t.distanceCoveredKm) setLiveOdometerCoveredKm(t.distanceCoveredKm);
-          if (t.etaMinutes) setLiveEtaMinutes(t.etaMinutes);
-          if (t.checkpoint) setCurrentMilestoneText(t.checkpoint);
-          setLastBackendSyncTime(new Date().toLocaleTimeString());
-        }
-      } catch (err) {
-        console.warn('[LiveDriverTrackingMap] Backend sync poll warning:', err.message);
-      }
-    };
-
-    pollBackendTelemetry();
-    backendPollingRef.current = setInterval(pollBackendTelemetry, 3000);
-
-    return () => {
-      if (backendPollingRef.current) clearInterval(backendPollingRef.current);
-    };
-  }, [isPhoneGpsActive, passCode, autoFollow]);
+  }, [isPhoneGpsActive, destCoords, originCoords, autoFollow, passCode]);
 
   // Center Camera on Vehicle
   const handleCenterOnVehicle = () => {
