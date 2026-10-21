@@ -82,7 +82,15 @@ const CROP_TRANSLATIONS = {
   potato: { mr: 'बटाटा', hi: 'आलू', gu: 'બટાકા', en: 'Potato' },
   wheat: { mr: 'गहू', hi: 'गेहूं', gu: 'ઘઉં', en: 'Wheat' },
   cotton: { mr: 'कापूस', hi: 'कपास', gu: 'કપાસ', en: 'Cotton' },
-  soybean: { mr: 'सोयाबीन', hi: 'सोयाबीन', gu: 'સોયાબીન', en: 'Soybean' }
+  soybean: { mr: 'सोयाबीन', hi: 'सोयाबीन', gu: 'સોયાબીન', en: 'Soybean' },
+  rice: { mr: 'तांदूळ', hi: 'चावल', gu: 'ડાંગર', en: 'Rice' },
+  garlic: { mr: 'लसूण', hi: 'लहसुन', gu: 'લસણ', en: 'Garlic' },
+  ginger: { mr: 'आले', hi: 'अदरक', gu: 'આદુ', en: 'Ginger' },
+  chilli: { mr: 'मिरची', hi: 'मिर्च', gu: 'મરચાં', en: 'Chilli' },
+  pomegranate: { mr: 'डाळिंब', hi: 'अनार', gu: 'દાડમ', en: 'Pomegranate' },
+  grapes: { mr: 'द्राक्षे', hi: 'अंगूर', gu: 'દ્રાક્ષ', en: 'Grapes' },
+  sugarcane: { mr: 'ऊस', hi: 'गन्ना', gu: 'શેરડી', en: 'Sugarcane' },
+  maize: { mr: 'मका', hi: 'मक्का', gu: 'મકાઈ', en: 'Maize' }
 };
 
 function getLocalizedCropName(name, lang) {
@@ -102,20 +110,20 @@ function handleMarketPrice(context, lang) {
 
   if (!market || market.pricePerKg === null || market.pricePerKg === undefined) {
     if (lang === 'mr') {
-      return `माझ्याकडे सध्या तुमच्या निवडलेल्या क्षेत्रासाठी पडताळणी केलेले बाजार भाव उपलब्ध नाहीत. कृपया उपलब्ध माहिती पाहण्यासाठी Market Explorer उघडा.`;
+      return `माझ्याकडे सध्या तुमच्या निवडलेल्या क्षेत्रासाठी (${cropName}) पडताळणी केलेले बाजार भाव उपलब्ध नाहीत. कृपया उपलब्ध माहिती पाहण्यासाठी Market Explorer उघडा.`;
     }
     if (lang === 'gu') {
-      return `મારી પાસે અત્યારે તમારા પસંદ કરેલા વિસ્તાર માટે ચકાસાયેલ મંડી ભાવ ઉપલબ્ધ નથી. કૃપા કરીને ઉપલબ્ધ માહિતી જોવા માટે Market Explorer ખોલો.`;
+      return `મારી પાસે અત્યારે તમારા પસંદ કરેલા વિસ્તાર માટે (${cropName}) ચકાસાયેલ મંડી ભાવ ઉપલબ્ધ નથી. કૃપા કરીને ઉપલબ્ધ માહિતી જોવા માટે Market Explorer ખોલો.`;
     }
     if (lang === 'hi') {
-      return `मेरे पास अभी आपके चयनित स्थान के लिए सत्यापित मंडी भाव उपलब्ध नहीं है। कृपया उपलब्ध डेटा देखने के लिए Market Explorer खोलें।`;
+      return `मेरे पास अभी आपके चयनित स्थान के लिए (${cropName}) सत्यापित मंडी भाव उपलब्ध नहीं है। कृपया उपलब्ध डेटा देखने के लिए Market Explorer खोलें।`;
     }
-    return `I don't have a verified market price for your selected location right now. Please open Market Explorer to check available data.`;
+    return `I don't have a verified market price for ${cropName} in your selected location right now. Please open Market Explorer to check available data.`;
   }
 
   const isDemo = String(market.sourceType || '').toUpperCase().includes('DEMO');
   const demoNoteEn = isDemo ? ' based on available demonstration data' : '';
-  const demoNoteHi = isDemo ? ' (उपलब्ધ डेमो डेटा के आधार पर)' : '';
+  const demoNoteHi = isDemo ? ' (उपलब्ध डेमो डेटा के आधार पर)' : '';
   const demoNoteGu = isDemo ? ' (ઉપલબ્ધ ડેમો ડેટા અનુસાર)' : '';
 
   const demoNoteMr = isDemo ? ' (उपलब्ध डेमो डेटावर आधारित)' : '';

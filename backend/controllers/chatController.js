@@ -5,7 +5,14 @@
  */
 
 const aiService = require('../services/ai/aiService');
-const { detectIntent, detectLanguage, normalizeLanguage, extractCropMention, extractQuantity } = require('../services/ai/intentDetector');
+const {
+  detectIntent,
+  detectLanguage,
+  normalizeLanguage,
+  extractCropMention,
+  extractLocationMention,
+  extractQuantity
+} = require('../services/ai/intentDetector');
 const { buildContext } = require('../services/ai/contextBuilder');
 const marketService = require('../services/marketService');
 const weatherService = require('../services/weatherService');
@@ -67,15 +74,38 @@ async function handleChatMessage(req, res) {
     const detectedIntent = detectIntent(cleanMessage);
 
     // 4. Enrich Context
-    // Extract any crop mention or quantity if not explicitly provided
-    const cropMention = callerContext.crop?.name || extractCropMention(cleanMessage);
+    // Extract any crop mention and location directly from user's message FIRST
+    const extractedCrop = extractCropMention(cleanMessage);
+    const extractedLocation = extractLocationMention(cleanMessage);
+
+    // User's explicit message mention always takes priority over static/default callerContext
+    const cropMention = extractedCrop || callerContext.crop?.name || null;
     const quantityInfo = callerContext.crop?.quantityKg || extractQuantity(cleanMessage).quantityKg;
 
-    // Auto-enrich market data if query mentions crop and no marketData was supplied
+    // Auto-enrich market data if query asks about price or harvest decision
     let marketData = callerContext.marketData;
-    if (!marketData && (detectedIntent === 'market_price' || detectedIntent === 'harvest_decision') && cropMention) {
+    // Override callerContext.marketData if user explicitly asked about a specific crop or location
+    const shouldRefreshMarket = !marketData || extractedCrop || extractedLocation;
+    if (shouldRefreshMarket && (detectedIntent === 'market_price' || detectedIntent === 'harvest_decision') && cropMention) {
       try {
-        const prices = await marketService.getMarketPrices({ crop: cropMention });
+        let prices = [];
+        if (extractedLocation) {
+          // Try matching market name first (e.g. "Nashik APMC")
+          prices = await marketService.getMarketPrices({ crop: cropMention, market: extractedLocation });
+          // If not found by market name, try matching district
+          if (prices.length === 0) {
+            prices = await marketService.getMarketPrices({ crop: cropMention, district: extractedLocation });
+          }
+        } else if (req.user?.district || callerContext.farmer?.district) {
+          const userDist = req.user?.district || callerContext.farmer?.district;
+          prices = await marketService.getMarketPrices({ crop: cropMention, district: userDist });
+        }
+
+        // Fallback to any Maharashtra market for this crop if location-specific records were empty
+        if (prices.length === 0) {
+          prices = await marketService.getMarketPrices({ crop: cropMention });
+        }
+
         if (prices.length > 0) {
           marketData = {
             currentMarket: {
@@ -90,27 +120,29 @@ async function handleChatMessage(req, res) {
       } catch (_) {}
     }
 
-    // Auto-enrich weather data if query asks about weather and no weather was supplied
+    // Auto-enrich weather data if query asks about weather
     let weatherData = callerContext.weather;
     if (!weatherData && detectedIntent === 'weather') {
       try {
-        const farmerDist = req.user?.district || callerContext.farmer?.location || 'Surat';
+        const farmerDist = extractedLocation || req.user?.district || callerContext.farmer?.location || 'Nashik';
         weatherData = await weatherService.getWeather({ district: farmerDist });
       } catch (_) {}
     }
 
+    const resolvedLocation = extractedLocation || req.user?.district || callerContext.farmer?.location || 'Maharashtra';
+
     const enrichedParams = {
       ...callerContext,
       farmer: {
+        ...(callerContext.farmer || {}),
         name: req.user?.full_name || callerContext.farmer?.name || 'Farmer',
-        location: req.user?.district || callerContext.farmer?.location || 'Surat, Gujarat',
-        preferredLanguage: resolvedLang,
-        ...(callerContext.farmer || {})
+        location: resolvedLocation,
+        preferredLanguage: resolvedLang
       },
       crop: {
+        ...(callerContext.crop || {}),
         name: cropMention,
-        quantityKg: quantityInfo,
-        ...(callerContext.crop || {})
+        quantityKg: quantityInfo
       },
       marketData: marketData || callerContext.marketData,
       weather: weatherData || callerContext.weather

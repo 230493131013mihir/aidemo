@@ -172,16 +172,59 @@ function detectIntent(message) {
 function extractCropMention(text) {
   if (!text) return null;
   const crops = [
-    { name: 'Tomato', patterns: [/\b(tomato|tomatoes)\b/i, /ટામેટાં?/i, /टमाटर/i, /टोमॅटो/i, /टोमेटो/i] },
-    { name: 'Onion', patterns: [/\b(onion|onions)\b/i, /ડુંગળી/i, /प्याज/i, /कांदा/i] },
-    { name: 'Wheat', patterns: [/\b(wheat)\b/i, /ઘઉં/i, /गेहूं/i, /गहू/i] },
+    { name: 'Tomato', patterns: [/\b(tomato|tomatoes)\b/i, /ટામેટાં?/i, /टमाटर/i, /टोमॅटो/i, /टोमेटो/i, /टोमॅट/i, /टोमेट/i] },
+    { name: 'Onion', patterns: [/\b(onion|onions)\b/i, /ડુંગળી/i, /प्याज/i, /कांद/i] },
+    { name: 'Potato', patterns: [/\b(potato|potatoes|aloo|batata)\b/i, /બટાકા/i, /બટાટા/i, /आलू/i, /बटाट/i] },
+    { name: 'Wheat', patterns: [/\b(wheat)\b/i, /ઘઉં/i, /गेहूं/i, /गहू/i, /गव्हा/i] },
     { name: 'Soybean', patterns: [/\b(soybean|soya)\b/i, /સોયાબીન/i, /सोयाबीन/i] },
-    { name: 'Cotton', patterns: [/\b(cotton)\b/i, /કપાસ/i, /कपास/i, /कापूस/i] }
+    { name: 'Cotton', patterns: [/\b(cotton)\b/i, /કપાસ/i, /कपास/i, /कापूस/i] },
+    { name: 'Rice', patterns: [/\b(rice|paddy)\b/i, /ડાંગર/i, /ચોખા/i, /चावल/i, /धान/i, /तांदूळ/i, /भात/i] },
+    { name: 'Garlic', patterns: [/\b(garlic)\b/i, /લસણ/i, /लहसुन/i, /लसूण/i] },
+    { name: 'Ginger', patterns: [/\b(ginger)\b/i, /આદુ/i, /अदरक/i, /आले/i] },
+    { name: 'Chilli', patterns: [/\b(chilli|chili|mirchi)\b/i, /મરચાં?/i, /मिर्च/i, /मिरची/i] },
+    { name: 'Pomegranate', patterns: [/\b(pomegranate)\b/i, /દાડમ/i, /अनार/i, /डाळिंब/i] },
+    { name: 'Grapes', patterns: [/\b(grapes)\b/i, /દ્રાક્ષ/i, /अंगूर/i, /द्राक्षे/i] },
+    { name: 'Sugarcane', patterns: [/\b(sugarcane)\b/i, /શેરડી/i, /गन्ना/i, /ऊस/i] },
+    { name: 'Maize', patterns: [/\b(maize|corn)\b/i, /મકાઈ/i, /मक्का/i, /मका/i] }
   ];
 
   for (const crop of crops) {
     for (const pattern of crop.patterns) {
       if (pattern.test(text)) return crop.name;
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract district / mandi location if present in query
+ * @param {string} text
+ * @returns {string|null}
+ */
+function extractLocationMention(text) {
+  if (!text) return null;
+  const locations = [
+    { name: 'Nashik', patterns: [/\bnashik\b/i, /\bnasik\b/i, /नाशिक/i, /नासिक/i, /નાસિક/i, /નાશિક/i] },
+    { name: 'Lasalgaon', patterns: [/\blasalgaon\b/i, /लासलगाव/i, /લાસલગામ/i] },
+    { name: 'Pune', patterns: [/\bpune\b/i, /पुणे/i, /પુણે/i] },
+    { name: 'Mumbai', patterns: [/\bmumbai\b/i, /\bvashi\b/i, /मुंबई/i, /वाशी/i, /મુંબઈ/i] },
+    { name: 'Ahmednagar', patterns: [/\bahmednagar\b/i, /\bahilyanagar\b/i, /अहमदनगर/i, /अहिल्यानगर/i, /અહેમદનગર/i] },
+    { name: 'Nagpur', patterns: [/\bnagpur\b/i, /नागपूर/i, /नागपुर/i, /નાગપુર/i] },
+    { name: 'Kolhapur', patterns: [/\bkolhapur\b/i, /कोल्हापूर/i, /कोल्हापुर/i, /કોલ્હાપુર/i] },
+    { name: 'Solapur', patterns: [/\bsolapur\b/i, /सोलापूर/i, /सोलापुर/i, /સોલાપુર/i] },
+    { name: 'Jalgaon', patterns: [/\bjalgaon\b/i, /जळगाव/i, /जलगांव/i, /જળગાંવ/i] },
+    { name: 'Sangli', patterns: [/\bsangli\b/i, /सांगली/i, /સાંગલી/i] },
+    { name: 'Satara', patterns: [/\bsatara\b/i, /सातारा/i, /સાતારા/i] },
+    { name: 'Amravati', patterns: [/\bamravati\b/i, /अमरावती/i, /અમરાવતી/i] },
+    { name: 'Chhatrapati Sambhajinagar', patterns: [/\bchhatrapati sambhajinagar\b/i, /\baurangabad\b/i, /औरंगाबाद/i, /संभाजीनगर/i] },
+    { name: 'Surat', patterns: [/\bsurat\b/i, /सूरत/i, /सुरत/i] },
+    { name: 'Ahmedabad', patterns: [/\bahmedabad\b/i, /अहमदाबाद/i, /અમદાવાદ/i] },
+    { name: 'Rajkot', patterns: [/\brajkot\b/i, /राजकोट/i, /રાજકોટ/i] }
+  ];
+
+  for (const loc of locations) {
+    for (const pattern of loc.patterns) {
+      if (pattern.test(text)) return loc.name;
     }
   }
   return null;
@@ -220,6 +263,7 @@ module.exports = {
   detectLanguage,
   normalizeLanguage,
   extractCropMention,
+  extractLocationMention,
   extractQuantity,
   INTENT_PATTERNS
 };
