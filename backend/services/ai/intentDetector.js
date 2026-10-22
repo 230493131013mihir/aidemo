@@ -136,7 +136,7 @@ function normalizeLanguage(lang) {
   if (!lang) return 'en';
   const clean = String(lang).trim().toLowerCase();
   if (clean.startsWith('gu')) return 'gu';
-  if (clean.startsWith('mr')) return 'mr';
+  if (clean.startsWith('mr') || clean.startsWith('ma') || clean === 'marathi') return 'mr';
   if (clean.startsWith('hi')) return 'hi';
   return 'en';
 }

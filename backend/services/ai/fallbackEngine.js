@@ -11,7 +11,7 @@ const { normalizeLanguage } = require('./intentDetector');
  *
  * @param {Object} params
  * @param {string} params.intent - Detected intent
- * @param {string} params.language - 'en' | 'hi' | 'gu'
+ * @param {string} params.language - 'en' | 'hi' | 'mr' | 'gu'
  * @param {Object} params.context - Structured backend context
  * @param {string} [params.userMessage] - Original user message
  * @returns {Object} Normalized response
