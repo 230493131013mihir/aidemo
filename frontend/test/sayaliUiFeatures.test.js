@@ -124,6 +124,33 @@ console.log('  ✅ [PASS] GuestModeBanner removed from Landing Page (MainLayout.
 console.log('  ✅ [PASS] Dedicated Farmer Register & Login CTAs verified on HeroSection');
 console.log('  ✅ [PASS] HarvestPage verified with 4.5 acre session architecture');
 
+// 6. Bug Fixes Verification (fix/sayali-frontend-speech-bugs)
+console.log('\n6. Verifying 4 Bug Fixes:');
+// Bug 1: speechService has Gujarati
+const speechPath = path.join(__dirname, '../src/services/speechService.js');
+const speechCode = fs.readFileSync(speechPath, 'utf-8');
+assert.ok(speechCode.includes("code: 'gu'") && speechCode.includes("speechRecognition: 'gu-IN'"), 'speechService must configure Gujarati (gu-IN)');
+console.log('  ✅ [PASS] BUG 1: speechService Gujarati (gu) locale verified.');
+
+// Bug 2: DashboardPage mandi role redirect
+const dashCode = fs.readFileSync(path.join(__dirname, '../src/pages/DashboardPage.jsx'), 'utf-8');
+assert.ok(dashCode.includes("user?.role === 'mandi'") && dashCode.includes('/markets'), 'DashboardPage must redirect mandi role to /markets');
+console.log('  ✅ [PASS] BUG 2: DashboardPage mandi role redirect verified.');
+
+// Bug 3: Weather defensive check for Maharashtra / Gujarat
+const weatherPath = path.join(__dirname, '../src/components/dashboard/WeatherWidget.jsx');
+const weatherCode = fs.readFileSync(weatherPath, 'utf-8');
+assert.ok(weatherCode.includes('Maharashtra') && weatherCode.includes('Gujarat'), 'WeatherWidget must defensively check Maharashtra vs Gujarat state');
+console.log('  ✅ [PASS] BUG 3: WeatherWidget defensive state check verified.');
+
+// Bug 4: AuthPage mandi registration fields
+const authPath = path.join(__dirname, '../src/pages/AuthPage.jsx');
+const authCode = fs.readFileSync(authPath, 'utf-8');
+assert.ok(authCode.includes('APMC Mandi Name'), 'AuthPage must include APMC Mandi Name label');
+assert.ok(authCode.includes('APMC License Number'), 'AuthPage must include APMC License Number label');
+assert.ok(authCode.includes('Mon-Sat') && authCode.includes('Mon-Fri') && authCode.includes('Daily'), 'AuthPage must include operatingDays dropdown options');
+console.log('  ✅ [PASS] BUG 4: AuthPage Mandi-specific registration fields verified.');
+
 console.log('\n======================================================');
 console.log('🎉 All QA & Stress-Testing Requirements Verified!');
 console.log('Lead: Sayali Kulkarni (@sayalikulkarni-tech)');

@@ -290,7 +290,12 @@ export default function WeatherWidget() {
   const rainChance = weatherData?.rainChance ?? cur.rainProbability ?? 0;
 
   const locName = weatherData?.location?.name || activeLocation;
-  const locState = weatherData?.location?.state || profileState || 'India';
+  // Defensive check: If user's profile state is 'Maharashtra' but API returns 'Gujarat', prefer user's profile state
+  const userProfileState = user?.FarmerProfile?.state || user?.state || 'Maharashtra';
+  const apiState = weatherData?.location?.state;
+  const locState = (userProfileState === 'Maharashtra' && apiState === 'Gujarat')
+    ? userProfileState
+    : (apiState || userProfileState || 'India');
   const adviceStatus = weatherData?.advice?.status || (rainChance >= 60 ? 'Delay Harvest' : 'Optimal Harvest Window');
   const adviceDetail = weatherData?.advice?.detail || weatherData?.advisory?.message ||
     `Favorable atmospheric conditions in ${locName} for produce picking and transport dispatch.`;

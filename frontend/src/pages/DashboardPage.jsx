@@ -87,7 +87,12 @@ export default function DashboardPage() {
     return <Navigate to="/admin" replace />;
   }
 
-  // 2. Transporter views their dedicated Cargo & Trip Logistics Dashboard with quick toggle to Farmer Suite
+  // 2. Mandi Official views dedicated Mandi Market Rates & APMC workspace
+  if (user?.role === 'mandi') {
+    return <Navigate to="/markets" replace />;
+  }
+
+  // 3. Transporter views their dedicated Cargo & Trip Logistics Dashboard with quick toggle to Farmer Suite
   if (user?.role === 'transporter') {
     return (
       <div className="space-y-4">
