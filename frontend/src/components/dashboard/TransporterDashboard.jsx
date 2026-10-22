@@ -24,8 +24,8 @@ import {
   Calendar,
   Sparkles,
   HelpCircle,
-  Tag,
-  Bell
+  Bell,
+  Star
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -110,6 +110,8 @@ export default function TransporterDashboard() {
     activeTripsCount: 0,
     totalCargoDeliveredKg: 0,
     totalEarnings: 0,
+    rating: 4.8,
+    totalRatings: 1,
     vehicleType: 'Mahindra Bolero Maxi Truck',
     vehicleNumber: 'MH-12-RN-4921',
     capacityKg: 2200,
@@ -540,8 +542,8 @@ export default function TransporterDashboard() {
         </div>
       </section>
 
-      {/* 2. Key Logistics Metrics (4 Stat Cards) */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 2. Key Logistics Metrics (5 Stat Cards) */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-muted">Completed Trips</span>
@@ -592,6 +594,20 @@ export default function TransporterDashboard() {
             {formatINR(stats.totalEarnings)}
           </p>
           <span className="text-xs text-emerald-700 font-semibold">Direct Mandi Payouts</span>
+        </div>
+
+        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted">Driver Rating</span>
+            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+              <Star className="w-4 h-4 fill-amber-400 text-amber-500" />
+            </div>
+          </div>
+          <p className="text-2xl sm:text-3xl font-black text-slate-900 font-mono mt-1 flex items-center gap-1.5">
+            <span>{Number(stats.rating || 4.8).toFixed(1)}</span>
+            <span className="text-amber-500 text-lg">★</span>
+          </p>
+          <span className="text-xs text-amber-700 font-semibold">{stats.totalRatings || 1} Farmer Reviews</span>
         </div>
       </section>
 
@@ -687,11 +703,23 @@ export default function TransporterDashboard() {
               <span className="text-[10px] text-slate-400">{activeTrip.pickupDate}</span>
             </div>
             <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">Trip Freight Fee</span>
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">Trip Freight & Escrow</span>
               <span className="font-black text-emerald-400 text-sm font-mono block">
-                {formatINR(activeTrip.estimatedSharedCost || 1200)}
+                {formatINR(activeTrip.escrowAmount || activeTrip.estimatedSharedCost || 1200)}
               </span>
-              <span className="text-[10px] text-slate-300">Direct APMC Settlement</span>
+              {activeTrip.paymentStatus === 'in_escrow' ? (
+                <span className="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-400/30 inline-block mt-0.5">
+                  🛡️ Locked in Escrow
+                </span>
+              ) : activeTrip.paymentStatus === 'paid' ? (
+                <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-400/30 inline-block mt-0.5">
+                  ✅ Payout Released
+                </span>
+              ) : (
+                <span className="text-[10px] text-slate-300">
+                  Direct APMC Settlement
+                </span>
+              )}
             </div>
           </div>
         </section>
