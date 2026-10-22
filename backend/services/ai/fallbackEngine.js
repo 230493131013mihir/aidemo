@@ -115,8 +115,7 @@ function getLocalizedCropName(name, lang) {
  */
 function handleMarketPrice(context, lang) {
   const market = context.marketData?.currentMarket;
-  const rawCropName = context.crop?.name || 'crop';
-  const cropName = getLocalizedCropName(rawCropName, lang);
+  const cropName = context.crop?.name || 'crop';
 
   if (!market || market.pricePerKg === null || market.pricePerKg === undefined) {
     if (lang === 'mr') {

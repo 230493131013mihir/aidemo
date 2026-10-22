@@ -3,6 +3,7 @@ const express = require("express");
 const {
     register,
     login,
+    logout,
     getMe,
     demoLogin,
     updateProfile,
@@ -26,14 +27,14 @@ const router = express.Router();
 router.post("/otp/send", sendOtp);
 router.post("/otp/verify", verifyOtp);
 router.post("/whatsapp/login", whatsappLogin);
-
 // National Agristack & PM-KISAN Verification
 router.post("/agristack/link", authMiddleware, linkAgristack);
 router.get("/agristack/lookup", lookupAgristack);
 
-// Standard Register & Login
+// Standard Register & Login & Logout
 router.post("/register", register);
 router.post("/login", login);
+router.post("/logout", logout);
 router.post("/demo", demoLogin);
 
 // Get currently logged-in user

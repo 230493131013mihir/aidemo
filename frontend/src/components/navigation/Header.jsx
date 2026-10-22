@@ -90,21 +90,18 @@ export default function Header() {
                 <Link
                   to="/dashboard"
                   id="header-dashboard-btn"
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border border-emerald-300 bg-emerald-50 text-emerald-900 shadow-xs hover:bg-emerald-100 transition-colors"
+                  className="btn-primary text-xs sm:text-sm py-2 px-3.5 sm:px-4 shadow-xs flex items-center gap-2"
                   title={`Logged in as ${user?.name || 'User'}`}
                 >
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                  </span>
-                  <span className="truncate max-w-[110px]">{user?.name?.split(' ')[0] || 'User'}</span>
-                  <span className="text-[10px] text-muted hidden sm:inline font-normal">Dashboard →</span>
+                  <Sprout className="w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
+                  <span className="truncate max-w-[110px]">{user?.name?.split(' ')[0] || 'Dashboard'}</span>
+                  <span className="text-[10px] opacity-80 hidden sm:inline font-normal">→</span>
                 </Link>
                 <button
                   type="button"
-                  onClick={logout}
+                  onClick={() => logout({ redirectTo: '/' })}
                   title="Sign out"
-                  className="p-1.5 rounded-xl border border-border text-muted hover:text-red-600 hover:bg-red-50 transition-colors"
+                  className="p-2 rounded-xl border border-border text-muted hover:text-red-600 hover:bg-red-50 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -195,12 +192,13 @@ export default function Header() {
                     onClick={() => setMobileMenuOpen(false)}
                     className="btn-primary w-full text-xs py-2.5 px-3 text-center justify-center flex items-center gap-2"
                   >
+                    <Sprout className="w-4 h-4" />
                     <span>Go to Dashboard ({user?.name || 'Farmer'})</span>
                   </Link>
                   <button
                     type="button"
                     onClick={() => {
-                      logout();
+                      logout({ redirectTo: '/' });
                       setMobileMenuOpen(false);
                     }}
                     className="w-full rounded-xl border border-border py-2 text-xs font-bold text-red-600 hover:bg-red-50 text-center"

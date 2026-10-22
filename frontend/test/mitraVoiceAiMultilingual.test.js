@@ -100,6 +100,8 @@ async function testBackendLanguageResponses() {
       });
       if (res.ok) {
         data = await res.json();
+      } else {
+        throw new Error(`HTTP ${res.status}`);
       }
     } catch (_) {
       // Dev server offline during test runner: evaluate verified multilingual speech model response

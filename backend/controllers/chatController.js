@@ -65,9 +65,12 @@ async function handleChatMessage(req, res) {
 
     const cleanMessage = message.trim();
 
-    // 2. Language Determination
+    // 2. Language Determination: Use user's language or detect
+    const userLang = req.user?.preferredLanguage || req.user?.preferred_language;
     const resolvedLang = normalizeLanguage(
-      userProvidedLang || detectLanguage(cleanMessage, req.user?.preferred_language || 'en')
+      userProvidedLang
+        ? userProvidedLang
+        : (userLang || detectLanguage(cleanMessage, 'en'))
     );
 
     // 3. Intent Detection
@@ -92,11 +95,9 @@ async function handleChatMessage(req, res) {
     const cropMention = extractedCrop || (!isAskingSpecificRate ? defaultProfileCrop : null);
     const quantityInfo = callerContext.crop?.quantityKg || extractQuantity(cleanMessage).quantityKg;
 
-    // Auto-enrich market data if query asks about price or harvest decision
+    // Auto-enrich market data if query asks about price or harvest decision and no marketData was supplied
     let marketData = callerContext.marketData;
-    // Override callerContext.marketData if user explicitly asked about a specific crop or location
-    const shouldRefreshMarket = !marketData || extractedCrop || extractedLocation;
-    if (shouldRefreshMarket && (detectedIntent === 'market_price' || detectedIntent === 'harvest_decision') && cropMention) {
+    if (!marketData && (detectedIntent === 'market_price' || detectedIntent === 'harvest_decision') && cropMention) {
       try {
         let prices = [];
         if (extractedLocation) {
@@ -145,7 +146,7 @@ async function handleChatMessage(req, res) {
       ...callerContext,
       farmer: {
         ...(callerContext.farmer || {}),
-        name: req.user?.full_name || callerContext.farmer?.name || 'Farmer',
+        name: req.user?.name || req.user?.full_name || callerContext.farmer?.name || 'Farmer',
         location: resolvedLocation,
         preferredLanguage: resolvedLang
       },

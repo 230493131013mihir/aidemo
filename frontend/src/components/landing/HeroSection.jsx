@@ -9,7 +9,9 @@ import {
   Calculator,
   CheckCircle2,
   ShieldCheck,
-  Compass
+  Compass,
+  LogIn,
+  UserPlus
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -61,39 +63,32 @@ export default function HeroSection() {
               </p>
             </div>
 
-            {/* CTA Buttons */}
+            {/* Dedicated Farmer Access CTAs (Register / Login Required) */}
             <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
               <Link
-                to="/harvest"
-                id="hero-simulator-cta"
-                className="btn-primary w-full sm:w-auto text-base px-7 py-3.5 shadow-xl hover:shadow-2xl transition-all font-bold flex items-center justify-center gap-2 group bg-emerald-600 hover:bg-emerald-700 text-white"
+                to="/register"
+                id="hero-register-cta"
+                className="btn-primary w-full sm:w-auto text-base px-8 py-3.5 shadow-xl hover:shadow-2xl transition-all font-bold flex items-center justify-center gap-2 group bg-emerald-600 hover:bg-emerald-700 text-white"
               >
-                <span>🌾 Try Harvest Simulator Without Login</span>
+                <UserPlus className="w-5 h-5" aria-hidden="true" />
+                <span>Register Farmer Account</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
               </Link>
 
               <Link
-                to="/markets"
-                id="hero-secondary-cta"
-                className="w-full sm:w-auto text-base px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold border border-white/25 backdrop-blur-md transition-all flex items-center justify-center gap-2 shadow-lg"
+                to="/login"
+                id="hero-login-cta"
+                className="w-full sm:w-auto text-base px-7 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold border border-white/25 backdrop-blur-md transition-all flex items-center justify-center gap-2 shadow-lg"
               >
-                <TrendingUp className="w-4 h-4 text-emerald-400" aria-hidden="true" />
-                <span>View APMC Mandi Rates</span>
-              </Link>
-
-              <Link
-                to={isAuthenticated ? '/dashboard' : '/register'}
-                id="hero-primary-cta"
-                className="w-full sm:w-auto text-sm px-5 py-3.5 rounded-2xl bg-emerald-900/40 hover:bg-emerald-900/60 text-emerald-300 font-semibold border border-emerald-500/30 transition-all flex items-center justify-center gap-1.5"
-              >
-                <span>{isAuthenticated ? 'Go to Dashboard →' : `${t('hero.getStarted')} (Register)`}</span>
+                <LogIn className="w-4 h-4 text-emerald-400" aria-hidden="true" />
+                <span>Farmer Login</span>
               </Link>
             </div>
 
-            {/* Universal Guest Mode Access Notice */}
-            <div className="flex items-center justify-center lg:justify-start gap-2 text-xs text-emerald-300 font-semibold pt-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>⚡ Full Access Without Login — Use All Features Interactively in Guest Mode</span>
+            {/* Strict Authentication Assurance Notice */}
+            <div className="flex items-center justify-center lg:justify-start gap-2 text-xs text-slate-300 font-medium pt-1">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>Verified APMC Rates & Logistics — Log in or register to access full dashboard intelligence</span>
             </div>
 
             {/* Trust points */}

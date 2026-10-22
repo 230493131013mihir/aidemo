@@ -4,6 +4,7 @@
  * HarvestMitra AI - ISSUE-11
  */
 
+process.env.NODE_ENV = 'test';
 const assert = require('assert');
 const http = require('http');
 const app = require('../app');

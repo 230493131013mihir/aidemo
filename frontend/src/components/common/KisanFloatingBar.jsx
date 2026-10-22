@@ -12,6 +12,7 @@ import {
   Bot
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import CropDoctorModal from '../features/CropDoctorModal';
 
 function speakAloud(text) {
@@ -27,16 +28,33 @@ export default function KisanFloatingBar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { showToast } = useToast();
+  const { isAuthenticated } = useAuth();
 
   const [expanded, setExpanded] = useState(false);
   const [doctorModalOpen, setDoctorModalOpen] = useState(false);
 
+  function requireAuthGuard(featureName) {
+    if (!isAuthenticated) {
+      showToast({
+        type: 'info',
+        title: '🔒 Farmer Sign-In Required',
+        message: `Please sign in or register to access ${featureName}.`,
+        duration: 3500,
+      });
+      navigate('/login', { state: { from: location } });
+      setExpanded(false);
+      return false;
+    }
+    return true;
+  }
+
   function handleRadioBulletin() {
-    const radioScript = `Namaskar farmers! This is the HarvestMitra Kisan Mandi Radio bulletin for Gujarat APMC markets. ` +
-      `Surat APMC Tomato is trading steady at 18 rupees 50 paise per kilogram with 520 quintal arrivals. ` +
-      `Ahmedabad APMC Onion modal price is recorded at 29 rupees per kilogram with firm demand. ` +
-      `Potato in Deesa APMC is trading at 19 rupees 50 paise. ` +
-      `Shared transport truck pools are actively departing for Surat and Ahmedabad mandis. ` +
+    if (!requireAuthGuard('Live APMC Mandi Audio Radio')) return;
+
+    const radioScript = `Namaskar farmers! This is the HarvestMitra Kisan Mandi Radio bulletin for Maharashtra APMC markets. ` +
+      `Pune APMC Tomato is trading steady at 24 rupees 50 paise per kilogram with active arrivals. ` +
+      `Nashik APMC Onion modal price is recorded at 28 rupees per kilogram with firm export demand. ` +
+      `Shared transport truck pools are actively departing for Pune and Vashi APMC terminal yards. ` +
       `Jai Kisan! HarvestMitra wishes all farmers a profitable harvest.`;
 
     speakAloud(radioScript);
@@ -117,6 +135,7 @@ export default function KisanFloatingBar() {
             <button
               type="button"
               onClick={() => {
+                if (!requireAuthGuard('AI Kisan Crop Doctor')) return;
                 setDoctorModalOpen(true);
                 setExpanded(false);
               }}
@@ -140,6 +159,7 @@ export default function KisanFloatingBar() {
             <button
               type="button"
               onClick={() => {
+                if (!requireAuthGuard('Shared Truck Pooling')) return;
                 navigate('/transport');
                 setExpanded(false);
               }}

@@ -29,6 +29,14 @@ export const SUPPORTED_LANGUAGES = {
     speechRecognition: 'en-IN',
     speechSynthesis: 'en-IN',
     langTag: 'en-IN'
+  },
+  gu: {
+    code: 'gu',
+    name: 'Gujarati',
+    nativeName: 'ગુજરાતી',
+    speechRecognition: 'gu-IN',
+    speechSynthesis: 'gu-IN',
+    langTag: 'gu-IN'
   }
 };
 

@@ -24,7 +24,6 @@ import {
 } from 'recharts';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { dashboardDemoData } from '../data/dashboardDemoData';
 
 // Dashboard Components
 import DashboardHeader from '../components/dashboard/DashboardHeader';
@@ -41,6 +40,8 @@ import MitraAssistantCard from '../components/dashboard/MitraAssistantCard';
 import QuickActions from '../components/dashboard/QuickActions';
 import PrintableReportModal from '../components/common/PrintableReportModal';
 import RegisteredCropsManager from '../components/dashboard/RegisteredCropsManager';
+import SharedTransportFarmerWidget from '../components/dashboard/SharedTransportFarmerWidget';
+import apiClient from '../services/apiClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
@@ -73,6 +74,12 @@ function AcreageTooltip({ active, payload }) {
 export default function DashboardPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const [viewMode, setViewMode] = useState(() => (user?.role === 'transporter' ? 'transporter' : 'farmer'));
+
+  // Sync viewMode if user role changes dynamically
+  useEffect(() => {
+    setViewMode(user?.role === 'transporter' ? 'transporter' : 'farmer');
+  }, [user?.role]);
 
   // Role-Based Dashboard Segregation:
   // 1. Admin only views the APMC Central Admin Console
@@ -80,12 +87,55 @@ export default function DashboardPage() {
     return <Navigate to="/admin" replace />;
   }
 
-  // 2. Transporter views their dedicated Cargo & Trip Logistics Dashboard
+  // 2. Mandi Official views dedicated Mandi Market Rates & APMC workspace
+  if (user?.role === 'mandi') {
+    return <Navigate to="/markets" replace />;
+  }
+
+  // 3. Transporter views their dedicated Cargo & Trip Logistics Dashboard with quick toggle to Farmer Suite
   if (user?.role === 'transporter') {
-    return <TransporterDashboard />;
+    return (
+      <div className="space-y-4">
+        <div className="bg-white/90 backdrop-blur-md p-2 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-700 px-2">
+            <span>Dashboard Workspace:</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setViewMode('transporter')}
+              className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                viewMode === 'transporter'
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              🚚 Logistics Console
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('farmer')}
+              className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                viewMode === 'farmer'
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              🌾 Farmer Decision Suite
+            </button>
+          </div>
+        </div>
+
+        {viewMode === 'transporter' ? <TransporterDashboard /> : <FarmerDashboard user={user} t={t} />}
+      </div>
+    );
   }
 
   // 3. Farmer views full crop analytics & harvest decision dashboard
+  return <FarmerDashboard user={user} t={t} />;
+}
+
+function FarmerDashboard({ user, t }) {
   const profile = user?.FarmerProfile;
   const farmerDistrict = profile?.district || 'Pune';
   const farmerState = profile?.state || 'Maharashtra';
@@ -96,6 +146,15 @@ export default function DashboardPage() {
   const [loadingCrops, setLoadingCrops] = useState(true);
   const [selectedCropTab, setSelectedCropTab] = useState('all');
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+
+  // Clear crops on logout
+  useEffect(() => {
+    const handleLogout = () => {
+      setCrops([]);
+    };
+    window.addEventListener('harvestmitra:logout', handleLogout);
+    return () => window.removeEventListener('harvestmitra:logout', handleLogout);
+  }, []);
 
   // Fetch farmer registered crops from backend API
   const fetchFarmerCrops = async () => {
@@ -730,8 +789,14 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <MarketTrendChart />
-          <RevenueComparisonChart />
+          <MarketTrendChart 
+            initialCrop={crops.length ? crops[0].cropName : 'Tomato'} 
+            district={farmerDistrict} 
+          />
+          <RevenueComparisonChart 
+            crops={crops} 
+            totalHarvestKg={totalCombinedHarvestKg} 
+          />
         </div>
       </section>
 
@@ -740,7 +805,15 @@ export default function DashboardPage() {
         <h2 id="dashboard-planning-history-heading" className="sr-only">
           Planning History
         </h2>
-        <PlanningHistoryChart />
+        <PlanningHistoryChart crops={crops} />
+      </section>
+
+      {/* 6.5 Clearly Visible Crop-Based Shared Transport & Vehicle Booking Section */}
+      <section id="farmer-shared-transport-section" aria-labelledby="dashboard-transport-heading">
+        <h2 id="dashboard-transport-heading" className="sr-only">
+          Crop-Based Shared Transport and Vehicle Booking
+        </h2>
+        <SharedTransportFarmerWidget registeredCrops={crops} />
       </section>
 
       {/* 7. Operations Triad: Recent Activity, Transport Pooling & Mitra AI */}

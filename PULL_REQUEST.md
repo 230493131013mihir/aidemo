@@ -111,6 +111,8 @@ Below is the master status and completion log of all project issues worked on ac
 | **PHASE2-03**| Role-Segregated Profiles & Farmer Harvest Quantity (kg) | Prashant Parmar (`@prashant`) | **2026-10-14 16:48:08** | `34a9b1d` |
 | **PHASE2-04**| Admin 10-Item Pagination, Sorting & Logistics Oversight | Varun Patil / Varun Trivedi | **2026-10-15 12:32:28** | `863d610`, `a28b141` |
 | **PHASE2-05**| Landing Page Feature Badges & Production Locales | Mihir Jadav (`@230493131013mihir`) | **2026-10-14 18:14:55** | `00d5ed1` |
+| **ISSUE-117**| Pre-Presentation Audit, React 19 Hooks Fix & 1-Click Demo Fill | Mihir Jadav (`@230493131013mihir`) | **2026-10-20 12:48:00** | `6f5de53` |
+| **ISSUE-118**| Strict Auth Guard on Mandi Prices, Localhost Home Redirect & Header Cleanup | Mihir Jadav (`@230493131013mihir`) | **2026-10-20 13:04:50** | `cced933` |
 
 ---
 
@@ -196,6 +198,9 @@ The entire platform has been rigorously tested across both backend and frontend 
 | `backend/test/marketWeatherApi.test.js` | Market filtering & weather advisory API contracts | ✅ PASS |
 | `backend/services/testMathEngine.js` | 3-way financial scenario calculations & spoilage risk | ✅ PASS |
 | `backend/services/testTransport.js` | Route matching, capacity limits & cost-splitting | ✅ PASS |
+| `frontend/src/pages/DashboardPage.jsx` | Unconditional React 19 hook order via `FarmerDashboard` | ✅ PASS |
+| `frontend/src/pages/AdminPage.jsx` | Unconditional `useMemo` hooks order ahead of RBAC | ✅ PASS |
+| `frontend/src/pages/AuthPage.jsx` | 1-Click Presentation Demo Quick-Fill for Farmer/Driver/Admin | ✅ PASS |
 
 ---
 
@@ -228,7 +233,11 @@ The entire platform has been rigorously tested across both backend and frontend 
 
 ---
 
-## 🔗 GitHub PR Creation Link
+## 🔗 Live Official GitHub Issues & Pull Requests
 
-To open this Pull Request directly on GitHub with comparison:  
-👉 **[Open Pull Request on GitHub: compare/main...feature/admin-pagination-sorting](https://github.com/230493131013mihir/aidemo/compare/main...feature/admin-pagination-sorting?expand=1)**
+The issues and Pull Requests have been created directly on GitHub:  
+- 📌 **Issue #121:** [Pre-Presentation System Audit, React 19 Hooks Compliance & 1-Click Demo Quick Fill](https://github.com/230493131013mihir/aidemo/issues/121)  
+- 📌 **Issue #123:** [Strict Authentication Guard on Mandi Prices, Localhost Home Redirect & Header Cleanup](https://github.com/230493131013mihir/aidemo/issues/123)  
+- 🚀 **Pull Request #124:** [PR: Strict Authentication Guard on Mandi Prices, Localhost Home Redirect & Header Cleanup](https://github.com/230493131013mihir/aidemo/pull/124)  
+- 📌 **Issue #125:** [Live Transporter Booking Alert Audio Chime, Pop-Up Toast & MySQL Status Column Migration](https://github.com/230493131013mihir/aidemo/issues/125)  
+- 🚀 **Pull Request #126:** [PR: Live Transporter Booking Alert Audio Chime, Pop-Up Toast & MySQL Status Column Migration](https://github.com/230493131013mihir/aidemo/pull/126)  

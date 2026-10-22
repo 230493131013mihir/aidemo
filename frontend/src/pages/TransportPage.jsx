@@ -18,13 +18,22 @@ import {
   ShieldAlert,
   Phone,
   QrCode,
-  Navigation
+  Navigation,
+  CheckCheck,
+  Star,
+  Lock,
+  CreditCard
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import DigitalGatePassModal from '../components/transport/DigitalGatePassModal';
+import EscrowPaymentModal from '../components/transport/EscrowPaymentModal';
+import DriverRatingModal from '../components/transport/DriverRatingModal';
 import CorridorFreightCalculator from '../components/transport/CorridorFreightCalculator';
 import LiveDriverTrackingMap from '../components/transport/LiveDriverTrackingMap';
+import SharedTransportFarmerWidget from '../components/dashboard/SharedTransportFarmerWidget';
+import TransporterDashboard from '../components/dashboard/TransporterDashboard';
+import apiClient from '../services/apiClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
@@ -107,10 +116,16 @@ export default function TransportPage() {
     setLiveTelemetry(telemetry);
   }, []);
 
+  // Modal for UPI Freight Escrow Payment
+  const [escrowPaymentBooking, setEscrowPaymentBooking] = useState(null);
+
+  // Modal for Driver 5-Star Rating & Review
+  const [ratingBooking, setRatingBooking] = useState(null);
+
   // Active or latest farmer booking for live tracking card
   const activeFarmerBooking = useMemo(() => {
     return (
-      myRequests.find((r) => ['accepted', 'in_transit'].includes(r.status)) ||
+      myRequests.find((r) => ['accepted', 'driver_assigned', 'in_transit', 'delivered'].includes(r.status)) ||
       (myRequests.length > 0 ? myRequests[0] : null) || {
         id: 'DEMO-9421',
         gatePassCode: 'MH-APMC-9421',
@@ -205,12 +220,24 @@ export default function TransportPage() {
     }
   }, [location.state, location.search]);
 
+  // Clear per-user transport state on logout
+  useEffect(() => {
+    const handleLogout = () => {
+      setMyRequests([]);
+      setOpenCargoList([]);
+      setActiveTrip(null);
+      setFarmerName('');
+      setMessage('');
+      setError('');
+    };
+    window.addEventListener('harvestmitra:logout', handleLogout);
+    return () => window.removeEventListener('harvestmitra:logout', handleLogout);
+  }, []);
+
   async function loadMyRequests() {
     if (!token) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transport/my-requests`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiClient('/api/transport/my-requests');
       const payload = await response.json();
       if (response.ok && payload.success) {
         setMyRequests(payload.data || []);
@@ -223,9 +250,7 @@ export default function TransportPage() {
   async function loadTransporters() {
     if (isUserTransporter) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transport/transporters`, {
-        headers: { Authorization: `Bearer ${token || 'guest'}` },
-      });
+      const response = await apiClient('/api/transport/transporters');
       const payload = await response.json().catch(() => ({}));
       if (response.ok && payload.success && Array.isArray(payload.data) && payload.data.length > 0) {
         setTransportersList(payload.data);
@@ -286,9 +311,7 @@ export default function TransportPage() {
   async function loadOpenCargo() {
     if (!token || !isUserTransporter) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transport/open-cargo`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiClient('/api/transport/open-cargo');
       const payload = await response.json();
       if (response.ok && payload.success) {
         setOpenCargoList(payload.data || []);
@@ -302,9 +325,7 @@ export default function TransportPage() {
     if (!token || !isUserTransporter) return;
     setLoadingActiveTrip(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transport/active-trip`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiClient('/api/transport/active-trip');
       const payload = await response.json();
       if (response.ok && payload.success) {
         setActiveTrip(payload.hasActiveTrip ? payload.activeTrip : null);
@@ -323,11 +344,12 @@ export default function TransportPage() {
     loadActiveTrip();
 
     if (!token) return;
-    // Dynamic live auto-polling every 4 seconds so farmers and drivers see instant updates
+    // Dynamic live auto-polling every 3 seconds so farmers and drivers see instant updates
     const interval = setInterval(() => {
       loadMyRequests();
       loadActiveTrip();
-    }, 4000);
+      loadTransporters();
+    }, 3000);
     return () => clearInterval(interval);
   }, [token]);
 
@@ -375,23 +397,39 @@ export default function TransportPage() {
     }
   }
 
-  // Show only currently available registered transporters.
+  // Show only currently available registered transporters (exclude assigned/busy drivers).
   const allPools = useMemo(() => {
-    return transportersList.filter((tr) => Number(tr.userId) !== Number(user?.id)).map((tr) => ({
-      id: `live-${tr.id}`,
-      transporterId: tr.userId,
-      driver: tr.driverName || 'Verified Driver',
-      route: tr.baseMandi || tr.currentRoute || 'Pune APMC',
-      date: date,
-      vehicle: tr.vehicleType || 'Commercial Farm Truck',
-      vehicleNumber: tr.vehicleNumber || 'MH-12-RN-4921',
-      capacityKg: tr.capacityKg || 2000,
-      usedKg: 0,
-      cost: (tr.ratePerKm || 20) * 85, // estimated base route cost
-      farmers: 0,
-      isLiveRegistered: true,
-    }));
-  }, [transportersList, user?.id, date]);
+    return transportersList
+      .filter((tr) => {
+        if (Number(tr.userId) === Number(user?.id)) return false;
+        if (tr.isAvailable === false) return false;
+
+        // Check if this driver/transporter is already assigned to ANY active booking of this farmer
+        const isAssignedToActiveTrip = (myRequests || []).some(
+          (req) =>
+            ['driver_assigned', 'in_transit', 'accepted', 'confirmed', 'pending', 'open'].includes(req.status) &&
+            (Number(req.transporterId) === Number(tr.userId) ||
+              (req.driverName && tr.driverName && req.driverName.toLowerCase().trim() === tr.driverName.toLowerCase().trim()))
+        );
+        if (isAssignedToActiveTrip) return false;
+
+        return true;
+      })
+      .map((tr) => ({
+        id: `live-${tr.id}`,
+        transporterId: tr.userId,
+        driver: tr.driverName || 'Verified Driver',
+        route: tr.baseMandi || tr.currentRoute || 'Pune APMC',
+        date: date,
+        vehicle: tr.vehicleType || 'Commercial Farm Truck',
+        vehicleNumber: tr.vehicleNumber || 'MH-12-RN-4921',
+        capacityKg: tr.capacityKg || 2000,
+        usedKg: 0,
+        cost: (tr.ratePerKm || 20) * 85, // estimated base route cost
+        farmers: 0,
+        isLiveRegistered: true,
+      }));
+  }, [transportersList, user?.id, date, myRequests]);
 
   // Filter registered vehicles by destination and available capacity.
   const matches = useMemo(() => {
@@ -463,10 +501,37 @@ export default function TransportPage() {
       return;
     }
 
+    // If user is logged in as transporter but explicitly testing the farmer booking view, auto-use farmer demo mode
     if (isUserTransporter) {
-      const errMsg = 'Transporters cannot post farmer transport requests.';
-      setError(errMsg);
-      showToast({ type: 'warning', title: 'Role Restriction', message: errMsg });
+      setSubmitting(true);
+      setTimeout(() => {
+        const demoFarmerBooking = {
+          id: `demo-${Date.now()}`,
+          farmerName: farmerName.trim() || 'Ramesh Patel (Farmer)',
+          cropName: cropName.trim(),
+          weightKg: Number(weight || 500),
+          pickupLocation: pickupLocation.trim(),
+          destinationMarket: destination || 'Pune APMC',
+          pickupDate: date || new Date().toISOString().slice(0, 10),
+          status: 'assigned',
+          gatePassCode: `HM-GP-${Math.floor(1000 + Math.random() * 9000)}`,
+          driverName: 'Rajesh Patil (Express Agri Logistics)',
+          driverPhone: '9822012345',
+          vehicleType: 'Mahindra Bolero Maxi Truck',
+          vehicleNumber: 'MH-12-RN-4921',
+          estimatedDurationMinutes: 120,
+          estimatedSharedCost: Math.round(Number(weight || 500) * 1.8),
+          createdAt: new Date().toISOString()
+        };
+        setSelectedGatePass(demoFarmerBooking);
+        setMyRequests((prev) => [demoFarmerBooking, ...prev]);
+        setSubmitting(false);
+        showToast({
+          type: 'celebrate',
+          title: '🚚 Farmer Transport Booked!',
+          message: 'Digital Mandi Gate Pass generated with QR code verification.'
+        });
+      }, 500);
       return;
     }
 
@@ -685,6 +750,29 @@ export default function TransportPage() {
     }
   }
 
+  // Farmer confirms delivery received
+  async function handleConfirmReceived(requestId) {
+    try {
+      const response = await apiClient(`/api/transport/requests/${requestId}/confirm`, {
+        method: 'PUT',
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.message || 'Failed to confirm delivery');
+
+      showToast({
+        type: 'celebrate',
+        title: '✅ Delivery Confirmed!',
+        message: 'Trip marked as completed. Thank you for using HarvestMitra transport!',
+        duration: 4000,
+      });
+
+      await loadMyRequests();
+      await loadActiveTrip();
+    } catch (err) {
+      showToast({ type: 'error', title: 'Confirm Failed', message: err.message });
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto py-6 px-4">
       {/* Digital Mandi Gate Pass Modal */}
@@ -692,6 +780,26 @@ export default function TransportPage() {
         isOpen={!!selectedGatePass}
         booking={selectedGatePass}
         onClose={() => setSelectedGatePass(null)}
+      />
+
+      {/* UPI Freight Escrow Payment Modal */}
+      <EscrowPaymentModal
+        isOpen={!!escrowPaymentBooking}
+        booking={escrowPaymentBooking}
+        onClose={() => setEscrowPaymentBooking(null)}
+        onPaymentSuccess={() => {
+          loadMyRequests();
+        }}
+      />
+
+      {/* Driver 5-Star Rating & Review Modal */}
+      <DriverRatingModal
+        isOpen={!!ratingBooking}
+        booking={ratingBooking}
+        onClose={() => setRatingBooking(null)}
+        onReviewSuccess={() => {
+          loadMyRequests();
+        }}
       />
 
       {/* Top Banner with Photographic Background */}
@@ -750,8 +858,17 @@ export default function TransportPage() {
           {/* FARMER TAB CONTENT */}
       {activeTab === 'farmer' && (
         <>
+          {/* Complete Crop-Based Vehicle & Shared Transport Booking System */}
+          <section id="crop-shared-transport-suite" className="animate-in fade-in">
+            <SharedTransportFarmerWidget
+              initialCrop={cropName}
+              initialWeightKg={weight}
+              initialDestination={destination}
+            />
+          </section>
+
           {/* Farmer Live Tracking Card with Driver Details, Phone, Plate, ETA & 4-Step Stepper */}
-              {!isUserTransporter && activeFarmerBooking && (
+          {activeFarmerBooking && (
             <section className="rounded-3xl border-2 border-primary/30 bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950 text-white p-6 sm:p-7 shadow-xl space-y-5 animate-in fade-in">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
                 <div className="flex items-center gap-3">
@@ -776,23 +893,34 @@ export default function TransportPage() {
                 <div className="flex items-center gap-2">
                   <span
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider ${
-                      activeFarmerBooking.status === 'delivered'
+                      ['delivered', 'completed'].includes(activeFarmerBooking.status)
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
                         : activeFarmerBooking.status === 'in_transit'
                         ? 'bg-purple-500/20 text-purple-300 border border-purple-400/40'
-                        : activeFarmerBooking.status === 'accepted'
+                        : ['accepted', 'driver_assigned'].includes(activeFarmerBooking.status)
                         ? 'bg-blue-500/20 text-blue-300 border border-blue-400/40'
                         : 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
                     }`}
                   >
-                    {activeFarmerBooking.status === 'delivered'
+                    {['delivered', 'completed'].includes(activeFarmerBooking.status)
                       ? '🏁 Delivered at Mandi'
                       : activeFarmerBooking.status === 'in_transit'
                       ? '🛣️ In Transit to APMC'
-                      : activeFarmerBooking.status === 'accepted'
+                      : ['accepted', 'driver_assigned'].includes(activeFarmerBooking.status)
                       ? '🚚 Driver Assigned & En Route'
                       : '⏳ Requested (Awaiting Transporter)'}
                   </span>
+
+                  {activeFarmerBooking.status === 'delivered' && (
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmReceived(activeFarmerBooking.id)}
+                      className="px-3 py-1.5 rounded-xl border border-emerald-400 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Confirm Received</span>
+                    </button>
+                  )}
 
                   <button
                     type="button"
@@ -815,7 +943,7 @@ export default function TransportPage() {
               </div>
 
               {/* Driver, Vehicle, ETA Information Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
                 <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
                   <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Assigned Driver</span>
                   <p className="font-extrabold text-sm text-white">
@@ -861,6 +989,43 @@ export default function TransportPage() {
                     <span className="truncate">{activeFarmerBooking.destinationMarket}</span>
                   </p>
                 </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Freight Escrow</span>
+                  {activeFarmerBooking.paymentStatus === 'in_escrow' ? (
+                    <div>
+                      <p className="font-extrabold text-sm text-amber-300 font-mono">
+                        ₹{Number(activeFarmerBooking.escrowAmount || activeFarmerBooking.estimatedSharedCost || 1200).toLocaleString('en-IN')}
+                      </p>
+                      <span className="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-400/30 inline-block mt-0.5">
+                        🛡️ Locked in Escrow
+                      </span>
+                    </div>
+                  ) : activeFarmerBooking.paymentStatus === 'paid' ? (
+                    <div>
+                      <p className="font-extrabold text-sm text-emerald-400 font-mono">
+                        ₹{Number(activeFarmerBooking.escrowAmount || activeFarmerBooking.estimatedSharedCost || 1200).toLocaleString('en-IN')}
+                      </p>
+                      <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-400/30 inline-block mt-0.5">
+                        ✅ Payout Released
+                      </span>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="font-extrabold text-sm text-slate-300 font-mono">
+                        ₹{Number(activeFarmerBooking.estimatedSharedCost || 1200).toLocaleString('en-IN')}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setEscrowPaymentBooking(activeFarmerBooking)}
+                        className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 hover:bg-emerald-500/30 px-2 py-0.5 rounded border border-emerald-400/40 inline-flex items-center gap-1 mt-0.5 cursor-pointer transition-colors"
+                      >
+                        <ShieldCheck className="w-3 h-3" />
+                        <span>Lock Escrow</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 4-Step Live Tracking Stepper */}
@@ -871,11 +1036,11 @@ export default function TransportPage() {
                     className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-emerald-500 transition-all duration-500 z-0"
                     style={{
                       width:
-                        activeFarmerBooking.status === 'delivered'
+                        ['delivered', 'completed'].includes(activeFarmerBooking.status)
                           ? '100%'
                           : activeFarmerBooking.status === 'in_transit'
                           ? `${Math.max(35, Math.min(96, liveTelemetry?.progressPct || 66))}%`
-                          : activeFarmerBooking.status === 'accepted'
+                          : ['accepted', 'driver_assigned'].includes(activeFarmerBooking.status)
                           ? '33%'
                           : '0%',
                     }}
@@ -894,16 +1059,16 @@ export default function TransportPage() {
                   <div className="relative z-10 flex flex-col items-center">
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-md ${
-                        ['accepted', 'in_transit', 'delivered'].includes(activeFarmerBooking.status)
+                        ['accepted', 'driver_assigned', 'in_transit', 'delivered', 'completed'].includes(activeFarmerBooking.status)
                           ? 'bg-emerald-500 text-white'
                           : 'bg-slate-800 text-slate-400 border border-slate-700'
                       }`}
                     >
-                      {['accepted', 'in_transit', 'delivered'].includes(activeFarmerBooking.status) ? '✓' : '2'}
+                      {['accepted', 'driver_assigned', 'in_transit', 'delivered', 'completed'].includes(activeFarmerBooking.status) ? '✓' : '2'}
                     </div>
                     <span
                       className={`text-[11px] font-bold mt-1.5 ${
-                        ['accepted', 'in_transit', 'delivered'].includes(activeFarmerBooking.status)
+                        ['accepted', 'driver_assigned', 'in_transit', 'delivered', 'completed'].includes(activeFarmerBooking.status)
                           ? 'text-white'
                           : 'text-slate-400'
                       }`}
@@ -1043,7 +1208,7 @@ export default function TransportPage() {
           />
 
           {/* Farmer booking and request form */}
-          {!isUserTransporter && <form
+          <form
             id="booking-dispatch-form"
             onSubmit={saveTransportRequest}
             className="rounded-3xl border border-border bg-white p-6 shadow-sm space-y-4"
@@ -1169,10 +1334,9 @@ export default function TransportPage() {
                 </button>
               </div>
             </div>
-          </form>}
-
+          </form>
           {/* Available registered transporter inventory */}
-          {!isUserTransporter && <section className="space-y-3">
+          <section className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-text flex items-center gap-2">
                 <Users className="w-5 h-5 text-primary" />
@@ -1181,89 +1345,107 @@ export default function TransportPage() {
               <span className="text-xs text-muted">Live vehicle availability</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {matches.map((pool) => {
-                const available = pool.capacityKg - pool.usedKg;
-                const sharedCost = Math.round(pool.cost * (Number(weight || 500) / Math.max(pool.capacityKg, 1)));
+            {matches.length === 0 ? (
+              <div className="p-6 rounded-3xl bg-emerald-50/70 border border-emerald-200 text-center space-y-1.5 shadow-2xs">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+                  <CheckCheck className="w-4 h-4" />
+                </div>
+                <p className="text-xs font-bold text-emerald-950">
+                  {['accepted', 'driver_assigned', 'in_transit'].includes(activeFarmerBooking?.status)
+                    ? 'Active Driver Assigned & Dispatched'
+                    : 'No Vehicles Currently Available for Selected Route/Capacity'}
+                </p>
+                <p className="text-[11px] text-emerald-800">
+                  {['accepted', 'driver_assigned', 'in_transit'].includes(activeFarmerBooking?.status)
+                    ? `Assigned vehicle (${activeFarmerBooking.vehicleNumber || 'Agri Carrier'}) with driver ${activeFarmerBooking.driverName || 'Verified Driver'}. Live tracking is active above.`
+                    : 'Submit the dispatch booking form above to broadcast your produce load to registered transporters.'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {matches.map((pool) => {
+                  const available = pool.capacityKg - pool.usedKg;
+                  const sharedCost = Math.round(pool.cost * (Number(weight || 500) / Math.max(pool.capacityKg, 1)));
 
-                return (
-                  <article
-                    key={pool.id}
-                    className="rounded-3xl border border-border bg-white p-5 shadow-xs flex flex-col justify-between space-y-4 hover:border-primary/40 hover:shadow-md transition-all relative overflow-hidden"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-extrabold text-base text-text">{pool.vehicle}</h3>
-                          {pool.isLiveRegistered && (
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                              Verified Transporter
-                            </span>
-                          )}
+                  return (
+                    <article
+                      key={pool.id}
+                      className="rounded-3xl border border-border bg-white p-5 shadow-xs flex flex-col justify-between space-y-4 hover:border-primary/40 hover:shadow-md transition-all relative overflow-hidden"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-extrabold text-base text-text">{pool.vehicle}</h3>
+                            {pool.isLiveRegistered && (
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                                Verified Transporter
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted mt-0.5">
+                            Driver: <span className="font-bold text-text">{pool.driver}</span> • Reg:{' '}
+                            <span className="font-mono">{pool.vehicleNumber || 'GJ-05-TR-2026'}</span>
+                          </p>
                         </div>
-                        <p className="text-xs text-muted mt-0.5">
-                          Driver: <span className="font-bold text-text">{pool.driver}</span> • Reg:{' '}
-                          <span className="font-mono">{pool.vehicleNumber || 'GJ-05-TR-2026'}</span>
-                        </p>
+
+                        <span className="badge-tag bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold">
+                          {available} kg available
+                        </span>
                       </div>
 
-                      <span className="badge-tag bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold">
-                        {available} kg available
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="rounded-xl bg-slate-50 p-2.5 flex items-center gap-2 border border-slate-200">
-                        <MapPin className="w-4 h-4 text-primary shrink-0" />
-                        <span className="font-semibold truncate">{pool.route}</span>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="rounded-xl bg-slate-50 p-2.5 flex items-center gap-2 border border-slate-200">
+                          <MapPin className="w-4 h-4 text-primary shrink-0" />
+                          <span className="font-semibold truncate">{pool.route}</span>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 p-2.5 flex items-center gap-2 border border-slate-200">
+                          <Users className="w-4 h-4 text-primary shrink-0" />
+                          <span className="font-semibold">Capacity: {pool.capacityKg} kg</span>
+                        </div>
                       </div>
-                      <div className="rounded-xl bg-slate-50 p-2.5 flex items-center gap-2 border border-slate-200">
-                        <Users className="w-4 h-4 text-primary shrink-0" />
-                        <span className="font-semibold">Capacity: {pool.capacityKg} kg</span>
-                      </div>
-                    </div>
 
-                    <div className="rounded-2xl border border-primary/20 bg-primary-50/70 p-3.5 flex items-center justify-between">
-                      <div>
-                        <p className="text-[11px] text-muted uppercase font-bold tracking-wider">Estimated Booking Cost</p>
-                <p className="text-xl font-black text-primary font-mono">{formatINR(sharedCost)}</p>
+                      <div className="rounded-2xl border border-primary/20 bg-primary-50/70 p-3.5 flex items-center justify-between">
+                        <div>
+                          <p className="text-[11px] text-muted uppercase font-bold tracking-wider">Estimated Booking Cost</p>
+                          <p className="text-xl font-black text-primary font-mono">{formatINR(sharedCost)}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs text-emerald-800 font-bold bg-emerald-100/90 px-2.5 py-1 rounded-lg border border-emerald-300">Estimated fare</span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-xs text-emerald-800 font-bold bg-emerald-100/90 px-2.5 py-1 rounded-lg border border-emerald-300">Estimated fare</span>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleJoinPool(pool)}
+                          className="btn-primary flex-1 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-xs"
+                        >
+                          <Truck className="w-4 h-4" />
+                          <span>Book Transport & Get Pass</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            speakAloud(
+                              `Vehicle: ${pool.vehicle}. Driver: ${pool.driver}. Operating from ${pool.route}. Estimated fare: ${sharedCost} rupees.`
+                            )
+                          }
+                          title="Listen to Trip Details"
+                          className="p-2.5 rounded-xl border border-border bg-slate-50 hover:bg-slate-100 text-muted hover:text-text transition-colors"
+                        >
+                          <Volume2 className="w-4 h-4" />
+                        </button>
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleJoinPool(pool)}
-                        className="btn-primary flex-1 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-xs"
-                      >
-                        <Truck className="w-4 h-4" />
-                        <span>Book Transport & Get Pass</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          speakAloud(
-                            `Vehicle: ${pool.vehicle}. Driver: ${pool.driver}. Operating from ${pool.route}. Estimated fare: ${sharedCost} rupees.`
-                          )
-                        }
-                        title="Listen to Trip Details"
-                        className="p-2.5 rounded-xl border border-border bg-slate-50 hover:bg-slate-100 text-muted hover:text-text transition-colors"
-                      >
-                        <Volume2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          </section>}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
           {/* Farmer booking history. */}
-          {!isUserTransporter && <section className="rounded-3xl border border-border bg-white shadow-xs overflow-hidden">
+          <section className="rounded-3xl border border-border bg-white shadow-xs overflow-hidden">
             <div className="px-6 py-4 bg-slate-50 border-b border-border flex items-center justify-between">
               <div>
                 <h2 className="font-bold text-sm text-text">My Transport Requests & Live Tracking</h2>
@@ -1279,9 +1461,9 @@ export default function TransportPage() {
             ) : (
               <div className="divide-y divide-border/60">
                 {myRequests.map((req) => {
-                  const isAccepted = req.status === 'accepted' || req.status === 'in_transit' || req.status === 'delivered';
-                  const isInTransit = req.status === 'in_transit' || req.status === 'delivered';
-                  const isDelivered = req.status === 'delivered';
+                  const isAccepted = ['accepted', 'driver_assigned', 'in_transit', 'delivered', 'completed'].includes(req.status);
+                  const isInTransit = ['in_transit', 'delivered', 'completed'].includes(req.status);
+                  const isDelivered = ['delivered', 'completed'].includes(req.status);
 
                   return (
                     <div
@@ -1313,7 +1495,9 @@ export default function TransportPage() {
                         <div className="flex items-center gap-2">
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                              isDelivered
+                              req.status === 'completed'
+                                ? 'bg-slate-100 text-slate-800 border border-slate-300'
+                                : isDelivered
                                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                                 : isInTransit
                                 ? 'bg-purple-100 text-purple-800 border border-purple-300'
@@ -1322,7 +1506,9 @@ export default function TransportPage() {
                                 : 'bg-amber-100 text-amber-800 border border-amber-300'
                             }`}
                           >
-                            {isDelivered
+                            {req.status === 'completed'
+                              ? '✅ Trip Completed'
+                              : isDelivered
                               ? '🏁 Delivered at APMC'
                               : isInTransit
                               ? '🛣️ On The Road (In Transit)'
@@ -1330,6 +1516,54 @@ export default function TransportPage() {
                               ? '🚚 Driver Assigned & En Route'
                               : '⏳ Waiting for Driver Pickup'}
                           </span>
+
+                          {/* Escrow Status / Payment Action */}
+                          {req.paymentStatus === 'in_escrow' ? (
+                            <span className="px-3 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 flex items-center gap-1">
+                              <span>🛡️ ₹{Number(req.escrowAmount || req.estimatedSharedCost || 1200).toLocaleString('en-IN')} Escrow</span>
+                            </span>
+                          ) : req.paymentStatus === 'paid' ? (
+                            <span className="px-3 py-1 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-300 flex items-center gap-1">
+                              <span>✅ ₹{Number(req.escrowAmount || req.estimatedSharedCost || 1200).toLocaleString('en-IN')} Paid</span>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setEscrowPaymentBooking(req)}
+                              className="px-3 py-1.5 rounded-xl border border-emerald-600 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                            >
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                              <span>Pay Escrow (₹{Number(req.estimatedSharedCost || 1200).toLocaleString('en-IN')})</span>
+                            </button>
+                          )}
+
+                          {/* Driver Rating Action */}
+                          {req.driverRating ? (
+                            <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 flex items-center gap-1">
+                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                              <span>{req.driverRating}★ Rated</span>
+                            </span>
+                          ) : (isDelivered || req.status === 'completed') ? (
+                            <button
+                              type="button"
+                              onClick={() => setRatingBooking(req)}
+                              className="px-3 py-1.5 rounded-xl border border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                            >
+                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                              <span>Rate Driver</span>
+                            </button>
+                          ) : null}
+
+                          {isDelivered && (
+                            <button
+                              type="button"
+                              onClick={() => handleConfirmReceived(req.id)}
+                              className="px-3 py-1.5 rounded-xl border border-emerald-500 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Confirm received</span>
+                            </button>
+                          )}
 
                           <button
                             type="button"
@@ -1459,430 +1693,13 @@ export default function TransportPage() {
                 })}
               </div>
             )}
-          </section>}
+          </section>
         </>
       )}
 
       {/* TRANSPORTER CONSOLE TAB CONTENT */}
       {activeTab === 'transporter' && (
-        <div className="space-y-6">
-          {/* Active Delivery Card with Single-Trip Lock */}
-          {activeTrip && (
-            <section className="rounded-3xl border-2 border-emerald-500/50 bg-gradient-to-br from-slate-900 via-slate-950 to-emerald-950 text-white p-6 sm:p-7 shadow-xl space-y-5 animate-in fade-in">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 flex items-center justify-center font-bold">
-                    <Truck className="w-6 h-6 animate-pulse" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-400/30">
-                        🔒 Single-Trip Lock Active
-                      </span>
-                      <span className="text-xs text-slate-300 font-mono">Trip #{activeTrip.id}</span>
-                    </div>
-                    <h2 className="text-lg sm:text-xl font-black text-white mt-0.5">
-                      Ongoing Delivery: {activeTrip.cropName} ({activeTrip.weightKg} kg)
-                    </h2>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider ${
-                      activeTrip.status === 'in_transit'
-                        ? 'bg-purple-500/20 text-purple-300 border border-purple-400/40'
-                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
-                    }`}
-                  >
-                    {activeTrip.status === 'in_transit' ? '🛣️ Currently In Transit' : '🚚 Driver Assigned & Loading'}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedGatePass(activeTrip)}
-                    className="px-3.5 py-1.5 rounded-xl border border-emerald-400/40 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer animate-pulse"
-                    title="Open Official APMC Gate Pass for Security Check"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>🎫 Show Digital Gate Pass</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Farmer and Route Information Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
-                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Farmer Contact</span>
-                  <p className="font-extrabold text-sm text-white">{activeTrip.farmerName}</p>
-                  <a
-                    href={activeTrip.farmerPhone ? `tel:${activeTrip.farmerPhone}` : undefined}
-                    className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-bold font-mono"
-                  >
-                    <Phone className="w-3.5 h-3.5" />
-                    <span>{activeTrip.farmerPhone || 'Phone shared after booking'}</span>
-                  </a>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
-                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Pickup Location</span>
-                  <p className="font-bold text-white flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                    <span className="truncate">
-                      {activeTrip.pickupLocation && activeTrip.pickupLocation.toLowerCase().includes('pune')
-                        ? activeTrip.pickupLocation.replace(/gujarat/i, 'Maharashtra')
-                        : activeTrip.pickupLocation}
-                    </span>
-                  </p>
-                  <span className="text-[11px] text-slate-400">Scheduled: {activeTrip.pickupDate}</span>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
-                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Destination APMC</span>
-                  <p className="font-bold text-emerald-400 flex items-center gap-1">
-                    <ArrowRight className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{activeTrip.destinationMarket}</span>
-                  </p>
-                  <span className="text-[11px] text-slate-400">
-                    Pass: {activeTrip?.destinationMarket && String(activeTrip.destinationMarket).toLowerCase().includes('pune') && activeTrip.gatePassCode?.startsWith('GJ-')
-                      ? activeTrip.gatePassCode.replace(/^GJ-/, 'MH-')
-                      : activeTrip?.gatePassCode}
-                  </span>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
-                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Est. Travel Time</span>
-                  <p className="font-mono font-extrabold text-sm text-amber-300 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>~{activeTrip.estimatedDurationMinutes || 120} Minutes</span>
-                  </p>
-                  <span className="text-[11px] text-slate-400">
-                    Shared Fare: ~{formatINR(activeTrip.estimatedSharedCost || 1800)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Official Mandi Gate Security Verification Box */}
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/70 via-slate-900 to-teal-950/70 border border-emerald-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-white shadow-md">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 flex items-center justify-center font-bold shrink-0">
-                    <QrCode className="w-5 h-5 animate-pulse" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full">
-                        Official APMC Security Inspection
-                      </span>
-                      <span className="text-xs font-mono text-emerald-400 font-bold">
-                        Pass: {activeTrip?.destinationMarket && String(activeTrip.destinationMarket).toLowerCase().includes('pune') && activeTrip.gatePassCode?.startsWith('GJ-')
-                          ? activeTrip.gatePassCode.replace(/^GJ-/, 'MH-')
-                          : activeTrip?.gatePassCode}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-200 mt-1">
-                      {activeTrip.status === 'in_transit'
-                        ? '🚨 Approaching Mandi Gate? Present QR Gate Pass to the Mandi Security Guard and Weighbridge Officer.'
-                        : 'Gate pass verified and ready. Present to Mandi Gate Security upon arrival.'}
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setSelectedGatePass(activeTrip)}
-                  className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all shrink-0"
-                >
-                  <QrCode className="w-4 h-4" />
-                  <span>Present Gate Pass (QR)</span>
-                </button>
-              </div>
-
-              {/* Status Milestone Action Buttons */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-white/10">
-                <p className="text-xs text-slate-300 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span>
-                    Advance the shipment stage to inform the farmer in real time.
-                  </span>
-                </p>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedGatePass(activeTrip)}
-                    className="py-2.5 px-4 rounded-xl border border-white/20 hover:bg-white/10 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    <span>View Gate Pass</span>
-                  </button>
-                  {activeTrip.status === 'accepted' && (
-                    <button
-                      type="button"
-                      disabled={updatingTripMilestone}
-                      onClick={() => handleProgressTrip(activeTrip.id, 'in_transit')}
-                      className="py-2.5 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
-                    >
-                      <Truck className="w-4 h-4" />
-                      <span>{updatingTripMilestone ? 'Updating...' : 'Mark Dispatched & In Transit 🛣️'}</span>
-                    </button>
-                  )}
-
-                  {activeTrip.status === 'in_transit' && (
-                    <button
-                      type="button"
-                      disabled={updatingTripMilestone}
-                      onClick={() => handleProgressTrip(activeTrip.id, 'delivered')}
-                      className="py-2.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>{updatingTripMilestone ? 'Completing...' : 'Confirm Delivery at Mandi 🏁'}</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-              {/* Transporter Live Driver Cockpit & Highway Radar Toggle */}
-              <div className="pt-2 border-t border-white/10 flex items-center justify-between">
-                <span className="text-xs text-slate-300 flex items-center gap-1.5 font-bold">
-                  <Navigation className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Driver Real-Time GPS & Highway Radar Cockpit</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowTransporterGpsMap((prev) => !prev)}
-                  className="px-3 py-1 rounded-xl border border-emerald-400/30 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold transition-colors"
-                >
-                  {showTransporterGpsMap ? 'Hide Radar' : '🛰️ Open Driver Radar'}
-                </button>
-              </div>
-
-              {showTransporterGpsMap && (
-                <div className="pt-2 animate-in fade-in duration-300">
-                  <LiveDriverTrackingMap
-                    booking={activeTrip}
-                    isExpandedDefault={false}
-                  />
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* Vehicle Registration Card */}
-          {isUserTransporter && <form
-            onSubmit={handleRegisterVehicle}
-            className="rounded-3xl border border-border bg-white p-6 shadow-sm space-y-4"
-          >
-            <div className="border-b border-border/80 pb-3 flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-bold text-text flex items-center gap-2">
-                  <Truck className="w-5 h-5 text-primary" />
-                  <span>Register or Update Vehicle Fleet</span>
-                </h2>
-                <p className="text-xs text-muted">
-                  Make your vehicle available to hundreds of local farmers seeking APMC mandi freight.
-                </p>
-              </div>
-              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
-                MySQL Fleet Synced
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <label className="space-y-1">
-                <span className="text-xs font-semibold text-muted uppercase tracking-wider">Driver / Owner Name *</span>
-                <input
-                  required
-                  value={vehicleForm.driverName}
-                  onChange={(e) => setVehicleForm({ ...vehicleForm, driverName: e.target.value })}
-                  className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary"
-                  placeholder="e.g. Suresh Parmar"
-                />
-              </label>
-
-              <label className="space-y-1">
-                <span className="text-xs font-semibold text-muted uppercase tracking-wider">Mobile Number *</span>
-                <input
-                  required
-                  value={vehicleForm.phone}
-                  onChange={(e) => setVehicleForm({ ...vehicleForm, phone: e.target.value })}
-                  className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary"
-                  placeholder="9825012345"
-                />
-              </label>
-
-              <label className="space-y-1">
-                <span className="text-xs font-semibold text-muted uppercase tracking-wider">Vehicle Model *</span>
-                <select
-                  value={vehicleForm.vehicleType}
-                  onChange={(e) => setVehicleForm({ ...vehicleForm, vehicleType: e.target.value })}
-                  className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary bg-white"
-                >
-                  <option value="Mahindra Bolero Maxi Truck">Mahindra Bolero Maxi Truck</option>
-                  <option value="Tata 407 LPT">Tata 407 LPT</option>
-                  <option value="Eicher Pro 2049">Eicher Pro 2049</option>
-                  <option value="Tata Ace Gold">Tata Ace Gold (Chota Hathi)</option>
-                  <option value="Tractor Trolley">Tractor Trolley</option>
-                  <option value="Ashok Leyland Dost">Ashok Leyland Dost</option>
-                </select>
-              </label>
-
-              <label className="space-y-1">
-                <span className="text-xs font-semibold text-muted uppercase tracking-wider">Vehicle Reg Number *</span>
-                <input
-                  required
-                  value={vehicleForm.vehicleNumber}
-                  onChange={(e) => setVehicleForm({ ...vehicleForm, vehicleNumber: e.target.value.toUpperCase() })}
-                  className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary font-mono uppercase"
-                  placeholder="GJ-05-BX-4921"
-                />
-              </label>
-
-              <label className="space-y-1">
-                <span className="text-xs font-semibold text-muted uppercase tracking-wider">Payload Capacity (kg) *</span>
-                <input
-                  type="number"
-                  required
-                  min="500"
-                  step="100"
-                  value={vehicleForm.capacityKg}
-                  onChange={(e) => setVehicleForm({ ...vehicleForm, capacityKg: e.target.value })}
-                  className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary"
-                />
-              </label>
-
-              <label className="space-y-1">
-                <span className="text-xs font-semibold text-muted uppercase tracking-wider">Operating Base Mandi *</span>
-                <select
-                  value={vehicleForm.baseMandi}
-                  onChange={(e) => setVehicleForm({ ...vehicleForm, baseMandi: e.target.value })}
-                  className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary bg-white"
-                >
-                  <option value="Pune APMC">Pune APMC (Gultekdi)</option>
-                  <option value="Nashik APMC">Nashik APMC</option>
-                  <option value="Mumbai Vashi APMC">Mumbai Vashi Mega APMC</option>
-                  <option value="Kolhapur APMC">Kolhapur APMC (Shahu Market Yard)</option>
-                  <option value="Nagpur APMC">Nagpur APMC (Kalamna)</option>
-                  <option value="Amravati APMC">Amravati APMC</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                type="submit"
-                disabled={savingVehicle}
-                className="btn-primary py-2.5 px-6 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm"
-              >
-                <Truck className="w-4 h-4" />
-                <span>{savingVehicle ? 'Saving to MySQL...' : 'Save & Publish Vehicle to Pool'}</span>
-              </button>
-            </div>
-          </form>}
-
-          {/* Transporter's own assigned bookings */}
-          <section className="rounded-3xl border border-border bg-white shadow-sm overflow-hidden">
-            <div className="px-6 py-4 bg-slate-50 border-b border-border flex items-center justify-between">
-              <div><h2 className="font-bold text-sm text-text">My Transport Bookings</h2><p className="text-[11px] text-muted">Farmers who booked you and cargo status</p></div>
-              <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-lg bg-white border border-slate-200">{myRequests.length} bookings</span>
-            </div>
-            {myRequests.length === 0 ? <div className="p-8 text-center text-sm text-muted">No bookings assigned to you yet.</div> : (
-              <div className="divide-y divide-border/60">{myRequests.map((trip) => (
-                <div key={trip.id} className="px-6 py-4 grid grid-cols-1 sm:grid-cols-4 gap-3 items-center text-xs">
-                  <div><p className="font-bold text-text">{trip.farmerName} · {trip.cropName}</p><p className="text-muted">{trip.weightKg} kg · {trip.farmerPhone || 'No phone'}</p></div>
-                  <div><p className="font-semibold text-text">{trip.pickupLocation} → {trip.destinationMarket}</p><p className="text-muted">{trip.pickupDate}</p></div>
-                  <div><p className="font-semibold text-text">{trip.vehicleType}</p><p className="text-muted">Gate pass: {trip.gatePassCode}</p></div>
-                  <div className="sm:text-right flex items-center sm:justify-end gap-2"><span className="inline-block px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold uppercase">{trip.status?.replace('_', ' ')}</span><button type="button" onClick={() => setSelectedGatePass(trip)} className="px-2.5 py-1 rounded-lg border border-emerald-200 bg-white text-emerald-800 font-bold">Gate pass</button></div>
-                </div>
-              ))}</div>
-            )}
-          </section>
-
-          {/* Incoming Open Farmer Cargo Requests to Accept */}
-          <section className="rounded-3xl border border-border bg-white shadow-sm overflow-hidden">
-            <div className="px-6 py-4 bg-slate-50 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <h2 className="font-bold text-sm text-text">Live Farmer Cargo Demands (Open for Pickup)</h2>
-                <p className="text-[11px] text-muted">
-                  Accept loads from farmers heading towards your APMC routes to fill empty capacity.
-                </p>
-              </div>
-
-              {activeTrip ? (
-                <span className="text-xs font-bold font-mono px-3 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                  🔒 Single-Trip Locked (1 Active Delivery)
-                </span>
-              ) : (
-                <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800">
-                  {openCargoList.length} loads available
-                </span>
-              )}
-            </div>
-
-            {openCargoList.length === 0 ? (
-              <div className="p-8 text-center text-sm text-muted">
-                No open cargo requests pending right now. Farmers who post requests will appear here instantly.
-              </div>
-            ) : (
-              <div className="divide-y divide-border/60">
-                {openCargoList.map((cargo) => (
-                  <div
-                    key={cargo.id}
-                    className="grid grid-cols-1 sm:grid-cols-4 gap-3 px-6 py-4 text-xs items-center hover:bg-slate-50/60 transition-colors"
-                  >
-                    <div>
-                      <p className="font-extrabold text-sm text-text">{cargo.cropName}</p>
-                      <p className="text-muted">Farmer request · contact shown after assignment</p>
-                      <p className="text-[10px] text-muted truncate">{cargo.pickupLocation}</p>
-                    </div>
-
-                    <div>
-                      <span className="text-muted">Destination Mandi:</span>
-                      <p className="font-bold text-primary">{cargo.destinationMarket}</p>
-                      <p className="text-muted font-mono">{cargo.pickupDate}</p>
-                      <p className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
-                        <Clock className="w-3 h-3" />
-                        <span>~{cargo.estimatedDurationMinutes || 120} mins trip</span>
-                      </p>
-                    </div>
-
-                    <div>
-                      <span className="text-muted">Cargo Load:</span>
-                      <p className="font-bold text-text font-mono text-sm">{cargo.weightKg} kg</p>
-                      <p className="text-emerald-700 font-bold">
-                        Shared Fare: ~{formatINR(cargo.estimatedSharedCost || 1200)}
-                      </p>
-                    </div>
-
-                    <div className="flex sm:justify-end gap-2">
-                      <button
-                        type="button"
-                        disabled={Boolean(activeTrip)}
-                        onClick={() => handleAcceptCargo(cargo)}
-                        className={`py-2 px-4 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all ${
-                          activeTrip
-                            ? 'bg-slate-200 text-slate-500 cursor-not-allowed border border-slate-300'
-                            : 'btn-primary cursor-pointer'
-                        }`}
-                        title={activeTrip ? 'Finish ongoing delivery before accepting another load' : 'Accept this load'}
-                      >
-                        {activeTrip ? (
-                          <>
-                            <AlertCircle className="w-3.5 h-3.5" />
-                            <span>🔒 Active Trip in Progress</span>
-                          </>
-                        ) : (
-                          <>
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Accept & Assign Truck</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
+        <TransporterDashboard />
       )}
     </div>
   );

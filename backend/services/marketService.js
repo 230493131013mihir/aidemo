@@ -203,6 +203,7 @@ class MarketService {
             max_price: maxP,
             modal_price: kg,
             modalPrice: kg,
+            dataType: item.dataType || 'verified_live',
             data_type: item.dataType || 'verified_live',
             dataStatus: 'LIVE',
             statusNotice: 'Verified Maharashtra APMC Rate (MSAMB / AGMARKNET)',

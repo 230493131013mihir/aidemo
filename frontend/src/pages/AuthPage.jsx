@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   AlertCircle,
   CheckCircle2,
@@ -47,28 +47,10 @@ const STANDARD_CROPS = [
 
 export default function AuthPage({ mode = 'login' }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, register, demoLogin, sendOtp, loginWithOtp, loginWithWhatsApp } = useAuth();
   const { showToast } = useToast();
   const isRegister = mode === 'register';
-
-  async function handleQuickDemoFarmerLogin() {
-    setLoading(true);
-    setError('');
-    try {
-      const user = await demoLogin();
-      showToast({
-        type: 'celebrate',
-        title: '🌾 Demo Farmer Active!',
-        message: `Welcome, ${user?.name || 'Farmer'}! Logging into HarvestMitra...`,
-        duration: 2500
-      });
-      navigate('/dashboard');
-    } catch (err) {
-      setError(err.message || 'Demo login failed');
-    } finally {
-      setLoading(false);
-    }
-  }
 
   // 5-Way Role Selector: 'farmer', 'fpo_leader', 'transporter', 'mandi', 'admin'
   const [role, setRole] = useState('farmer');
@@ -124,7 +106,7 @@ export default function AuthPage({ mode = 'login' }) {
     // Mandi Official fields
     mandiName: '',
     licenseNumber: '',
-    operatingDays: 'Monday to Saturday',
+    operatingDays: 'Mon-Sat',
     facilities: 'Electronic Auction, Cold Storage, Modern Weighbridge, RTGS Direct Settlement'
   });
 
@@ -509,8 +491,16 @@ export default function AuthPage({ mode = 'login' }) {
           duration: 3000,
         });
 
-        // Directly navigate to dashboard after registration without showing login page
-        navigate('/dashboard');
+        // Role-based redirect after registration (BUG FIX: was hardcoded to /dashboard for all roles)
+        if (role === 'admin') {
+          navigate('/admin');
+        } else if (role === 'transporter') {
+          navigate('/transport');
+        } else if (role === 'mandi') {
+          navigate('/markets');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         // INSTANT LOGIN REDIRECT (Requirement 5: No delay, no countdown, immediate redirect)
         const loggedUser = await login(form.email.trim(), form.password);
@@ -525,6 +515,12 @@ export default function AuthPage({ mode = 'login' }) {
           message: `Welcome back, ${loggedUser?.name || 'User'}! Connecting to live Maharashtra APMCs...`,
           duration: 2500,
         });
+
+        const fromPath = location.state?.from?.pathname;
+        if (fromPath && fromPath !== '/' && fromPath !== '/login') {
+          navigate(fromPath, { replace: true });
+          return;
+        }
 
         const userRole = loggedUser?.role || role;
         if (userRole === 'admin') {
@@ -1422,12 +1418,12 @@ export default function AuthPage({ mode = 'login' }) {
                     </>
                   )}
 
-                  {/* MANDI OFFICIAL REGISTRATION SPECIFICS (Requirement 6) */}
+                  {/* MANDI OFFICIAL REGISTRATION SPECIFICS */}
                   {role === 'mandi' && (
                     <div className="space-y-3 p-3.5 rounded-2xl bg-teal-50/70 border border-teal-200">
                       <label className="block space-y-1">
                         <span className="text-xs font-semibold text-teal-900 uppercase tracking-wider">
-                          Mandi Market Name *
+                          APMC Mandi Name
                         </span>
                         <input
                           type="text"
@@ -1442,7 +1438,7 @@ export default function AuthPage({ mode = 'login' }) {
                       <div className="grid grid-cols-2 gap-2.5">
                         <label className="block space-y-1">
                           <span className="text-xs font-semibold text-teal-900 uppercase tracking-wider">
-                            APMC License / Reg No *
+                            APMC License Number
                           </span>
                           <input
                             type="text"
@@ -1458,12 +1454,15 @@ export default function AuthPage({ mode = 'login' }) {
                           <span className="text-xs font-semibold text-teal-900 uppercase tracking-wider">
                             Operating Days
                           </span>
-                          <input
-                            type="text"
+                          <select
                             value={form.operatingDays}
                             onChange={(e) => updateField('operatingDays', e.target.value)}
-                            className="w-full rounded-xl border border-teal-300 bg-white px-3.5 py-2 text-sm outline-none focus:border-teal-600"
-                          />
+                            className="w-full rounded-xl border border-teal-300 bg-white px-3.5 py-2 text-sm outline-none focus:border-teal-600 cursor-pointer"
+                          >
+                            <option value="Mon-Sat">Mon-Sat</option>
+                            <option value="Mon-Fri">Mon-Fri</option>
+                            <option value="Daily">Daily</option>
+                          </select>
                         </label>
                       </div>
 
@@ -1579,54 +1578,48 @@ export default function AuthPage({ mode = 'login' }) {
                 </div>
               )}
 
-              {/* Farmer 1-Click Credentials Helper on Login */}
-              {!isRegister && role === 'farmer' && (
-                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs flex items-center justify-between gap-3 shadow-2xs">
+              {/* 1-Click Presentation Demo Credentials Helpers */}
+              {!isRegister && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border border-emerald-200 text-xs flex items-center justify-between gap-3 shadow-xs">
                   <div className="min-w-0">
-                    <p className="font-bold text-emerald-950 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>Verified Demo Farmer Account</span>
+                    <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>
+                        {role === 'admin'
+                          ? 'APMC Master Admin Demo'
+                          : role === 'transporter'
+                          ? 'Verified Transporter Fleet Demo'
+                          : role === 'mandi'
+                          ? 'APMC Mandi Secretary Demo'
+                          : 'Maharashtra Farmer Demo'}
+                      </span>
                     </p>
-                    <p className="text-[11px] text-emerald-800 font-mono mt-0.5 truncate">
-                      demo@harvestmitra.local • Demo@12345
+                    <p className="text-[11px] text-slate-600 font-mono mt-0.5 truncate">
+                      {role === 'admin'
+                        ? 'admin@harvestmitra.local • Admin@12345'
+                        : role === 'transporter'
+                        ? 'transporter@harvestmitra.local • Transporter@12345'
+                        : 'demo@harvestmitra.local • Demo@12345'}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => {
-                      updateField('email', 'demo@harvestmitra.local');
-                      updateField('password', 'Demo@12345');
+                      if (role === 'admin') {
+                        updateField('email', 'admin@harvestmitra.local');
+                        updateField('password', 'Admin@12345');
+                      } else if (role === 'transporter') {
+                        updateField('email', 'transporter@harvestmitra.local');
+                        updateField('password', 'Transporter@12345');
+                      } else {
+                        updateField('email', 'demo@harvestmitra.local');
+                        updateField('password', 'Demo@12345');
+                      }
                       setError('');
                     }}
-                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all shrink-0 cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-hover active:scale-95 text-white font-bold text-xs shadow-xs transition-all shrink-0 cursor-pointer flex items-center gap-1"
                   >
-                    ⚡ Auto-Fill
-                  </button>
-                </div>
-              )}
-
-              {/* Admin 1-Click Credentials Helper on Login */}
-              {!isRegister && role === 'admin' && (
-                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs flex items-center justify-between gap-3 shadow-2xs">
-                  <div className="min-w-0">
-                    <p className="font-bold text-amber-950 flex items-center gap-1.5">
-                      <Shield className="w-3.5 h-3.5 text-amber-700" />
-                      <span>APMC Master Administrator</span>
-                    </p>
-                    <p className="text-[11px] text-amber-800 font-mono mt-0.5 truncate">
-                      admin@harvestmitra.local • Admin@12345
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateField('email', 'admin@harvestmitra.local');
-                      updateField('password', 'Admin@12345');
-                      setError('');
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all shrink-0 cursor-pointer"
-                  >
-                    ⚡ Auto-Fill
+                    <span>⚡ Quick Fill</span>
                   </button>
                 </div>
               )}

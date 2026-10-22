@@ -17,6 +17,7 @@
 
 const assert = require("assert");
 const http = require("http");
+process.env.JWT_SECRET = process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon";
 const app = require("../app");
 
 // ---------------------------------------------------------------------------
@@ -119,6 +120,45 @@ async function runSecurityTests() {
     failed++;
     console.error(`  ❌ [FAIL] ${msg}`);
     if (err) console.error(`         →  ${err}`);
+  }
+
+  const bcrypt = require("bcryptjs");
+  const sequelize = require("../config/database");
+  const { User } = require("../models");
+  const seed = require("../seed");
+
+  // Ensure test database is connected and synchronized
+  await sequelize.authenticate();
+  await sequelize.sync();
+
+  // Ensure demo and admin accounts are properly seeded and match test credentials
+  let adminUser = await User.findOne({ where: { email: ADMIN_CREDENTIALS.email } });
+  let farmerUser = await User.findOne({ where: { email: FARMER_CREDENTIALS.email } });
+
+  if (!adminUser || !farmerUser) {
+    if (typeof seed === "function") {
+      await seed();
+    }
+    adminUser = await User.findOne({ where: { email: ADMIN_CREDENTIALS.email } });
+    farmerUser = await User.findOne({ where: { email: FARMER_CREDENTIALS.email } });
+  }
+
+  if (adminUser) {
+    const isMatch = await bcrypt.compare(ADMIN_CREDENTIALS.password, adminUser.password);
+    if (!isMatch) {
+      adminUser.password = await bcrypt.hash(ADMIN_CREDENTIALS.password, 10);
+      adminUser.role = "admin";
+      await adminUser.save();
+    }
+  }
+
+  if (farmerUser) {
+    const isMatch = await bcrypt.compare(FARMER_CREDENTIALS.password, farmerUser.password);
+    if (!isMatch) {
+      farmerUser.password = await bcrypt.hash(FARMER_CREDENTIALS.password, 10);
+      farmerUser.role = "farmer";
+      await farmerUser.save();
+    }
   }
 
   await startServer();
@@ -305,6 +345,81 @@ async function runSecurityTests() {
       pass("GET /api/admin/users (garbage token) → 401 Unauthorized");
     } catch (err) {
       fail("GET /api/admin/users (garbage token) → 401 Unauthorized", err.message);
+    }
+
+    // -----------------------------------------------------------------
+    // TEST 10: POST /api/chat/message with no token → 401 Unauthorized
+    // -----------------------------------------------------------------
+    try {
+      const res = await makeRequest({
+        method: "POST",
+        path: "/api/chat/message",
+        body: { message: "Hello" }
+      });
+      assert.strictEqual(res.statusCode, 401, `Expected 401, got ${res.statusCode}`);
+      pass("POST /api/chat/message (no token) → 401 Unauthorized");
+    } catch (err) {
+      fail("POST /api/chat/message (no token) → 401 Unauthorized", err.message);
+    }
+
+    // -----------------------------------------------------------------
+    // TEST 11: GET /api/reports/farm-decision with no token → 401 Unauthorized
+    // -----------------------------------------------------------------
+    try {
+      const res = await makeRequest({
+        method: "GET",
+        path: "/api/reports/farm-decision",
+      });
+      assert.strictEqual(res.statusCode, 401, `Expected 401, got ${res.statusCode}`);
+      pass("GET /api/reports/farm-decision (no token) → 401 Unauthorized");
+    } catch (err) {
+      fail("GET /api/reports/farm-decision (no token) → 401 Unauthorized", err.message);
+    }
+
+    // -----------------------------------------------------------------
+    // TEST 12: POST /api/market/sync with no token → 401 Unauthorized
+    // -----------------------------------------------------------------
+    try {
+      const res = await makeRequest({
+        method: "POST",
+        path: "/api/market/sync",
+      });
+      assert.strictEqual(res.statusCode, 401, `Expected 401, got ${res.statusCode}`);
+      pass("POST /api/market/sync (no token) → 401 Unauthorized");
+    } catch (err) {
+      fail("POST /api/market/sync (no token) → 401 Unauthorized", err.message);
+    }
+
+    // -----------------------------------------------------------------
+    // TEST 13: POST /api/market/sync with farmer token → 403 Forbidden
+    // -----------------------------------------------------------------
+    try {
+      assert.ok(farmerToken, "Farmer token required");
+      const res = await makeRequest({
+        method: "POST",
+        path: "/api/market/sync",
+        headers: { Authorization: `Bearer ${farmerToken}` },
+      });
+      assert.strictEqual(res.statusCode, 403, `Expected 403, got ${res.statusCode}`);
+      pass("POST /api/market/sync (farmer token) → 403 Forbidden");
+    } catch (err) {
+      fail("POST /api/market/sync (farmer token) → 403 Forbidden", err.message);
+    }
+
+    // -----------------------------------------------------------------
+    // TEST 14: POST /api/market/sync with admin token → 200 OK
+    // -----------------------------------------------------------------
+    try {
+      assert.ok(adminToken, "Admin token required");
+      const res = await makeRequest({
+        method: "POST",
+        path: "/api/market/sync",
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      assert.strictEqual(res.statusCode, 200, `Expected 200, got ${res.statusCode}`);
+      pass("POST /api/market/sync (admin token) → 200 OK");
+    } catch (err) {
+      fail("POST /api/market/sync (admin token) → 200 OK", err.message);
     }
   } finally {
     await stopServer();

@@ -3,9 +3,14 @@ const bcrypt = require("bcryptjs");
 const sequelize = require("./config/database");
 const { User, AdminUser, Crop, Market, MarketPrice } = require("./models");
 
+const transportRoutes = require("./routes/transport.routes");
+
 async function seed() {
     await sequelize.authenticate();
     await sequelize.sync();
+    if (transportRoutes?.ensureTransportSchema) {
+        await transportRoutes.ensureTransportSchema();
+    }
 
     const demoPassword = await bcrypt.hash(process.env.DEMO_PASSWORD || "Demo@12345", 10);
     const adminPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || "Admin@12345", 10);
@@ -172,7 +177,11 @@ async function seed() {
         for (const market of markets) {
             const basePrice = basePricesByCrop[crop.nameEn] || 25;
             const jitter = ((market.id * 7 + crop.id * 13) % 9 - 4) * 0.25;
-            const pricePerKg = Number(Math.max(5, basePrice + jitter).toFixed(2));
+            let pricePerKg = Number(Math.max(5, basePrice + jitter).toFixed(2));
+            if (crop.nameEn === "Tomato") {
+                if (market.name.includes("Surat")) pricePerKg = 18.50;
+                else if (market.name.includes("Ahmedabad")) pricePerKg = 23.00;
+            }
             const pricePerQuintal = Number((pricePerKg * 100).toFixed(0));
             const minPrice = Number((pricePerQuintal * 0.92).toFixed(0));
             const maxPrice = Number((pricePerQuintal * 1.08).toFixed(0));
@@ -197,9 +206,146 @@ async function seed() {
         }
     }
 
-    console.log("Seed complete. Demo: demo@harvestmitra.local / Demo@12345");
+    // Seed Demo Transporter User and Multi-Vehicle Fleet
+    const transporterPassword = await bcrypt.hash(process.env.TRANSPORTER_PASSWORD || "Transporter@12345", 10);
+    const [transporterUser] = await User.findOrCreate({
+        where: { email: "transporter@harvestmitra.local" },
+        defaults: {
+            name: "Rajesh Patil (Express Agri Logistics)",
+            email: "transporter@harvestmitra.local",
+            phone: "9822012345",
+            password: transporterPassword,
+            role: "transporter"
+        }
+    });
+
+    const { Vehicle, TransporterProfile } = require("./models");
+
+    await TransporterProfile.findOrCreate({
+        where: { userId: transporterUser.id },
+        defaults: {
+            userId: transporterUser.id,
+            driverName: "Rajesh Patil",
+            phone: "9822012345",
+            vehicleType: "Mahindra Bolero Maxi Truck",
+            vehicleNumber: "MH-12-RN-4921",
+            capacityKg: 1500,
+            baseMandi: "Pune APMC",
+            ratePerKm: 22,
+            isAvailable: true
+        }
+    });
+
+    const vehiclesToSeed = [
+        {
+            userId: transporterUser.id,
+            registrationNumber: "MH-12-TA-1021",
+            vehicleType: "Tata Ace / Mini Truck",
+            capacityKg: 1000,
+            capacityUnit: "kg",
+            supportedCrops: "Tomato, Green Chilli, Brinjal, Vegetables",
+            specialHandling: "Ventilated Mesh Crate Carrier (Fresh Vegetables)",
+            baseLocation: "Pune, Maharashtra",
+            supportedRoutes: "Pune to Mumbai Vashi APMC, Pune APMC Local",
+            ratePerKm: 18,
+            driverName: "Santosh More",
+            driverPhone: "9822099001",
+            isAvailable: true,
+            status: "available"
+        },
+        {
+            userId: transporterUser.id,
+            registrationNumber: "MH-12-RN-4921",
+            vehicleType: "Mahindra Bolero Maxi Truck",
+            capacityKg: 1500,
+            capacityUnit: "kg",
+            supportedCrops: "Tomato, Onion, Potato, Vegetables",
+            specialHandling: "Ventilated Air-Flow Cargo Bed (Horticulture)",
+            baseLocation: "Pune, Maharashtra",
+            supportedRoutes: "Pune to Mumbai Vashi APMC, Nashik APMC",
+            ratePerKm: 22,
+            driverName: "Rajesh Patil",
+            driverPhone: "9822012345",
+            isAvailable: true,
+            status: "available"
+        },
+        {
+            userId: transporterUser.id,
+            registrationNumber: "MH-15-TK-4407",
+            vehicleType: "Tata 407 (Medium Truck)",
+            capacityKg: 2500,
+            capacityUnit: "kg",
+            supportedCrops: "Onion, Potato, Wheat, Rice, Vegetables, Grains",
+            specialHandling: "Covered High-Side Body with Waterproof Tarpaulin",
+            baseLocation: "Nashik, Maharashtra",
+            supportedRoutes: "Nashik to Mumbai Vashi APMC, Pune APMC",
+            ratePerKm: 25,
+            driverName: "Kishor Jadhav",
+            driverPhone: "9876543210",
+            isAvailable: true,
+            status: "available"
+        },
+        {
+            userId: transporterUser.id,
+            registrationNumber: "MH-13-EP-2049",
+            vehicleType: "Medium Goods Truck",
+            capacityKg: 3500,
+            capacityUnit: "kg",
+            supportedCrops: "Wheat, Rice, Soybean, Cotton, Grains, Bulks",
+            specialHandling: "Heavy-Duty Weather-Proof Dry Bulk Carrier",
+            baseLocation: "Solapur, Maharashtra",
+            supportedRoutes: "Solapur to Pune APMC, Mumbai Vashi APMC",
+            ratePerKm: 28,
+            driverName: "Anil Shinde",
+            driverPhone: "9822088002",
+            isAvailable: true,
+            status: "available"
+        },
+        {
+            userId: transporterUser.id,
+            registrationNumber: "MH-15-BB-3001",
+            vehicleType: "Refrigerated Vehicle",
+            capacityKg: 3000,
+            capacityUnit: "kg",
+            supportedCrops: "Grapes, Pomegranate, Banana, Fruits, Exotic Vegetables",
+            specialHandling: "Active Cold Chain (0°C to 4°C) with Shock Absorbers",
+            baseLocation: "Nashik, Maharashtra",
+            supportedRoutes: "Nashik to Mumbai Vashi Terminal, Pune APMC",
+            ratePerKm: 35,
+            driverName: "Vikram Deshmukh",
+            driverPhone: "9822077003",
+            isAvailable: true,
+            status: "available"
+        },
+        {
+            userId: transporterUser.id,
+            registrationNumber: "MH-31-AL-6009",
+            vehicleType: "Large Goods Truck",
+            capacityKg: 6000,
+            capacityUnit: "kg",
+            supportedCrops: "Cotton, Wheat, Rice, Soybean, Commercial Cargo",
+            specialHandling: "10-Wheeler High-Volume High-Capacity Transport",
+            baseLocation: "Nagpur, Maharashtra",
+            supportedRoutes: "Nagpur to Pune, Mumbai Vashi, Amravati",
+            ratePerKm: 32,
+            driverName: "Suresh Gaikwad",
+            driverPhone: "9822066004",
+            isAvailable: true,
+            status: "available"
+        }
+    ];
+
+    for (const vData of vehiclesToSeed) {
+        await Vehicle.findOrCreate({
+            where: { registrationNumber: vData.registrationNumber },
+            defaults: vData
+        });
+    }
+
+    console.log("Seed complete. Demo Farmer: demo@harvestmitra.local / Demo@12345");
+    console.log("Transporter: transporter@harvestmitra.local / Transporter@12345");
     console.log("Admin: admin@harvestmitra.local / Admin@12345");
-    console.log(`Created or verified demo user ${demoUser.id} and ${crops.length} crops across ${markets.length} markets.`);
+    console.log(`Created or verified demo user ${demoUser.id}, 6 verified vehicles, and ${crops.length} crops across ${markets.length} markets.`);
 }
 
 if (require.main === module) {

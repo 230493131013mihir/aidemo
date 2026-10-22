@@ -38,10 +38,10 @@ Use this guide for a seamless, high-impact hackathon presentation.
    - Alternative Market: Ahmedabad Mandi (₹23.00/kg)
 3. Click **"Run Simulation"**.
 4. Point to the **Comparison Cards**:
-   - **Option 1 (Sell Today)**: Net Revenue = ₹7,750 (Low risk)
+   - **Option 1 (Sell Today)**: Net Revenue = ₹8,050 (Low risk, Surat Mandi at ₹18.50/kg minus ₹1,200 transport)
    - **Option 2 (Hold 2 Days)**: Net Revenue = ₹9,200 (Risk: Rain damage)
-   - **Option 3 (Ahmedabad Mandi)**: Net Revenue = ₹8,700 (High transport cost of ₹2,800 cancels out higher market price!)
-5. Key Takeaway to Judges: *"Surprise! Selling at a higher market price in Ahmedabad actually yields LESS net profit because of solo transport costs—unless we use Shared Transport!"*
+   - **Option 3 (Ahmedabad Mandi)**: Net Revenue = ₹8,700 (Solo transport cost of ₹2,800 eats most price gains)
+5. Key Takeaway to Judges: *"Ahmedabad's higher price is mostly eaten by transport cost; with shared transport it becomes the best option."*
 
 ### Step 4: Shared Transport Matching (2:00 - 2:30)
 1. Click **"Find Shared Transport"** button.

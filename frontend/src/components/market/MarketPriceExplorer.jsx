@@ -6,10 +6,13 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ResponsiveContainer,
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip as RechartsTooltip,
@@ -22,6 +25,7 @@ import {
   ArrowUpDown,
   RefreshCw,
   TrendingUp,
+  TrendingDown,
   AlertCircle,
   Building2,
   MapPin,
@@ -34,7 +38,15 @@ import {
   Send,
   UserCheck,
   CheckCircle2,
-  Users
+  Users,
+  Scale,
+  Truck,
+  Fuel,
+  Receipt,
+  Calendar,
+  DollarSign,
+  Award,
+  ArrowRight
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -42,7 +54,9 @@ import {
   fetchMarkets,
   fetchCrops,
   fetchMarketPrices,
-  compareMarkets
+  compareMarkets,
+  fetchPriceForecast,
+  fetchInterMandiArbitrage
 } from '../../services/marketApiService';
 import VoiceSearchButton from '../common/VoiceSearchButton';
 
@@ -50,9 +64,9 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000
 
 const I18N = {
   en: {
-    title: 'Maharashtra APMC Mandi Rates',
-    subtitle: 'Transparent, live wholesale commodity rates across Maharashtra APMC yards',
-    searchPlaceholder: 'Search crop, APMC mandi, or Maharashtra district...',
+    title: 'Maharashtra & Regional APMC Mandi Rates',
+    subtitle: 'Transparent, live wholesale commodity rates across Surat, Pune, Mumbai Vashi & Maharashtra APMC yards',
+    searchPlaceholder: 'Search crop, APMC mandi, or district...',
     allCrops: 'All Crops',
     allDistricts: 'All Districts',
     allMarkets: 'All Mandis',
@@ -68,7 +82,7 @@ const I18N = {
     simulatorBtn: 'Use in Simulator',
     contactMandiBtn: 'Connect with APMC Trader',
     trendBtn: '7-Day Price Trends',
-    loading: 'Loading live Maharashtra APMC prices...',
+    loading: 'Loading live APMC prices...',
     emptyTitle: 'No Mandi Prices Found',
     emptyDesc: 'Try adjusting your crop or district filters to view available rates.',
     errorTitle: 'Unable to Load Market Prices',
@@ -76,11 +90,14 @@ const I18N = {
     priceSpread: 'Price Difference:',
     closeModal: 'Close',
     tabRates: 'Live APMC Rates',
+    tabForecast: '🔮 14-Day Forecast',
+    tabArbitrage: '⚖️ Arbitrage Finder',
+    arbitrageBadge: 'Arbitrage Finder',
     tabFarmers: 'Farmer Supply & Inbound Requests',
   },
   mr: {
-    title: 'महाराष्ट्र कृषी उत्पन्न बाजार समिती भाव',
-    subtitle: 'महाराष्ट्रातील प्रमुख कृषी उत्पन्न बाजार समित्यांचे थेट आणि पारदर्शी दर',
+    title: 'कृषी उत्पन्न बाजार समिती थेट दर व अंदाज',
+    subtitle: 'सुरत, पुणे, मुंबई वाशी आणि महाराष्ट्रातील प्रमुख बाजार समित्यांचे थेट आणि पारदर्शी दर',
     searchPlaceholder: 'पीक, बाजार समिती किंवा जिल्हा शोधा...',
     allCrops: 'सर्व पिके',
     allDistricts: 'सर्व जिल्हे',
@@ -105,11 +122,14 @@ const I18N = {
     priceSpread: 'दरांमधील फरक:',
     closeModal: 'बंद करा',
     tabRates: 'थेट बाजार भाव',
+    tabForecast: '🔮 १४-दिवसीय भाव अंदाज',
+    tabArbitrage: '⚖️ आंतर-बाजार आर्बिट्राज',
+    arbitrageBadge: 'नफा संधी शोधक',
     tabFarmers: 'शेतकरी आवक व संपर्क विनंत्या',
   },
   hi: {
-    title: 'महाराष्ट्र मंडी भाव एक्सप्लोरर',
-    subtitle: 'महाराष्ट्र की प्रमुख कृषि उपज मंडियों के पारदर्शी और लाइव भाव',
+    title: 'मंडी भाव, पूर्वानुमान एवं आर्बिट्राज एक्सप्लोरर',
+    subtitle: 'सूरत, पुणे, मुंबई वाशी एवं महाराष्ट्र की प्रमुख मंडियों के पारदर्शी और लाइव भाव',
     searchPlaceholder: 'फसल, मंडी, या जिला खोजें...',
     allCrops: 'सभी फसलें',
     allDistricts: 'सभी जिले',
@@ -134,6 +154,9 @@ const I18N = {
     priceSpread: 'भाव का अंतर:',
     closeModal: 'बंद करें',
     tabRates: 'लाइव मंडी भाव',
+    tabForecast: '🔮 14-दिवसीय भाव पूर्वानुमान',
+    tabArbitrage: '⚖️ अंतर-मंडी आर्बिट्राज',
+    arbitrageBadge: 'आर्बिट्राज खोजें',
     tabFarmers: 'किसान आवक एवं संपर्क अनुरोध',
   }
 };
@@ -144,11 +167,27 @@ export default function MarketPriceExplorer({
   initialSearchQuery = ''
 }) {
   const t = I18N[selectedLanguage] || I18N.en;
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { showToast } = useToast();
 
+  const navigate = useNavigate();
   const isMandiUser = user?.role === 'mandi';
-  const [activeTab, setActiveTab] = useState('rates'); // 'rates' or 'farmers'
+  const [activeTab, setActiveTab] = useState('rates'); // 'rates', 'forecast', 'arbitrage', 'farmers'
+
+  // 14-Day Price Forecast State
+  const [forecastCrop, setForecastCrop] = useState('Tomato');
+  const [forecastMandi, setForecastMandi] = useState('Surat APMC');
+  const [forecastData, setForecastData] = useState(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
+  const [forecastError, setForecastError] = useState(null);
+
+  // Inter-Mandi Arbitrage State
+  const [arbitrageCrop, setArbitrageCrop] = useState('Tomato');
+  const [arbitrageQuantityKg, setArbitrageQuantityKg] = useState(1000);
+  const [arbitrageOrigin, setArbitrageOrigin] = useState('Surat');
+  const [arbitrageData, setArbitrageData] = useState(null);
+  const [arbitrageLoading, setArbitrageLoading] = useState(false);
+  const [arbitrageError, setArbitrageError] = useState(null);
 
   const [crops, setCrops] = useState([]);
   const [markets, setMarkets] = useState([]);
@@ -236,6 +275,53 @@ export default function MarketPriceExplorer({
     handleApplyFilters();
   }, [selectedCrop, selectedDistrict, selectedMarket]);
 
+  // Load 14-Day Price Forecast
+  const handleLoadForecast = async (targetCrop, targetMandi) => {
+    const c = targetCrop || forecastCrop || 'Tomato';
+    const m = targetMandi || forecastMandi || 'Surat APMC';
+    try {
+      setForecastLoading(true);
+      setForecastError(null);
+      const data = await fetchPriceForecast(c, m);
+      setForecastData(data);
+    } catch (err) {
+      console.warn('Failed to load forecast:', err.message);
+      setForecastError(err.message);
+    } finally {
+      setForecastLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'forecast') {
+      handleLoadForecast(forecastCrop, forecastMandi);
+    }
+  }, [activeTab, forecastCrop, forecastMandi]);
+
+  // Load Inter-Mandi Arbitrage
+  const handleLoadArbitrage = async (targetCrop, targetQty, targetOrigin) => {
+    const c = targetCrop || arbitrageCrop || 'Tomato';
+    const q = targetQty !== undefined ? targetQty : arbitrageQuantityKg;
+    const o = targetOrigin || arbitrageOrigin || 'Surat';
+    try {
+      setArbitrageLoading(true);
+      setArbitrageError(null);
+      const data = await fetchInterMandiArbitrage(c, q, o);
+      setArbitrageData(data);
+    } catch (err) {
+      console.warn('Failed to load arbitrage:', err.message);
+      setArbitrageError(err.message);
+    } finally {
+      setArbitrageLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'arbitrage') {
+      handleLoadArbitrage(arbitrageCrop, arbitrageQuantityKg, arbitrageOrigin);
+    }
+  }, [activeTab, arbitrageCrop, arbitrageQuantityKg, arbitrageOrigin]);
+
   // Load Mandi-specific data if Mandi user
   useEffect(() => {
     if (isMandiUser) {
@@ -310,6 +396,16 @@ export default function MarketPriceExplorer({
 
   // Open Contact Mandi Modal with immediate confirmation toast
   const handleOpenContactMandi = (item) => {
+    if (!isAuthenticated) {
+      showToast({
+        type: 'error',
+        title: '🔒 Login Required',
+        message: 'Please log in to your farmer account to connect with APMC traders.',
+        duration: 4000
+      });
+      return;
+    }
+
     showToast({
       type: 'success',
       title: '🤝 APMC Trader Desk Connected',
@@ -350,10 +446,11 @@ export default function MarketPriceExplorer({
       const token = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('harvestmitra_token')) || 
                     (typeof localStorage !== 'undefined' && localStorage.getItem('harvestmitra_token'));
       const payload = {
-        receiverId: contactModal.targetItem?.userId || contactModal.targetItem?.id,
+        receiverId: contactModal.targetItem?.userId || contactModal.targetItem?.id || 1,
         receiverRole: contactModal.targetType,
         mandiName: contactModal.targetType === 'mandi' ? contactModal.targetItem?.market_name : undefined,
-        crop: contactModal.crop,
+        cropName: contactModal.crop || 'Agri Produce',
+        crop: contactModal.crop || 'Agri Produce',
         quantityKg: Number(contactModal.quantityKg) || 500,
         message: contactModal.message
       };
@@ -437,71 +534,713 @@ export default function MarketPriceExplorer({
 
         {/* Tab & Unit Controls */}
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          {/* Mandi User Tab Switcher (Requirement 6) */}
-          {isMandiUser && (
-            <div className="flex items-center bg-emerald-950/80 p-0.5 rounded-lg border border-teal-500/50 text-xs font-bold">
+          {/* Main Navigation Tabs */}
+          <div className="flex items-center bg-emerald-950/80 p-0.5 rounded-lg border border-teal-500/50 text-xs font-bold">
+            <button
+              type="button"
+              id="tab-rates-btn"
+              onClick={() => setActiveTab('rates')}
+              className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                activeTab === 'rates' ? 'bg-teal-500 text-white shadow-xs' : 'text-teal-200 hover:text-white'
+              }`}
+            >
+              <span>{t.tabRates}</span>
+            </button>
+            <button
+              type="button"
+              id="tab-forecast-btn"
+              onClick={() => setActiveTab('forecast')}
+              className={`px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1 ${
+                activeTab === 'forecast' ? 'bg-teal-500 text-white shadow-xs' : 'text-teal-200 hover:text-white'
+              }`}
+            >
+              <span>{t.tabForecast}</span>
+            </button>
+            <button
+              type="button"
+              id="tab-arbitrage-btn"
+              onClick={() => setActiveTab('arbitrage')}
+              className={`px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1 ${
+                activeTab === 'arbitrage' ? 'bg-teal-500 text-white shadow-xs' : 'text-teal-200 hover:text-white'
+              }`}
+            >
+              <span>{t.tabArbitrage}</span>
+            </button>
+            {isMandiUser && (
               <button
                 type="button"
-                onClick={() => setActiveTab('rates')}
-                className={`px-3 py-1 rounded-md transition-all ${
-                  activeTab === 'rates' ? 'bg-teal-500 text-white shadow-xs' : 'text-teal-200 hover:text-white'
-                }`}
-              >
-                {t.tabRates}
-              </button>
-              <button
-                type="button"
+                id="tab-farmers-btn"
                 onClick={() => setActiveTab('farmers')}
-                className={`px-3 py-1 rounded-md transition-all flex items-center gap-1 ${
+                className={`px-3 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer ${
                   activeTab === 'farmers' ? 'bg-teal-500 text-white shadow-xs' : 'text-teal-200 hover:text-white'
                 }`}
               >
                 <Users className="w-3.5 h-3.5" />
                 <span>{t.tabFarmers}</span>
               </button>
-            </div>
-          )}
-
-          {/* Unit Toggle: ₹/kg vs ₹/quintal */}
-          <div className="flex items-center bg-emerald-950/60 p-0.5 rounded-lg border border-emerald-700/50 text-xs">
-            <button
-              type="button"
-              onClick={() => setPriceUnit('kg')}
-              className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
-                priceUnit === 'kg'
-                  ? 'bg-emerald-500 text-white shadow-sm'
-                  : 'text-emerald-300 hover:text-white'
-              }`}
-            >
-              {t.unitKg}
-            </button>
-            <button
-              type="button"
-              onClick={() => setPriceUnit('quintal')}
-              className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
-                priceUnit === 'quintal'
-                  ? 'bg-emerald-500 text-white shadow-sm'
-                  : 'text-emerald-300 hover:text-white'
-              }`}
-            >
-              {t.unitQuintal}
-            </button>
+            )}
           </div>
 
-          {/* Compare Button */}
-          <button
-            type="button"
-            onClick={() => handleOpenComparison(selectedCrop || 'Tomato')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs transition-colors"
-          >
-            <ArrowUpDown className="w-3.5 h-3.5" />
-            <span>{t.compareBtn}</span>
-          </button>
+          {/* Unit Toggle & Compare only visible on 'rates' tab */}
+          {activeTab === 'rates' && (
+            <>
+              {/* Unit Toggle: ₹/kg vs ₹/quintal */}
+              <div className="flex items-center bg-emerald-950/60 p-0.5 rounded-lg border border-emerald-700/50 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setPriceUnit('kg')}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                    priceUnit === 'kg'
+                      ? 'bg-emerald-500 text-white shadow-sm'
+                      : 'text-emerald-300 hover:text-white'
+                  }`}
+                >
+                  {t.unitKg}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPriceUnit('quintal')}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                    priceUnit === 'quintal'
+                      ? 'bg-emerald-500 text-white shadow-sm'
+                      : 'text-emerald-300 hover:text-white'
+                  }`}
+                >
+                  {t.unitQuintal}
+                </button>
+              </div>
+
+              {/* Compare Button */}
+              <button
+                type="button"
+                onClick={() => handleOpenComparison(selectedCrop || 'Tomato')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              >
+                <ArrowUpDown className="w-3.5 h-3.5" />
+                <span>{t.compareBtn}</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* MANDI PORTAL VIEW: Farmer Supply & Direct Inbound Requests (Requirement 6 & 7) */}
-      {isMandiUser && activeTab === 'farmers' ? (
+      {/* 🔮 14-DAY CROP PRICE FORECAST VIEW */}
+      {activeTab === 'forecast' ? (
+        <div className="p-4 sm:p-6 space-y-6 flex-1 overflow-y-auto">
+          {/* Filter Controls Bar */}
+          <div className="p-4 bg-white border border-purple-200/80 rounded-2xl shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-bold text-lg">
+                🔮
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm sm:text-base text-slate-900">
+                  14-Day Price Prediction Model
+                </h3>
+                <p className="text-xs text-muted">
+                  Linear regression + moving average momentum with 95% statistical confidence bounds
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {/* Crop Selector */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-slate-600">Crop:</span>
+                <select
+                  id="forecast-crop-select"
+                  value={forecastCrop}
+                  onChange={(e) => setForecastCrop(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-50 border border-purple-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-purple-600"
+                >
+                  {crops.length > 0 ? (
+                    crops.map(c => <option key={c.name} value={c.name}>{c.name}</option>)
+                  ) : (
+                    ['Tomato', 'Onion', 'Potato', 'Wheat', 'Soybean', 'Cotton'].map(c => <option key={c} value={c}>{c}</option>)
+                  )}
+                </select>
+              </div>
+
+              {/* Mandi Selector */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-slate-600">Mandi:</span>
+                <select
+                  id="forecast-mandi-select"
+                  value={forecastMandi}
+                  onChange={(e) => setForecastMandi(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-50 border border-purple-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-purple-600"
+                >
+                  <option value="Surat APMC">Surat APMC (Gujarat)</option>
+                  <option value="Pune APMC">Pune APMC (Maharashtra)</option>
+                  <option value="Mumbai Vashi APMC">Mumbai Vashi APMC (Maharashtra)</option>
+                  <option value="Nashik APMC">Nashik APMC (Maharashtra)</option>
+                  <option value="Lasalgaon APMC">Lasalgaon APMC (Maharashtra)</option>
+                  <option value="Kolhapur APMC">Kolhapur APMC (Maharashtra)</option>
+                  <option value="Nagpur APMC">Nagpur APMC (Maharashtra)</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                id="forecast-refresh-btn"
+                onClick={() => handleLoadForecast(forecastCrop, forecastMandi)}
+                disabled={forecastLoading}
+                className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${forecastLoading ? 'animate-spin' : ''}`} />
+                <span>Update</span>
+              </button>
+            </div>
+          </div>
+
+          {forecastLoading ? (
+            <div className="h-72 flex flex-col items-center justify-center text-purple-900 gap-3">
+              <RefreshCw className="w-9 h-9 animate-spin text-purple-600" />
+              <span className="text-sm font-semibold">Running 14-day price prediction model (Linear Regression & SMA)...</span>
+            </div>
+          ) : forecastError ? (
+            <div className="p-6 bg-red-50 border border-red-200 rounded-2xl text-center text-red-700 space-y-2">
+              <AlertCircle className="w-8 h-8 mx-auto text-red-600" />
+              <h4 className="font-bold text-sm">Unable to generate price forecast</h4>
+              <p className="text-xs text-red-600">{forecastError}</p>
+              <button
+                onClick={() => handleLoadForecast(forecastCrop, forecastMandi)}
+                className="mt-2 px-4 py-1.5 bg-red-600 text-white text-xs font-bold rounded-xl"
+              >
+                Retry
+              </button>
+            </div>
+          ) : forecastData ? (
+            <div className="space-y-5 animate-fadeIn">
+              {/* 4 Stat KPI Badges */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Current Benchmark</span>
+                  <div className="mt-1 flex items-baseline gap-1">
+                    <span className="text-2xl font-black text-slate-900 font-mono">₹{forecastData.currentPrice}</span>
+                    <span className="text-xs text-slate-500 font-medium">/ kg</span>
+                  </div>
+                  <span className="text-[10px] text-muted font-mono mt-0.5 block">₹{Math.round(forecastData.currentPrice * 100)} / qtl</span>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white border border-purple-200 shadow-2xs">
+                  <span className="text-[11px] font-bold text-purple-800 uppercase tracking-wider block">14-Day Projected Rate</span>
+                  <div className="mt-1 flex items-baseline gap-1">
+                    <span className="text-2xl font-black text-purple-950 font-mono">₹{forecastData.projectedPriceDay14}</span>
+                    <span className="text-xs text-purple-700 font-medium">/ kg</span>
+                  </div>
+                  <span className="text-[10px] text-purple-600 font-mono mt-0.5 block">₹{Math.round(forecastData.projectedPriceDay14 * 100)} / qtl</span>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Forecast Trend</span>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    {forecastData.trend === 'RISING' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        <TrendingUp className="w-3.5 h-3.5" />
+                        <span>RISING (+{forecastData.predictedChangePct}%)</span>
+                      </span>
+                    ) : forecastData.trend === 'DROPPING' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black bg-rose-100 text-rose-800 border border-rose-300">
+                        <TrendingDown className="w-3.5 h-3.5" />
+                        <span>DROPPING ({forecastData.predictedChangePct}%)</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black bg-blue-100 text-blue-800 border border-blue-300">
+                        <Scale className="w-3.5 h-3.5" />
+                        <span>STABLE ({forecastData.predictedChangePct > 0 ? '+' : ''}{forecastData.predictedChangePct}%)</span>
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono mt-1 block">Slope: {forecastData.slopePerDay > 0 ? '+' : ''}{forecastData.slopePerDay} ₹/day</span>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Confidence Interval</span>
+                  <div className="mt-1 flex items-baseline gap-1">
+                    <span className="text-2xl font-black text-slate-900 font-mono">95%</span>
+                    <span className="text-xs text-slate-500 font-medium">bounds</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">Model Fit R² = {forecastData.rSquared}</span>
+                </div>
+              </div>
+
+              {/* Agronomic Strategy Advisory Banner */}
+              <div className={`p-4 rounded-2xl border flex items-start gap-3 shadow-2xs ${
+                forecastData.trend === 'RISING'
+                  ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
+                  : forecastData.trend === 'DROPPING'
+                  ? 'bg-amber-50/80 border-amber-300 text-amber-950'
+                  : 'bg-blue-50/80 border-blue-300 text-blue-950'
+              }`}>
+                <div className="p-2 rounded-xl bg-white shadow-xs shrink-0">
+                  {forecastData.trend === 'RISING' ? (
+                    <TrendingUp className="w-5 h-5 text-emerald-600" />
+                  ) : forecastData.trend === 'DROPPING' ? (
+                    <TrendingDown className="w-5 h-5 text-amber-600" />
+                  ) : (
+                    <Sparkles className="w-5 h-5 text-blue-600" />
+                  )}
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm flex items-center gap-1.5">
+                    <span>Agronomic Harvest & Dispatch Guidance:</span>
+                    <span className="uppercase text-[11px] font-mono px-2 py-0.5 rounded bg-white font-bold border border-current">
+                      {forecastData.trend}
+                    </span>
+                  </h4>
+                  <p className="text-xs mt-1 leading-relaxed text-slate-700">
+                    {forecastData.agronomicAdvice}
+                  </p>
+                </div>
+              </div>
+
+              {/* Recharts 14-Day Visual Prediction Chart */}
+              <div className="p-5 bg-white border border-slate-200 rounded-3xl shadow-sm space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <h4 className="font-extrabold text-sm text-slate-900">
+                      14-Day Price Projection with 95% Confidence Upper & Lower Bounds
+                    </h4>
+                    <p className="text-xs text-muted">
+                      {forecastData.crop} • {forecastData.mandi} ({forecastData.district}, {forecastData.state})
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="flex items-center gap-1.5 text-slate-600">
+                      <span className="w-3 h-3 rounded-full bg-emerald-600 inline-block" />
+                      <span>Projected Modal Rate</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 text-slate-600">
+                      <span className="w-3 h-1 bg-amber-500 inline-block" />
+                      <span>95% Upper Bound</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 text-slate-600">
+                      <span className="w-3 h-1 bg-sky-500 inline-block" />
+                      <span>95% Lower Bound</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="w-full h-80 pt-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={forecastData.forecastPoints} margin={{ top: 15, right: 20, left: -5, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 11, fill: '#64748b' }}
+                        tickFormatter={(val) => typeof val === 'string' && val.includes('-') ? val.slice(5) : val}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: '#64748b' }}
+                        domain={['auto', 'auto']}
+                        unit="₹"
+                      />
+                      <RechartsTooltip
+                        contentStyle={{ backgroundColor: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                        formatter={(val, name) => [`₹${val} / kg`, name]}
+                        labelFormatter={(label, payload) => {
+                          const day = payload?.[0]?.payload?.day;
+                          return `Day ${day} (${label})`;
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                      <Line
+                        type="monotone"
+                        dataKey="upperBound"
+                        name="95% Upper Confidence Bound"
+                        stroke="#f59e0b"
+                        strokeWidth={2}
+                        strokeDasharray="4 4"
+                        dot={false}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="predictedPrice"
+                        name="Predicted APMC Modal Price"
+                        stroke="#059669"
+                        strokeWidth={3}
+                        dot={{ r: 4, fill: '#059669' }}
+                        activeDot={{ r: 6 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="lowerBound"
+                        name="95% Lower Confidence Bound"
+                        stroke="#0284c7"
+                        strokeWidth={2}
+                        strokeDasharray="4 4"
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* 14-Day Daily Projection Breakdown Table */}
+              <div className="p-4 bg-white border border-slate-200 rounded-3xl shadow-sm space-y-3">
+                <h4 className="font-extrabold text-sm text-slate-900">
+                  Daily 14-Day Forecast Schedule & Confidence Range
+                </h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase text-[10px]">
+                        <th className="py-2 px-3">Day</th>
+                        <th className="py-2 px-3">Date</th>
+                        <th className="py-2 px-3">Predicted Price (₹/kg)</th>
+                        <th className="py-2 px-3">Quintal Equivalent</th>
+                        <th className="py-2 px-3">95% Range (Lower - Upper)</th>
+                        <th className="py-2 px-3">Confidence Margin</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {forecastData.forecastPoints.map((pt) => {
+                        const spread = (pt.upperBound - pt.lowerBound).toFixed(1);
+                        return (
+                          <tr key={pt.day} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-2 px-3 font-bold text-slate-700">Day {pt.day}</td>
+                            <td className="py-2 px-3 text-slate-600 font-mono">{pt.date}</td>
+                            <td className="py-2 px-3 font-extrabold text-emerald-800 font-mono text-sm">₹{pt.predictedPrice}</td>
+                            <td className="py-2 px-3 text-slate-600 font-mono">₹{Math.round(pt.predictedPrice * 100)}</td>
+                            <td className="py-2 px-3 text-slate-700 font-mono">₹{pt.lowerBound} - ₹{pt.upperBound}</td>
+                            <td className="py-2 px-3 text-slate-500 font-mono">±₹{(spread / 2).toFixed(2)} / kg</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : activeTab === 'arbitrage' ? (
+        /* ⚖️ INTER-MANDI ARBITRAGE CALCULATOR VIEW */
+        <div className="p-4 sm:p-6 space-y-6 flex-1 overflow-y-auto">
+          {/* Parameter Controls Bar */}
+          <div className="p-4 bg-white border border-amber-200/80 rounded-2xl shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-lg">
+                ⚖️
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm sm:text-base text-slate-900">
+                  Inter-Mandi Arbitrage Calculator
+                </h3>
+                <p className="text-xs text-muted">
+                  Automatic net profit spread between Surat APMC, Pune APMC, and Mumbai Vashi APMC deducting tolls, diesel & cess
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Crop Selector */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-slate-600">Crop:</span>
+                <select
+                  id="arbitrage-crop-select"
+                  value={arbitrageCrop}
+                  onChange={(e) => setArbitrageCrop(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-50 border border-amber-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-600"
+                >
+                  {crops.length > 0 ? (
+                    crops.map(c => <option key={c.name} value={c.name}>{c.name}</option>)
+                  ) : (
+                    ['Tomato', 'Onion', 'Potato', 'Wheat', 'Soybean', 'Cotton'].map(c => <option key={c} value={c}>{c}</option>)
+                  )}
+                </select>
+              </div>
+
+              {/* Harvest Quantity Input */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-slate-600">Quantity (kg):</span>
+                <input
+                  id="arbitrage-quantity-input"
+                  type="number"
+                  min="50"
+                  step="50"
+                  value={arbitrageQuantityKg}
+                  onChange={(e) => setArbitrageQuantityKg(Math.max(50, Number(e.target.value) || 50))}
+                  className="w-24 px-2.5 py-1.5 bg-slate-50 border border-amber-200 rounded-xl text-xs font-bold font-mono text-right text-slate-800 focus:outline-none focus:border-amber-600"
+                />
+              </div>
+
+              {/* Origin Selector */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-slate-600">Origin:</span>
+                <select
+                  id="arbitrage-origin-select"
+                  value={arbitrageOrigin}
+                  onChange={(e) => setArbitrageOrigin(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-50 border border-amber-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-600"
+                >
+                  <option value="Surat">Surat (Gujarat Base)</option>
+                  <option value="Pune">Pune (Maharashtra Base)</option>
+                  <option value="Mumbai">Mumbai / Vashi Base</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                id="arbitrage-refresh-btn"
+                onClick={() => handleLoadArbitrage(arbitrageCrop, arbitrageQuantityKg, arbitrageOrigin)}
+                disabled={arbitrageLoading}
+                className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${arbitrageLoading ? 'animate-spin' : ''}`} />
+                <span>Recalculate</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Quantity Chips */}
+          <div className="flex items-center gap-2 text-xs flex-wrap">
+            <span className="text-slate-500 font-medium">Quick Quantity Presets:</span>
+            {[500, 1000, 2500, 5000].map(qty => (
+              <button
+                key={qty}
+                type="button"
+                onClick={() => setArbitrageQuantityKg(qty)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  arbitrageQuantityKg === qty
+                    ? 'bg-amber-600 text-white shadow-2xs'
+                    : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {qty.toLocaleString('en-IN')} kg
+              </button>
+            ))}
+          </div>
+
+          {arbitrageLoading ? (
+            <div className="h-72 flex flex-col items-center justify-center text-amber-900 gap-3">
+              <RefreshCw className="w-9 h-9 animate-spin text-amber-600" />
+              <span className="text-sm font-semibold">Comparing Surat, Pune & Mumbai Vashi rates, toll gates & diesel fuel...</span>
+            </div>
+          ) : arbitrageError ? (
+            <div className="p-6 bg-red-50 border border-red-200 rounded-2xl text-center text-red-700 space-y-2">
+              <AlertCircle className="w-8 h-8 mx-auto text-red-600" />
+              <h4 className="font-bold text-sm">Unable to calculate inter-mandi arbitrage</h4>
+              <p className="text-xs text-red-600">{arbitrageError}</p>
+              <button
+                onClick={() => handleLoadArbitrage(arbitrageCrop, arbitrageQuantityKg, arbitrageOrigin)}
+                className="mt-2 px-4 py-1.5 bg-red-600 text-white text-xs font-bold rounded-xl"
+              >
+                Retry
+              </button>
+            </div>
+          ) : arbitrageData ? (
+            <div className="space-y-5 animate-fadeIn">
+              {/* Winner Arbitrage Callout Banner */}
+              <div className="p-5 rounded-3xl bg-gradient-to-r from-emerald-900 via-teal-900 to-emerald-950 text-white shadow-xl border border-emerald-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1.5 max-w-2xl">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-400/40 uppercase tracking-wide">
+                    <Award className="w-4 h-4 text-emerald-300" />
+                    <span>Optimal Arbitrage Destination • Rank #1</span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                    {arbitrageData.winner.mandi}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
+                    {arbitrageData.summary}
+                  </p>
+                </div>
+
+                <div className="bg-emerald-950/80 p-4 rounded-2xl border border-emerald-500/40 text-right shrink-0">
+                  <span className="text-[11px] text-emerald-300 font-bold uppercase tracking-wider block">Net Take-Home Realization</span>
+                  <div className="text-2xl sm:text-3xl font-black text-white font-mono mt-0.5">
+                    ₹{arbitrageData.winner.netProfit.toLocaleString('en-IN')}
+                  </div>
+                  <div className="text-xs text-emerald-300 font-bold mt-1">
+                    {arbitrageData.winner.netProfitSpread > 0 ? (
+                      <span>+{arbitrageData.winner.netProfitSpread.toLocaleString('en-IN')} extra ({arbitrageData.winner.percentageGain})</span>
+                    ) : (
+                      <span>Highest Local Realization</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3 Ranked Mandi Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {arbitrageData.rankedMandis.map((m) => {
+                  const isWinner = m.rank === 1;
+                  return (
+                    <div
+                      key={m.mandi}
+                      className={`rounded-3xl p-5 shadow-sm transition-all flex flex-col justify-between ${
+                        isWinner
+                          ? 'bg-gradient-to-b from-emerald-50/90 to-white border-2 border-emerald-500 shadow-md ring-2 ring-emerald-500/20'
+                          : 'bg-white border border-slate-200'
+                      }`}
+                    >
+                      <div className="space-y-3">
+                        {/* Card Header & Rank */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider mb-1.5 ${
+                              isWinner ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-700'
+                            }`}>
+                              {isWinner ? '🏆 Rank #1 Top Profit' : `Rank #${m.rank}`}
+                            </span>
+                            <h4 className="text-base font-black text-slate-900">{m.mandi}</h4>
+                            <span className="text-xs text-muted flex items-center gap-1 mt-0.5">
+                              <MapPin className="w-3 h-3 text-emerald-600" />
+                              <span>{m.district}, {m.state}</span>
+                              <span>•</span>
+                              <span>{m.distanceKm} km</span>
+                            </span>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="text-lg font-black text-emerald-950 font-mono">₹{m.pricePerKg}</span>
+                            <span className="text-[10px] text-emerald-700 font-bold block">/ kg</span>
+                          </div>
+                        </div>
+
+                        {/* Gross Revenue */}
+                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+                          <span className="text-slate-600">Gross Sale Value ({arbitrageData.quantityKg.toLocaleString('en-IN')} kg):</span>
+                          <span className="font-extrabold text-slate-900 font-mono">₹{m.grossRevenue.toLocaleString('en-IN')}</span>
+                        </div>
+
+                        {/* Logistics Deductions Breakdown Box */}
+                        <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                            Logistics & Cess Deductions
+                          </span>
+
+                          <div className="flex items-center justify-between text-slate-600 text-[11px]">
+                            <span className="flex items-center gap-1">
+                              <Receipt className="w-3 h-3 text-slate-400" />
+                              <span>Highway Tolls:</span>
+                            </span>
+                            <span className="font-mono font-bold text-slate-800">₹{m.highwayTolls}</span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-slate-600 text-[11px]">
+                            <span className="flex items-center gap-1">
+                              <Fuel className="w-3 h-3 text-slate-400" />
+                              <span>Diesel Fuel ({m.distanceKm} km):</span>
+                            </span>
+                            <span className="font-mono font-bold text-slate-800">₹{m.dieselCost}</span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-slate-600 text-[11px]">
+                            <span className="flex items-center gap-1">
+                              <Scale className="w-3 h-3 text-slate-400" />
+                              <span>Mandi Cess ({m.mandiCessPercent}%):</span>
+                            </span>
+                            <span className="font-mono font-bold text-slate-800">₹{m.mandiCess}</span>
+                          </div>
+
+                          <div className="pt-1.5 border-t border-slate-200 flex items-center justify-between font-bold text-slate-900 text-xs">
+                            <span>Total Deductions:</span>
+                            <span className="text-rose-600 font-mono">-₹{m.totalDeductions.toLocaleString('en-IN')}</span>
+                          </div>
+                        </div>
+
+                        {/* Net Take-Home Profit Realization */}
+                        <div className={`p-3.5 rounded-2xl border space-y-1 ${
+                          isWinner ? 'bg-emerald-100/60 border-emerald-300' : 'bg-slate-100/60 border-slate-200'
+                        }`}>
+                          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
+                            Net Take-Home Profit
+                          </span>
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-xl font-black text-slate-900 font-mono">
+                              ₹{m.netProfit.toLocaleString('en-IN')}
+                            </span>
+                            <span className="text-xs font-bold text-slate-700">
+                              ₹{m.realizedPerKg} / kg net
+                            </span>
+                          </div>
+                          <div className="text-[11px] font-bold pt-1 border-t border-slate-200/60 flex items-center justify-between">
+                            <span className="text-slate-500">Spread vs Local:</span>
+                            <span className={m.netProfitSpread >= 0 ? 'text-emerald-700' : 'text-slate-500'}>
+                              {m.netProfitSpread > 0 ? `+₹${m.netProfitSpread.toLocaleString('en-IN')} (${m.percentageGain > 0 ? '+' : ''}${m.percentageGain}%)` : m.netProfitSpread === 0 ? 'Local Baseline' : `-₹${Math.abs(m.netProfitSpread).toLocaleString('en-IN')}`}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="pt-4 mt-3 border-t border-slate-100 space-y-2">
+                        {isWinner ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate('/transport')}
+                            className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                            <span>Book Shared Truck to {m.mandi}</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenContactMandi({ market_name: m.mandi, crop_name: arbitrageCrop })}
+                            className="w-full py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-slate-600" />
+                            <span>Connect with APMC Trader</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Visual Recharts Comparison BarChart */}
+              <div className="p-5 bg-white border border-slate-200 rounded-3xl shadow-sm space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <h4 className="font-extrabold text-sm text-slate-900">
+                      Financial Breakdown: Gross Revenue vs Deductions vs Net Take-Home Profit
+                    </h4>
+                    <p className="text-xs text-muted">
+                      Comparing Surat APMC, Pune APMC, and Mumbai Vashi APMC side-by-side for {arbitrageData.quantityKg.toLocaleString('en-IN')} kg {arbitrageData.crop}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="flex items-center gap-1.5 text-slate-600">
+                      <span className="w-3 h-3 rounded-sm bg-blue-500 inline-block" />
+                      <span>Gross Revenue</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 text-slate-600">
+                      <span className="w-3 h-3 rounded-sm bg-rose-500 inline-block" />
+                      <span>Deductions (Tolls+Diesel+Cess)</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 text-slate-600">
+                      <span className="w-3 h-3 rounded-sm bg-emerald-600 inline-block" />
+                      <span>Net Take-Home Profit</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="w-full h-72 pt-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={arbitrageData.rankedMandis} margin={{ top: 15, right: 20, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="mandi" tick={{ fontSize: 11, fill: '#64748b' }} />
+                      <YAxis tick={{ fontSize: 11, fill: '#64748b' }} unit="₹" />
+                      <RechartsTooltip
+                        contentStyle={{ backgroundColor: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                        formatter={(val, name) => [`₹${Number(val).toLocaleString('en-IN')}`, name]}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                      <Bar dataKey="grossRevenue" name="Gross Revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="totalDeductions" name="Total Deductions" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="netProfit" name="Net Take-Home Profit" fill="#059669" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : isMandiUser && activeTab === 'farmers' ? (
         <div className="p-4 sm:p-6 space-y-6 flex-1 overflow-y-auto">
           {loadingMandiData ? (
             <div className="h-64 flex flex-col items-center justify-center text-teal-800 gap-3">
@@ -697,10 +1436,31 @@ export default function MarketPriceExplorer({
                             </div>
                           </div>
 
-                          {/* Verified APMC Tag */}
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border bg-emerald-50 text-emerald-800 border-emerald-300">
-                            VERIFIED APMC
-                          </span>
+                          {/* Badges: Verified APMC + Arbitrage Finder */}
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border ${
+                              (item.dataType === 'verified_live' || item.data_type === 'verified_live')
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                : 'bg-amber-50 text-amber-800 border-amber-300'
+                            }`}>
+                              {(item.dataType === 'verified_live' || item.data_type === 'verified_live')
+                                ? 'Verified Rates'
+                                : 'DEMO / Sample Data'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setArbitrageCrop(item.crop_name);
+                                setActiveTab('arbitrage');
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 transition-colors shadow-2xs cursor-pointer"
+                              title="Compare Surat, Pune & Mumbai Vashi net profit spread"
+                            >
+                              <Scale className="w-3 h-3 text-amber-700" />
+                              <span>{t.arbitrageBadge || 'Arbitrage Finder'}</span>
+                            </button>
+                          </div>
                         </div>
 
                         {/* Price Display (Clickable for Recharts 7-Day SMA Trends) */}
@@ -725,8 +1485,8 @@ export default function MarketPriceExplorer({
                           </div>
                         </div>
 
-                        {/* Interactive Recharts 7-Day Trend Quick Link */}
-                        <div className="mb-2 flex items-center justify-between text-[11px]">
+                        {/* Interactive Recharts 7-Day Trend & 14-Day Forecast Links */}
+                        <div className="mb-2 flex items-center justify-between text-[11px] gap-2 flex-wrap">
                           <button
                             type="button"
                             onClick={() => handleOpenTrendModal(item)}
@@ -734,9 +1494,21 @@ export default function MarketPriceExplorer({
                             title="Open Recharts 7-day Moving Average Trend Chart"
                           >
                             <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>📈 7-Day Trends (SMA3 vs SMA7)</span>
+                            <span>📈 7-Day Trends</span>
                           </button>
-                          <span className="text-[10px] text-slate-400 font-mono">MSAMB Verified</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setForecastCrop(item.crop_name);
+                              setForecastMandi(item.market_name);
+                              setActiveTab('forecast');
+                            }}
+                            className="inline-flex items-center gap-1 font-semibold text-purple-700 hover:text-purple-900 hover:underline cursor-pointer"
+                            title="Open 14-Day Price Prediction Model"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                            <span>🔮 14-Day Forecast</span>
+                          </button>
                         </div>
                       </div>
 
