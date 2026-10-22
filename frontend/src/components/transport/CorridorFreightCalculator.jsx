@@ -13,7 +13,8 @@ import {
   ArrowRight, 
   Sparkles,
   Volume2,
-  CheckCircle2
+  CheckCircle2,
+  Search
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { CORRIDORS, calculateCorridorFreight } from '../../services/corridorFreightService';
@@ -23,10 +24,29 @@ export default function CorridorFreightCalculator({ onApplyCorridor, defaultWeig
   const [selectedCorridorId, setSelectedCorridorId] = useState('nashik-vashi');
   const [cargoWeightKg, setCargoWeightKg] = useState(defaultWeight || 500);
   const [applied, setApplied] = useState(false);
+  const [originFilter, setOriginFilter] = useState('');
+  const [destinationFilter, setDestinationFilter] = useState('');
+
+  const filteredCorridors = useMemo(() => {
+    return CORRIDORS.filter((corridor) => {
+      const origMatch = !originFilter || 
+        corridor.origin.toLowerCase().includes(originFilter.toLowerCase()) || 
+        corridor.name.toLowerCase().includes(originFilter.toLowerCase());
+      const destMatch = !destinationFilter || 
+        corridor.destination.toLowerCase().includes(destinationFilter.toLowerCase()) || 
+        corridor.name.toLowerCase().includes(destinationFilter.toLowerCase());
+      return origMatch && destMatch;
+    });
+  }, [originFilter, destinationFilter]);
 
   const selectedCorridor = useMemo(() => {
-    return CORRIDORS.find((c) => c.id === selectedCorridorId) || CORRIDORS[0];
-  }, [selectedCorridorId]);
+    return (
+      filteredCorridors.find((c) => c.id === selectedCorridorId) ||
+      CORRIDORS.find((c) => c.id === selectedCorridorId) ||
+      filteredCorridors[0] ||
+      CORRIDORS[0]
+    );
+  }, [selectedCorridorId, filteredCorridors]);
 
   // Dynamic cost calculation based on cargo weight & corridor distance
   const calculations = useMemo(() => {
@@ -85,46 +105,136 @@ export default function CorridorFreightCalculator({ onApplyCorridor, defaultWeig
         </button>
       </div>
 
+      {/* Corridor Search & Route Filtering Controls */}
+      <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
+          <div className="flex items-center gap-2">
+            <Search className="w-4 h-4 text-emerald-600" />
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              🛣️ Highway Corridor Route Search & Live Filter
+            </span>
+          </div>
+          {(originFilter || destinationFilter) && (
+            <button
+              type="button"
+              onClick={() => {
+                setOriginFilter('');
+                setDestinationFilter('');
+              }}
+              className="text-xs text-rose-600 hover:text-rose-800 font-bold cursor-pointer"
+            >
+              ✕ Reset Route Filters
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div>
+            <label className="text-[11px] font-bold text-slate-600 uppercase block mb-1">
+              Filter by Origin (e.g. Pune, Nashik, Kolhapur):
+            </label>
+            <input
+              type="text"
+              value={originFilter}
+              onChange={(e) => setOriginFilter(e.target.value)}
+              placeholder="Search origin e.g. Pune or Nashik..."
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+            />
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {['All', 'Pune', 'Nashik', 'Kolhapur', 'Nagpur'].map((orig) => (
+                <button
+                  key={orig}
+                  type="button"
+                  onClick={() => setOriginFilter(orig === 'All' ? '' : orig)}
+                  className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                    (orig === 'All' && !originFilter) || (originFilter.toLowerCase() === orig.toLowerCase())
+                      ? 'bg-emerald-600 text-white border-emerald-600 font-bold'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  {orig}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-slate-600 uppercase block mb-1">
+              Filter by Destination (e.g. Mumbai Vashi APMC):
+            </label>
+            <input
+              type="text"
+              value={destinationFilter}
+              onChange={(e) => setDestinationFilter(e.target.value)}
+              placeholder="Search destination e.g. Vashi or Pune..."
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+            />
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {['All', 'Vashi APMC', 'Pune APMC', 'Amravati APMC'].map((dest) => (
+                <button
+                  key={dest}
+                  type="button"
+                  onClick={() => setDestinationFilter(dest === 'All' ? '' : dest)}
+                  className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                    (dest === 'All' && !destinationFilter) || (destinationFilter.toLowerCase().includes(dest.toLowerCase().split(' ')[0]))
+                      ? 'bg-emerald-600 text-white border-emerald-600 font-bold'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  {dest}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Corridor Selection Pills */}
       <div className="space-y-2">
         <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-          Select Maharashtra Agricultural Transport Corridor:
+          Select Agricultural Transport Corridor ({filteredCorridors.length} available):
         </label>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-          {CORRIDORS.map((corridor) => {
-            const isSelected = corridor.id === selectedCorridorId;
-            return (
-              <button
-                key={corridor.id}
-                type="button"
-                onClick={() => setSelectedCorridorId(corridor.id)}
-                className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
-                  isSelected
-                    ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/30 shadow-xs'
-                    : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-xs text-slate-900 tracking-tight">
-                      {corridor.name}
-                    </span>
-                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-                      {corridor.distanceKm} km
-                    </span>
+          {filteredCorridors.length === 0 ? (
+            <div className="col-span-full py-4 text-center text-xs text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+              No agricultural corridors match your route filter. Try resetting filters.
+            </div>
+          ) : (
+            filteredCorridors.map((corridor) => {
+              const isSelected = corridor.id === selectedCorridorId;
+              return (
+                <button
+                  key={corridor.id}
+                  type="button"
+                  onClick={() => setSelectedCorridorId(corridor.id)}
+                  className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
+                    isSelected
+                      ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/30 shadow-xs'
+                      : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-xs text-slate-900 tracking-tight">
+                        {corridor.name}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                        {corridor.distanceKm} km
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                      {corridor.highway.split('(')[0]}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                    {corridor.highway.split('(')[0]}
-                  </p>
-                </div>
 
-                <div className="mt-2 text-[11px] text-emerald-800 font-bold flex items-center gap-1">
-                  <span>From ₹{corridor.baseSharedCost}</span>
-                  <span className="text-[10px] text-slate-400 font-normal">pooled</span>
-                </div>
-              </button>
-            );
-          })}
+                  <div className="mt-2 text-[11px] text-emerald-800 font-bold flex items-center gap-1">
+                    <span>From ₹{corridor.baseSharedCost}</span>
+                    <span className="text-[10px] text-slate-400 font-normal">pooled</span>
+                  </div>
+                </button>
+              );
+            })
+          )}
         </div>
       </div>
 

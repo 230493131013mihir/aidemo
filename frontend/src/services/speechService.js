@@ -330,27 +330,52 @@ export async function speakMessage(text, language = 'en', callbacks = {}) {
   const { voice } = findMatchingVoice(language, voices);
   const langConfig = SUPPORTED_LANGUAGES[language] || SUPPORTED_LANGUAGES.en;
 
-  // If no matching voice exists in this browser/OS, gracefully notify
-  if (!voice) {
-    // Check if browser has default voices at all
-    const hasAnyVoice = voices.length > 0;
-    const msg = hasAnyVoice
-      ? `A voice for ${langConfig.name} is not installed in this browser/OS. You can still read the response text.`
-      : 'Voice playback is unavailable because no system voices were found. You can still read the text response.';
+  // Resilient Voice Fallback Strategy:
+  // If an exact language voice is not pre-installed by the OS/browser:
+  // For Marathi ('mr'), use an Indian Devanagari voice (hi-IN) or Indian voice (*-IN), or default system voice.
+  // Devanagari phonetics allow Marathi to be pronounced cleanly and accurately without failing.
+  let selectedVoice = voice;
+  if (!selectedVoice && Array.isArray(voices) && voices.length > 0) {
+    if (language === 'mr') {
+      selectedVoice =
+        voices.find((v) => {
+          const vl = (v.lang || '').replace('_', '-').toLowerCase();
+          return vl === 'hi-in' || vl.startsWith('hi');
+        }) ||
+        voices.find((v) => {
+          const vl = (v.lang || '').replace('_', '-').toLowerCase();
+          return vl.endsWith('-in');
+        }) ||
+        voices.find((v) => v.default) ||
+        voices[0];
+    } else {
+      selectedVoice =
+        voices.find((v) => {
+          const vl = (v.lang || '').replace('_', '-').toLowerCase();
+          return vl.endsWith('-in');
+        }) ||
+        voices.find((v) => v.default) ||
+        voices[0];
+    }
+  }
 
+  // If no voices exist at all in the browser/OS:
+  if (!selectedVoice && (!voices || voices.length === 0)) {
     onError?.({
       type: 'NO_VOICE',
       language,
       languageName: langConfig.name,
-      message: msg
+      message: 'Voice playback is unavailable because no system voices were found in this browser.'
     });
     return false;
   }
 
   try {
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.voice = voice;
-    utterance.lang = langConfig.speechSynthesis;
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+    utterance.lang = langConfig.speechSynthesis || 'mr-IN';
     utterance.rate = 0.95; // Slightly slower pace for Indian language clarity
     utterance.pitch = 1.0;
 

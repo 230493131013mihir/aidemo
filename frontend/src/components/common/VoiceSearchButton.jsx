@@ -8,12 +8,58 @@ export default function VoiceSearchButton({ onResult, className = '', id = 'voic
   const recognitionRef = useRef(null);
 
   useEffect(() => {
+    const handleWakeWord = (e) => {
+      const { query } = e.detail || {};
+      if (query && onResult) {
+        onResult(query);
+      } else if (!isListening) {
+        // Automatically trigger voice search without user clicking the microphone button
+        startListeningSession();
+      }
+    };
+
+    window.addEventListener('harvestmitra:wake-word-triggered', handleWakeWord);
     return () => {
+      window.removeEventListener('harvestmitra:wake-word-triggered', handleWakeWord);
       if (recognitionRef.current) {
         try { recognitionRef.current.abort(); } catch (_) {}
       }
     };
-  }, []);
+  }, [onResult, language, isListening]);
+
+  const startListeningSession = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Voice recognition is not supported in this browser. Please use Google Chrome.');
+      return;
+    }
+
+    try {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch (_) {}
+      }
+      const recognition = new SpeechRecognition();
+      recognition.lang = language === 'mr' ? 'mr-IN' : language === 'hi' ? 'hi-IN' : 'en-IN';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => setIsListening(true);
+      recognition.onend = () => setIsListening(false);
+      recognition.onerror = () => setIsListening(false);
+
+      recognition.onresult = (event) => {
+        const transcript = event.results?.[0]?.[0]?.transcript;
+        if (transcript && onResult) {
+          onResult(transcript);
+        }
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (_) {
+      setIsListening(false);
+    }
+  };
 
   const toggleVoiceSearch = () => {
     if (isListening && recognitionRef.current) {
@@ -22,34 +68,7 @@ export default function VoiceSearchButton({ onResult, className = '', id = 'voic
       return;
     }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert('Voice recognition is not supported in this browser. Please use Google Chrome.');
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = language === 'mr' ? 'mr-IN' : language === 'hi' ? 'hi-IN' : 'en-IN';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
-
-    recognition.onresult = (event) => {
-      const transcript = event.results?.[0]?.[0]?.transcript;
-      if (transcript && onResult) {
-        onResult(transcript);
-      }
-    };
-
-    recognitionRef.current = recognition;
-    try {
-      recognition.start();
-    } catch (_) {
-      setIsListening(false);
-    }
+    startListeningSession();
   };
 
   return (

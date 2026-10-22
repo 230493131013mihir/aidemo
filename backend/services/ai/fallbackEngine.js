@@ -11,7 +11,7 @@ const { normalizeLanguage } = require('./intentDetector');
  *
  * @param {Object} params
  * @param {string} params.intent - Detected intent
- * @param {string} params.language - 'en' | 'hi' | 'gu'
+ * @param {string} params.language - 'en' | 'hi' | 'mr' | 'gu'
  * @param {Object} params.context - Structured backend context
  * @param {string} [params.userMessage] - Original user message
  * @returns {Object} Normalized response
@@ -76,6 +76,40 @@ function generateResponse(params = {}) {
   };
 }
 
+const CROP_TRANSLATIONS = {
+  tomato: { mr: 'टोमॅटो', hi: 'टमाटर', gu: 'ટામેટાં', en: 'Tomato' },
+  onion: { mr: 'कांदा', hi: 'प्याज', gu: 'ડુંગળી', en: 'Onion' },
+  potato: { mr: 'बटाटा', hi: 'आलू', gu: 'બટાકા', en: 'Potato' },
+  wheat: { mr: 'गहू', hi: 'गेहूं', gu: 'ઘઉં', en: 'Wheat' },
+  cotton: { mr: 'कापूस', hi: 'कपास', gu: 'કપાસ', en: 'Cotton' },
+  soybean: { mr: 'सोयाबीन', hi: 'सोयाबीन', gu: 'સોયાબીન', en: 'Soybean' },
+  rice: { mr: 'तांदूळ', hi: 'चावल', gu: 'ડાંગર', en: 'Rice' },
+  garlic: { mr: 'लसूण', hi: 'लहसुन', gu: 'લસણ', en: 'Garlic' },
+  ginger: { mr: 'आले', hi: 'अदरक', gu: 'આદુ', en: 'Ginger' },
+  chilli: { mr: 'मिरची', hi: 'मिर्च', gu: 'મરચાં', en: 'Chilli' },
+  pomegranate: { mr: 'डाळिंब', hi: 'अनार', gu: 'દાડમ', en: 'Pomegranate' },
+  grapes: { mr: 'द्राक्षे', hi: 'अंगूर', gu: 'દ્રાક્ષ', en: 'Grapes' },
+  sugarcane: { mr: 'ऊस', hi: 'गन्ना', gu: 'શેરડી', en: 'Sugarcane' },
+  maize: { mr: 'मका', hi: 'मक्का', gu: 'મકાઈ', en: 'Maize' },
+  'lady finger': { mr: 'भेंडी', hi: 'भिंडी', gu: 'ભીંડા', en: 'Lady Finger' },
+  ladyfinger: { mr: 'भेंडी', hi: 'भिंडी', gu: 'ભીંડા', en: 'Lady Finger' },
+  okra: { mr: 'भेंडी', hi: 'भिंडी', gu: 'ભીંડા', en: 'Lady Finger' },
+  bhindi: { mr: 'भेंडी', hi: 'भिंडी', gu: 'ભીંડા', en: 'Lady Finger' },
+  bhendi: { mr: 'भेंडी', hi: 'भिंडी', gu: 'ભીંડા', en: 'Lady Finger' },
+  brinjal: { mr: 'वांगी', hi: 'बैंगन', gu: 'રીંગણ', en: 'Brinjal' },
+  cauliflower: { mr: 'फ्लॉवर', hi: 'फूलगोभी', gu: 'ફૂલકોબી', en: 'Cauliflower' },
+  cabbage: { mr: 'कोबी', hi: 'पत्ता गोभी', gu: 'કોબી', en: 'Cabbage' },
+  groundnut: { mr: 'शेंगदाणा', hi: 'मूंगफली', gu: 'મગફળી', en: 'Groundnut' }
+};
+
+function getLocalizedCropName(name, lang) {
+  if (!name) return lang === 'mr' ? 'पिकाचा' : lang === 'hi' ? 'फसल' : lang === 'gu' ? 'પાક' : 'crop';
+  const key = String(name).toLowerCase();
+  const found = CROP_TRANSLATIONS[key];
+  if (found && found[lang]) return found[lang];
+  return name;
+}
+
 /**
  * Handle market_price intent
  */
@@ -85,34 +119,36 @@ function handleMarketPrice(context, lang) {
 
   if (!market || market.pricePerKg === null || market.pricePerKg === undefined) {
     if (lang === 'mr') {
-      return `माझ्याकडे सध्या तुमच्या निवडलेल्या क्षेत्रासाठी पडताळणी केलेले बाजार भाव उपलब्ध नाहीत. कृपया उपलब्ध माहिती पाहण्यासाठी Market Explorer उघडा.`;
+      return `माझ्याकडे सध्या तुमच्या निवडलेल्या क्षेत्रासाठी (${cropName}) पडताळणी केलेले बाजार भाव उपलब्ध नाहीत. कृपया उपलब्ध माहिती पाहण्यासाठी Market Explorer उघडा.`;
     }
     if (lang === 'gu') {
-      return `મારી પાસે અત્યારે તમારા પસંદ કરેલા વિસ્તાર માટે ચકાસાયેલ મંડી ભાવ ઉપલબ્ધ નથી. કૃપા કરીને ઉપલબ્ધ માહિતી જોવા માટે Market Explorer ખોલો.`;
+      return `મારી પાસે અત્યારે તમારા પસંદ કરેલા વિસ્તાર માટે (${cropName}) ચકાસાયેલ મંડી ભાવ ઉપલબ્ધ નથી. કૃપા કરીને ઉપલબ્ધ માહિતી જોવા માટે Market Explorer ખોલો.`;
     }
     if (lang === 'hi') {
-      return `मेरे पास अभी आपके चयनित स्थान के लिए सत्यापित मंडी भाव उपलब्ध नहीं है। कृपया उपलब्ध डेटा देखने के लिए Market Explorer खोलें।`;
+      return `मेरे पास अभी आपके चयनित स्थान के लिए (${cropName}) सत्यापित मंडी भाव उपलब्ध नहीं है। कृपया उपलब्ध डेटा देखने के लिए Market Explorer खोलें।`;
     }
-    return `I don't have a verified market price for your selected location right now. Please open Market Explorer to check available data.`;
+    return `I don't have a verified market price for ${cropName} in your selected location right now. Please open Market Explorer to check available data.`;
   }
 
   const isDemo = String(market.sourceType || '').toUpperCase().includes('DEMO');
   const demoNoteEn = isDemo ? ' based on available demonstration data' : '';
-  const demoNoteHi = isDemo ? ' (उपलब्ધ डेमो डेटा के आधार पर)' : '';
+  const demoNoteHi = isDemo ? ' (उपलब्ध डेमो डेटा के आधार पर)' : '';
   const demoNoteGu = isDemo ? ' (ઉપલબ્ધ ડેમો ડેટા અનુસાર)' : '';
 
   const demoNoteMr = isDemo ? ' (उपलब्ध डेमो डेटावर आधारित)' : '';
 
+  const unitStr = market.unit || 'kg';
+
   if (lang === 'mr') {
-    return `${market.name} मध्ये ${cropName} चा भाव ₹${market.pricePerKg}/${market.unit} आहे${demoNoteMr}। अधिक माहितीसाठी आपण Market Explorer पाहू शकता.`;
+    return `${market.name} मध्ये ${cropName} चा भाव ₹${market.pricePerKg}/${unitStr} आहे${demoNoteMr}। अधिक माहितीसाठी आपण Market Explorer पाहू शकता.`;
   }
   if (lang === 'gu') {
-    return `${market.name} માં ${cropName} નો ભાવ ₹${market.pricePerKg}/${market.unit} છે${demoNoteGu}. વધુ વિગતો માટે તમે Market Explorer ચકાસી શકો છો.`;
+    return `${market.name} માં ${cropName} નો ભાવ ₹${market.pricePerKg}/${unitStr} છે${demoNoteGu}. વધુ વિગતો માટે તમે Market Explorer ચકાસી શકો છો.`;
   }
   if (lang === 'hi') {
-    return `${market.name} में ${cropName} का भाव ₹${market.pricePerKg}/${market.unit} है${demoNoteHi}। अधिक विवरण के लिए आप Market Explorer देख सकते हैं।`;
+    return `${market.name} में ${cropName} का भाव ₹${market.pricePerKg}/${unitStr} है${demoNoteHi}। अधिक विवरण के लिए आप Market Explorer देख सकते हैं।`;
   }
-  return `${cropName} price at ${market.name} is ₹${market.pricePerKg}/${market.unit}${demoNoteEn}.`;
+  return `${cropName} price at ${market.name} is ₹${market.pricePerKg}/${unitStr}${demoNoteEn}.`;
 }
 
 /**
@@ -158,6 +194,29 @@ function handleHarvestDecision(context, lang) {
     }
     msg += ` These are estimates based on the values entered.`;
     return msg;
+  }
+
+  // If market data is available, provide current price and harvest holding advice
+  const market = context.marketData?.currentMarket;
+  const cropName = context.crop?.name;
+
+  if (market && market.pricePerKg !== null && market.pricePerKg !== undefined) {
+    const isDemo = String(market.sourceType || '').toUpperCase().includes('DEMO');
+    const demoNoteHi = isDemo ? ' (उपलब्ध मंडी डेटा अनुसार)' : '';
+    const demoNoteMr = isDemo ? ' (उपलब्ध बाजार डेटावर आधारित)' : '';
+    const demoNoteGu = isDemo ? ' (ઉપલબ્ધ મંડી ડેટા અનુસાર)' : '';
+    const demoNoteEn = isDemo ? ' (based on available APMC data)' : '';
+
+    if (lang === 'hi') {
+      return `वर्तमान में ${market.name} में ${cropName ? 'टमाटर' : 'फसल'} का भाव ₹${market.pricePerKg}/${market.unit || 'kg'} है${demoNoteHi}। यदि मौसम साफ है और बारिश की चेतावनी नहीं है, तो आप 3-5 दिन रोककर (hold) बेहतर भाव की प्रतीक्षा कर सकते हैं। सटीक गणना के लिए Harvest Decision Simulator में अपनी फसल मात्रा (किलो) दर्ज करके 3 विकल्पों की तुलना देखें।`;
+    }
+    if (lang === 'mr') {
+      return `सध्या ${market.name} मध्ये ${cropName ? 'टोमॅटो' : 'पिकाचा'} भाव ₹${market.pricePerKg}/${market.unit || 'kg'} आहे${demoNoteMr}। हवामान अनुकूल असल्यास आणि पाऊस नसेल तर 3-5 दिवस पिकाची साठवणूक करून चांगला भाव मिळू शकतो. अचूक हिशोबासाठी Harvest Decision Simulator चा वापर करा.`;
+    }
+    if (lang === 'gu') {
+      return `હાલમાં ${market.name} માં ${cropName ? 'ટામેટાં' : 'પાક'} નો ભાવ ₹${market.pricePerKg}/${market.unit || 'kg'} છે${demoNoteGu}. હવામાન સાનુકૂળ હોય અને વરસાદ ન હોય તો તમે ૩-૫ દિવસ માલ રોકીને વધુ સારો ભાવ મેળવી શકો છો. સચોટ ગણતરી માટે Harvest Decision Simulator નો ઉપયોગ કરો.`;
+    }
+    return `Current rate at ${market.name} is ₹${market.pricePerKg}/${market.unit || 'kg'}${demoNoteEn}. If weather conditions are clear without rain advisory, holding produce for 3-5 days can often yield higher net returns. Use the Harvest Decision Simulator to compare selling today vs holding based on your exact harvest quantity.`;
   }
 
   // If no calculation exists in context
@@ -301,7 +360,7 @@ function handleWeather(context, lang) {
 function handleProfile(context, lang) {
   const farmer = context.farmer || {};
   const name = farmer.name || 'Farmer';
-  const location = farmer.location || 'Gujarat';
+  const location = farmer.location || 'Maharashtra';
 
   if (lang === 'mr') {
     return `नमस्कार ${name}! तुमचे स्थान ${location} आहे. तुम्ही Profile पृष्ठावर जाऊन तुमच्या शेत आणि पिकांची माहिती अपडेट करू शकता.`;
@@ -320,6 +379,72 @@ function handleProfile(context, lang) {
  */
 function handleGovernmentScheme(context, lang, userMessage = '') {
   const query = (userMessage || '').toLowerCase();
+
+  // PMFBY Crop Insurance
+  if (query.includes('pmfby') || query.includes('fasal bima') || query.includes('पीक विमा') || query.includes('પાક વીમો') || query.includes('फसल बीमा') || query.includes('bima') || query.includes('વીમો') || query.includes('विमा')) {
+    if (lang === 'mr') {
+      return `🏛️ **पंतप्रधान पीक विमा योजना (PMFBY)**:
+• **संरक्षण**: अवकाळी पाऊस, दुष्काळ, पूर व कीड रोगांमुळे होणाऱ्या नुकसानीस सर्वसमावेशक विमा संरक्षण.
+• **प्रीमियम दर**: खरीप पिकांसाठी 2%, रब्बी पिकांसाठी 1.5%, आणि नगदी/फळबाग पिकांसाठी 5%.
+• **दावा नोंदणी**: नुकसान झाल्यानंतर 72 तासांच्या आत कृषी रक्षक पोर्टल किंवा अधिकृत ॲपवर माहिती देणे अनिवार्य.
+• **अधिकृत पोर्टल**: https://pmfby.gov.in/
+*टीप: अधिक माहितीसाठी नजीकच्या तालुका कृषी कार्यालयाशी किंवा आपल्या CSC केंद्राशी संपर्क साधा.*`;
+    }
+    if (lang === 'gu') {
+      return `🏛️ **પ્રધાનમંત્રી ફસલ બીમા યોજના (PMFBY)**:
+• **સુરક્ષા**: અતિવૃષ્ટિ, દુષ્કાળ, કમોસમી વરસાદ અને જીવાતથી થતા પાક નુકસાન સામે સંપૂર્ણ વીમા રક્ષણ.
+• **પ્રીમિયમ દર**: ખરીફ પાક માટે ૨%, રવિ પાક માટે ૧.૫%, અને બાગાયતી/વાણિજ્યિક પાક માટે ૫%.
+• **ક્લેમ નોંધણી**: પાક નુકસાન થયાના ૭૨ કલાકની અંદર પીએમએફબીવાય પોર્ટલ અથવા ટોલ-ફ્રી નંબર પર જાણ કરવી જરૂરી.
+• **સત્તાવાર પોર્ટલ**: https://pmfby.gov.in/
+*વધુ વિગતો માટે તમારા ગામ પંચાયત VCE અથવા કૃષિ સહાયકનો સંપર્ક કરો.*`;
+    }
+    if (lang === 'hi') {
+      return `🏛️ **प्रधानमंत्री फसल बीमा योजना (PMFBY)**:
+• **सुरक्षा**: सूखा, बाढ़, बेमौसम बारिश एवं कीट प्रकोप से प्राकृतिक फसल नुकसान पर व्यापक सुरक्षा कवच।
+• **प्रीमियम दर**: खरीफ फसलों पर केवल 2%, रबी फसलों पर 1.5% और वाणिज्यिक/बागवानी फसलों पर 5%।
+• **दावा प्रक्रिया**: आपदा के 72 घंटे के भीतर PMFBY पोर्टल या क्रॉप इंश्योरेंस ऐप पर सूचना देना अनिवार्य।
+• **आधिकारिक पोर्टल**: https://pmfby.gov.in/
+*सुझाव: अधिकृत बीमा कंपनी व राज्य कृषि विभाग के माध्यम से ही क्लेम ट्रैक करें।*`;
+    }
+    return `🏛️ **Pradhan Mantri Fasal Bima Yojana (PMFBY)**:
+• **Coverage**: Comprehensive financial risk protection against non-preventable natural risks (drought, flood, unseasonal hail, pest attacks).
+• **Farmer Premium Rates**: 2.0% for Kharif crops, 1.5% for Rabi crops, and 5.0% for commercial/horticultural produce.
+• **Claim Intimation**: Report localized crop damage within 72 hours via the official Crop Insurance App or portal.
+• **Official Portal**: https://pmfby.gov.in/
+*Notice: HarvestMitra AI connects you directly to official government portals and never asks for financial credentials.*`;
+  }
+
+  // Drip Irrigation / Micro-irrigation
+  if (query.includes('drip') || query.includes('irrigation') || query.includes('सिंचाई') || query.includes('સિંચાઈ') || query.includes('ठिबक') || query.includes('micro-irrigation') || query.includes('sprinkler') || query.includes('ફુવારા') || query.includes('तुषार')) {
+    if (lang === 'mr') {
+      return `🏛️ **ठिबक व तुषार सिंचन शासकीय योजना (Drip & Micro-Irrigation)**:
+• **योजना**: प्रधानमंत्री कृषी सिंचाई योजना (PMKSY - Per Drop More Crop) व महाडीबीटी सूक्ष्म सिंचन.
+• **अनुदान**: अल्प व अत्यल्प भूधारक शेतकऱ्यांना 55% ते 70% पर्यंत थेट शासकीय अनुदान.
+• **पात्रता**: 7/12 व 8-A उतारा, वीज जोडणी किंवा शाश्वत पाणी स्त्रोत असणारे सर्व शेतकरी.
+• **अर्ज कसा करावा**: महाराष्ट्र MahaDBT शेतकरी पोर्टल (https://mahadbt.maharashtra.gov.in/) वर ऑनलाइन अर्ज करा.`;
+    }
+    if (lang === 'gu') {
+      return `🏛️ **ટપક સિંચાઈ અને માઇક્રો-ઇરિગેશન યોજના (Drip Irrigation Schemes)**:
+• **મુખ્ય યોજનાઓ**: ગુજરાત ગ્રીન રિવોલ્યુશન કંપની (GGRC) અને પ્રધાનમંત્રી કૃષિ સિંચાઈ યોજના (PMKSY).
+• **સબસિડી લાભ**: નાના અને સીમાંત ખેડૂતોને ટપક (Drip) અને સ્પ્રિંકલર પર ૭૦% સુધી સરકારી સબસિડી.
+• **જરૂરી દસ્તાવેજ**: ૭/૧૨, ૮-અ ના ઉતારા, આધાર કાર્ડ, પાણી સ્ત્રોત પુરાવો અને બેંક પાસબુક.
+• **સત્તાવાર પોર્ટલ**: https://ikhedut.gujarat.gov.in/ અને https://ggrc.co.in/`;
+    }
+    if (lang === 'hi') {
+      return `🏛️ **ड्रिप सिंचाई एवं सूक्ष्म सिंचाई सरकारी योजनाएं (Top Drip Irrigation Schemes)**:
+• **प्रमुख योजनाएं**: प्रधानमंत्री कृषि सिंचाई योजना (PMKSY - Per Drop More Crop) एवं राज्य सूक्ष्म सिंचाई मिशन।
+• **सब्सिडी लाभ**: लघु व सीमांत किसानों को ड्रिप व स्प्रिंकलर सिस्टम लगाने पर 55% से 70% तक सरकारी अनुदान।
+• **पात्रता**: खेती योग्य भूमि, सिंचाई का जल स्रोत और वैध भूमि अभिलेख (खतौनी)।
+• **आवेदन**: राज्य कृषि पोर्टल (MahaDBT / i-Khedut) पर ऑनलाइन आवेदन करें।`;
+    }
+    return `🏛️ **Top Government Schemes for Drip Irrigation**:
+• **Key Schemes**: Pradhan Mantri Krishi Sinchayee Yojana (PMKSY - Per Drop More Crop) & State Micro-Irrigation Missions (GGRC in Gujarat / MahaDBT in Maharashtra).
+• **Subsidy Benefit**: 55% to 70% capital subsidy on standard drip irrigation and sprinkler systems for small and marginal farmers.
+• **Water & Yield Benefits**: Saves up to 40-50% irrigation water while boosting crop yields by 25-35%.
+• **Eligibility & Documents**: Landownership records (7/12, Khatauni), Aadhaar Card, functional water source proof.
+• **Official Portals**: https://pmksy.gov.in/ • https://ikhedut.gujarat.gov.in/ • https://mahadbt.maharashtra.gov.in/`;
+  }
+
 
   if (query.includes('pm-kisan') || query.includes('pmkisan') || query.includes('६०००') || query.includes('6000')) {
     if (lang === 'mr') {
@@ -414,9 +539,10 @@ Explore personalized matching on our **Kisan Sahayata — Government Schemes** f
 Here are key verified central and state agriculture schemes:
 1. **PM-KISAN**: ₹6,000/year direct financial support (https://pmkisan.gov.in/)
 2. **PMFBY**: Comprehensive crop insurance against weather hazards (https://pmfby.gov.in/)
-3. **Gujarat i-Khedut**: Subsidies for tractors, drip irrigation, and equipment (https://ikhedut.gujarat.gov.in/)
-4. **Kisan Credit Card (KCC)**: Concessional crop loans at 4% effective interest rate.
-5. **Soil Health Card Scheme**: Scientific soil testing and fertilizer advice.
+3. **Maharashtra MahaDBT**: Farm subsidies, tractor aid, drip irrigation subsidies (https://mahadbt.maharashtra.gov.in/)
+4. **Gujarat i-Khedut**: Subsidies for tractors, drip irrigation, and equipment (https://ikhedut.gujarat.gov.in/)
+5. **Kisan Credit Card (KCC)**: Concessional crop loans at 4% effective interest rate.
+6. **Soil Health Card Scheme**: Scientific soil testing and fertilizer advice.
 
 👉 Use the **Government Schemes** finder in your dashboard navigation to check personalized eligibility, download document checklists, and access verified government portals!`;
 }

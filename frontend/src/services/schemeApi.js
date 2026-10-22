@@ -1,10 +1,11 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
 function getAuthHeaders() {
-  const token = localStorage.getItem('harvestmitra_token');
+  const token = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('harvestmitra_token')) || 
+                (typeof localStorage !== 'undefined' && localStorage.getItem('harvestmitra_token'));
   return {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {})
+    ...(token && token !== 'guest' ? { Authorization: `Bearer ${token}` } : {})
   };
 }
 

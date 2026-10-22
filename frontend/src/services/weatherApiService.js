@@ -108,6 +108,54 @@ export async function fetchDirectOpenMeteo({ latitude, longitude, name = 'Curren
 }
 
 /**
+ * Enriches weather payload with WhatsApp Heavy Rain Alert preview when rain >= 60%
+ */
+export function enrichWithWhatsAppRainAlert(data, district = 'Your District') {
+  if (!data) return data;
+  const rainProb = data.rainChance ?? data.weather?.rainProbability ?? data.current?.rainProbability ?? 0;
+  if (rainProb >= 60) {
+    const loc = data.location?.name || district || 'Your District';
+    if (!data.whatsappAlertPreview) {
+      data.whatsappAlertPreview = {
+        title: `🌧️ Heavy Rain Warning WhatsApp Alert (${rainProb}%)`,
+        district: loc,
+        rainProbability: rainProb,
+        threshold: 60,
+        isHeavyRain: true,
+        channel: 'WhatsApp Cloud API',
+        message: `⚠️ *HarvestMitra Heavy Rain Warning: ${loc}*\nRain probability is ${rainProb}% (>60% threshold).\nDelay harvest or move produce to dry shelter!\nAction: Cover cargo with waterproof tarpaulins.\nDetails: https://harvestmitra.in/weather?district=${encodeURIComponent(loc)}`,
+        whatsappUrl: `https://api.whatsapp.com/send?text=${encodeURIComponent(`⚠️ *HarvestMitra Rain Advisory: ${loc}*\nRain probability is ${rainProb}% (>60%). Delay harvest and secure covered storage! https://harvestmitra.in/weather?district=${encodeURIComponent(loc)}`)}`
+      };
+    }
+    // Dispatch instant custom event if in browser
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      try {
+        window.dispatchEvent(new CustomEvent('harvestmitra:weather-whatsapp-alert', { detail: data.whatsappAlertPreview }));
+      } catch (_) {}
+    }
+  }
+  return data;
+}
+
+/**
+ * Helper to trigger an instant WhatsApp preview toast when heavy rain (>60%) is detected
+ */
+export function triggerWhatsAppRainToast(weatherData, showToast) {
+  if (!weatherData || !showToast) return;
+  const rainProb = weatherData.rainChance ?? weatherData.weather?.rainProbability ?? weatherData.current?.rainProbability ?? 0;
+  if (rainProb >= 60) {
+    const loc = weatherData.location?.name || 'Your District';
+    showToast({
+      type: 'whatsapp',
+      title: `🌧️ Heavy Rain Alert: ${loc} (${rainProb}%)`,
+      message: `Rain probability is ${rainProb}% (>60%). WhatsApp rain advisory dispatched: Delay harvest and cover cargo with tarpaulins.`,
+      duration: 7000,
+      whatsappUrl: `https://api.whatsapp.com/send?text=${encodeURIComponent(`⚠️ *HarvestMitra Heavy Rain Alert: ${loc}*\nRain probability: ${rainProb}% (>60% warning). Delay harvest or move produce to dry shelter! https://harvestmitra.in/weather?district=${encodeURIComponent(loc)}`)}`
+    });
+  }
+}
+
+/**
  * Fetch localized weather for a district/state or coordinates
  */
 export async function fetchWeather(district = 'Pune', state = 'Maharashtra', options = {}) {
@@ -130,16 +178,17 @@ export async function fetchWeather(district = 'Pune', state = 'Maharashtra', opt
     const res = await fetch(url, { signal: options.signal });
     if (!res.ok) throw new Error(`Failed to load weather: HTTP ${res.status}`);
     const data = await res.json();
-    return data;
+    return enrichWithWhatsAppRainAlert(data, district);
   } catch (err) {
     // If backend proxy failed and coordinates were provided, attempt direct Open-Meteo fallback
     if (options.latitude && options.longitude && !options.signal?.aborted) {
       try {
-        return await fetchDirectOpenMeteo({
+        const direct = await fetchDirectOpenMeteo({
           latitude: options.latitude,
           longitude: options.longitude,
           name: district
         }, options.signal);
+        return enrichWithWhatsAppRainAlert(direct, district);
       } catch (_) {}
     }
     throw err;

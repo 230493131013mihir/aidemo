@@ -160,7 +160,16 @@ function FarmerDashboard({ user, t }) {
   const fetchFarmerCrops = async () => {
     try {
       setLoadingCrops(true);
-      const res = await apiClient('/api/farmer/crops');
+      const token = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('harvestmitra_token')) || 
+                    (typeof localStorage !== 'undefined' && localStorage.getItem('harvestmitra_token')) || 'guest';
+      const headers = { 'Content-Type': 'application/json' };
+      if (token && token !== 'guest') {
+        headers.Authorization = `Bearer ${token}`;
+      } else {
+        headers['x-guest-mode'] = 'true';
+      }
+
+      const res = await fetch(`${API_BASE_URL}/api/farmer/crops`, { headers });
       const json = await res.json();
       if (json.success && Array.isArray(json.crops)) {
         setCrops(json.crops);

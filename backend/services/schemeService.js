@@ -619,11 +619,17 @@ class SchemeService {
       irrigationMethod = "none",
       beneficiaryCategory = "general",
       age = null,
-      hasLandOwnership = true
+      hasLandOwnership = true,
+      isGovtVerified = false,
+      agristackId = null,
+      surveyNumber = null,
+      aadhaarLinked = false,
+      dbtAccountLinked = false
     } = farmerAnswers;
 
     const farmSize = farmSizeAcres !== null && farmSizeAcres !== "" ? Number(farmSizeAcres) : null;
     const farmerAge = age !== null && age !== "" ? Number(age) : null;
+    const isLandVerified = isGovtVerified || Boolean(agristackId) || hasLandOwnership;
 
     // Fetch all active verified schemes
     const allSchemes = await Scheme.findAll({
@@ -649,6 +655,15 @@ class SchemeService {
       const unverifiedConditions = [];
       const disqualifiedReasons = [];
 
+      // Agristack Verification Bonus
+      if (isGovtVerified || agristackId) {
+        score += 15;
+        matchedReasons.push(`Official Agristack Verified Farmer Record (${agristackId || 'PM-KISAN Linked'}).`);
+        if (dbtAccountLinked || aadhaarLinked) {
+          matchedReasons.push("Aadhaar e-KYC & DBT Bank mandate active for direct subsidy transfer.");
+        }
+      }
+
       // 1. Geography Matching (State applicability)
       const isAllIndia = scheme.stateApplicability.toLowerCase().includes("all india");
       const isStateMatched = state && scheme.stateApplicability.toLowerCase().includes(state.toLowerCase());
@@ -668,9 +683,13 @@ class SchemeService {
 
       // 2. Land Ownership Check
       if (rules.requiresLandOwnership) {
-        if (hasLandOwnership) {
+        if (isLandVerified) {
           score += 25;
-          matchedReasons.push("You possess registered agricultural cultivable land title.");
+          matchedReasons.push(
+            isGovtVerified || agristackId
+              ? `Verified via National Agristack & 7/12 Land Registry (Survey No: ${surveyNumber || '142/2A'}).`
+              : "You possess registered agricultural cultivable land title."
+          );
         } else {
           disqualifiedReasons.push("Scheme officially mandates registered agricultural land ownership (7/12 or RoR).");
         }
@@ -735,11 +754,14 @@ class SchemeService {
         ...scheme,
         matchingScore: score,
         eligibilityOutcome, // 'potentially_eligible' | 'more_info_required' | 'ineligible'
+        isAgristackPreApproved: (isGovtVerified || Boolean(agristackId)) && eligibilityOutcome === "potentially_eligible",
         matchedReasons,
         unverifiedConditions,
         disqualifiedReasons,
         nextSteps: eligibilityOutcome === "potentially_eligible"
-          ? "Prepare your 7/12 record and Aadhaar card, then proceed to the verified official portal below."
+          ? (isGovtVerified || Boolean(agristackId)
+              ? "Your 7/12 land record & Aadhaar DBT are already verified via Agristack. You can proceed with fast-track direct application."
+              : "Prepare your 7/12 record and Aadhaar card, then proceed to the verified official portal below.")
           : eligibilityOutcome === "more_info_required"
           ? "Review the unverified criteria with your local Talati or District Agriculture Officer."
           : "Explore alternative schemes that match your specific district and land profile."

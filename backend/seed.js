@@ -3,9 +3,14 @@ const bcrypt = require("bcryptjs");
 const sequelize = require("./config/database");
 const { User, AdminUser, Crop, Market, MarketPrice } = require("./models");
 
+const transportRoutes = require("./routes/transport.routes");
+
 async function seed() {
     await sequelize.authenticate();
     await sequelize.sync();
+    if (transportRoutes?.ensureTransportSchema) {
+        await transportRoutes.ensureTransportSchema();
+    }
 
     const demoPassword = await bcrypt.hash(process.env.DEMO_PASSWORD || "Demo@12345", 10);
     const adminPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || "Admin@12345", 10);
@@ -49,7 +54,8 @@ async function seed() {
         { nameEn: "Cauliflower", nameGu: "ફૂલકોબી", nameHi: "फूलगोभी", category: "vegetable", shelfLifeDays: 8 },
         { nameEn: "Cabbage", nameGu: "કોબી", nameHi: "पत्ता गोभी", category: "vegetable", shelfLifeDays: 14 },
         { nameEn: "Garlic", nameGu: "લસણ", nameHi: "लहसुन", category: "vegetable", shelfLifeDays: 90 },
-        { nameEn: "Cumin", nameGu: "જીરું", nameHi: "जीरा", category: "oilseed", shelfLifeDays: 365 }
+        { nameEn: "Cumin", nameGu: "જીરું", nameHi: "जीरा", category: "oilseed", shelfLifeDays: 365 },
+        { nameEn: "Lady Finger", nameGu: "ભીંડા", nameHi: "भिंडी", category: "vegetable", shelfLifeDays: 4 }
     ];
     const crops = [];
     for (const cropData of cropsToSeed) {
@@ -163,7 +169,8 @@ async function seed() {
         Cauliflower: 30,
         Cabbage: 16,
         Garlic: 135,
-        Cumin: 255
+        Cumin: 255,
+        "Lady Finger": 38
     };
     const priceDate = new Date().toISOString().slice(0, 10);
     for (const crop of crops) {

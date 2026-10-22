@@ -8,6 +8,17 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000
 const TOKEN_KEY = 'harvestmitra_token';
 const USER_KEY = 'harvestmitra_user';
 
+// Clean up legacy persistent localStorage tokens so user is not automatically logged in across browser restarts
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem('harvestmitra_admin_token');
+  } catch {
+    // Storage access safety
+  }
+}
+
 export const GUEST_USER = {
   id: 'guest',
   name: 'Guest Farmer (अतिथी शेतकरी)',
@@ -31,10 +42,20 @@ export const GUEST_USER = {
 
 export function AuthProvider({ children }) {
   const navigate = useNavigate();
-  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) || null);
+  const [token, setToken] = useState(() => {
+    try {
+      const sessionTok = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(TOKEN_KEY) : null;
+      if (sessionTok) return sessionTok;
+      return (typeof localStorage !== 'undefined' && localStorage.getItem(TOKEN_KEY)) || null;
+    } catch {
+      return null;
+    }
+  });
   const [user, setUser] = useState(() => {
     try {
-      const stored = localStorage.getItem(USER_KEY);
+      const sessionUser = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(USER_KEY) : null;
+      if (sessionUser) return JSON.parse(sessionUser);
+      const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(USER_KEY) : null;
       return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
@@ -46,8 +67,14 @@ export function AuthProvider({ children }) {
   // Sync session on mount / token change
   useEffect(() => {
     async function verifySession() {
-      const savedToken = localStorage.getItem(TOKEN_KEY);
-      const savedUser = localStorage.getItem(USER_KEY);
+      let savedToken = null;
+      let savedUser = null;
+      try {
+        savedToken = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(TOKEN_KEY)) ||
+                     (typeof localStorage !== 'undefined' && localStorage.getItem(TOKEN_KEY)) || null;
+        savedUser = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(USER_KEY)) ||
+                    (typeof localStorage !== 'undefined' && localStorage.getItem(USER_KEY)) || null;
+      } catch {}
 
       if (!savedToken || savedToken === 'guest') {
         setToken(null);
@@ -79,7 +106,9 @@ export function AuthProvider({ children }) {
           if (payload.success && payload.user) {
             setUser(payload.user);
             setToken(savedToken);
-            localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+            if (typeof sessionStorage !== 'undefined') {
+              sessionStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+            }
           } else {
             logout();
           }
@@ -101,11 +130,22 @@ export function AuthProvider({ children }) {
   function handleAuthSuccess(newToken, newUser) {
     setToken(newToken);
     setUser(newUser);
-    if (newToken) {
-      localStorage.setItem(TOKEN_KEY, newToken);
-    }
-    if (newUser) {
-      localStorage.setItem(USER_KEY, JSON.stringify(newUser));
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        if (newToken) {
+          sessionStorage.setItem(TOKEN_KEY, newToken);
+        }
+        if (newUser) {
+          sessionStorage.setItem(USER_KEY, JSON.stringify(newUser));
+        }
+      }
+      // Ensure localStorage has no lingering persistent credentials
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+      }
+    } catch (e) {
+      console.warn('SessionStorage write error:', e);
     }
   }
 
@@ -160,8 +200,8 @@ export function AuthProvider({ children }) {
   }
 
   async function updateProfile(profileData) {
-    const currentToken = token || localStorage.getItem(TOKEN_KEY);
-    if (!currentToken) throw new Error('Not authenticated');
+    const currentToken = token || (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(TOKEN_KEY));
+    if (!currentToken || currentToken === 'guest') throw new Error('Not authenticated');
 
     const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
       method: 'PUT',
@@ -178,18 +218,96 @@ export function AuthProvider({ children }) {
     }
 
     setUser(payload.user);
-    localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+    }
     return payload.user;
+  }
+
+  async function sendOtp(data) {
+    const response = await fetch(`${API_BASE_URL}/api/auth/otp/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || 'Failed to dispatch verification code.');
+    }
+    return payload;
+  }
+
+  async function loginWithOtp(data) {
+    const response = await fetch(`${API_BASE_URL}/api/auth/otp/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || 'Verification failed.');
+    }
+    handleAuthSuccess(payload.token, payload.user);
+    return payload.user;
+  }
+
+  async function loginWithWhatsApp(data) {
+    const response = await fetch(`${API_BASE_URL}/api/auth/whatsapp/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || 'WhatsApp login failed.');
+    }
+    handleAuthSuccess(payload.token, payload.user);
+    return payload.user;
+  }
+
+  async function linkAgristack(agristackId) {
+    const currentToken = token || (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(TOKEN_KEY));
+    if (!currentToken || currentToken === 'guest') throw new Error('Please sign in to link your Agristack ID.');
+
+    const response = await fetch(`${API_BASE_URL}/api/auth/agristack/link`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${currentToken}`,
+      },
+      body: JSON.stringify({ agristackId }),
+    });
+
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || 'Failed to link Agristack profile.');
+    }
+
+    if (payload.profile) {
+      setUser((prev) => {
+        const next = {
+          ...prev,
+          FarmerProfile: { ...(prev.FarmerProfile || {}), ...payload.profile }
+        };
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem(USER_KEY, JSON.stringify(next));
+        }
+        return next;
+      });
+    }
+    return payload;
   }
 
   function updateLocalUser(nextUser) {
     setUser(nextUser);
-    localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(USER_KEY, JSON.stringify(nextUser));
+    }
   }
 
   function logout(options) {
     const redirectTo = options && typeof options.redirectTo === 'string' ? options.redirectTo : '/';
-    const currentToken = token || localStorage.getItem(TOKEN_KEY);
+    const currentToken = token || (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(TOKEN_KEY)) || (typeof localStorage !== 'undefined' && localStorage.getItem(TOKEN_KEY));
 
     // Secure server-side notification if token was active (non-blocking)
     if (currentToken && currentToken !== 'guest') {
@@ -247,6 +365,10 @@ export function AuthProvider({ children }) {
     login,
     register,
     demoLogin,
+    sendOtp,
+    loginWithOtp,
+    loginWithWhatsApp,
+    linkAgristack,
     updateProfile,
     updateLocalUser,
     logout,

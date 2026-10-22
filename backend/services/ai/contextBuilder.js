@@ -34,7 +34,7 @@ function buildContext(params = {}) {
   // 1. Farmer Information
   const farmerContext = {
     name: farmer.name || farmer.full_name || 'Farmer',
-    location: farmer.location || farmer.district || 'Gujarat',
+    location: farmer.location || farmer.district || 'Maharashtra',
     preferredLanguage: farmer.preferredLanguage || farmer.preferred_language || 'en'
   };
 
