@@ -68,7 +68,7 @@ export default function AdminPage() {
   const [editingPriceId, setEditingPriceId] = useState(null);
 
   const [priceForm, setPriceForm] = useState({
-    state: 'Gujarat',
+    state: 'Maharashtra',
     marketId: '',
     cropId: '',
     pricePerQuintal: '',

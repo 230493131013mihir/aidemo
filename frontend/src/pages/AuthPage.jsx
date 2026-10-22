@@ -326,8 +326,16 @@ export default function AuthPage({ mode = 'login' }) {
           duration: 3000,
         });
 
-        // Directly navigate to dashboard after registration without showing login page
-        navigate('/dashboard');
+        // Role-based redirect after registration (BUG FIX: was hardcoded to /dashboard for all roles)
+        if (role === 'admin') {
+          navigate('/admin');
+        } else if (role === 'transporter') {
+          navigate('/transport');
+        } else if (role === 'mandi') {
+          navigate('/markets');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         // INSTANT LOGIN REDIRECT (Requirement 5: No delay, no countdown, immediate redirect)
         const loggedUser = await login(form.email.trim(), form.password);
