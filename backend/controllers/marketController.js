@@ -167,6 +167,43 @@ async function handleDispatchPriceAlert(req, res) {
   }
 }
 
+const mandiForecastService = require('../services/mandiForecastService');
+
+async function handleGetCropPriceForecast(req, res) {
+  try {
+    const { crop = 'Tomato', mandi = 'Surat', market, state } = req.query;
+    const targetMandi = mandi || market || 'Surat';
+    const forecast = await mandiForecastService.get14DayPriceForecast({ crop, mandi: targetMandi, state });
+    return res.status(200).json({
+      success: true,
+      data: forecast
+    });
+  } catch (err) {
+    console.error('[MarketController Forecast Error]:', err.message);
+    return res.status(500).json({ success: false, error: 'Failed to generate 14-day price forecast' });
+  }
+}
+
+async function handleGetInterMandiArbitrage(req, res) {
+  try {
+    const { crop = 'Tomato', quantityKg = 1000, quantity, origin = 'Surat', originMandi } = req.query;
+    const targetQty = Number(quantityKg || quantity || 1000);
+    const targetOrigin = origin || originMandi || 'Surat';
+    const arbitrage = await mandiForecastService.getInterMandiArbitrage({
+      crop,
+      quantityKg: targetQty,
+      origin: targetOrigin
+    });
+    return res.status(200).json({
+      success: true,
+      data: arbitrage
+    });
+  } catch (err) {
+    console.error('[MarketController Arbitrage Error]:', err.message);
+    return res.status(500).json({ success: false, error: 'Failed to calculate inter-mandi arbitrage' });
+  }
+}
+
 module.exports = {
   handleGetMarkets,
   handleGetCrops,
@@ -178,6 +215,9 @@ module.exports = {
   handleGetMovingAverageTrends,
   handleSimulatePriceAlert,
   handleGetActivePriceAlerts,
-  handleDispatchPriceAlert
+  handleDispatchPriceAlert,
+  handleGetCropPriceForecast,
+  handleGetInterMandiArbitrage
 };
+
 

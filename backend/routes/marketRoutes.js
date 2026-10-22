@@ -17,8 +17,14 @@ const {
   handleGetMovingAverageTrends,
   handleSimulatePriceAlert,
   handleGetActivePriceAlerts,
-  handleDispatchPriceAlert
+  handleDispatchPriceAlert,
+  handleGetCropPriceForecast,
+  handleGetInterMandiArbitrage
 } = require('../controllers/marketController');
+
+// 14-Day Price Forecasting & Inter-Mandi Arbitrage Engine
+router.get('/forecast', handleGetCropPriceForecast);
+router.get('/arbitrage', handleGetInterMandiArbitrage);
 
 // Base Market & Crop Exploration
 router.get('/', handleGetMarkets);

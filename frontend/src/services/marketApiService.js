@@ -4,7 +4,7 @@
  * HarvestMitra AI - ISSUE-11
  */
 
-const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '';
+const API_BASE_URL = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_API_URL || import.meta.env?.VITE_API_BASE_URL)) || '';
 
 export async function fetchMarkets(params = {}) {
   const query = new URLSearchParams();
@@ -61,3 +61,26 @@ export async function compareMarkets(crop = 'Tomato', marketIds = []) {
   const data = await res.json();
   return data.data || null;
 }
+
+export async function fetchPriceForecast(crop = 'Tomato', mandi = 'Surat') {
+  const query = new URLSearchParams({ crop, mandi });
+  const url = `${API_BASE_URL}/api/markets/forecast?${query.toString()}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to load 14-day price forecast: HTTP ${res.status}`);
+  const data = await res.json();
+  return data.data || null;
+}
+
+export async function fetchInterMandiArbitrage(crop = 'Tomato', quantityKg = 1000, origin = 'Surat') {
+  const query = new URLSearchParams({
+    crop,
+    quantityKg: String(quantityKg),
+    origin
+  });
+  const url = `${API_BASE_URL}/api/markets/arbitrage?${query.toString()}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to load inter-mandi arbitrage: HTTP ${res.status}`);
+  const data = await res.json();
+  return data.data || null;
+}
+
