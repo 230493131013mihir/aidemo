@@ -444,10 +444,11 @@ export default function MarketPriceExplorer({
     try {
       const token = localStorage.getItem('harvestmitra_token');
       const payload = {
-        receiverId: contactModal.targetItem?.userId || contactModal.targetItem?.id,
+        receiverId: contactModal.targetItem?.userId || contactModal.targetItem?.id || 1,
         receiverRole: contactModal.targetType,
         mandiName: contactModal.targetType === 'mandi' ? contactModal.targetItem?.market_name : undefined,
-        crop: contactModal.crop,
+        cropName: contactModal.crop || 'Agri Produce',
+        crop: contactModal.crop || 'Agri Produce',
         quantityKg: Number(contactModal.quantityKg) || 500,
         message: contactModal.message
       };
@@ -1435,8 +1436,14 @@ export default function MarketPriceExplorer({
 
                           {/* Badges: Verified APMC + Arbitrage Finder */}
                           <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border bg-emerald-50 text-emerald-800 border-emerald-300">
-                              VERIFIED APMC
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border ${
+                              (item.dataType === 'verified_live' || item.data_type === 'verified_live')
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                : 'bg-amber-50 text-amber-800 border-amber-300'
+                            }`}>
+                              {(item.dataType === 'verified_live' || item.data_type === 'verified_live')
+                                ? 'Verified Rates'
+                                : 'DEMO / Sample Data'}
                             </span>
                             <button
                               type="button"

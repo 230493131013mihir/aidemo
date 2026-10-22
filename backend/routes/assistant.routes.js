@@ -1,9 +1,10 @@
 const express = require("express");
+const authMiddleware = require("../middleware/auth.middleware");
 const { askAssistant } = require("../services/assistantService");
 
 const router = express.Router();
 
-router.post("/ask", async (req, res) => {
+router.post("/ask", authMiddleware, async (req, res) => {
     try {
         const result = await askAssistant({ message: req.body.message });
         return res.json({ success: true, ...result });

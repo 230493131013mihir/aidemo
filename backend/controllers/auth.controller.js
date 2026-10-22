@@ -265,8 +265,8 @@ const register = async (req, res) => {
         // Generate JWT token for seamless auto-login on registration
         const token = jwt.sign(
             { id: user.id, email: user.email, role: user.role },
-            process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon",
-            { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRES_IN || "1d" }
         );
 
         return res.status(201).json({
@@ -410,8 +410,8 @@ const login = async (req, res) => {
 
         const token = jwt.sign(
             { id: user.id, email: user.email, role: user.role },
-            process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon",
-            { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRES_IN || "1d" }
         );
 
         return res.status(200).json({
@@ -509,8 +509,8 @@ const demoLogin = async (req, res) => {
 
         const token = jwt.sign(
             { id: user.id, role: user.role },
-            process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon",
-            { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRES_IN || "1d" }
         );
 
         return res.json({
@@ -720,28 +720,41 @@ const createContactRequest = async (req, res) => {
             return res.status(404).json({ success: false, message: "Sender not found" });
         }
 
-        const {
+        let {
             receiverId,
             cropName,
+            crop,
             quantityKg,
             proposedPricePerKg,
             message,
             contactType
         } = req.body;
 
-        if (!receiverId || !cropName) {
-            return res.status(400).json({
-                success: false,
-                message: "Receiver ID and Crop Name are required"
+        const effectiveCrop = String(cropName || crop || "Agri Produce").trim();
+
+        let receiver = null;
+        if (receiverId && !isNaN(Number(receiverId))) {
+            receiver = await User.findByPk(Number(receiverId), {
+                include: [{ model: FarmerProfile }, { model: MandiProfile }]
             });
         }
 
-        const receiver = await User.findByPk(receiverId, {
-            include: [{ model: FarmerProfile }, { model: MandiProfile }]
-        });
+        // If target receiver was a market/mandi card without a specific user account, route to mandi official or admin
+        if (!receiver) {
+            receiver = await User.findOne({
+                where: { role: "mandi" },
+                include: [{ model: MandiProfile }]
+            });
+            if (!receiver) {
+                receiver = await User.findOne({ where: { role: "admin" } });
+            }
+            if (!receiver) {
+                receiver = await User.findOne();
+            }
+        }
 
         if (!receiver) {
-            return res.status(404).json({ success: false, message: "Target user not found" });
+            return res.status(404).json({ success: false, message: "Target user or mandi official not found" });
         }
 
         const qty = Number(quantityKg);
@@ -760,10 +773,10 @@ const createContactRequest = async (req, res) => {
             receiverId: receiver.id,
             receiverName: receiver.name,
             receiverRole: receiver.role,
-            cropName: String(cropName).trim(),
+            cropName: effectiveCrop,
             quantityKg: qty,
             proposedPricePerKg: proposedPricePerKg ? Number(proposedPricePerKg) : null,
-            message: message ? String(message).trim() : `Inquiry regarding ${qty} kg of ${cropName}.`,
+            message: message ? String(message).trim() : `Inquiry regarding ${qty} kg of ${effectiveCrop}.`,
             status: "pending",
             contactType: contactType || (sender.role === 'mandi' ? 'mandi_to_farmer' : 'farmer_to_mandi')
         });

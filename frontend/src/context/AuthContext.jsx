@@ -40,7 +40,8 @@ export function AuthProvider({ children }) {
       return null;
     }
   });
-  const [loading, setLoading] = useState(true);
+  // Initialize loading to false because token and user are synchronously read from localStorage
+  const [loading, setLoading] = useState(false);
 
   // Sync session on mount / token change
   useEffect(() => {
@@ -53,7 +54,6 @@ export function AuthProvider({ children }) {
         setUser(null);
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
-        setLoading(false);
         return;
       }
 
@@ -208,16 +208,21 @@ export function AuthProvider({ children }) {
       }
     }
 
-    // 1. Reset user state to clean guest
-    setToken('guest');
-    setUser(GUEST_USER);
+    // 1. Reset user state to unauthenticated
+    setToken(null);
+    setUser(null);
 
     // 2. Clear all authentication credentials & user tokens from storage
     try {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
       localStorage.removeItem('harvestmitra_admin_token');
+      localStorage.removeItem('mitra_chat_session_id');
+      localStorage.removeItem('harvestmitra_guest_saved');
       sessionStorage.clear();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('harvestmitra:logout'));
+      }
     } catch (_) {
       // Safe ignore storage access errors
     }

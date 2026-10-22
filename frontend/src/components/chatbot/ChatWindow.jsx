@@ -108,6 +108,25 @@ export default function ChatWindow({
   const [apiErrorNotice, setApiErrorNotice] = useState(null);
   const messagesEndRef = useRef(null);
 
+  // Clear chat messages on logout
+  useEffect(() => {
+    const handleLogout = () => {
+      const welcome = WELCOME_MESSAGES[selectedLanguage] || WELCOME_MESSAGES.en;
+      setMessages([
+        {
+          id: 'welcome_' + Date.now(),
+          sender: 'assistant',
+          text: welcome.text,
+          disclaimer: welcome.disclaimer,
+          mode: 'fallback',
+          timestamp: Date.now()
+        }
+      ]);
+    };
+    window.addEventListener('harvestmitra:logout', handleLogout);
+    return () => window.removeEventListener('harvestmitra:logout', handleLogout);
+  }, [selectedLanguage]);
+
   // Auto-scroll to latest message
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

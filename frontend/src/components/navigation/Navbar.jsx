@@ -42,9 +42,9 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
     logout();
   }
 
-  const isTransporter = user?.role === 'transporter';
   const isAdmin = user?.role === 'admin';
-  const userName = user?.name || 'Prashant Warule';
+  const isTransporter = user?.role === 'transporter';
+  const userName = user?.name || 'Farmer';
   const userRole = isAdmin ? 'Admin' : isTransporter ? 'Transporter' : 'Farmer';
 
   return (

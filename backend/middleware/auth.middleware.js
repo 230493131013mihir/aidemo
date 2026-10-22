@@ -1,21 +1,24 @@
 const jwt = require("jsonwebtoken");
+const { User } = require("../models");
 
-const authMiddleware = (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
     try {
         // Get token from Authorization header
         const authHeader = req.headers.authorization;
 
         // Support guest access if requested
         if (!authHeader) {
-            if (req.headers['x-guest-mode'] === 'true' || req.query.guest === 'true') {
-                req.user = {
-                    id: 999999,
-                    name: "Guest Farmer",
-                    email: "guest@harvestmitra.local",
-                    role: "farmer",
-                    isGuest: true
-                };
-                return next();
+            if (process.env.ENABLE_GUEST_MODE === "true") {
+                if (req.headers["x-guest-mode"] === "true" || req.query.guest === "true") {
+                    req.user = {
+                        id: 999999,
+                        name: "Guest Farmer",
+                        email: "guest@harvestmitra.local",
+                        role: "farmer",
+                        isGuest: true
+                    };
+                    return next();
+                }
             }
             return res.status(401).json({
                 success: false,
@@ -37,26 +40,39 @@ const authMiddleware = (req, res, next) => {
 
         // Support guest token directly
         if (token === "guest" || token === "guest_token") {
-            req.user = {
-                id: 999999,
-                name: "Guest Farmer",
-                email: "guest@harvestmitra.local",
-                role: "farmer",
-                isGuest: true
-            };
-            return next();
+            if (process.env.ENABLE_GUEST_MODE === "true") {
+                req.user = {
+                    id: 999999,
+                    name: "Guest Farmer",
+                    email: "guest@harvestmitra.local",
+                    role: "farmer",
+                    isGuest: true
+                };
+                return next();
+            }
+            return res.status(401).json({
+                success: false,
+                message: "Guest mode is disabled."
+            });
         }
 
         // Verify token
-        const decoded = jwt.verify(
-            token,
-            process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon"
-        );
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        // Store decoded user information in request
-        req.user = decoded;
+        // Load the user from the DB
+        const dbUser = await User.findByPk(decoded.id, {
+            attributes: ["id", "name", "email", "phone", "role"]
+        });
+        if (!dbUser) {
+            return res.status(401).json({
+                success: false,
+                message: "User no longer exists."
+            });
+        }
 
-        // Continue to next step
+        const userData = dbUser.toJSON ? dbUser.toJSON() : dbUser;
+        req.user = { ...decoded, ...userData };
+
         next();
 
     } catch (error) {

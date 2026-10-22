@@ -1,3 +1,6 @@
+process.env.ENABLE_GUEST_MODE = 'true';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test_jwt_secret_key_32_characters_long';
+
 const assert = require('assert');
 const authMiddleware = require('../middleware/auth.middleware');
 const schemeService = require('../services/schemeService');
@@ -17,7 +20,7 @@ async function runTests() {
       json: (body) => { throw new Error(`Unexpected status ${code}: ${JSON.stringify(body)}`); }
     })
   };
-  authMiddleware(mockReqGuest, mockResGuest, () => {
+  await authMiddleware(mockReqGuest, mockResGuest, () => {
     test1User = mockReqGuest.user;
   });
   assert.strictEqual(test1User?.role, 'farmer', 'Guest role should default to farmer');
@@ -29,7 +32,7 @@ async function runTests() {
   const mockReqHeader = {
     headers: { 'x-guest-mode': 'true' }
   };
-  authMiddleware(mockReqHeader, mockResGuest, () => {
+  await authMiddleware(mockReqHeader, mockResGuest, () => {
     test2User = mockReqHeader.user;
   });
   assert.strictEqual(test2User?.isGuest, true, 'x-guest-mode should establish guest session');
@@ -62,12 +65,29 @@ async function runTests() {
       return { json: () => {} };
     }
   };
-  authMiddleware(mockReqGarbage, mockResGarbage, () => {});
+  await authMiddleware(mockReqGarbage, mockResGarbage, () => {});
   assert.strictEqual(test4Rejected, true, 'Garbage token must be rejected with 401');
   console.log('  ✅ [PASS] Test 4: Invalid non-guest token correctly rejected with 401');
 
+  // Test 5: Guest token returns 401 when ENABLE_GUEST_MODE is off
+  process.env.ENABLE_GUEST_MODE = 'false';
+  let test5Rejected = false;
+  const mockReqGuestDisabled = {
+    headers: { authorization: 'Bearer guest' }
+  };
+  const mockResGuestDisabled = {
+    status: (code) => {
+      test5Rejected = (code === 401);
+      return { json: () => {} };
+    }
+  };
+  await authMiddleware(mockReqGuestDisabled, mockResGuestDisabled, () => {});
+  assert.strictEqual(test5Rejected, true, 'Guest token must return 401 when ENABLE_GUEST_MODE is off');
+  console.log('  ✅ [PASS] Test 5: Guest token returns 401 when ENABLE_GUEST_MODE is off');
+  process.env.ENABLE_GUEST_MODE = 'true';
+
   console.log('\n======================================================');
-  console.log('🎉 All 4 Universal Guest Mode Tests Passed Successfully!');
+  console.log('🎉 All 5 Universal Guest Mode Tests Passed Successfully!');
   console.log('======================================================\n');
 }
 

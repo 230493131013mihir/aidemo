@@ -41,6 +41,7 @@ import QuickActions from '../components/dashboard/QuickActions';
 import PrintableReportModal from '../components/common/PrintableReportModal';
 import RegisteredCropsManager from '../components/dashboard/RegisteredCropsManager';
 import SharedTransportFarmerWidget from '../components/dashboard/SharedTransportFarmerWidget';
+import apiClient from '../services/apiClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
@@ -73,6 +74,12 @@ function AcreageTooltip({ active, payload }) {
 export default function DashboardPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const [viewMode, setViewMode] = useState(() => (user?.role === 'transporter' ? 'transporter' : 'farmer'));
+
+  // Sync viewMode if user role changes dynamically
+  useEffect(() => {
+    setViewMode(user?.role === 'transporter' ? 'transporter' : 'farmer');
+  }, [user?.role]);
 
   // Role-Based Dashboard Segregation:
   // 1. Admin only views the APMC Central Admin Console
@@ -80,9 +87,43 @@ export default function DashboardPage() {
     return <Navigate to="/admin" replace />;
   }
 
-  // 2. Transporter views their dedicated Cargo & Trip Logistics Dashboard
+  // 2. Transporter views their dedicated Cargo & Trip Logistics Dashboard with quick toggle to Farmer Suite
   if (user?.role === 'transporter') {
-    return <TransporterDashboard />;
+    return (
+      <div className="space-y-4">
+        <div className="bg-white/90 backdrop-blur-md p-2 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-700 px-2">
+            <span>Dashboard Workspace:</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setViewMode('transporter')}
+              className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                viewMode === 'transporter'
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              🚚 Logistics Console
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('farmer')}
+              className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                viewMode === 'farmer'
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              🌾 Farmer Decision Suite
+            </button>
+          </div>
+        </div>
+
+        {viewMode === 'transporter' ? <TransporterDashboard /> : <FarmerDashboard user={user} t={t} />}
+      </div>
+    );
   }
 
   // 3. Farmer views full crop analytics & harvest decision dashboard
@@ -101,19 +142,20 @@ function FarmerDashboard({ user, t }) {
   const [selectedCropTab, setSelectedCropTab] = useState('all');
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
+  // Clear crops on logout
+  useEffect(() => {
+    const handleLogout = () => {
+      setCrops([]);
+    };
+    window.addEventListener('harvestmitra:logout', handleLogout);
+    return () => window.removeEventListener('harvestmitra:logout', handleLogout);
+  }, []);
+
   // Fetch farmer registered crops from backend API
   const fetchFarmerCrops = async () => {
     try {
       setLoadingCrops(true);
-      const token = localStorage.getItem('harvestmitra_token') || 'guest';
-      const headers = { 'Content-Type': 'application/json' };
-      if (token && token !== 'guest') {
-        headers.Authorization = `Bearer ${token}`;
-      } else {
-        headers['x-guest-mode'] = 'true';
-      }
-
-      const res = await fetch(`${API_BASE_URL}/api/farmer/crops`, { headers });
+      const res = await apiClient('/api/farmer/crops');
       const json = await res.json();
       if (json.success && Array.isArray(json.crops)) {
         setCrops(json.crops);

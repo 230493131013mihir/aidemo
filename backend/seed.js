@@ -170,7 +170,11 @@ async function seed() {
         for (const market of markets) {
             const basePrice = basePricesByCrop[crop.nameEn] || 25;
             const jitter = ((market.id * 7 + crop.id * 13) % 9 - 4) * 0.25;
-            const pricePerKg = Number(Math.max(5, basePrice + jitter).toFixed(2));
+            let pricePerKg = Number(Math.max(5, basePrice + jitter).toFixed(2));
+            if (crop.nameEn === "Tomato") {
+                if (market.name.includes("Surat")) pricePerKg = 18.50;
+                else if (market.name.includes("Ahmedabad")) pricePerKg = 23.00;
+            }
             const pricePerQuintal = Number((pricePerKg * 100).toFixed(0));
             const minPrice = Number((pricePerQuintal * 0.92).toFixed(0));
             const maxPrice = Number((pricePerQuintal * 1.08).toFixed(0));

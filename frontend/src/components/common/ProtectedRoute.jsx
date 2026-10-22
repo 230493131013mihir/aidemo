@@ -18,10 +18,10 @@ export default function ProtectedRoute({ children, requiredRole, requireAuth = f
     );
   }
 
-  // Unauthenticated visitors cannot access prices, dashboard, or features without login
-  // Redirects unauthenticated visitors to localhost home page (/) on visit or refresh
+  // Strict Security: Unauthenticated visitors cannot access protected features without logging in
+  // Any unauthenticated attempt to access dashboard, prices, transport, etc. redirects directly to /login
   if (!isAuthenticated) {
-    return <Navigate to="/" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // Admin routes strictly require verified administrator credentials
@@ -34,12 +34,27 @@ export default function ProtectedRoute({ children, requiredRole, requireAuth = f
 
   // Profile strictly requires verified authentication
   if (requiredRole === 'auth' || (requireAuth && (!isAuthenticated || user?.isGuest))) {
+    if (!isAuthenticated || user?.isGuest) {
+      return <Navigate to="/login" state={{ from: location }} replace />;
+    }
     return children;
   }
 
-  // Role validation for transporter
-  if (requiredRole === 'transporter' && user?.role !== 'transporter' && !user?.isGuest) {
-    return <Navigate to="/dashboard" replace />;
+  // Allow shared pages without role blocking
+  const SHARED_PATHS = ['/dashboard', '/markets', '/prices', '/weather', '/chat', '/assistant', '/profile', '/schemes', '/farmer/schemes'];
+  const isSharedPage = SHARED_PATHS.some((path) => location.pathname === path || location.pathname.startsWith(path + '/'));
+
+  if (!isSharedPage && user?.role !== 'admin') {
+    // Farmer-specific pages (crop harvest simulator / management)
+    const isFarmerOnly = location.pathname.startsWith('/harvest') || location.pathname.startsWith('/simulator') || requiredRole === 'farmer';
+    if (isFarmerOnly && user?.role !== 'farmer') {
+      return <Navigate to="/dashboard" replace />;
+    }
+
+    // Transporter-specific pages
+    if (requiredRole === 'transporter' && user?.role !== 'transporter') {
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
   return children;

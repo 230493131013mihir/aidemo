@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Truck,
@@ -24,10 +24,12 @@ import {
   Calendar,
   Sparkles,
   HelpCircle,
-  Tag
+  Tag,
+  Bell
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import DigitalGatePassModal from '../transport/DigitalGatePassModal';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
@@ -37,6 +39,44 @@ function formatINR(value) {
     currency: 'INR',
     maximumFractionDigits: 0,
   }).format(Number(value) || 0);
+}
+
+// Synthesizes a clean mobile SMS / chime alert tone using Web Audio API
+function playBookingNotificationChime() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const now = ctx.currentTime;
+
+    // Tone 1: High crisp ping (880 Hz / A5)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(880, now);
+    osc1.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
+    gain1.gain.setValueAtTime(0.3, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.35);
+
+    // Tone 2: Harmonious confirmation chime (1760 Hz / A6)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(1320, now + 0.12);
+    osc2.frequency.exponentialRampToValueAtTime(1760, now + 0.28);
+    gain2.gain.setValueAtTime(0.32, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.55);
+  } catch (err) {
+    console.warn('AudioContext alert tone:', err.message);
+  }
 }
 
 const VEHICLE_TYPES = [
@@ -61,6 +101,8 @@ export default function TransporterDashboard() {
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState('requests'); // 'requests' | 'shared-pools' | 'fleet'
+  const prevRequestIdsRef = useRef(new Set());
+  const isInitialLoadRef = useRef(true);
 
   // Stats
   const [stats, setStats] = useState({
@@ -104,15 +146,16 @@ export default function TransporterDashboard() {
 
   // Accept / Reject Modal State
   const [selectedRequestForAction, setSelectedRequestForAction] = useState(null);
-  const [assignedVehicleId, setAssignedVehicleId] = useState('');
+  const [assignedVehicleId, setAssignedVehicleId] = useState('primary');
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [selectedGatePass, setSelectedGatePass] = useState(null);
 
   // Shared Trips Pooling
   const [sharedTrips, setSharedTrips] = useState([]);
   const [loadingSharedTrips, setLoadingSharedTrips] = useState(false);
   const [selectedForGrouping, setSelectedForGrouping] = useState([]);
-  const [groupVehicleId, setGroupVehicleId] = useState('');
+  const [groupVehicleId, setGroupVehicleId] = useState('primary');
   const [groupingTrip, setGroupingTrip] = useState(false);
 
   // Load Transporter Stats
@@ -140,9 +183,12 @@ export default function TransporterDashboard() {
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setMyFleet(json.data);
-        if (json.data.length > 0 && !assignedVehicleId) {
-          setAssignedVehicleId(json.data[0].id);
-          setGroupVehicleId(json.data[0].id);
+        if (json.data.length > 0) {
+          setAssignedVehicleId((prev) => (!prev || prev === 'primary' ? json.data[0].id : prev));
+          setGroupVehicleId((prev) => (!prev || prev === 'primary' ? json.data[0].id : prev));
+        } else {
+          setAssignedVehicleId('primary');
+          setGroupVehicleId('primary');
         }
       }
     } catch (err) {
@@ -153,8 +199,8 @@ export default function TransporterDashboard() {
   }
 
   // Load Incoming Booking Requests
-  async function loadIncomingRequests() {
-    setLoadingRequests(true);
+  async function loadIncomingRequests(isSilent = false) {
+    if (!isSilent) setLoadingRequests(true);
     try {
       const params = new URLSearchParams();
       if (filterCrop) params.append('crop', filterCrop);
@@ -167,12 +213,47 @@ export default function TransporterDashboard() {
       });
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
+        // Detect newly arrived booking requests during live presentation
+        if (!isInitialLoadRef.current && prevRequestIdsRef.current.size > 0) {
+          const brandNewBookings = json.data.filter(
+            (r) => !prevRequestIdsRef.current.has(r.id) && (r.status === 'pending' || r.status === 'open' || r.status === 'confirmed')
+          );
+
+          if (brandNewBookings.length > 0) {
+            // 1. Play realistic audible SMS / chime tone
+            playBookingNotificationChime();
+
+            const latest = brandNewBookings[0];
+            // 2. Pop up high-impact celebration toast alert
+            showToast({
+              type: 'celebrate',
+              title: '🔔 New Produce Booking Alert!',
+              message: `Farmer ${latest.farmerName} just booked ${latest.weightKg} kg ${latest.cropName} → ${latest.destinationMarket}! Fare: ${formatINR(latest.estimatedSharedCost || 425)}`,
+              duration: 7000
+            });
+
+            // 3. Spoken voice announcement
+            if ('speechSynthesis' in window) {
+              try {
+                window.speechSynthesis.cancel();
+                const speech = new SpeechSynthesisUtterance(`New booking alert from ${latest.farmerName} for ${latest.cropName}.`);
+                speech.rate = 1.0;
+                window.speechSynthesis.speak(speech);
+              } catch (_) {}
+            }
+          }
+        }
+
+        // Keep set of seen IDs synced
+        json.data.forEach((r) => prevRequestIdsRef.current.add(r.id));
+        isInitialLoadRef.current = false;
+
         setIncomingRequests(json.data);
       }
     } catch (err) {
       console.warn('Could not load incoming requests:', err.message);
     } finally {
-      setLoadingRequests(false);
+      if (!isSilent) setLoadingRequests(false);
     }
   }
 
@@ -198,8 +279,16 @@ export default function TransporterDashboard() {
     if (token) {
       loadTransporterStats();
       loadMyFleet();
-      loadIncomingRequests();
+      loadIncomingRequests(false);
       loadSharedTrips();
+
+      // Dynamic auto-polling every 3 seconds to catch live bookings from other browser windows
+      const pollInterval = setInterval(() => {
+        loadIncomingRequests(true);
+        loadTransporterStats();
+      }, 3000);
+
+      return () => clearInterval(pollInterval);
     }
   }, [token, filterCrop, filterVehicleType, filterStatus, filterBookingType]);
 
@@ -240,6 +329,10 @@ export default function TransporterDashboard() {
   async function handleAcceptBooking(bookingId) {
     setActionLoading(true);
     try {
+      const selectedVehicle = (assignedVehicleId && assignedVehicleId !== 'primary')
+        ? myFleet.find((v) => String(v.id) === String(assignedVehicleId))
+        : null;
+
       const res = await fetch(`${API_BASE_URL}/api/transport/bookings/${bookingId}/accept`, {
         method: 'PUT',
         headers: {
@@ -247,7 +340,11 @@ export default function TransporterDashboard() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          vehicleId: assignedVehicleId || null
+          vehicleId: selectedVehicle?.id || (assignedVehicleId !== 'primary' ? assignedVehicleId : null),
+          vehicleType: selectedVehicle?.vehicleType || stats.vehicleType || user?.TransporterProfile?.vehicleType || 'Commercial Agri Carrier',
+          vehicleNumber: selectedVehicle?.registrationNumber || stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber || 'MH-12-RN-4921',
+          driverName: selectedVehicle?.driverName || user?.name || 'Assigned Driver',
+          driverPhone: selectedVehicle?.driverPhone || user?.phone || '9876543210'
         })
       });
       const json = await res.json();
@@ -261,8 +358,8 @@ export default function TransporterDashboard() {
       });
 
       setSelectedRequestForAction(null);
-      loadIncomingRequests();
-      loadTransporterStats();
+      await loadIncomingRequests();
+      await loadTransporterStats();
     } catch (err) {
       showToast({ type: 'error', title: 'Accept Failed', message: err.message });
     } finally {
@@ -498,6 +595,108 @@ export default function TransporterDashboard() {
         </div>
       </section>
 
+      {/* 2.5 ACTIVE TRIP IN PROGRESS (Transporter Live Dispatch Console) */}
+      {activeTrip && (
+        <section className="rounded-3xl border-2 border-emerald-500/40 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white p-5 sm:p-7 shadow-xl space-y-4 animate-in fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3.5">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 flex items-center justify-center font-bold">
+                <Truck className="w-6 h-6 animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                    🛣️ Active Trip in Progress
+                  </span>
+                  <span className="text-xs text-slate-300 font-mono">
+                    Pass: {activeTrip.gatePassCode || `MH-APMC-${activeTrip.id}`}
+                  </span>
+                </div>
+                <h3 className="text-base sm:text-lg font-black text-white mt-0.5">
+                  {activeTrip.cropName} ({activeTrip.weightKg} kg) ➔ {activeTrip.destinationMarket}
+                </h3>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider ${
+                  activeTrip.status === 'delivered'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
+                    : activeTrip.status === 'in_transit'
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-400/40'
+                    : 'bg-blue-500/20 text-blue-300 border border-blue-400/40'
+                }`}
+              >
+                {activeTrip.status === 'delivered'
+                  ? '🏁 Delivered at Mandi'
+                  : activeTrip.status === 'in_transit'
+                  ? '🛣️ In Transit (On Highway)'
+                  : '🚚 Driver Assigned & Ready'}
+              </span>
+
+              {activeTrip.status === 'driver_assigned' || activeTrip.status === 'accepted' ? (
+                <button
+                  type="button"
+                  onClick={() => handleUpdateStatus(activeTrip.id, 'in_transit')}
+                  className="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-md"
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  <span>Start Transit (Depart)</span>
+                </button>
+              ) : activeTrip.status === 'in_transit' ? (
+                <button
+                  type="button"
+                  onClick={() => handleUpdateStatus(activeTrip.id, 'delivered')}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-md"
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  <span>Mark Delivered at APMC</span>
+                </button>
+              ) : (
+                <span className="text-[11px] text-emerald-300 font-bold px-2 py-1 bg-emerald-500/10 rounded-lg">
+                  ✅ Awaiting Farmer Confirmation
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setSelectedGatePass(activeTrip)}
+                className="px-3 py-1.5 rounded-xl border border-white/20 hover:bg-white/10 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Mandi Pass</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">Farmer Consignor</span>
+              <span className="font-bold text-white block truncate">{activeTrip.farmerName}</span>
+              <span className="text-[11px] text-emerald-400 font-mono">{activeTrip.farmerPhone || 'Direct via App'}</span>
+            </div>
+            <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">Assigned Fleet Carrier</span>
+              <span className="font-bold text-white block truncate">{activeTrip.vehicleType || stats.vehicleType}</span>
+              <span className="text-[11px] text-amber-300 font-mono font-bold">{activeTrip.vehicleNumber || stats.vehicleNumber}</span>
+            </div>
+            <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">Origin Pickup</span>
+              <span className="font-bold text-white truncate block">{activeTrip.pickupLocation}</span>
+              <span className="text-[10px] text-slate-400">{activeTrip.pickupDate}</span>
+            </div>
+            <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">Trip Freight Fee</span>
+              <span className="font-black text-emerald-400 text-sm font-mono block">
+                {formatINR(activeTrip.estimatedSharedCost || 1200)}
+              </span>
+              <span className="text-[10px] text-slate-300">Direct APMC Settlement</span>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* 3. Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
         <button
@@ -702,7 +901,14 @@ export default function TransporterDashboard() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setSelectedRequestForAction({ type: 'accept', booking: req })}
+                        onClick={() => {
+                          if (myFleet.length > 0) {
+                            setAssignedVehicleId(myFleet[0].id);
+                          } else {
+                            setAssignedVehicleId('primary');
+                          }
+                          setSelectedRequestForAction({ type: 'accept', booking: req });
+                        }}
                         className="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
                       >
                         <Check className="w-3.5 h-3.5" />
@@ -777,12 +983,17 @@ export default function TransporterDashboard() {
                   onChange={(e) => setGroupVehicleId(e.target.value)}
                   className="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-white font-semibold outline-none focus:border-primary"
                 >
-                  <option value="">Select Vehicle...</option>
-                  {myFleet.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.vehicleType} ({v.registrationNumber}) • {v.capacityKg} kg
+                  {myFleet.length > 0 ? (
+                    myFleet.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.vehicleType} ({v.registrationNumber}) • {v.capacityKg} kg
+                      </option>
+                    ))
+                  ) : (
+                    <option value="primary">
+                      {stats.vehicleType || 'Commercial Goods Carrier'} ({stats.vehicleNumber || 'MH-12-RN-4921'}) • {stats.capacityKg || 2200} kg [Primary Profile]
                     </option>
-                  ))}
+                  )}
                 </select>
               </div>
 
@@ -1132,19 +1343,41 @@ export default function TransporterDashboard() {
 
             {selectedRequestForAction.type === 'accept' ? (
               <div className="space-y-3 text-xs">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-800">Assign Vehicle from Fleet *</label>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-slate-800">Assign Vehicle from Fleet *</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddVehicleModal(true)}
+                      className="text-primary hover:underline text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <PlusCircle className="w-3.5 h-3.5" />
+                      <span>Add Extra Vehicle</span>
+                    </button>
+                  </div>
                   <select
                     value={assignedVehicleId}
                     onChange={(e) => setAssignedVehicleId(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2 font-semibold outline-none focus:border-primary bg-white"
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 font-semibold outline-none focus:border-primary bg-white text-slate-800"
                   >
-                    {myFleet.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.vehicleType} ({v.registrationNumber}) • Capacity {v.capacityKg} kg
+                    {myFleet.length > 0 ? (
+                      myFleet.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.vehicleType} ({v.registrationNumber}) • Capacity {v.capacityKg} kg
+                        </option>
+                      ))
+                    ) : (
+                      <option value="primary">
+                        {stats.vehicleType || user?.TransporterProfile?.vehicleType || 'Commercial Agri Carrier'} ({stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber || 'MH-12-RN-4921'}) • Capacity {stats.capacityKg || user?.TransporterProfile?.capacityKg || 2200} kg [Primary Profile]
                       </option>
-                    ))}
+                    )}
                   </select>
+                  {myFleet.length === 0 && (
+                    <div className="flex items-center gap-1.5 p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 font-medium">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+                      <span>Auto-assigned your registered profile carrier ({stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber || 'MH-12-RN-4921'}).</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-2 flex justify-end gap-2">
@@ -1200,6 +1433,13 @@ export default function TransporterDashboard() {
           </div>
         </div>
       )}
+
+      {/* Digital Mandi Gate Pass Modal */}
+      <DigitalGatePassModal
+        isOpen={Boolean(selectedGatePass)}
+        onClose={() => setSelectedGatePass(null)}
+        booking={selectedGatePass}
+      />
     </div>
   );
 }

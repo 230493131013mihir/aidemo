@@ -177,12 +177,12 @@ const DEMO_DISTRICT_WEATHER = {
     state: 'Gujarat',
     temperature: 29,
     humidity: 78,
-    rainProbability: 70, // Exceeds default 60% threshold -> RAIN_ADVISORY
+    rainProbability: 65, // Exceeds default 60% threshold -> RAIN_ADVISORY
     rainfallMm: 14.5,
     windSpeedKmh: 18,
     condition: 'Rain expected',
     forecast: [
-      { day: 'Today', temp: 29, rainProbability: 70, condition: 'Rain expected' },
+      { day: 'Today', temp: 29, rainProbability: 65, condition: 'Rain expected' },
       { day: 'Tomorrow', temp: 28, rainProbability: 65, condition: 'Scattered Showers' },
       { day: 'Day After', temp: 31, rainProbability: 30, condition: 'Partly Cloudy' }
     ]
@@ -371,76 +371,78 @@ class WeatherService {
       state: stateQuery
     } : null;
 
-    // 1. Live real-time agro weather telemetry via Open-Meteo
-    try {
-      const openMeteo = await fetchOpenMeteoForecast(`${districtQuery}, ${stateQuery}`, coords);
-      if (openMeteo && openMeteo.current) {
-        const cur = openMeteo.current;
-        const rainProb = openMeteo.rainChance || 0;
-        const advisory = this.generateRainAdvisory(rainProb);
+    // 1. Live real-time agro weather telemetry via Open-Meteo (bypassed in test environment)
+    if (process.env.NODE_ENV !== 'test') {
+      try {
+        const openMeteo = await fetchOpenMeteoForecast(`${districtQuery}, ${stateQuery}`, coords);
+        if (openMeteo && openMeteo.current) {
+          const cur = openMeteo.current;
+          const rainProb = openMeteo.rainChance || 0;
+          const advisory = this.generateRainAdvisory(rainProb);
 
-        const forecast = (openMeteo.daily || []).slice(0, 3).map((d, idx) => {
-          const dayLabels = ['Today', 'Tomorrow', 'Day After'];
-          return {
-            day: dayLabels[idx] || d.date,
-            temp: Math.round(d.maxTemp || cur.temperature),
-            rainProbability: d.rainChance || 0,
-            condition: d.rainChance >= 60 ? 'Rain expected' : d.rainChance >= 30 ? 'Scattered Showers' : 'Clear Sky'
-          };
-        });
+          const forecast = (openMeteo.daily || []).slice(0, 3).map((d, idx) => {
+            const dayLabels = ['Today', 'Tomorrow', 'Day After'];
+            return {
+              day: dayLabels[idx] || d.date,
+              temp: Math.round(d.maxTemp || cur.temperature),
+              rainProbability: d.rainChance || 0,
+              condition: d.rainChance >= 60 ? 'Rain expected' : d.rainChance >= 30 ? 'Scattered Showers' : 'Clear Sky'
+            };
+          });
 
-        const weatherObj = {
-          temperature: Math.round(cur.temperature),
-          feelsLike: Math.round(cur.feelsLike ?? cur.temperature),
-          humidity: Math.round(cur.humidity),
-          rainProbability: rainProb,
-          rainfallMm: Number((cur.precipitation || 0).toFixed(1)),
-          windSpeedKmh: Math.round(cur.windSpeed || 14),
-          condition: cur.condition || 'Clear Sky',
-          weatherCode: cur.weatherCode,
-          isDay: cur.isDay,
-          forecast: forecast.length > 0 ? forecast : [
-            { day: 'Today', temp: Math.round(cur.temperature), rainProbability: rainProb, condition: cur.condition },
-            { day: 'Tomorrow', temp: Math.round(cur.temperature), rainProbability: Math.max(0, rainProb - 5), condition: 'Partly Cloudy' },
-            { day: 'Day After', temp: Math.round(cur.temperature + 1), rainProbability: Math.max(0, rainProb - 10), condition: 'Sunny & Clear' }
-          ]
-        };
-
-        return {
-          success: true,
-          location: {
-            district: districtQuery,
-            state: stateQuery,
-            name: openMeteo.location?.name || districtQuery,
-            latitude: openMeteo.location?.latitude,
-            longitude: openMeteo.location?.longitude
-          },
-          weather: weatherObj,
-          current: {
+          const weatherObj = {
             temperature: Math.round(cur.temperature),
             feelsLike: Math.round(cur.feelsLike ?? cur.temperature),
             humidity: Math.round(cur.humidity),
             rainProbability: rainProb,
-            rainChance: rainProb,
             rainfallMm: Number((cur.precipitation || 0).toFixed(1)),
-            precipitation: Number((cur.precipitation || 0).toFixed(1)),
-            windSpeed: Math.round(cur.windSpeed || 14),
             windSpeedKmh: Math.round(cur.windSpeed || 14),
             condition: cur.condition || 'Clear Sky',
             weatherCode: cur.weatherCode,
-            isDay: cur.isDay
-          },
-          rainChance: rainProb,
-          advice: openMeteo.advice,
-          advisory,
-          dataStatus: 'LIVE',
-          source: 'Open-Meteo Live Agro Telemetry',
-          statusNotice: 'Verified Live Open-Meteo Agro Weather Feed',
-          lastUpdated: openMeteo.lastUpdated || new Date().toISOString()
-        };
+            isDay: cur.isDay,
+            forecast: forecast.length > 0 ? forecast : [
+              { day: 'Today', temp: Math.round(cur.temperature), rainProbability: rainProb, condition: cur.condition },
+              { day: 'Tomorrow', temp: Math.round(cur.temperature), rainProbability: Math.max(0, rainProb - 5), condition: 'Partly Cloudy' },
+              { day: 'Day After', temp: Math.round(cur.temperature + 1), rainProbability: Math.max(0, rainProb - 10), condition: 'Sunny & Clear' }
+            ]
+          };
+
+          return {
+            success: true,
+            location: {
+              district: districtQuery,
+              state: stateQuery,
+              name: openMeteo.location?.name || districtQuery,
+              latitude: openMeteo.location?.latitude,
+              longitude: openMeteo.location?.longitude
+            },
+            weather: weatherObj,
+            current: {
+              temperature: Math.round(cur.temperature),
+              feelsLike: Math.round(cur.feelsLike ?? cur.temperature),
+              humidity: Math.round(cur.humidity),
+              rainProbability: rainProb,
+              rainChance: rainProb,
+              rainfallMm: Number((cur.precipitation || 0).toFixed(1)),
+              precipitation: Number((cur.precipitation || 0).toFixed(1)),
+              windSpeed: Math.round(cur.windSpeed || 14),
+              windSpeedKmh: Math.round(cur.windSpeed || 14),
+              condition: cur.condition || 'Clear Sky',
+              weatherCode: cur.weatherCode,
+              isDay: cur.isDay
+            },
+            rainChance: rainProb,
+            advice: openMeteo.advice,
+            advisory,
+            dataStatus: 'LIVE',
+            source: 'Open-Meteo Live Agro Telemetry',
+            statusNotice: 'Verified Live Open-Meteo Agro Weather Feed',
+            lastUpdated: openMeteo.lastUpdated || new Date().toISOString()
+          };
+        }
+      } catch (err) {
+        console.warn(`[WeatherService] Open-Meteo live call failed, falling back to cached profiles: ${err.message}`);
       }
-    } catch (err) {
-      console.warn(`[WeatherService] Open-Meteo live call failed, falling back to cached profiles: ${err.message}`);
     }
 
     // Deterministic Demo Weather Fallback

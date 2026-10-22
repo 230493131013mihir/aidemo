@@ -6,6 +6,11 @@
 
 const assert = require('assert');
 const http = require('http');
+const jwt = require('jsonwebtoken');
+const sequelize = require('../config/database');
+const { User } = require('../models');
+
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'harvestmitra_super_secret_jwt_token_key_2026_hackathon';
 const app = require('../app');
 
 function makeRequest({ method = 'GET', path = '/', body = null, headers = {} }) {
@@ -60,6 +65,21 @@ async function runApiTests() {
   console.log('📡 HarvestMitra AI - Chat API Integration Tests');
   console.log('======================================================\n');
 
+  await sequelize.authenticate();
+  await sequelize.sync();
+  let user = await User.findOne({ where: { email: 'demo@harvestmitra.local' } });
+  if (!user) {
+    user = await User.create({
+      name: 'Ramesh Patel',
+      email: 'demo@harvestmitra.local',
+      role: 'farmer',
+      phone: '9876543210',
+      password: 'Demo@12345'
+    });
+  }
+  const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+  const authHeaders = { Authorization: `Bearer ${token}` };
+
   // 1. Test GET /api/chat/status
   const statusRes = await makeRequest({ method: 'GET', path: '/api/chat/status' });
   assert.strictEqual(statusRes.statusCode, 200, 'Status endpoint should return 200');
@@ -71,6 +91,7 @@ async function runApiTests() {
   const emptyRes = await makeRequest({
     method: 'POST',
     path: '/api/chat/message',
+    headers: authHeaders,
     body: { message: '' }
   });
   assert.strictEqual(emptyRes.statusCode, 400, 'Empty message should return 400');
@@ -81,6 +102,7 @@ async function runApiTests() {
   const guRes = await makeRequest({
     method: 'POST',
     path: '/api/chat/message',
+    headers: authHeaders,
     body: {
       message: 'ટામેટાંનો ભાવ શું છે?',
       language: 'gu',
@@ -105,6 +127,7 @@ async function runApiTests() {
   const hiRes = await makeRequest({
     method: 'POST',
     path: '/api/chat/message',
+    headers: authHeaders,
     body: {
       message: 'मेरी शुद्ध कमाई का हिसाब बताओ',
       language: 'hi',
@@ -127,6 +150,7 @@ async function runApiTests() {
   const mrRes = await makeRequest({
     method: 'POST',
     path: '/api/chat/message',
+    headers: authHeaders,
     body: {
       message: 'माझ्याकडे 500 किलो टोमॅटो आहेत. आज विकावे का?',
       language: 'mr',

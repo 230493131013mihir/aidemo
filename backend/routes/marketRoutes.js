@@ -22,9 +22,13 @@ const {
   handleGetInterMandiArbitrage
 } = require('../controllers/marketController');
 
+const authMiddleware = require('../middleware/auth.middleware');
+const adminMiddleware = require('../middleware/admin.middleware');
+
 // 14-Day Price Forecasting & Inter-Mandi Arbitrage Engine
 router.get('/forecast', handleGetCropPriceForecast);
 router.get('/arbitrage', handleGetInterMandiArbitrage);
+
 
 // Base Market & Crop Exploration
 router.get('/', handleGetMarkets);
@@ -37,8 +41,8 @@ router.get('/compare', handleCompareMarkets);
 const { getMandiPriceTrends } = require('../services/mandiSyncService');
 const { generatePriceAlerts } = require('../services/alertEngine');
 
-router.post('/sync', handleSyncMarketPrices);
-router.get('/sync', handleSyncMarketPrices);
+router.post('/sync', authMiddleware, adminMiddleware, handleSyncMarketPrices);
+router.get('/sync', authMiddleware, adminMiddleware, handleSyncMarketPrices);
 router.get('/sync-status', handleGetSyncStatus);
 router.get('/trends/moving-average', handleGetMovingAverageTrends);
 router.get('/prices/moving-average', handleGetMovingAverageTrends);
@@ -60,7 +64,7 @@ router.get('/alerts/active', (req, res) => {
   res.json({ success: true, data: alert });
 });
 router.get('/alerts', handleGetActivePriceAlerts);
-router.post('/alerts/dispatch', handleDispatchPriceAlert);
+router.post('/alerts/dispatch', authMiddleware, adminMiddleware, handleDispatchPriceAlert);
 
 module.exports = router;
 

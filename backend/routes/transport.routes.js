@@ -32,13 +32,17 @@ function normalizeTransportInput(body, reqUser = {}) {
 
     // Convert to standard kg: 1 quintal = 100 kg, 1 tonne = 1000 kg
     const weightKg = convertToKg(rawQty, quantityUnit);
-    if (weightKg <= 0) {
-        return { error: "Weight in kg must be greater than 0" };
+    if (weightKg <= 0 || weightKg > 5000) {
+        return { error: "Weight in kg must be greater than 0 and cannot exceed 5000 kg" };
     }
 
     const pickupDate = String(body.pickupDate);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(pickupDate) || Number.isNaN(Date.parse(`${pickupDate}T00:00:00Z`))) {
         return { error: "pickupDate must use YYYY-MM-DD format" };
+    }
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (pickupDate < todayStr) {
+        return { error: "pickupDate cannot be in the past" };
     }
 
     const preferredDeliveryDate = body.preferredDeliveryDate ? String(body.preferredDeliveryDate) : null;
@@ -148,6 +152,9 @@ async function ensureTransportSchema() {
             for (const [column, definition] of Object.entries(requiredColumns)) {
                 if (!columns[column]) await queryInterface.addColumn("transport_requests", column, definition);
             }
+            try {
+                await sequelize.query("ALTER TABLE transport_requests MODIFY COLUMN status VARCHAR(32) NOT NULL DEFAULT 'pending'");
+            } catch (_) {}
         })().catch((error) => {
             transportSchemaReady = null;
             throw error;
@@ -163,18 +170,7 @@ function requireRole(...roles) {
 }
 
 async function getTransporterWhereCondition(user) {
-    const profile = await TransporterProfile.findOne({ where: { userId: user.id } });
-    const orList = [{ transporterId: user.id }];
-    if (user.name) {
-        orList.push({ driverName: { [Op.like]: `%${user.name.trim()}%` } });
-    }
-    if (profile?.driverName) {
-        orList.push({ driverName: { [Op.like]: `%${profile.driverName.trim()}%` } });
-    }
-    if (profile?.phone) {
-        orList.push({ driverPhone: profile.phone.trim() });
-    }
-    return { [Op.or]: orList };
+    return { transporterId: user.id };
 }
 
 async function resolveBookingUserId(user) {
@@ -624,11 +620,15 @@ router.get("/incoming-requests", requireRole("transporter", "admin"), async (req
         const { crop, vehicleType, status, bookingType, pickupLocation, destinationMarket } = req.query;
 
         const where = {};
-        if (status) {
+        if (status === "pending") {
+            where.status = { [Op.in]: ["pending", "open"] };
+        } else if (status === "confirmed" || status === "accepted" || status === "driver_assigned") {
+            where.status = { [Op.in]: ["confirmed", "accepted", "driver_assigned"] };
+        } else if (status && status !== "all") {
             where.status = status;
         } else {
-            // Default: show open, pending, and confirmed requests
-            where.status = { [Op.in]: ["open", "pending", "confirmed", "matched"] };
+            // Default: show open, pending, confirmed, accepted, driver_assigned requests
+            where.status = { [Op.in]: ["open", "pending", "confirmed", "accepted", "driver_assigned", "matched"] };
         }
 
         if (crop) where.cropName = { [Op.like]: `%${crop.trim()}%` };
@@ -636,13 +636,33 @@ router.get("/incoming-requests", requireRole("transporter", "admin"), async (req
         if (pickupLocation) where.pickupLocation = { [Op.like]: `%${pickupLocation.trim()}%` };
         if (destinationMarket) where.destinationMarket = { [Op.like]: `%${destinationMarket.trim()}%` };
 
+        if (req.user.role !== "admin") {
+            where[Op.and] = [
+                ...(where[Op.and] || []),
+                {
+                    [Op.or]: [
+                        { status: { [Op.in]: ["open", "pending"] }, transporterId: null },
+                        { transporterId: req.user.id }
+                    ]
+                }
+            ];
+        }
+
         const requests = await TransportRequest.findAll({
             where,
             order: [["createdAt", "DESC"]],
             limit: 100
         });
 
-        return res.json({ success: true, count: requests.length, data: requests });
+        const sanitized = requests.map(r => {
+            const data = r.toJSON ? r.toJSON() : { ...r };
+            if (req.user.role !== "admin" && Number(data.transporterId) !== Number(req.user.id)) {
+                data.farmerPhone = null;
+            }
+            return data;
+        });
+
+        return res.json({ success: true, count: sanitized.length, data: sanitized });
     } catch (error) {
         console.error("Incoming requests error:", error.message);
         return res.status(500).json({ success: false, message: "Failed to load incoming requests" });
@@ -656,6 +676,17 @@ router.get("/incoming-requests", requireRole("transporter", "admin"), async (req
 router.put("/bookings/:id/accept", requireRole("transporter", "admin"), async (req, res) => {
     try {
         await ensureTransportSchema();
+
+        const activeTripCount = await TransportRequest.count({
+            where: {
+                transporterId: req.user.id,
+                status: { [Op.in]: ["accepted", "driver_assigned", "in_transit"] }
+            }
+        });
+        if (activeTripCount > 0) {
+            return res.status(409).json({ success: false, message: "Finish your active trip first." });
+        }
+
         const booking = await TransportRequest.findByPk(req.params.id);
         if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
 
@@ -663,34 +694,35 @@ router.put("/bookings/:id/accept", requireRole("transporter", "admin"), async (r
             return res.status(403).json({ success: false, message: "You cannot accept your own booking request." });
         }
 
-        if (["delivered", "completed", "cancelled", "rejected"].includes(booking.status)) {
-            return res.status(400).json({ success: false, message: `Cannot accept booking in ${booking.status} status.` });
+        if (!["open", "pending", "confirmed"].includes(booking.status)) {
+            return res.status(409).json({ success: false, message: `Cannot accept booking in ${booking.status} status.` });
         }
 
         // Locate vehicle to assign
         let vehicle = null;
-        if (req.body.vehicleId) {
-            vehicle = await Vehicle.findOne({ where: { id: req.body.vehicleId, userId: req.user.id } });
+        if (req.body.vehicleId && req.body.vehicleId !== 'primary' && !isNaN(Number(req.body.vehicleId))) {
+            vehicle = await Vehicle.findOne({ where: { id: Number(req.body.vehicleId), userId: req.user.id } });
         }
         if (!vehicle) {
             vehicle = await Vehicle.findOne({ where: { userId: req.user.id, isAvailable: true } });
         }
 
-        // Validate vehicle capacity
-        if (vehicle && Number(booking.weightKg) > vehicle.capacityKg) {
+        const transporterProfile = await TransporterProfile.findOne({ where: { userId: req.user.id } });
+        const knownCapacity = vehicle?.capacityKg || transporterProfile?.capacityKg;
+        if (knownCapacity && Number(booking.weightKg) > Number(knownCapacity)) {
             return res.status(400).json({
                 success: false,
-                message: `Cargo weight (${booking.weightKg} kg) exceeds vehicle capacity (${vehicle.capacityKg} kg).`
+                message: `Cargo weight (${booking.weightKg} kg) exceeds vehicle capacity (${knownCapacity} kg).`
             });
         }
 
-        const driverName = req.body.driverName || vehicle?.driverName || req.user.name || "Assigned Driver";
-        const driverPhone = req.body.driverPhone || vehicle?.driverPhone || req.user.phone || "9876543210";
-        const vehicleType = req.body.vehicleType || vehicle?.vehicleType || "Mahindra Bolero Maxi Truck";
-        const vehicleNumber = req.body.vehicleNumber || vehicle?.registrationNumber || "MH-12-RN-4921";
-        const vehicleId = vehicle?.id || booking.vehicleId || null;
+        const driverName = (vehicle && vehicle.driverName) || req.body.driverName || transporterProfile?.driverName || req.user.name || "Assigned Driver";
+        const driverPhone = (vehicle && vehicle.driverPhone) || req.body.driverPhone || transporterProfile?.phone || req.user.phone || "9876543210";
+        const vehicleType = (vehicle && vehicle.vehicleType) || req.body.vehicleType || transporterProfile?.vehicleType || "Mahindra Bolero Maxi Truck";
+        const vehicleNumber = (vehicle && vehicle.registrationNumber) || req.body.vehicleNumber || transporterProfile?.vehicleNumber || "MH-12-RN-4921";
+        const vehicleId = vehicle?.id || null;
 
-        await booking.update({
+        const [affectedRows] = await TransportRequest.update({
             status: "driver_assigned",
             transporterId: req.user.id,
             vehicleId,
@@ -699,7 +731,31 @@ router.put("/bookings/:id/accept", requireRole("transporter", "admin"), async (r
             vehicleType,
             vehicleNumber,
             tripStartTime: new Date()
+        }, {
+            where: {
+                id: req.params.id,
+                status: { [Op.in]: ["open", "pending", "confirmed"] }
+            }
         });
+
+        if (affectedRows === 0) {
+            return res.status(409).json({ success: false, message: "Already taken or no longer open." });
+        }
+
+        // Mark transporter as actively on duty so they are removed from available booking pools
+        await TransporterProfile.update(
+            { isAvailable: false },
+            { where: { userId: req.user.id } }
+        ).catch(() => {});
+
+        if (vehicleId) {
+            await Vehicle.update(
+                { isAvailable: false, status: "in_transit" },
+                { where: { id: vehicleId } }
+            ).catch(() => {});
+        }
+
+        await booking.reload();
 
         return res.json({
             success: true,
@@ -721,6 +777,16 @@ router.put("/bookings/:id/reject", requireRole("transporter", "admin"), async (r
         await ensureTransportSchema();
         const booking = await TransportRequest.findByPk(req.params.id);
         if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
+
+        if (req.user.role !== "admin") {
+            if (booking.transporterId && Number(booking.transporterId) !== Number(req.user.id)) {
+                return res.status(403).json({ success: false, message: "Not authorized to reject another transporter's booking." });
+            }
+        }
+
+        if (["delivered", "completed"].includes(booking.status)) {
+            return res.status(400).json({ success: false, message: "Cannot reject delivered or completed bookings." });
+        }
 
         const reason = req.body.reason ? String(req.body.reason).trim() : "Transporter capacity full / route unavailable";
         await booking.update({
@@ -749,16 +815,46 @@ router.put("/bookings/:id/status", requireRole("transporter", "admin"), async (r
         const booking = await TransportRequest.findByPk(req.params.id);
         if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
 
-        const nextStatus = req.body.status;
-        const allowed = ["confirmed", "driver_assigned", "in_transit", "delivered", "completed", "cancelled"];
-        if (!allowed.includes(nextStatus)) {
-            return res.status(400).json({ success: false, message: `Invalid status: ${nextStatus}` });
+        if (req.user.role !== "admin" && Number(booking.transporterId) !== Number(req.user.id)) {
+            return res.status(403).json({ success: false, message: "Not your trip." });
+        }
+
+        const nextStatus = req.body.status || req.body.nextStatus;
+        const current = booking.status;
+        const validTransitions = {
+            open: ["driver_assigned", "accepted", "cancelled"],
+            pending: ["driver_assigned", "accepted", "cancelled"],
+            confirmed: ["driver_assigned", "in_transit", "cancelled"],
+            accepted: ["in_transit", "cancelled"],
+            driver_assigned: ["in_transit", "cancelled"],
+            in_transit: ["delivered", "completed", "cancelled"],
+            delivered: ["completed"]
+        };
+
+        if (!nextStatus || !validTransitions[current] || !validTransitions[current].includes(nextStatus)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid status transition from '${current}' to '${nextStatus}'.`
+            });
         }
 
         await booking.update({
             status: nextStatus,
             ...(nextStatus === "in_transit" ? { tripStartTime: new Date() } : {})
         });
+
+        if (["delivered", "completed", "cancelled"].includes(nextStatus)) {
+            await TransporterProfile.update(
+                { isAvailable: true },
+                { where: { userId: booking.transporterId || req.user.id } }
+            ).catch(() => {});
+            if (booking.vehicleId) {
+                await Vehicle.update(
+                    { isAvailable: true, status: "available" },
+                    { where: { id: booking.vehicleId } }
+                ).catch(() => {});
+            }
+        }
 
         return res.json({
             success: true,
@@ -951,7 +1047,14 @@ router.get("/open-cargo", requireRole("transporter"), async (req, res) => {
             order: [["createdAt", "DESC"]],
             limit: 50
         });
-        return res.json({ success: true, data: openRequests });
+        const sanitized = openRequests.map(r => {
+            const data = r.toJSON ? r.toJSON() : { ...r };
+            if (Number(data.transporterId) !== Number(req.user.id)) {
+                data.farmerPhone = null;
+            }
+            return data;
+        });
+        return res.json({ success: true, data: sanitized });
     } catch (error) {
         console.error("Open cargo error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to load open cargo" });
@@ -1025,6 +1128,16 @@ router.get("/transporter-stats", requireRole("transporter"), async (req, res) =>
 
 router.put("/requests/:id/accept", requireRole("transporter"), async (req, res) => {
     try {
+        const activeTripCount = await TransportRequest.count({
+            where: {
+                transporterId: req.user.id,
+                status: { [Op.in]: ["accepted", "driver_assigned", "in_transit"] }
+            }
+        });
+        if (activeTripCount > 0) {
+            return res.status(409).json({ success: false, message: "Finish your active trip first." });
+        }
+
         const request = await TransportRequest.findByPk(req.params.id);
         if (!request) return res.status(404).json({ success: false, message: "Request not found" });
         if (Number(request.userId) === Number(req.user.id)) {
@@ -1032,22 +1145,62 @@ router.put("/requests/:id/accept", requireRole("transporter"), async (req, res) 
         }
 
         const transporterProfile = await TransporterProfile.findOne({ where: { userId: req.user.id } });
-        const driverName = req.body.driverName || transporterProfile?.driverName || req.user.name || "Assigned Driver";
-        const driverPhone = req.body.driverPhone || transporterProfile?.phone || req.user.phone || "9876543210";
-        const vehicleType = req.body.vehicleType || transporterProfile?.vehicleType || "Mahindra Bolero Maxi Truck";
-        const vehicleNumber = req.body.vehicleNumber || transporterProfile?.vehicleNumber || "MH-12-RN-4921";
-        const estimatedDurationMinutes = req.body.estimatedDurationMinutes || request.estimatedDurationMinutes || 150;
+        let vehicle = null;
+        if (req.body.vehicleId) {
+            vehicle = await Vehicle.findOne({ where: { id: req.body.vehicleId, userId: req.user.id } });
+        }
+        if (!vehicle) {
+            vehicle = await Vehicle.findOne({ where: { userId: req.user.id, isAvailable: true } });
+        }
 
-        await request.update({
+        const knownCapacity = vehicle?.capacityKg || transporterProfile?.capacityKg;
+        if (knownCapacity && Number(request.weightKg) > Number(knownCapacity)) {
+            return res.status(400).json({
+                success: false,
+                message: `Cargo weight (${request.weightKg} kg) exceeds vehicle capacity (${knownCapacity} kg).`
+            });
+        }
+
+        const driverName = req.body.driverName || vehicle?.driverName || transporterProfile?.driverName || req.user.name || "Assigned Driver";
+        const driverPhone = req.body.driverPhone || vehicle?.driverPhone || transporterProfile?.phone || req.user.phone || "9876543210";
+        const vehicleType = req.body.vehicleType || vehicle?.vehicleType || transporterProfile?.vehicleType || "Mahindra Bolero Maxi Truck";
+        const vehicleNumber = req.body.vehicleNumber || vehicle?.registrationNumber || transporterProfile?.vehicleNumber || "MH-12-RN-4921";
+        const estimatedDurationMinutes = req.body.estimatedDurationMinutes || request.estimatedDurationMinutes || 150;
+        const vehicleId = vehicle?.id || null;
+
+        const [affectedRows] = await TransportRequest.update({
             status: "accepted",
             transporterId: req.user.id,
+            vehicleId,
             driverName,
             driverPhone,
             vehicleType,
             vehicleNumber,
             estimatedDurationMinutes,
             tripStartTime: new Date()
+        }, {
+            where: {
+                id: req.params.id,
+                status: { [Op.in]: ["open", "pending"] }
+            }
         });
+
+        if (affectedRows === 0) {
+            return res.status(409).json({ success: false, message: "Already taken or no longer open." });
+        }
+
+        await TransporterProfile.update(
+            { isAvailable: false },
+            { where: { userId: req.user.id } }
+        ).catch(() => {});
+        if (vehicleId) {
+            await Vehicle.update(
+                { isAvailable: false, status: "in_transit" },
+                { where: { id: vehicleId } }
+            ).catch(() => {});
+        }
+
+        await request.reload();
 
         return res.json({
             success: true,
@@ -1065,16 +1218,43 @@ router.put("/requests/:id/progress", requireRole("transporter"), async (req, res
         const request = await TransportRequest.findByPk(req.params.id);
         if (!request) return res.status(404).json({ success: false, message: "Request not found" });
 
+        if (Number(request.transporterId) !== Number(req.user.id)) {
+            return res.status(403).json({ success: false, message: "Not your trip." });
+        }
+
         const nextStatus = req.body.nextStatus || req.body.status;
-        const allowed = ["in_transit", "delivered", "completed"];
-        if (!nextStatus || !allowed.includes(nextStatus)) {
-            return res.status(400).json({ success: false, message: `Invalid status: ${nextStatus}. Allowed: ${allowed.join(", ")}` });
+        const current = request.status;
+        const validTransitions = {
+            accepted: ["in_transit"],
+            driver_assigned: ["in_transit"],
+            in_transit: ["delivered", "completed"],
+            delivered: ["completed"]
+        };
+
+        if (!nextStatus || !validTransitions[current] || !validTransitions[current].includes(nextStatus)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid status transition from '${current}' to '${nextStatus}'.`
+            });
         }
 
         await request.update({
             status: nextStatus,
             ...(nextStatus === "in_transit" ? { tripStartTime: new Date() } : {})
         });
+
+        if (["delivered", "completed"].includes(nextStatus)) {
+            await TransporterProfile.update(
+                { isAvailable: true },
+                { where: { userId: request.transporterId || req.user.id } }
+            ).catch(() => {});
+            if (request.vehicleId) {
+                await Vehicle.update(
+                    { isAvailable: true, status: "available" },
+                    { where: { id: request.vehicleId } }
+                ).catch(() => {});
+            }
+        }
 
         return res.json({
             success: true,
@@ -1084,6 +1264,32 @@ router.put("/requests/:id/progress", requireRole("transporter"), async (req, res
     } catch (error) {
         console.error("Progress trip error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to update trip progress" });
+    }
+});
+
+router.put("/requests/:id/confirm", requireRole("farmer"), async (req, res) => {
+    try {
+        const request = await TransportRequest.findByPk(req.params.id);
+        if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+
+        if (Number(request.userId) !== Number(req.user.id)) {
+            return res.status(403).json({ success: false, message: "Not your request." });
+        }
+
+        if (request.status !== "delivered") {
+            return res.status(400).json({ success: false, message: "Delivery can only be confirmed when status is delivered." });
+        }
+
+        await request.update({ status: "completed" });
+
+        return res.json({
+            success: true,
+            data: request,
+            message: "Delivery confirmed and trip marked as completed."
+        });
+    } catch (error) {
+        console.error("Confirm request error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to confirm delivery" });
     }
 });
 
