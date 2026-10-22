@@ -5,10 +5,30 @@
  */
 
 const farmReportService = require('../services/farmReportService');
+const { FarmerProfile } = require('../models');
+
+async function resolveFarmerParams(req) {
+  const params = { ...req.query, ...(req.body || {}) };
+  delete params.farmerName;
+  delete params.phone;
+
+  let profile = null;
+  if (req.user?.id) {
+    profile = await FarmerProfile.findOne({ where: { userId: req.user.id } }).catch(() => null);
+  }
+
+  return {
+    ...params,
+    farmerName: req.user?.name || "Farmer",
+    phone: req.user?.phone || "",
+    district: profile?.district || req.user?.district || params.district || "Surat",
+    state: profile?.state || req.user?.state || params.state || "Gujarat"
+  };
+}
 
 async function handleGetFarmDecisionReport(req, res) {
   try {
-    const params = { ...req.query, ...(req.body || {}) };
+    const params = await resolveFarmerParams(req);
     const report = await farmReportService.generateFarmDecisionReport(params);
 
     if (req.query.format === 'html' || req.query.format === 'print') {
@@ -26,7 +46,7 @@ async function handleGetFarmDecisionReport(req, res) {
 
 async function handlePrintFarmDecisionReport(req, res) {
   try {
-    const params = { ...req.query, ...(req.body || {}) };
+    const params = await resolveFarmerParams(req);
     const report = await farmReportService.generateFarmDecisionReport(params);
     const html = farmReportService.renderPrintableHtml(report);
 
@@ -40,7 +60,7 @@ async function handlePrintFarmDecisionReport(req, res) {
 
 async function handleDownloadFarmDecisionReport(req, res) {
   try {
-    const params = { ...req.query, ...(req.body || {}) };
+    const params = await resolveFarmerParams(req);
     const report = await farmReportService.generateFarmDecisionReport(params);
     const html = farmReportService.renderPrintableHtml(report);
 

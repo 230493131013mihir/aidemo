@@ -17,6 +17,9 @@ const transportRoutes = require('./routes/transportRoutes');
 
 const app = express();
 
+// Security: Hide server technology disclosure
+app.disable('x-powered-by');
+
 // Middlewares
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
@@ -46,6 +49,7 @@ app.use('/api/weather', weatherRoutes);
 app.use('/api/transport', require('./routes/transport.routes'));
 app.use('/api/schemes', require('./routes/scheme.routes'));
 app.use('/api/farmer/schemes', require('./routes/scheme.routes'));
+app.use('/api/farmer', require('./routes/farmer.routes'));
 app.use('/api/admin/schemes', require('./routes/scheme.routes'));
 app.use('/api/reports', require('./routes/report.routes'));
 app.use('/api/report', require('./routes/report.routes'));

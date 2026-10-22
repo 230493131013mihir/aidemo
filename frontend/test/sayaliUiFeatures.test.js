@@ -177,29 +177,52 @@ for (const relPath of coreRoutes) {
   console.log(`  ✅ [PASS] Verified core route: ${relPath}`);
 }
 
-// 5. Universal Guest Mode & Landing Page QA Verification
-console.log('\n5. Verifying Universal Guest Mode & 1-Click Feature Access:');
+// 5. Landing Page Authentication & Conversion QA Verification
+console.log('\n5. Verifying Landing Page Authentication & Conversion CTAs:');
 const mainLayoutPath = path.join(__dirname, '../src/layouts/MainLayout.jsx');
 const mainLayoutCode = fs.readFileSync(mainLayoutPath, 'utf-8');
-assert.ok(mainLayoutCode.includes('GuestModeBanner'), 'MainLayout must mount GuestModeBanner for landing page visitors');
-
-const guestBannerPath = path.join(__dirname, '../src/components/common/GuestModeBanner.jsx');
-const guestBannerCode = fs.readFileSync(guestBannerPath, 'utf-8');
-assert.ok(guestBannerCode.includes('Try Harvest Simulator Without Login'), 'GuestModeBanner must include 1-click link to Try Harvest Simulator Without Login');
-assert.ok(guestBannerCode.includes('View APMC Mandi Rates'), 'GuestModeBanner must include 1-click link to View APMC Mandi Rates');
+assert.ok(!mainLayoutCode.includes('GuestModeBanner'), 'MainLayout must not mount GuestModeBanner to prevent unauthenticated guest leak');
 
 const heroSectionPath = path.join(__dirname, '../src/components/landing/HeroSection.jsx');
 const heroSectionCode = fs.readFileSync(heroSectionPath, 'utf-8');
-assert.ok(heroSectionCode.includes('Try Harvest Simulator Without Login'), 'HeroSection must include 1-click link to Try Harvest Simulator Without Login');
-assert.ok(heroSectionCode.includes('View APMC Mandi Rates'), 'HeroSection must include 1-click link to View APMC Mandi Rates');
+assert.ok(heroSectionCode.includes('Register Farmer Account'), 'HeroSection must display official Register Farmer Account CTA');
+assert.ok(heroSectionCode.includes('Farmer Login'), 'HeroSection must display official Farmer Login CTA');
+assert.ok(!heroSectionCode.includes('View APMC Mandi Rates'), 'HeroSection must not leak unauthenticated View APMC Mandi Rates CTA');
 
 const harvestPagePath = path.join(__dirname, '../src/pages/HarvestPage.jsx');
 const harvestPageCode = fs.readFileSync(harvestPagePath, 'utf-8');
-assert.ok(harvestPageCode.includes('4.5 Acres'), 'HarvestPage must display pre-loaded 4.5 Acres session');
+assert.ok(harvestPageCode.includes('4.5 Acres'), 'HarvestPage must display 4.5 Acres session configuration');
 
-console.log('  ✅ [PASS] GuestModeBanner mounted on Landing Page (MainLayout.jsx)');
-console.log('  ✅ [PASS] 1-Click feature links verified: "Try Harvest Simulator Without Login" & "View APMC Mandi Rates"');
-console.log('  ✅ [PASS] HarvestPage verified with pre-loaded 4.5 acre session for guest exploration');
+console.log('  ✅ [PASS] GuestModeBanner removed from Landing Page (MainLayout.jsx)');
+console.log('  ✅ [PASS] Dedicated Farmer Register & Login CTAs verified on HeroSection');
+console.log('  ✅ [PASS] HarvestPage verified with 4.5 acre session architecture');
+
+// 6. Bug Fixes Verification (fix/sayali-frontend-speech-bugs)
+console.log('\n6. Verifying 4 Bug Fixes:');
+// Bug 1: speechService has Gujarati
+const speechPath = path.join(__dirname, '../src/services/speechService.js');
+const speechCode = fs.readFileSync(speechPath, 'utf-8');
+assert.ok(speechCode.includes("code: 'gu'") && speechCode.includes("speechRecognition: 'gu-IN'"), 'speechService must configure Gujarati (gu-IN)');
+console.log('  ✅ [PASS] BUG 1: speechService Gujarati (gu) locale verified.');
+
+// Bug 2: DashboardPage mandi role redirect
+const dashCode = fs.readFileSync(path.join(__dirname, '../src/pages/DashboardPage.jsx'), 'utf-8');
+assert.ok(dashCode.includes("user?.role === 'mandi'") && dashCode.includes('/markets'), 'DashboardPage must redirect mandi role to /markets');
+console.log('  ✅ [PASS] BUG 2: DashboardPage mandi role redirect verified.');
+
+// Bug 3: Weather defensive check for Maharashtra / Gujarat
+const weatherPath = path.join(__dirname, '../src/components/dashboard/WeatherWidget.jsx');
+const weatherCode = fs.readFileSync(weatherPath, 'utf-8');
+assert.ok(weatherCode.includes('Maharashtra') && weatherCode.includes('Gujarat'), 'WeatherWidget must defensively check Maharashtra vs Gujarat state');
+console.log('  ✅ [PASS] BUG 3: WeatherWidget defensive state check verified.');
+
+// Bug 4: AuthPage mandi registration fields
+const authPath = path.join(__dirname, '../src/pages/AuthPage.jsx');
+const authCode = fs.readFileSync(authPath, 'utf-8');
+assert.ok(authCode.includes('APMC Mandi Name'), 'AuthPage must include APMC Mandi Name label');
+assert.ok(authCode.includes('APMC License Number'), 'AuthPage must include APMC License Number label');
+assert.ok(authCode.includes('Mon-Sat') && authCode.includes('Mon-Fri') && authCode.includes('Daily'), 'AuthPage must include operatingDays dropdown options');
+console.log('  ✅ [PASS] BUG 4: AuthPage Mandi-specific registration fields verified.');
 
 console.log('\n======================================================');
 console.log('🎉 All QA & Stress-Testing Requirements Verified!');

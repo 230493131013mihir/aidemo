@@ -30,8 +30,10 @@ assert.strictEqual(SUPPORTED_LANGUAGES.mr.speechRecognition, 'mr-IN', 'Marathi r
 assert.strictEqual(SUPPORTED_LANGUAGES.mr.speechSynthesis, 'mr-IN', 'Marathi synthesis locale must be mr-IN');
 assert.strictEqual(SUPPORTED_LANGUAGES.hi.speechRecognition, 'hi-IN', 'Hindi recognition locale must be hi-IN');
 assert.strictEqual(SUPPORTED_LANGUAGES.en.speechRecognition, 'en-IN', 'English recognition locale must be en-IN');
-assert.strictEqual(SUPPORTED_LANGUAGES.gu, undefined, 'Gujarati must not be present');
-console.log('  ✅ [PASS] 3 languages (mr, hi, en) verified with Indian locales.');
+assert.ok(SUPPORTED_LANGUAGES.gu, 'Gujarati must be configured in SUPPORTED_LANGUAGES');
+assert.strictEqual(SUPPORTED_LANGUAGES.gu.speechRecognition, 'gu-IN', 'Gujarati recognition locale must be gu-IN');
+assert.strictEqual(SUPPORTED_LANGUAGES.gu.speechSynthesis, 'gu-IN', 'Gujarati synthesis locale must be gu-IN');
+console.log('  ✅ [PASS] 4 languages (mr, hi, en, gu) verified with Indian locales.');
 
 // 2. Strict Voice Matching (NO FAKING)
 console.log('\n2. Testing Voice Matching Algorithm:');

@@ -7,7 +7,7 @@ const dialect = process.env.DB_DIALECT || (process.env.DB_PASSWORD ? "mysql" : "
 
 let sequelize;
 if (dialect === "sqlite") {
-    const storagePath = path.resolve(__dirname, "../harvestmitra.sqlite");
+    const storagePath = process.env.DB_STORAGE || path.resolve(__dirname, "../harvestmitra.sqlite");
     sequelize = new Sequelize({
         dialect: "sqlite",
         storage: storagePath,

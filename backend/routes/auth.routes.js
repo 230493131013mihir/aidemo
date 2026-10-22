@@ -3,6 +3,7 @@ const express = require("express");
 const {
     register,
     login,
+    logout,
     getMe,
     demoLogin,
     updateProfile,
@@ -20,8 +21,9 @@ const router = express.Router();
 // Register
 router.post("/register", register);
 
-// Login
+// Login & Logout
 router.post("/login", login);
+router.post("/logout", logout);
 router.post("/demo", demoLogin);
 
 // Get currently logged-in user

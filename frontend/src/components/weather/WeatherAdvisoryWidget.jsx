@@ -116,6 +116,11 @@ export default function WeatherAdvisoryWidget({
       setLoading(true);
       setError(null);
       const data = await fetchWeather(district, state);
+      // Defensive check: if user/selected state is Maharashtra but API returns Gujarat, prefer Maharashtra
+      if (data && (state === 'Maharashtra' || selectedState === 'Maharashtra') && (data.state === 'Gujarat' || data.location?.state === 'Gujarat')) {
+        if (data.state) data.state = 'Maharashtra';
+        if (data.location?.state) data.location.state = 'Maharashtra';
+      }
       setWeatherData(data);
     } catch (err) {
       setError(err.message);

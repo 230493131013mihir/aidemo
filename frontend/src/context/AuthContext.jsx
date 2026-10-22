@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext(null);
 
@@ -29,26 +30,41 @@ export const GUEST_USER = {
 };
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) || 'guest');
+  const navigate = useNavigate();
+  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) || null);
   const [user, setUser] = useState(() => {
     try {
       const stored = localStorage.getItem(USER_KEY);
-      return stored ? JSON.parse(stored) : GUEST_USER;
+      return stored ? JSON.parse(stored) : null;
     } catch {
-      return GUEST_USER;
+      return null;
     }
   });
-  const [loading, setLoading] = useState(true);
+  // Initialize loading to false because token and user are synchronously read from localStorage
+  const [loading, setLoading] = useState(false);
 
   // Sync session on mount / token change
   useEffect(() => {
     async function verifySession() {
       const savedToken = localStorage.getItem(TOKEN_KEY);
+      const savedUser = localStorage.getItem(USER_KEY);
+
       if (!savedToken || savedToken === 'guest') {
-        setToken('guest');
-        setUser((prev) => prev && !prev.isGuest ? prev : GUEST_USER);
-        setLoading(false);
+        setToken(null);
+        setUser(null);
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
         return;
+      }
+
+      // Hydrate state from localStorage immediately to prevent refresh flicker
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+          setToken(savedToken);
+        } catch (e) {
+          // ignore
+        }
       }
 
       try {
@@ -65,15 +81,15 @@ export function AuthProvider({ children }) {
             setToken(savedToken);
             localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
           } else {
-            setUser(GUEST_USER);
-            setToken('guest');
+            logout();
           }
-        } else {
-          setUser(GUEST_USER);
-          setToken('guest');
+        } else if (response.status === 401 || response.status === 403) {
+          // Token expired or invalid
+          logout();
         }
       } catch (err) {
-        console.warn('Session verification fallback to stored user:', err.message);
+        // Network offline or server starting: retain cached user session so refresh does not kick user out
+        console.warn('Session verification offline fallback:', err.message);
       } finally {
         setLoading(false);
       }
@@ -119,6 +135,10 @@ export function AuthProvider({ children }) {
     const payload = await response.json();
     if (!response.ok || !payload.success) {
       throw new Error(payload.message || 'Registration failed');
+    }
+
+    if (payload.token && payload.user) {
+      handleAuthSuccess(payload.token, payload.user);
     }
 
     return payload;
@@ -167,15 +187,56 @@ export function AuthProvider({ children }) {
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
   }
 
-  function logout() {
-    setToken('guest');
-    setUser(GUEST_USER);
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+  function logout(options) {
+    const redirectTo = options && typeof options.redirectTo === 'string' ? options.redirectTo : '/';
+    const currentToken = token || localStorage.getItem(TOKEN_KEY);
+
+    // Secure server-side notification if token was active (non-blocking)
+    if (currentToken && currentToken !== 'guest') {
+      try {
+        fetch(`${API_BASE_URL}/api/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${currentToken}`,
+          },
+        }).catch(() => {
+          // Graceful fallback: Network failure does not prevent local secure logout
+        });
+      } catch (_) {
+        // Safe ignore
+      }
+    }
+
+    // 1. Reset user state to unauthenticated
+    setToken(null);
+    setUser(null);
+
+    // 2. Clear all authentication credentials & user tokens from storage
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem('harvestmitra_admin_token');
+      localStorage.removeItem('mitra_chat_session_id');
+      localStorage.removeItem('harvestmitra_guest_saved');
+      sessionStorage.clear();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('harvestmitra:logout'));
+      }
+    } catch (_) {
+      // Safe ignore storage access errors
+    }
+
+    // 3. Immediately redirect to public Home Page
+    if (typeof navigate === 'function') {
+      navigate(redirectTo, { replace: true });
+    } else if (typeof window !== 'undefined') {
+      window.location.replace(redirectTo);
+    }
   }
 
-  const isGuest = Boolean(user?.isGuest || token === 'guest');
   const isAuthenticated = Boolean(user && token && !user.isGuest && token !== 'guest');
+  const isGuest = !isAuthenticated;
 
   const value = {
     user,
