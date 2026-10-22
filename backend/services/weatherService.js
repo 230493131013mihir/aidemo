@@ -5,7 +5,10 @@ const DEMO_LOCATIONS = {
     rajkot: { name: "Rajkot", state: "Gujarat", latitude: 22.3039, longitude: 70.8022 },
     nashik: { name: "Nashik", state: "Maharashtra", latitude: 19.9975, longitude: 73.7898 },
     delhi: { name: "Delhi", state: "Delhi", latitude: 28.6139, longitude: 77.209 },
-    mumbai: { name: "Mumbai", state: "Maharashtra", latitude: 19.076, longitude: 72.8777 }
+    mumbai: { name: "Mumbai", state: "Maharashtra", latitude: 19.076, longitude: 72.8777 },
+    kolhapur: { name: "Kolhapur", state: "Maharashtra", latitude: 16.7050, longitude: 74.2433 },
+    solapur: { name: "Solapur", state: "Maharashtra", latitude: 17.6599, longitude: 75.9064 },
+    ahmednagar: { name: "Ahmednagar", state: "Maharashtra", latitude: 19.0948, longitude: 74.7480 }
 };
 
 function getWeatherCodeLabel(code) {
