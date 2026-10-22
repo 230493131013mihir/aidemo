@@ -174,7 +174,7 @@ async function getWeatherForecast(query = {}) {
 const DEMO_DISTRICT_WEATHER = {
   surat: {
     district: 'Surat',
-    state: 'Gujarat',
+    state: 'Maharashtra',
     temperature: 29,
     humidity: 78,
     rainProbability: 65, // Exceeds default 60% threshold -> RAIN_ADVISORY
@@ -189,7 +189,7 @@ const DEMO_DISTRICT_WEATHER = {
   },
   navsari: {
     district: 'Navsari',
-    state: 'Gujarat',
+    state: 'Maharashtra',
     temperature: 28,
     humidity: 82,
     rainProbability: 65, // Exceeds default 60% threshold -> RAIN_ADVISORY
@@ -204,7 +204,7 @@ const DEMO_DISTRICT_WEATHER = {
   },
   ahmedabad: {
     district: 'Ahmedabad',
-    state: 'Gujarat',
+    state: 'Maharashtra',
     temperature: 34,
     humidity: 48,
     rainProbability: 25, // Below threshold -> CLEAR_ADVISORY
@@ -219,7 +219,7 @@ const DEMO_DISTRICT_WEATHER = {
   },
   rajkot: {
     district: 'Rajkot',
-    state: 'Gujarat',
+    state: 'Maharashtra',
     temperature: 33,
     humidity: 52,
     rainProbability: 20, // Below threshold -> CLEAR_ADVISORY
@@ -234,7 +234,7 @@ const DEMO_DISTRICT_WEATHER = {
   },
   bharuch: {
     district: 'Bharuch',
-    state: 'Gujarat',
+    state: 'Maharashtra',
     temperature: 30,
     humidity: 72,
     rainProbability: 55, // Close to threshold
