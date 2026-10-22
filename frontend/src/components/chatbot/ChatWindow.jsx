@@ -19,6 +19,7 @@ import LanguageSelector from './LanguageSelector';
 import VoiceControls from './VoiceControls';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
+import KisanAIAssistant from './KisanAIAssistant';
 import {
   SUPPORTED_LANGUAGES,
   speakMessage,
@@ -27,6 +28,7 @@ import {
   isSpeechSynthesisSupported
 } from '../../services/speechService';
 import { sendChatMessage, getOrCreateSessionId } from '../../services/chatService';
+import { useLanguage } from '../../context/LanguageContext';
 
 const WELCOME_MESSAGES = {
   mr: {
@@ -34,32 +36,46 @@ const WELCOME_MESSAGES = {
     disclaimer: "बाजार भाव आणि आकडेवारी महाराष्ट्र APMC डेटावर आधारित आहे."
   },
   hi: {
-    text: "नमस्ते! मैं मित्रा असिस्टेंट (Mitra Assistant) हूं। आप मुझसे महाराष्ट्र मंडी भाव, आज फसल बेचें या रुकें, साझा परिवहन (भाड़ा बचत), या मौसम की जानकारी पूछ सकते हैं।",
-    disclaimer: "मंडी के आंकड़े महाराष्ट्र APMC डेटा पर आधारित हैं।"
+    text: "नमस्ते! मैं मित्रा असिस्टेंट (Mitra Assistant) हूं। आप मुझसे महाराष्ट्र व गुजरात मंडी भाव, आज फसल बेचें या रुकें, साझा परिवहन (भाड़ा बचत), या मौसम की जानकारी पूछ सकते हैं।",
+    disclaimer: "मंडी के आंकड़े सत्यापित APMC डेटा पर आधारित हैं।"
+  },
+  gu: {
+    text: "નમસ્તે! હું મિત્રા આસિસ્ટન્ટ (Mitra Assistant) છું. તમે મને એપીએમસી (APMC) બજાર ભાવ, આજે પાક વેચવો કે રાહ જોવી, શૅર્ડ ટ્રાન્સપોર્ટ (ભાડા બચત), અથવા હવામાન આગાહી પૂછી શકો છો.",
+    disclaimer: "બજાર ભાવ અને આંકડા ગુજરાત/મહારાષ્ટ્ર APMC ડેટા પર આધારિત છે."
   },
   en: {
-    text: "Namaste! I am Mitra Assistant. Ask me about Maharashtra APMC Mandi prices, whether you should sell today or hold, shared transport pooling, or weather forecasts.",
-    disclaimer: "Demonstration data mode active (Maharashtra APMC)."
+    text: "Namaste! I am Mitra Assistant. Ask me about Maharashtra & Gujarat APMC Mandi prices, whether you should sell today or hold, shared transport pooling, or weather forecasts.",
+    disclaimer: "Demonstration data mode active (APMC Live/Sample)."
   }
 };
 
 const SUGGESTED_QUERIES = {
   mr: [
+    "पीएम-किसान (PM-KISAN) योजना पात्रता व लाभ",
+    "पंतप्रधान पीक विमा योजना (PMFBY) नियम",
+    "i-Khedut / महाडीबीटी ठिबक सिंचन अनुदान",
     "आज टोमॅटोचा भाव काय आहे?",
-    "पीएम-किसान व महाडीबीटी योजनेची पात्रता काय आहे?",
-    "पीक विमा व कृषी अनुदानाची माहिती सांगा",
     "सामायिक वाहनाने वाहतूक खर्च कसा वाचवावा?"
   ],
   hi: [
+    "पीएम-किसान (PM-KISAN) योजना पात्रता एवं लाभ",
+    "प्रधानमंत्री फसल बीमा योजना (PMFBY) नियम",
+    "आई-खेड़ूत (i-Khedut) ड्रिप व कृषि उपकरण सब्सिडी",
     "आज टमाटर का मंडी भाव क्या है?",
-    "पीएम-किसान योजना की पात्रता क्या है?",
-    "महाराष्ट्र महाडीबीटी पोर्टल पर ट्रैक्टर व ड्रिप सब्सिडी कैसे मिलेगी?",
     "साझा वाहन से भाड़ा कैसे बचाएं?"
   ],
+  gu: [
+    "પીએમ-કિસાન (PM-KISAN) યોજનાની પાત્રતા અને સહાય",
+    "પીએમ પાક વીમા યોજના (PMFBY) ના નિયમો",
+    "આઈ-ખેડૂત (i-Khedut) ટપક સિંચાઈ અને ટ્રેક્ટર સબસિડી",
+    "આજે ટામેટાંનો ભાવ શું છે?",
+    "શેર્ડ વાહનથી પરિવહન ખર્ચ કેવી રીતે બચાવવો?"
+  ],
   en: [
+    "PM-KISAN eligibility & subsidy rules",
+    "PMFBY crop insurance claim guidelines",
+    "i-Khedut portal drip irrigation subsidy",
     "What is today's tomato rate in Maharashtra?",
-    "What are the eligibility rules for PM-KISAN?",
-    "How can I apply for Maharashtra MahaDBT tractor & drip subsidy?",
     "How can I save on shared transport?"
   ]
 };
@@ -67,12 +83,17 @@ const SUGGESTED_QUERIES = {
 export default function ChatWindow({
   isOpen = true,
   onClose = null,
-  contextData = {}
+  contextData = {},
+  initialLanguage = null
 }) {
-  // 1. Language state: restore from localStorage or default to 'mr'
+  const { language: globalLanguage, setLanguage: setGlobalLanguage } = useLanguage?.() || {};
+
+  // 1. Language state: restore from initialLanguage, globalLanguage, localStorage or default to 'mr'
   const [selectedLanguage, setSelectedLanguage] = useState(() => {
     try {
-      const saved = localStorage.getItem('mitraLanguage');
+      const init = initialLanguage || globalLanguage;
+      if (init && SUPPORTED_LANGUAGES[init]) return init;
+      const saved = localStorage.getItem('mitraLanguage') || localStorage.getItem('harvestmitra_lang');
       return saved && SUPPORTED_LANGUAGES[saved] ? saved : 'mr';
     } catch (_) {
       return 'mr';
@@ -106,6 +127,7 @@ export default function ChatWindow({
   const [isLoading, setIsLoading] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState(null);
   const [apiErrorNotice, setApiErrorNotice] = useState(null);
+  const [showKisanEarSettings, setShowKisanEarSettings] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Clear chat messages on logout
@@ -136,15 +158,64 @@ export default function ChatWindow({
     scrollToBottom();
   }, [messages, isLoading]);
 
-  // Persist language change
+  // Global Wake-Word Event Listener ("Hey Mitra" / "नमस्ते मित्रा")
+  useEffect(() => {
+    const handleWakeWordEvent = (e) => {
+      const { query } = e.detail || {};
+      if (query && query.trim()) {
+        handleSendMessage(query);
+      }
+    };
+
+    window.addEventListener('harvestmitra:wake-word-triggered', handleWakeWordEvent);
+    return () => {
+      window.removeEventListener('harvestmitra:wake-word-triggered', handleWakeWordEvent);
+    };
+  }, [selectedLanguage, messages]);
+
+  // Persist language change & update welcome message if no conversation yet
   const handleLanguageChange = (newLang) => {
+    if (!newLang || !SUPPORTED_LANGUAGES[newLang]) return;
     setSelectedLanguage(newLang);
     try {
       localStorage.setItem('mitraLanguage', newLang);
+      localStorage.setItem('harvestmitra_lang', newLang);
     } catch (_) {}
+    if (setGlobalLanguage) {
+      setGlobalLanguage(newLang);
+    }
+    // Clear any previous error notification banner
+    setApiErrorNotice(null);
     // If speaking, stop on language change
     handleStopSpeaking();
+
+    // If chat is fresh (only the initial welcome message),
+    // update the welcome message to the newly selected language
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0].sender === 'assistant') {
+        const welcome = WELCOME_MESSAGES[newLang] || WELCOME_MESSAGES.en;
+        return [
+          {
+            id: 'welcome_' + Date.now(),
+            sender: 'assistant',
+            text: welcome.text,
+            disclaimer: welcome.disclaimer,
+            mode: 'fallback',
+            timestamp: Date.now()
+          }
+        ];
+      }
+      return prev;
+    });
   };
+
+  // Sync when initialLanguage or globalLanguage changes from header/navbar
+  useEffect(() => {
+    const active = initialLanguage || globalLanguage;
+    if (active && SUPPORTED_LANGUAGES[active] && active !== selectedLanguage) {
+      handleLanguageChange(active);
+    }
+  }, [initialLanguage, globalLanguage]);
 
   // Persist voice toggle
   const handleToggleVoiceAutoRead = () => {
@@ -310,12 +381,14 @@ export default function ChatWindow({
 
         {/* Right: Controls (Voice toggle, Language, Reset, Close) */}
         <div className="flex items-center gap-2">
-          {/* Voice Auto-Read Toggle */}
+          {/* Voice Auto-Read & Continuous Wake-Word Toggle */}
           <VoiceControls
             voiceAutoRead={voiceAutoRead}
             onToggleVoiceAutoRead={handleToggleVoiceAutoRead}
             isSpeaking={Boolean(speakingMessageId)}
             onStopSpeaking={handleStopSpeaking}
+            isContinuous={showKisanEarSettings}
+            onToggleContinuous={() => setShowKisanEarSettings((prev) => !prev)}
           />
 
           {/* Multilingual Selector */}
@@ -350,6 +423,16 @@ export default function ChatWindow({
           )}
         </div>
       </header>
+
+      {/* Kisan AI Voice Assistant Continuous Ear & Sensitivity Drawer */}
+      {showKisanEarSettings && (
+        <div className="border-b border-emerald-300/40 bg-emerald-950/95 p-3 sm:p-4 animate-fadeIn">
+          <KisanAIAssistant
+            onSendMessage={handleSendMessage}
+            initialLanguage={selectedLanguage}
+          />
+        </div>
+      )}
 
       {/* Global Notice Banner if any */}
       {apiErrorNotice && (

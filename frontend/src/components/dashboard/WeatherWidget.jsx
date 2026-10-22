@@ -30,7 +30,8 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { fetchWeather, getWeatherConditionMeta } from '../../services/weatherApiService';
+import { useToast } from '../../context/ToastContext';
+import { fetchWeather, getWeatherConditionMeta, triggerWhatsAppRainToast } from '../../services/weatherApiService';
 
 const MAJOR_AGRO_DISTRICTS = [
   { name: 'Pune', state: 'Maharashtra', region: 'Western Maharashtra' },
@@ -77,6 +78,8 @@ function WeatherIcon({ iconName, isDay = true, className = "w-8 h-8" }) {
 export default function WeatherWidget() {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { showToast } = useToast?.() || {};
+  const alertedDistrictRef = useRef(null);
 
   // Primary Farmer location from profile, fallback to Pune
   const profileDistrict = user?.FarmerProfile?.district || 'Pune';
@@ -156,6 +159,13 @@ export default function WeatherWidget() {
       setWeatherData(response);
       setLastRefreshedAt(new Date(response.lastUpdated || Date.now()));
       setError('');
+
+      // Automated WhatsApp Rain Alert trigger when heavy rain (>60%) is detected
+      const rainProb = response.rainChance ?? response.weather?.rainProbability ?? 0;
+      if (rainProb >= 60 && showToast && alertedDistrictRef.current !== targetLocation) {
+        alertedDistrictRef.current = targetLocation;
+        triggerWhatsAppRainToast(response, showToast);
+      }
     } catch (err) {
       if (err.name === 'AbortError') {
         // Request intentionally aborted by a newer fetch
@@ -290,7 +300,12 @@ export default function WeatherWidget() {
   const rainChance = weatherData?.rainChance ?? cur.rainProbability ?? 0;
 
   const locName = weatherData?.location?.name || activeLocation;
-  const locState = weatherData?.location?.state || profileState || 'India';
+  // Defensive check: If user's profile state is 'Maharashtra' but API returns 'Gujarat', prefer user's profile state
+  const userProfileState = user?.FarmerProfile?.state || user?.state || 'Maharashtra';
+  const apiState = weatherData?.location?.state;
+  const locState = (userProfileState === 'Maharashtra' && apiState === 'Gujarat')
+    ? userProfileState
+    : (apiState || userProfileState || 'India');
   const adviceStatus = weatherData?.advice?.status || (rainChance >= 60 ? 'Delay Harvest' : 'Optimal Harvest Window');
   const adviceDetail = weatherData?.advice?.detail || weatherData?.advisory?.message ||
     `Favorable atmospheric conditions in ${locName} for produce picking and transport dispatch.`;

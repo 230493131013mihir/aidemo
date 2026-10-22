@@ -107,8 +107,8 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
               </NavLink>
             )}
 
-            {/* Dark/Light Theme Toggle */}
-            <ThemeToggle />
+            {/* Theme Switcher Toggle (Issue #141) */}
+            <ThemeToggle variant="pill" />
 
             {/* Language Selector */}
             <div className="flex items-center">

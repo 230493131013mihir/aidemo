@@ -27,15 +27,15 @@ const INTENT_PATTERNS = {
     /(कापणी|काढणी|विकू|विकायचे|विकावे|ठेवू|साठवण|कधी विकावे|आज विकावे|फायदा होईल)/i
   ],
 
-  revenue_calculation: [
+  government_scheme: [
     // English
-    /\b(revenue|profit|income|net revenue|gross revenue|calculate|calculation|earning|expenses|total cost)\b/i,
+    /\b(scheme|schemes|subsidy|subsidies|pm-kisan|pmkisan|fasal bima|pmfby|ikhedut|khedut|kcc|kisan credit card|soil health|krishi yojana|yojana|yojna|grant|financial assistance|tractor subsidy|drip subsidy)\b/i,
     // Hindi
-    /(कमाई|मुनाफा|लाभ|शुद्ध कमाई|कुल कमाई|खर्च|लागत|हिसाब|गणना)/i,
+    /(योजना|योजनाएं|सब्सिडी|अनुदान|पीएम-किसान|पीएम किसान|फसल बीमा|सरकारी सहायता|कृषि योजना|केसीसी|ऋण|सहायता राशि|पात्रता)/i,
     // Gujarati
-    /(ચોખ્ખો નફો|કુલ આવક|નફો|ખર્ચ|ગણતરી|હિસાબ|આવક)/i,
+    /(યોજના|યોજનાઓ|સબસિડી|સહાય|આઈ-ખેડૂત|ખેડૂત સહાય|પીએમ કિસાન|પાક વીમો|ટ્રેક્ટર સબસિડી|ટપક સિંચાઈ|પાત્રતા)/i,
     // Marathi
-    /(नफा|कमाई|उत्पन्न|निव्वळ नफा|खर्च|लागत|हिशोब|हिशेब|गणना)/i
+    /(योजना|अनुदान|सबसिडी|पीएम किसान|पीएम-किसान|पीक विमा|शासकीय मदत|कृषी योजना|कर्ज माफी|ट्रॅक्टर सबसिडी|पात्रता)/i
   ],
 
   transport: [
@@ -49,6 +49,17 @@ const INTENT_PATTERNS = {
     /(वाहतूक|गाडी|ट्रक|टेम्पो|भाडे|सामायिक वाहतूक|लॉजिस्टिक्स)/i
   ],
 
+  revenue_calculation: [
+    // English
+    /\b(revenue|profit|income|net revenue|gross revenue|calculate|calculation|earning|expenses|total cost)\b/i,
+    // Hindi
+    /(कमाई|मुनाफा|शुद्ध लाभ|कुल लाभ|शुद्ध कमाई|कुल कमाई|खर्च|लागत|हिसाब|गणना)/i,
+    // Gujarati
+    /(ચોખ્ખો નફો|કુલ આવક|નફો|ખર્ચ|ગણતરી|હિસાબ|આવક)/i,
+    // Marathi
+    /(नफा|कमाई|उत्पन्न|निव्वळ नफा|खर्च|लागत|हिशोब|हिशेब|गणना)/i
+  ],
+
   weather: [
     // English
     /\b(weather|rain|forecast|monsoon|storm|temperature|humidity|climate)\b/i,
@@ -58,17 +69,6 @@ const INTENT_PATTERNS = {
     /(હવામાન|વરસાદ|વાતાવરણ|તાપમાન|આગાહી)/i,
     // Marathi
     /(हवामान|पाऊस|तापमान|अंदाज|वादळ)/i
-  ],
-
-  government_scheme: [
-    // English
-    /\b(scheme|schemes|subsidy|subsidies|pm-kisan|pmkisan|fasal bima|pmfby|ikhedut|khedut|kcc|kisan credit card|soil health|krishi yojana|yojana|yojna|grant|financial assistance|tractor subsidy|drip subsidy)\b/i,
-    // Hindi
-    /(योजना|योजनाएं|सब्सिडी|अनुदान|पीएम-किसान|फसल बीमा|सरकारी सहायता|कृषि योजना|केसीसी|ऋण|सहायता राशि)/i,
-    // Gujarati
-    /(યોજના|યોજનાઓ|સબસિડી|સહાય|આઈ-ખેડૂત|ખેડૂત સહાય|પીએમ કિસાન|પાક વીમો|ટ્રેક્ટર સબસિડી|ટપક સિંચાઈ)/i,
-    // Marathi
-    /(योजना|अनुदान|सबसिडी|पीएम किसान|पीक विमा|शासकीय मदत|कृषी योजना|कर्ज माफी|ट्रॅक्टर सबसिडी)/i
   ],
 
   profile: [
@@ -136,7 +136,7 @@ function normalizeLanguage(lang) {
   if (!lang) return 'en';
   const clean = String(lang).trim().toLowerCase();
   if (clean.startsWith('gu')) return 'gu';
-  if (clean.startsWith('mr')) return 'mr';
+  if (clean.startsWith('mr') || clean.startsWith('ma') || clean === 'marathi') return 'mr';
   if (clean.startsWith('hi')) return 'hi';
   return 'en';
 }
@@ -172,16 +172,74 @@ function detectIntent(message) {
 function extractCropMention(text) {
   if (!text) return null;
   const crops = [
-    { name: 'Tomato', patterns: [/\b(tomato|tomatoes)\b/i, /ટામેટાં?/i, /टमाटर/i, /टोमॅटो/i, /टोमेटो/i] },
-    { name: 'Onion', patterns: [/\b(onion|onions)\b/i, /ડુંગળી/i, /प्याज/i, /कांदा/i] },
-    { name: 'Wheat', patterns: [/\b(wheat)\b/i, /ઘઉં/i, /गेहूं/i, /गहू/i] },
+    { name: 'Tomato', patterns: [/\b(tomato|tomatoes)\b/i, /ટામેટાં?/i, /टमाटर/i, /टोमॅटो/i, /टोमेटो/i, /टोमॅट/i, /टोमेट/i] },
+    { name: 'Onion', patterns: [/\b(onion|onions)\b/i, /ડુંગળી/i, /प्याज/i, /कांद/i] },
+    { name: 'Potato', patterns: [/\b(potato|potatoes|aloo|batata)\b/i, /બટાકા/i, /બટાટા/i, /आलू/i, /बटाट/i] },
+    { name: 'Wheat', patterns: [/\b(wheat)\b/i, /ઘઉં/i, /गेहूं/i, /गहू/i, /गव्हा/i] },
     { name: 'Soybean', patterns: [/\b(soybean|soya)\b/i, /સોયાબીન/i, /सोयाबीन/i] },
-    { name: 'Cotton', patterns: [/\b(cotton)\b/i, /કપાસ/i, /कपास/i, /कापूस/i] }
+    { name: 'Cotton', patterns: [/\b(cotton)\b/i, /કપાસ/i, /कपास/i, /कापूस/i] },
+    { name: 'Rice', patterns: [/\b(rice|paddy)\b/i, /ડાંગર/i, /ચોખા/i, /चावल/i, /धान/i, /तांदूळ/i, /भात/i] },
+    { name: 'Garlic', patterns: [/\b(garlic)\b/i, /લસણ/i, /लहसुन/i, /लसूण/i] },
+    { name: 'Ginger', patterns: [/\b(ginger)\b/i, /આદુ/i, /अदरक/i, /आले/i] },
+    { name: 'Chilli', patterns: [/\b(chilli|chili|mirchi)\b/i, /મરચાં?/i, /मिर्च/i, /मिरची/i] },
+    { name: 'Pomegranate', patterns: [/\b(pomegranate)\b/i, /દાડમ/i, /अनार/i, /डाळिंब/i] },
+    { name: 'Grapes', patterns: [/\b(grapes)\b/i, /દ્રાક્ષ/i, /अंगूर/i, /द्राक्षे/i] },
+    { name: 'Sugarcane', patterns: [/\b(sugarcane)\b/i, /શેરડી/i, /गन्ना/i, /ऊस/i] },
+    { name: 'Maize', patterns: [/\b(maize|corn)\b/i, /મકાઈ/i, /મક્કા/i, /मका/i] },
+    { name: 'Lady Finger', patterns: [/\b(lady\s*finger|ladyfinger|okra|bhindi|bhendi)\b/i, /ભીંડો/i, /ભીંડા/i, /भिंडी/i, /भेंडी/i] },
+    { name: 'Brinjal', patterns: [/\b(brinjal|eggplant|baingan|vangi)\b/i, /રીંગણ/i, /बैंगन/i, /वांगी/i] },
+    { name: 'Cauliflower', patterns: [/\b(cauliflower|gobhi|phool\s*gobhi)\b/i, /ફૂલકોબી/i, /फूलगोभी/i, /फ्लॉवर/i] },
+    { name: 'Cabbage', patterns: [/\b(cabbage|patta\s*gobhi|kobi)\b/i, /કોબી/i, /पत्ता\s*गोभी/i, /कोबी/i] },
+    { name: 'Groundnut', patterns: [/\b(groundnut|peanut|shengdana|mungfali)\b/i, /મગફળી/i, /मूंगफली/i, /शेंगदाणा/i] }
   ];
 
   for (const crop of crops) {
     for (const pattern of crop.patterns) {
       if (pattern.test(text)) return crop.name;
+    }
+  }
+
+  // Dynamic fallback for queries asking for "rate of <crop>" or "price of <crop>"
+  const priceOfMatch = text.match(/\b(?:rate|price|cost|bhav|market\s*rate)\s+of\s+([a-zA-Z\s]+?)(?:\s+in|\s+at|\s+today|\s+near|\?|$)/i);
+  if (priceOfMatch && priceOfMatch[1]) {
+    const candidate = priceOfMatch[1].trim();
+    if (candidate.length >= 3 && candidate.length <= 25 && !/\b(today|tomorrow|market|mandi)\b/i.test(candidate)) {
+      return candidate.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Extract district / mandi location if present in query
+ * @param {string} text
+ * @returns {string|null}
+ */
+function extractLocationMention(text) {
+  if (!text) return null;
+  const locations = [
+    { name: 'Nashik', patterns: [/\bnashik\b/i, /\bnasik\b/i, /नाशिक/i, /नासिक/i, /નાસિક/i, /નાશિક/i] },
+    { name: 'Lasalgaon', patterns: [/\blasalgaon\b/i, /लासलगाव/i, /લાસલગામ/i] },
+    { name: 'Pune', patterns: [/\bpune\b/i, /पुणे/i, /પુણે/i] },
+    { name: 'Mumbai', patterns: [/\bmumbai\b/i, /\bvashi\b/i, /मुंबई/i, /वाशी/i, /મુંબઈ/i] },
+    { name: 'Ahmednagar', patterns: [/\bahmednagar\b/i, /\bahilyanagar\b/i, /अहमदनगर/i, /अहिल्यानगर/i, /અહેમદનગર/i] },
+    { name: 'Nagpur', patterns: [/\bnagpur\b/i, /नागपूर/i, /नागपुर/i, /નાગપુર/i] },
+    { name: 'Kolhapur', patterns: [/\bkolhapur\b/i, /कोल्हापूर/i, /कोल्हापुर/i, /કોલ્હાપુર/i] },
+    { name: 'Solapur', patterns: [/\bsolapur\b/i, /सोलापूर/i, /सोलापुर/i, /સોલાપુર/i] },
+    { name: 'Jalgaon', patterns: [/\bjalgaon\b/i, /जळगाव/i, /जलगांव/i, /જળગાંવ/i] },
+    { name: 'Sangli', patterns: [/\bsangli\b/i, /सांगली/i, /સાંગલી/i] },
+    { name: 'Satara', patterns: [/\bsatara\b/i, /सातारा/i, /સાતારા/i] },
+    { name: 'Amravati', patterns: [/\bamravati\b/i, /अमरावती/i, /અમરાવતી/i] },
+    { name: 'Chhatrapati Sambhajinagar', patterns: [/\bchhatrapati sambhajinagar\b/i, /\baurangabad\b/i, /औरंगाबाद/i, /संभाजीनगर/i] },
+    { name: 'Surat', patterns: [/\bsurat\b/i, /सूरत/i, /सुरत/i] },
+    { name: 'Ahmedabad', patterns: [/\bahmedabad\b/i, /अहमदाबाद/i, /અમદાવાદ/i] },
+    { name: 'Rajkot', patterns: [/\brajkot\b/i, /राजकोट/i, /રાજકોટ/i] }
+  ];
+
+  for (const loc of locations) {
+    for (const pattern of loc.patterns) {
+      if (pattern.test(text)) return loc.name;
     }
   }
   return null;
@@ -220,6 +278,7 @@ module.exports = {
   detectLanguage,
   normalizeLanguage,
   extractCropMention,
+  extractLocationMention,
   extractQuantity,
   INTENT_PATTERNS
 };

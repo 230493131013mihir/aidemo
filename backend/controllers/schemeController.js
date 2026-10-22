@@ -1,5 +1,6 @@
 const schemeService = require("../services/schemeService");
-const { Scheme, SavedScheme, SchemeChecklist } = require("../models");
+const { Scheme, SavedScheme, SchemeChecklist, FarmerProfile } = require("../models");
+const jwt = require("jsonwebtoken");
 
 /**
  * Public & Farmer Scheme Discovery Endpoints
@@ -30,7 +31,37 @@ async function handleGetSchemeById(req, res) {
 async function handleMatchSchemes(req, res) {
   try {
     // Farmer profile answers or request body
-    const answers = req.body || {};
+    const answers = { ...(req.body || {}) };
+
+    // Auto-populate from logged-in farmer's Agristack profile if available
+    let farmerProfile = req.user?.FarmerProfile || null;
+    if (!farmerProfile && req.user?.id) {
+      farmerProfile = await FarmerProfile.findOne({ where: { userId: req.user.id } });
+    } else if (!farmerProfile && req.headers?.authorization?.startsWith("Bearer ")) {
+      try {
+        const token = req.headers.authorization.split(" ")[1];
+        if (token && token !== "guest" && token !== "guest_token") {
+          const decoded = jwt.verify(token, process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon");
+          if (decoded?.id) {
+            farmerProfile = await FarmerProfile.findOne({ where: { userId: decoded.id } });
+          }
+        }
+      } catch (e) {
+        // Safe token parsing fallback
+      }
+    }
+
+    if (farmerProfile) {
+      if (answers.isGovtVerified === undefined) answers.isGovtVerified = Boolean(farmerProfile.isGovtVerified);
+      if (!answers.agristackId) answers.agristackId = farmerProfile.agristackId;
+      if (!answers.surveyNumber) answers.surveyNumber = farmerProfile.surveyNumber;
+      if (answers.aadhaarLinked === undefined) answers.aadhaarLinked = Boolean(farmerProfile.aadhaarLinked);
+      if (answers.dbtAccountLinked === undefined) answers.dbtAccountLinked = Boolean(farmerProfile.dbtAccountLinked);
+      if (!answers.farmSizeAcres && farmerProfile.farmSizeAcres) answers.farmSizeAcres = farmerProfile.farmSizeAcres;
+      if (!answers.district && farmerProfile.district) answers.district = farmerProfile.district;
+      if (!answers.state && farmerProfile.state) answers.state = farmerProfile.state;
+    }
+
     const results = await schemeService.matchSchemes(answers);
     return res.status(200).json({
       success: true,

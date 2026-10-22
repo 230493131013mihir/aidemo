@@ -7,12 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "test": "node test/speechService.test.js && node test/voiceLogisticsFeatures.test.js && node test/marketWeatherServices.test.js && node test/sayaliUiFeatures.test.js && node test/simulatorMandiQa.test.js && node test/liveWeatherRefresh.test.js && node test/logoutNavigation.test.js",
+    "test": "node test/speechService.test.js && node test/voiceLogisticsFeatures.test.js && node test/marketWeatherServices.test.js && node test/sayaliUiFeatures.test.js && node test/simulatorMandiQa.test.js && node test/liveWeatherRefresh.test.js && node test/simulatorToTransportFlow.test.js && node test/driverGatePassPrint.test.js && node test/mitraVoiceAiMultilingual.test.js && node test/sessionExpiryAuth.test.js && node test/kisanVoiceAssistant.test.js && node test/logoutNavigation.test.js",
     "preview": "vite preview"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
-    "html2pdf.js": "^0.14.0",
+    "html2pdf.js": "^0.10.3",
+    "leaflet": "^1.9.4",
     "lucide-react": "^1.58.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

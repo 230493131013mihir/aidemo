@@ -79,7 +79,7 @@ export default function ChatPage() {
 
       {/* Live ChatWindow */}
       <div className="w-full h-[680px] sm:h-[720px] flex flex-col">
-        <ChatWindow contextData={demoFarmerContext} />
+        <ChatWindow contextData={demoFarmerContext} initialLanguage={language} />
       </div>
     </div>
   );

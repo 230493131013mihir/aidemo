@@ -108,6 +108,19 @@ export default function KisanFloatingBar() {
               <span className="text-[9px] text-muted">Accessibility</span>
             </div>
 
+            {/* Action 0: Mitra AI Voice Chatbot */}
+            <button
+              type="button"
+              onClick={() => {
+                navigate('/chat');
+                setExpanded(false);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-950 bg-emerald-100/80 hover:bg-emerald-200 transition-colors text-left border border-emerald-300/60 shadow-2xs"
+            >
+              <Bot className="w-4 h-4 text-emerald-700 shrink-0" />
+              <span>🤖 Mitra AI Voice Chatbot</span>
+            </button>
+
             {/* Action 1: Voice Read Page */}
             <button
               type="button"

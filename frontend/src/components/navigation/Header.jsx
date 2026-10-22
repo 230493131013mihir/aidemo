@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Sprout, Menu, X, Sparkles } from 'lucide-react';
+import { Sprout, Menu, X, Sparkles, LogOut } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import LanguageSelector from '../common/LanguageSelector';
 
 export default function Header() {
   const { t } = useLanguage();
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -84,16 +84,28 @@ export default function Header() {
             {/* Language Selector */}
             <LanguageSelector id="header-language-selector" />
 
-            {/* Login & Register Buttons (Unauthenticated) or Go to Dashboard (Authenticated) */}
+            {/* Auth Actions: Profile Pill when logged in, Login & Register when unauthenticated */}
             {isAuthenticated ? (
-              <Link
-                to="/dashboard"
-                id="header-dashboard-btn"
-                className="btn-primary text-xs sm:text-sm py-2 px-3.5 sm:px-4 shadow-xs"
-              >
-                <Sprout className="w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
-                <span>Go to Dashboard</span>
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/dashboard"
+                  id="header-dashboard-btn"
+                  className="btn-primary text-xs sm:text-sm py-2 px-3.5 sm:px-4 shadow-xs flex items-center gap-2"
+                  title={`Logged in as ${user?.name || 'User'}`}
+                >
+                  <Sprout className="w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
+                  <span className="truncate max-w-[110px]">{user?.name?.split(' ')[0] || 'Dashboard'}</span>
+                  <span className="text-[10px] opacity-80 hidden sm:inline font-normal">→</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => logout({ redirectTo: '/' })}
+                  title="Sign out"
+                  className="p-2 rounded-xl border border-border text-muted hover:text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
             ) : (
               <div className="flex items-center gap-2">
                 <Link
@@ -174,14 +186,26 @@ export default function Header() {
 
             <div className="pt-2">
               {isAuthenticated ? (
-                <Link
-                  to="/dashboard"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="btn-primary text-xs py-2 px-3 text-center justify-center w-full flex items-center gap-1.5"
-                >
-                  <Sprout className="w-4 h-4" />
-                  <span>Go to Dashboard</span>
-                </Link>
+                <div className="space-y-2">
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="btn-primary w-full text-xs py-2.5 px-3 text-center justify-center flex items-center gap-2"
+                  >
+                    <Sprout className="w-4 h-4" />
+                    <span>Go to Dashboard ({user?.name || 'Farmer'})</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout({ redirectTo: '/' });
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full rounded-xl border border-border py-2 text-xs font-bold text-red-600 hover:bg-red-50 text-center"
+                  >
+                    Sign Out
+                  </button>
+                </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   <Link

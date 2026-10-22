@@ -5,7 +5,14 @@
  */
 
 const aiService = require('../services/ai/aiService');
-const { detectIntent, detectLanguage, extractCropMention, extractQuantity } = require('../services/ai/intentDetector');
+const {
+  detectIntent,
+  detectLanguage,
+  normalizeLanguage,
+  extractCropMention,
+  extractLocationMention,
+  extractQuantity
+} = require('../services/ai/intentDetector');
 const { buildContext } = require('../services/ai/contextBuilder');
 const marketService = require('../services/marketService');
 const weatherService = require('../services/weatherService');
@@ -60,23 +67,56 @@ async function handleChatMessage(req, res) {
 
     // 2. Language Determination: Use user's language or detect
     const userLang = req.user?.preferredLanguage || req.user?.preferred_language;
-    const resolvedLang = userProvidedLang
-      ? userProvidedLang
-      : (userLang || detectLanguage(cleanMessage, 'en'));
+    const resolvedLang = normalizeLanguage(
+      userProvidedLang
+        ? userProvidedLang
+        : (userLang || detectLanguage(cleanMessage, 'en'))
+    );
 
     // 3. Intent Detection
     const detectedIntent = detectIntent(cleanMessage);
 
     // 4. Enrich Context
-    // Extract any crop mention or quantity if not explicitly provided
-    const cropMention = callerContext.crop?.name || extractCropMention(cleanMessage);
+    // Extract any crop mention and location directly from user's message FIRST
+    const extractedCrop = extractCropMention(cleanMessage);
+    const extractedLocation = extractLocationMention(cleanMessage);
+
+    // Check if query is explicitly asking about a price/rate of a specific crop
+    const isAskingSpecificRate = /\b(?:rate|price|cost|bhav|market\s*rate)\b/i.test(cleanMessage) &&
+      /\b(?:of|for|चा|का|नो|चे|ची)\b/i.test(cleanMessage);
+
+    // If callerContext.crop?.name contains multiple crops (e.g. "Tomato, Wheat, Soybean"), pick the primary first crop
+    const defaultProfileCrop = callerContext.crop?.name
+      ? String(callerContext.crop.name).split(',')[0].trim()
+      : null;
+
+    // User's explicit message mention always takes priority.
+    // If user explicitly asked for a specific crop rate ("rate of X") but X wasn't matched, do NOT pretend they asked for their profile crop.
+    const cropMention = extractedCrop || (!isAskingSpecificRate ? defaultProfileCrop : null);
     const quantityInfo = callerContext.crop?.quantityKg || extractQuantity(cleanMessage).quantityKg;
 
-    // Auto-enrich market data if query mentions crop and no marketData was supplied
+    // Auto-enrich market data if query asks about price or harvest decision and no marketData was supplied
     let marketData = callerContext.marketData;
     if (!marketData && (detectedIntent === 'market_price' || detectedIntent === 'harvest_decision') && cropMention) {
       try {
-        const prices = await marketService.getMarketPrices({ crop: cropMention });
+        let prices = [];
+        if (extractedLocation) {
+          // Try matching market name first (e.g. "Nashik APMC")
+          prices = await marketService.getMarketPrices({ crop: cropMention, market: extractedLocation });
+          // If not found by market name, try matching district
+          if (prices.length === 0) {
+            prices = await marketService.getMarketPrices({ crop: cropMention, district: extractedLocation });
+          }
+        } else if (req.user?.district || callerContext.farmer?.district) {
+          const userDist = req.user?.district || callerContext.farmer?.district;
+          prices = await marketService.getMarketPrices({ crop: cropMention, district: userDist });
+        }
+
+        // Fallback to any Maharashtra market for this crop if location-specific records were empty
+        if (prices.length === 0) {
+          prices = await marketService.getMarketPrices({ crop: cropMention });
+        }
+
         if (prices.length > 0) {
           marketData = {
             currentMarket: {
@@ -91,27 +131,29 @@ async function handleChatMessage(req, res) {
       } catch (_) {}
     }
 
-    // Auto-enrich weather data if query asks about weather and no weather was supplied
+    // Auto-enrich weather data if query asks about weather
     let weatherData = callerContext.weather;
     if (!weatherData && detectedIntent === 'weather') {
       try {
-        const farmerDist = req.user?.district || callerContext.farmer?.location || 'Surat';
+        const farmerDist = extractedLocation || req.user?.district || callerContext.farmer?.location || 'Nashik';
         weatherData = await weatherService.getWeather({ district: farmerDist });
       } catch (_) {}
     }
 
+    const resolvedLocation = extractedLocation || req.user?.district || callerContext.farmer?.location || 'Maharashtra';
+
     const enrichedParams = {
       ...callerContext,
       farmer: {
+        ...(callerContext.farmer || {}),
         name: req.user?.name || req.user?.full_name || callerContext.farmer?.name || 'Farmer',
-        location: req.user?.district || callerContext.farmer?.location || 'Surat, Gujarat',
-        preferredLanguage: resolvedLang,
-        ...(callerContext.farmer || {})
+        location: resolvedLocation,
+        preferredLanguage: resolvedLang
       },
       crop: {
+        ...(callerContext.crop || {}),
         name: cropMention,
-        quantityKg: quantityInfo,
-        ...(callerContext.crop || {})
+        quantityKg: quantityInfo
       },
       marketData: marketData || callerContext.marketData,
       weather: weatherData || callerContext.weather
