@@ -5,7 +5,10 @@ const DEMO_LOCATIONS = {
     rajkot: { name: "Rajkot", state: "Gujarat", latitude: 22.3039, longitude: 70.8022 },
     nashik: { name: "Nashik", state: "Maharashtra", latitude: 19.9975, longitude: 73.7898 },
     delhi: { name: "Delhi", state: "Delhi", latitude: 28.6139, longitude: 77.209 },
-    mumbai: { name: "Mumbai", state: "Maharashtra", latitude: 19.076, longitude: 72.8777 }
+    mumbai: { name: "Mumbai", state: "Maharashtra", latitude: 19.076, longitude: 72.8777 },
+    kolhapur: { name: "Kolhapur", state: "Maharashtra", latitude: 16.7050, longitude: 74.2433 },
+    solapur: { name: "Solapur", state: "Maharashtra", latitude: 17.6599, longitude: 75.9064 },
+    ahmednagar: { name: "Ahmednagar", state: "Maharashtra", latitude: 19.0948, longitude: 74.7480 }
 };
 
 function getWeatherCodeLabel(code) {
@@ -174,7 +177,7 @@ async function getWeatherForecast(query = {}) {
 const DEMO_DISTRICT_WEATHER = {
   surat: {
     district: 'Surat',
-    state: 'Gujarat',
+    state: 'Maharashtra',
     temperature: 29,
     humidity: 78,
     rainProbability: 65, // Exceeds default 60% threshold -> RAIN_ADVISORY
@@ -189,7 +192,7 @@ const DEMO_DISTRICT_WEATHER = {
   },
   navsari: {
     district: 'Navsari',
-    state: 'Gujarat',
+    state: 'Maharashtra',
     temperature: 28,
     humidity: 82,
     rainProbability: 65, // Exceeds default 60% threshold -> RAIN_ADVISORY
@@ -204,7 +207,7 @@ const DEMO_DISTRICT_WEATHER = {
   },
   ahmedabad: {
     district: 'Ahmedabad',
-    state: 'Gujarat',
+    state: 'Maharashtra',
     temperature: 34,
     humidity: 48,
     rainProbability: 25, // Below threshold -> CLEAR_ADVISORY
@@ -219,7 +222,7 @@ const DEMO_DISTRICT_WEATHER = {
   },
   rajkot: {
     district: 'Rajkot',
-    state: 'Gujarat',
+    state: 'Maharashtra',
     temperature: 33,
     humidity: 52,
     rainProbability: 20, // Below threshold -> CLEAR_ADVISORY
@@ -234,7 +237,7 @@ const DEMO_DISTRICT_WEATHER = {
   },
   bharuch: {
     district: 'Bharuch',
-    state: 'Gujarat',
+    state: 'Maharashtra',
     temperature: 30,
     humidity: 72,
     rainProbability: 55, // Close to threshold
@@ -516,8 +519,8 @@ class WeatherService {
    * Retrieve only active alerts and rain advisory for a district
    *
    * @param {Object} params
-   * @param {string} [params.district='Surat']
-   * @param {string} [params.state='Gujarat']
+   * @param {string} [params.district='Pune']
+   * @param {string} [params.state='Maharashtra']
    * @returns {Promise<Object>}
    */
   async getRainAlerts(params = {}) {
