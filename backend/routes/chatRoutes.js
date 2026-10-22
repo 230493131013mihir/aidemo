@@ -6,13 +6,14 @@
 
 const express = require('express');
 const router = express.Router();
+const authMiddleware = require('../middleware/auth.middleware');
 const { handleChatMessage, handleChatStatus } = require('../controllers/chatController');
 
 /**
  * Route: POST /api/chat/message
  * Desc: Send a question to Mitra Assistant
  */
-router.post('/message', handleChatMessage);
+router.post('/message', authMiddleware, handleChatMessage);
 
 /**
  * Route: GET /api/chat/status

@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "seed": "node seed.js",
-    "test": "node services/testMathEngine.js && node services/testTransport.js && node test/aiService.test.js && node test/marketService.test.js && node test/weatherService.test.js && node test/schemeService.test.js && node test/api_security.test.js && node test/guest_mode.test.js && node test/mandiAnalyticsAlertsReport.test.js && node test/mandiSync.test.js"
+    "seed": "node seed.js && node scripts/seedAllIndiaMarkets.js",
+    "test": "node services/testMathEngine.js && node services/testTransport.js && node test/aiService.test.js && node test/marketService.test.js && node test/weatherService.test.js && node test/schemeService.test.js && node test/api_security.test.js && node test/guest_mode.test.js && node test/mandiAnalyticsAlertsReport.test.js && node test/mandiSync.test.js && node test/farmerCrops.test.js && node test/sharedTransportBooking.test.js && node test/marketWeatherApi.test.js && node test/chatApi.test.js && node test/transport_security.test.js && node test/escrow_rating.test.js && node test/mandi_forecast.test.js"
   },
   "keywords": [],
   "author": "",
@@ -16,10 +16,10 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
-    "dotenv": "^18.0.5",
-    "express": "^5.2.1",
+    "dotenv": "^18.0.8",
+    "express": "^5.3.0",
     "jsonwebtoken": "^9.0.3",
-    "mysql2": "^3.24.5",
+    "mysql2": "^3.24.6",
     "sequelize": "^6.37.8",
     "sqlite3": "^6.0.1"
   },

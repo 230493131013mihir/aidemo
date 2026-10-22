@@ -1,15 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Navbar from '../components/navigation/Navbar';
 import Sidebar from '../components/navigation/Sidebar';
 import KisanFloatingBar from '../components/common/KisanFloatingBar';
-import GuestModeBanner from '../components/common/GuestModeBanner';
 import NetworkStatusBadge from '../components/common/NetworkStatusBadge';
 import { useLanguage } from '../context/LanguageContext';
 import { Bell, Sparkles } from 'lucide-react';
 
 export default function DashboardLayout() {
   const { t } = useLanguage();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden flex flex-col bg-gradient-to-br from-[#f8faf8] via-[#fcfbf7] to-[#f4f7f4] text-text selection:bg-primary/20 selection:text-primary-dark relative">
@@ -18,15 +18,18 @@ export default function DashboardLayout() {
       <div className="fixed -bottom-40 -right-40 w-96 h-96 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none -z-10" />
 
       {/* Top Navbar */}
-      <Navbar />
-
-      {/* Universal Guest Mode Banner */}
-      <GuestModeBanner />
+      <Navbar 
+        onToggleSidebar={() => setSidebarOpen((prev) => !prev)} 
+        isSidebarOpen={sidebarOpen} 
+      />
 
       {/* Main Workspace Body with Sidebar & Content */}
       <div className="flex-1 flex max-w-7xl w-full mx-auto min-w-0 overflow-x-hidden">
-        {/* Desktop Sidebar */}
-        <Sidebar className="hidden xl:flex min-h-[calc(100vh-4rem)]" />
+        {/* Left Sidebar (Desktop Static + Mobile Drawer) */}
+        <Sidebar 
+          isOpen={sidebarOpen} 
+          onClose={() => setSidebarOpen(false)} 
+        />
 
         {/* Content Viewport */}
         <div className="flex-1 flex flex-col min-w-0 max-w-full overflow-x-hidden">

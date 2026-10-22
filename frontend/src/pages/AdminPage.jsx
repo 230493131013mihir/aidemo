@@ -25,11 +25,13 @@ import {
   X,
   Landmark,
   ExternalLink,
-  CheckCircle
+  CheckCircle,
+  LogOut
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getTimeGreeting } from '../utils/greeting';
+import apiClient from '../services/apiClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
@@ -42,7 +44,7 @@ function authHeaders(token) {
 
 export default function AdminPage() {
   const navigate = useNavigate();
-  const { user, token: userToken, isAuthenticated, login } = useAuth();
+  const { user, token: userToken, isAuthenticated, login, logout } = useAuth();
   const { showToast } = useToast();
   const { greeting, icon } = getTimeGreeting();
 
@@ -66,7 +68,7 @@ export default function AdminPage() {
   const [editingPriceId, setEditingPriceId] = useState(null);
 
   const [priceForm, setPriceForm] = useState({
-    state: 'Gujarat',
+    state: 'Maharashtra',
     marketId: '',
     cropId: '',
     pricePerQuintal: '',
@@ -116,7 +118,7 @@ export default function AdminPage() {
     setError('');
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      const response = await apiClient('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password }),
@@ -406,58 +408,6 @@ export default function AdminPage() {
     }
   }
 
-  // STRICT ACCESS RESTRICTION:
-  // If user is logged in as a normal Farmer or Transporter, do NOT allow admin access or demo switch!
-  if (isAuthenticated && user?.role && user.role !== 'admin' && !token) {
-    return (
-      <div className="max-w-2xl mx-auto py-16 px-4">
-        <div className="rounded-3xl border border-red-200 bg-white p-8 sm:p-10 shadow-xl text-center space-y-6">
-          <div className="w-16 h-16 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto shadow-sm">
-            <ShieldAlert className="w-9 h-9" />
-          </div>
-
-          <div className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-red-700 bg-red-50 border border-red-200 px-3.5 py-1 rounded-full">
-              Privilege Restriction Active
-            </span>
-            <h1 className="text-2xl font-black text-text">
-              APMC Administrator Console
-            </h1>
-            <p className="text-sm text-muted max-w-md mx-auto leading-relaxed">
-              This administrative control panel is restricted to certified APMC Mandi Regulators. You are currently logged in with a{' '}
-              <strong className="text-primary font-bold capitalize">{user.role}</strong> account ({user.name}).
-            </p>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-left max-w-md mx-auto space-y-2">
-            <div className="flex justify-between">
-              <span className="text-muted font-medium">Logged-in User:</span>
-              <span className="font-bold text-text">{user.name}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted font-medium">Role:</span>
-              <span className="font-bold text-primary capitalize">{user.role}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted font-medium">Status:</span>
-              <span className="font-semibold text-emerald-700">Farmer Dashboard Access Only</span>
-            </div>
-          </div>
-
-          <div className="pt-2">
-            <Link
-              to="/dashboard"
-              className="btn-primary inline-flex items-center gap-2 py-3 px-8 rounded-xl text-sm font-bold shadow-md"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Return to Farmer Dashboard</span>
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // Filtered & Sorted prices for display
   const filteredAndSortedPrices = useMemo(() => {
     const list = prices.filter((p) => {
@@ -566,6 +516,58 @@ export default function AdminPage() {
     return filteredAndSortedSchemes.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredAndSortedSchemes, schemePage]);
 
+  // STRICT ACCESS RESTRICTION:
+  // If user is logged in as a normal Farmer or Transporter, do NOT allow admin access or demo switch!
+  if (isAuthenticated && user?.role && user.role !== 'admin' && !token) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 px-4">
+        <div className="rounded-3xl border border-red-200 bg-white p-8 sm:p-10 shadow-xl text-center space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto shadow-sm">
+            <ShieldAlert className="w-9 h-9" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-red-700 bg-red-50 border border-red-200 px-3.5 py-1 rounded-full">
+              Privilege Restriction Active
+            </span>
+            <h1 className="text-2xl font-black text-text">
+              APMC Administrator Console
+            </h1>
+            <p className="text-sm text-muted max-w-md mx-auto leading-relaxed">
+              This administrative control panel is restricted to certified APMC Mandi Regulators. You are currently logged in with a{' '}
+              <strong className="text-primary font-bold capitalize">{user.role}</strong> account ({user.name}).
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-left max-w-md mx-auto space-y-2">
+            <div className="flex justify-between">
+              <span className="text-muted font-medium">Logged-in User:</span>
+              <span className="font-bold text-text">{user.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted font-medium">Role:</span>
+              <span className="font-bold text-primary capitalize">{user.role}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted font-medium">Status:</span>
+              <span className="font-semibold text-emerald-700">Farmer Dashboard Access Only</span>
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <Link
+              to="/dashboard"
+              className="btn-primary inline-flex items-center gap-2 py-3 px-8 rounded-xl text-sm font-bold shadow-md"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Return to Farmer Dashboard</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   async function toggleSchemeStatus(schemeId, currentActive) {
     try {
       const res = await fetch(`${API_BASE_URL}/api/schemes/admin/${schemeId}/status`, {
@@ -627,14 +629,17 @@ export default function AdminPage() {
             </button>
             <button
               type="button"
+              id="admin-sign-out-btn"
               onClick={() => {
                 localStorage.removeItem('harvestmitra_admin_token');
                 setToken('');
                 showToast({ type: 'info', title: 'Signed Out', message: 'Admin session terminated.' });
+                logout();
               }}
-              className="py-2.5 px-4 rounded-xl text-xs font-bold border border-slate-300 bg-white hover:bg-slate-100 text-text transition-colors"
+              className="py-2.5 px-4 rounded-xl text-xs font-bold border border-slate-300 bg-white hover:bg-slate-100 text-red-600 transition-colors flex items-center gap-1.5"
             >
-              Sign Out Admin
+              <LogOut className="w-3.5 h-3.5 shrink-0" />
+              <span>Sign Out Admin</span>
             </button>
           </div>
         )}

@@ -57,6 +57,18 @@ const TransporterProfile = sequelize.define(
             allowNull: false,
             defaultValue: true,
             field: "is_available"
+        },
+        rating: {
+            type: DataTypes.FLOAT,
+            allowNull: false,
+            defaultValue: 4.8,
+            field: "rating"
+        },
+        totalRatings: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 1,
+            field: "total_ratings"
         }
     },
     {

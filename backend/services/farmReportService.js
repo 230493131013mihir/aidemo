@@ -14,18 +14,18 @@ class FarmReportService {
    */
   async generateFarmDecisionReport(params = {}) {
     // 1. Farmer & Farm Parameters
-    const farmerName = params.farmerName || 'Ramesh Patel';
+    const farmerName = params.farmerName || 'Ramesh Patil';
     const phone = params.phone || '+91 98765 43210';
-    const village = params.village || 'Bardoli';
-    const district = params.district || 'Surat';
-    const state = params.state || 'Gujarat';
+    const village = params.village || 'Haveli';
+    const district = params.district || 'Pune';
+    const state = params.state || 'Maharashtra';
     const farmSizeAcres = Number(params.farmSizeAcres || 4.5);
     const crop = params.crop || params.commodity || 'Tomato';
     const quantityKg = Number(params.quantityKg || params.quantity || 1500);
 
     // 2. Market Parameters
-    const localMandi = params.localMandi || 'Surat APMC Mandi';
-    const regionalMandi = params.regionalMandi || 'Pune APMC (Gultekdi)';
+    const localMandi = params.localMandi || 'Pune APMC Mandi (Gultekdi)';
+    const regionalMandi = params.regionalMandi || 'Mumbai APMC (Vashi)';
 
     // Retrieve or set realistic APMC prices
     let localPricePerKg = params.localPricePerKg ? Number(params.localPricePerKg) : null;

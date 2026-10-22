@@ -14,6 +14,7 @@ if not exist .env (
 echo.
 echo [2/3] Seeding Maharashtra APMC Database...
 call npm run seed
+node scripts/seedAllIndiaMarkets.js
 echo.
 echo [3/3] Installing frontend dependencies...
 cd ..\frontend

@@ -10,7 +10,9 @@ import {
   fetchCrops,
   fetchMarketPrices,
   compareMarkets,
-  fetchPriceTrends
+  fetchPriceTrends,
+  fetchPriceForecast,
+  fetchInterMandiArbitrage
 } from '../src/services/marketApiService.js';
 import {
   fetchWeather,
@@ -96,6 +98,62 @@ try {
     /Failed to load weather: HTTP 500/
   );
   console.log('  ✅ [PASS] Gracefully throws structured error on HTTP failures');
+
+  // 6. Test fetchPriceForecast client contract
+  global.fetch = async (url) => {
+    assert.ok(url.includes('/api/markets/forecast?crop=Tomato&mandi=Surat'));
+    return {
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          crop: 'Tomato',
+          mandi: 'Surat APMC',
+          currentPrice: 20.0,
+          trend: 'RISING',
+          forecastPoints: Array.from({ length: 14 }, (_, i) => ({
+            day: i + 1,
+            predictedPrice: 20 + i * 0.2,
+            lowerBound: 19 + i * 0.1,
+            upperBound: 21 + i * 0.3
+          }))
+        }
+      })
+    };
+  };
+  const forecast = await fetchPriceForecast('Tomato', 'Surat');
+  assert.strictEqual(forecast.crop, 'Tomato');
+  assert.strictEqual(forecast.forecastPoints.length, 14);
+  assert.ok(forecast.forecastPoints[0].lowerBound <= forecast.forecastPoints[0].upperBound);
+  console.log('  ✅ [PASS] fetchPriceForecast queries /api/markets/forecast and receives 14-day predictions with bounds');
+
+  // 7. Test fetchInterMandiArbitrage client contract
+  global.fetch = async (url) => {
+    assert.ok(url.includes('/api/markets/arbitrage?crop=Tomato&quantityKg=1000&origin=Surat'));
+    return {
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          crop: 'Tomato',
+          quantityKg: 1000,
+          origin: 'Surat',
+          winner: { mandi: 'Mumbai Vashi APMC', netProfit: 29194 },
+          rankedMandis: [
+            { rank: 1, mandi: 'Mumbai Vashi APMC', netProfit: 29194, highwayTolls: 580, dieselCost: 2384, mandiCess: 341 },
+            { rank: 2, mandi: 'Pune APMC', netProfit: 26000, highwayTolls: 1060, dieselCost: 3471, mandiCess: 310 },
+            { rank: 3, mandi: 'Surat APMC', netProfit: 23800, highwayTolls: 0, dieselCost: 125, mandiCess: 240 }
+          ]
+        }
+      })
+    };
+  };
+  const arbitrage = await fetchInterMandiArbitrage('Tomato', 1000, 'Surat');
+  assert.strictEqual(arbitrage.rankedMandis.length, 3);
+  assert.strictEqual(arbitrage.rankedMandis[0].rank, 1);
+  assert.strictEqual(arbitrage.rankedMandis[0].mandi, 'Mumbai Vashi APMC');
+  assert.strictEqual(arbitrage.rankedMandis[0].highwayTolls, 580);
+  console.log('  ✅ [PASS] fetchInterMandiArbitrage queries /api/markets/arbitrage and receives ranked mandis after tolls & fuel');
 
 } finally {
   global.fetch = originalFetch;

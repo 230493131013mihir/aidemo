@@ -27,6 +27,7 @@ aidemo/
 *.sln
 *.sw?
 .DS_Store
+~$*
 
 # Logs
 logs/
