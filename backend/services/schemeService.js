@@ -612,7 +612,7 @@ class SchemeService {
     await this.ensureSeeded();
 
     const {
-      state = "Gujarat",
+      state = "Maharashtra",
       district = "",
       farmSizeAcres = null,
       crops = [],
