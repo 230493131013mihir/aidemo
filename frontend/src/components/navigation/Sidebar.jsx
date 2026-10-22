@@ -17,10 +17,13 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import ThemeToggle from '../common/ThemeToggle';
 
 export default function Sidebar({ className = '' }) {
   const { t } = useLanguage();
   const { user, isAuthenticated, logout } = useAuth();
+  const { isDark } = useTheme();
 
   const displayName = user?.name || 'Farmer';
   const roleName =
@@ -91,7 +94,7 @@ export default function Sidebar({ className = '' }) {
 
   return (
     <aside 
-      className={`w-64 shrink-0 bg-surface border-r border-border flex flex-col justify-between p-4 ${className}`}
+      className={`w-64 shrink-0 border-r flex flex-col justify-between p-4 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-surface border-border'} ${className}`}
       aria-label="Dashboard sidebar navigation"
     >
       <div className="space-y-6">
@@ -157,6 +160,8 @@ export default function Sidebar({ className = '' }) {
             Account
           </div>
           <nav className="space-y-1">
+            {/* Dark/Light Mode Toggle */}
+            <ThemeToggle variant="sidebar" />
             <NavLink
               to="/profile"
               className={({ isActive }) =>

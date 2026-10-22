@@ -6,16 +6,22 @@ import KisanFloatingBar from '../components/common/KisanFloatingBar';
 import GuestModeBanner from '../components/common/GuestModeBanner';
 import NetworkStatusBadge from '../components/common/NetworkStatusBadge';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 import { Bell, Sparkles } from 'lucide-react';
 
 export default function DashboardLayout() {
   const { t } = useLanguage();
+  const { isDark } = useTheme();
 
   return (
-    <div className="min-h-screen max-w-full overflow-x-hidden flex flex-col bg-gradient-to-br from-[#f8faf8] via-[#fcfbf7] to-[#f4f7f4] text-text selection:bg-primary/20 selection:text-primary-dark relative">
+    <div className={`min-h-screen max-w-full overflow-x-hidden flex flex-col text-text selection:bg-primary/20 selection:text-primary-dark relative ${
+      isDark
+        ? 'bg-[#0f172a]'
+        : 'bg-gradient-to-br from-[#f8faf8] via-[#fcfbf7] to-[#f4f7f4]'
+    }`}>
       {/* Ambient glowing backdrops */}
-      <div className="fixed -top-40 -left-40 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none -z-10" />
-      <div className="fixed -bottom-40 -right-40 w-96 h-96 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className={`fixed -top-40 -left-40 w-96 h-96 rounded-full blur-3xl pointer-events-none -z-10 ${isDark ? 'bg-emerald-900/20' : 'bg-primary/5'}`} />
+      <div className={`fixed -bottom-40 -right-40 w-96 h-96 rounded-full blur-3xl pointer-events-none -z-10 ${isDark ? 'bg-indigo-900/15' : 'bg-emerald-400/5'}`} />
 
       {/* Top Navbar */}
       <Navbar />
@@ -31,7 +37,7 @@ export default function DashboardLayout() {
         {/* Content Viewport */}
         <div className="flex-1 flex flex-col min-w-0 max-w-full overflow-x-hidden">
           {/* Sub-header / Notification banner area */}
-          <div className="bg-surface/60 border-b border-border/80 px-4 sm:px-6 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+          <div className={`border-b px-4 sm:px-6 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 ${isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-surface/60 border-border/80'}`}>
             <div className="flex items-center gap-2 text-xs text-muted">
               <span className="w-2 h-2 rounded-full bg-success animate-pulse" aria-hidden="true"></span>
               <span className="font-medium text-text">{t('common.statusReady')}</span>
