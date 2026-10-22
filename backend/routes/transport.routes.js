@@ -305,6 +305,22 @@ router.get("/transporter-stats", requireRole("transporter"), async (req, res) =>
     }
 });
 
+// Admin: List ALL transport requests across all farmers
+router.get("/admin/all-requests", requireRole("admin"), async (req, res) => {
+    try {
+        await ensureTransportSchema();
+        const allRequests = await TransportRequest.findAll({
+            include: [{ model: User, as: 'farmer', attributes: ['id', 'name', 'email'] }],
+            order: [['createdAt', 'DESC']],
+            limit: 100
+        });
+        res.json({ success: true, requests: allRequests });
+    } catch (err) {
+        console.error("Admin all transport requests error:", err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // Driver / Transporter accepts a cargo request (Strict Single-Trip Lock)
 router.put("/requests/:id/accept", requireRole("transporter"), async (req, res) => {
     try {

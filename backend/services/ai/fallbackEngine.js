@@ -351,7 +351,7 @@ function handleWeather(context, lang) {
 function handleProfile(context, lang) {
   const farmer = context.farmer || {};
   const name = farmer.name || 'Farmer';
-  const location = farmer.location || 'Gujarat';
+  const location = farmer.location || 'Maharashtra';
 
   if (lang === 'mr') {
     return `नमस्कार ${name}! तुमचे स्थान ${location} आहे. तुम्ही Profile पृष्ठावर जाऊन तुमच्या शेत आणि पिकांची माहिती अपडेट करू शकता.`;
@@ -530,9 +530,10 @@ Explore personalized matching on our **Kisan Sahayata — Government Schemes** f
 Here are key verified central and state agriculture schemes:
 1. **PM-KISAN**: ₹6,000/year direct financial support (https://pmkisan.gov.in/)
 2. **PMFBY**: Comprehensive crop insurance against weather hazards (https://pmfby.gov.in/)
-3. **Gujarat i-Khedut**: Subsidies for tractors, drip irrigation, and equipment (https://ikhedut.gujarat.gov.in/)
-4. **Kisan Credit Card (KCC)**: Concessional crop loans at 4% effective interest rate.
-5. **Soil Health Card Scheme**: Scientific soil testing and fertilizer advice.
+3. **Maharashtra MahaDBT**: Farm subsidies, tractor aid, drip irrigation subsidies (https://mahadbt.maharashtra.gov.in/)
+4. **Gujarat i-Khedut**: Subsidies for tractors, drip irrigation, and equipment (https://ikhedut.gujarat.gov.in/)
+5. **Kisan Credit Card (KCC)**: Concessional crop loans at 4% effective interest rate.
+6. **Soil Health Card Scheme**: Scientific soil testing and fertilizer advice.
 
 👉 Use the **Government Schemes** finder in your dashboard navigation to check personalized eligibility, download document checklists, and access verified government portals!`;
 }
