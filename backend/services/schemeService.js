@@ -187,6 +187,51 @@ const VERIFIED_SCHEMES_SEED = [
     status: "active"
   },
   {
+    identifier: "maha-magel-tyala-shettale",
+    nameEn: "Magel Tyala Shettale (Maharashtra Farm Pond Scheme)",
+    nameHi: "मागेल त्याला शेततळे (महाराष्ट्र शेततळे योजना)",
+    nameGu: "માગેલ ત્યાલા શેતતળે (મહારાષ્ટ્ર ફાર્મ પોન્ડ યોજના)",
+    shortDescriptionEn: "Government of Maharashtra provides 100% subsidy for construction of farm ponds (shettale) on agricultural land to conserve rainwater for irrigation and drought resilience.",
+    shortDescriptionHi: "महाराष्ट्र सरकार कृषि भूमि पर शेततळे (फार्म पौंड) निर्माण के लिए 100% तक अनुदान प्रदान करती है।",
+    shortDescriptionGu: "મહારાષ્ટ્ર સરકાર ખેતીની જમીન પર ફાર્મ પોન્ડ બનાવવા 100% સુધીની સબસિડી આપે છે.",
+    benefitsEn: "Up to ₹50,000 for plastic-lined farm ponds and ₹1,00,000 for cement-lined ponds. 100% financial assistance for SC/ST and small/marginal farmers.",
+    benefitsHi: "प्लास्टिक-लाइन्ड शेततळे के लिए ₹50,000 तक और सीमेंट-लाइन्ड के लिए ₹1,00,000 तक का अनुदान।",
+    benefitsGu: "પ્લાસ્ટિક-લાઇન ફાર્મ પોન્ડ માટે ₹50,000 અને સિમેન્ટ-લાઇન માટે ₹1,00,000 સુધીની સહાય.",
+    category: "irrigation_water",
+    scope: "state",
+    stateApplicability: "Maharashtra",
+    districtApplicability: "All Maharashtra Districts (Pune, Nashik, Kolhapur, Solapur, Ahmednagar, etc.)",
+    department: "Department of Agriculture, Government of Maharashtra",
+    officialDomain: "krishi.maharashtra.gov.in",
+    officialInfoUrl: "https://krishi.maharashtra.gov.in/",
+    officialApplicationUrl: "https://mahadbt.maharashtra.gov.in/",
+    applicationWindowStatus: "Open as per annual MahaDBT calendar",
+    targetBeneficiaries: "All landholding farmers of Maharashtra state",
+    eligibilityRules: JSON.stringify({
+      requiresLandOwnership: true,
+      applicableStates: ["Maharashtra"],
+      requiresWaterSource: false,
+      farmerCategories: ["all", "small_marginal", "sc_st", "women"]
+    }),
+    exclusionCriteria: "Farmers who have already availed farm pond subsidy on the same survey number.",
+    applicationProcessSteps: JSON.stringify([
+      "Apply online through MahaDBT portal (mahadbt.maharashtra.gov.in) under Agriculture Department schemes.",
+      "Select 'Magel Tyala Shettale' scheme and enter 7/12 extract details.",
+      "Submit application with required documents; Taluka Agriculture Officer verifies eligibility.",
+      "Upon approval, construct the farm pond as per prescribed dimensions; subsidy released after physical inspection."
+    ]),
+    requiredDocuments: JSON.stringify([
+      { id: "7_12", name: "7/12 Utara (Land Record)", optional: false, description: "Recent land extract from Mahabhulekh" },
+      { id: "aadhaar", name: "Aadhaar Card", optional: false, description: "Farmer identity verification" },
+      { id: "bank_passbook", name: "Bank Passbook Copy", optional: false, description: "Account for subsidy disbursement" },
+      { id: "caste_cert", name: "Caste Certificate (if SC/ST)", optional: true, description: "For priority subsidy eligibility" }
+    ]),
+    lastVerifiedDate: "2026-10-22",
+    sourceUrl: "https://krishi.maharashtra.gov.in/",
+    verificationStatus: "verified",
+    status: "active"
+  },
+  {
     identifier: "smam-machinery",
     nameEn: "Sub-Mission on Agricultural Mechanization (SMAM)",
     nameHi: "कृषि यंत्रीकरण पर उप-मिशन (एसएमएएम)",
