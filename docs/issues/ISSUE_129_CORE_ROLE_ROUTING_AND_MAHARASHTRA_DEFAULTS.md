@@ -11,6 +11,7 @@
 ## 🎯 Bug Specifications & Fixes Implemented
 
 ### Bug 1: Registration redirects all roles to /dashboard
+- **GitHub Issue:** [#135](https://github.com/230493131013mihir/aidemo/issues/135)
 - **Severity:** HIGH
 - **File:** `frontend/src/pages/AuthPage.jsx:326-339`
 - **Problem:** After successful registration, `navigate('/dashboard')` was hardcoded for all users. Transporters, Mandis, and Admins were incorrectly landed on the Farmer Dashboard.
@@ -21,18 +22,21 @@
   - Default / Farmer ➔ `navigate('/dashboard')`
 
 ### Bug 2: Admin Price Form defaults state to "Gujarat" instead of "Maharashtra"
+- **GitHub Issue:** [#136](https://github.com/230493131013mihir/aidemo/issues/136)
 - **Severity:** MEDIUM
 - **File:** `frontend/src/pages/AdminPage.jsx:71`
 - **Problem:** `priceForm` state initialized with `state: 'Gujarat'`, causing admin APMC price entry to default to Gujarat instead of Maharashtra.
 - **Fix:** Updated default state to `state: 'Maharashtra'`.
 
 ### Bug 3: marketPriceService fallback state is "Gujarat"
+- **GitHub Issue:** [#137](https://github.com/230493131013mihir/aidemo/issues/137)
 - **Severity:** MEDIUM
 - **File:** `backend/services/marketPriceService.js:226`
 - **Problem:** In `listPublicMarketPrices()`, fallback state was `item.Market?.state || "Gujarat"`.
 - **Fix:** Updated fallback to `item.Market?.state || "Maharashtra"`.
 
 ### Bug 4: farmReportService defaults to Gujarat/Surat/Bardoli farmer profile
+- **GitHub Issue:** [#138](https://github.com/230493131013mihir/aidemo/issues/138)
 - **Severity:** MEDIUM
 - **File:** `backend/services/farmReportService.js:17-28`
 - **Problem:** Decision report fallback farmer was 'Ramesh Patel' from 'Bardoli, Surat, Gujarat' with 'Surat APMC Mandi'.
@@ -45,6 +49,7 @@
   - `regionalMandi`: 'Mumbai APMC (Vashi)'
 
 ### Bug 5: distanceFromSuratKm field name is Surat-specific
+- **GitHub Issue:** [#139](https://github.com/230493131013mihir/aidemo/issues/139)
 - **Severity:** LOW
 - **File:** `backend/services/marketPriceService.js:227`
 - **Problem:** Field name `distanceFromSuratKm` was tailored to Surat while the application serves Maharashtra.
