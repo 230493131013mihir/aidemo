@@ -1143,7 +1143,7 @@ router.get("/transporter-stats", requireRole("transporter"), async (req, res) =>
     }
 });
 
-// Admin: List ALL transport requests across all farmers
+// Admin: List ALL transport requests across all farmers (Fixes #158)
 router.get("/admin/all-requests", requireRole("admin"), async (req, res) => {
     try {
         await ensureTransportSchema();
