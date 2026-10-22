@@ -18,13 +18,11 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
 import ThemeToggle from '../common/ThemeToggle';
 
 export default function Sidebar({ isOpen = false, onClose, className = '' }) {
   const { t } = useLanguage();
   const { user, isAuthenticated, logout } = useAuth();
-  const { isDark } = useTheme();
 
   const displayName = user?.name || 'Prashant Warule';
   const roleName =
@@ -87,15 +85,37 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
     ];
   }, [isAdmin, isTransporter, t]);
 
-  return (
-    <aside 
-      className={`w-64 shrink-0 border-r flex flex-col justify-between p-4 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-surface border-border'} ${className}`}
-      aria-label="Dashboard sidebar navigation"
-    >
-      <div className="space-y-6">
-        {/* Role-Aware User Status Pill */}
-        <div className="p-3 rounded-xl bg-secondary/80 border border-border/80 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
+  const handleLinkClick = () => {
+    if (onClose) {
+      onClose();
+    }
+  };
+
+  const renderSidebarContent = (isMobileDrawer = false) => (
+    <div className="flex flex-col justify-between h-full space-y-6">
+      <div className="space-y-5">
+        {/* Mobile Header with Close Button */}
+        {isMobileDrawer && (
+          <div className="flex items-center justify-between pb-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-base tracking-tight text-text">
+                Harvest<span className="text-primary">Mitra</span> Navigation
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close navigation sidebar"
+              className="p-1.5 rounded-xl text-muted hover:text-text hover:bg-slate-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+
+        {/* User Status Card */}
+        <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-teal-50/50 border border-emerald-200/80 flex items-center gap-3 shadow-2xs">
+          <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
             {isTransporter ? '🚚' : isAdmin ? '🛡️' : '🌾'}
           </div>
           <div className="min-w-0 flex-1">
@@ -156,9 +176,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
           <div className="px-3 text-[11px] font-extrabold uppercase tracking-wider text-muted">
             Account Settings
           </div>
-          <nav className="space-y-1">
-            {/* Dark/Light Mode Toggle */}
-            <ThemeToggle variant="sidebar" />
+          <nav className="space-y-1 pt-1" aria-label="Sidebar account navigation">
             <NavLink
               to="/profile"
               onClick={handleLinkClick}
