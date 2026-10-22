@@ -516,8 +516,8 @@ class WeatherService {
    * Retrieve only active alerts and rain advisory for a district
    *
    * @param {Object} params
-   * @param {string} [params.district='Surat']
-   * @param {string} [params.state='Gujarat']
+   * @param {string} [params.district='Pune']
+   * @param {string} [params.state='Maharashtra']
    * @returns {Promise<Object>}
    */
   async getRainAlerts(params = {}) {
