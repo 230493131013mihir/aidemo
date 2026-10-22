@@ -207,7 +207,7 @@ export default function AuthSuccessModal({ isOpen, mode = 'register', data = {},
         >
           <span>
             {isRegister
-              ? `Proceed to Login (${countdown}s)`
+              ? `Enter Dashboard (${countdown}s)`
               : isAdmin
               ? `Open Admin Panel (${countdown}s)`
               : isTransporter

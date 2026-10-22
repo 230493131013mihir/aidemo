@@ -182,11 +182,14 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
     async function fetchReport() {
       setLoading(true);
       try {
+        const token = localStorage.getItem('harvestmitra_token') || localStorage.getItem('token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const res = await fetch(`${API_BASE_URL}/api/reports/farm-decision`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
-            farmerName: 'Ramesh Patel',
             crop: 'Tomato',
             farmSizeAcres: 4.5,
             quantityKg: 1500,
@@ -230,8 +233,26 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
 
   const currentReport = report || defaultReport;
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    try {
+      const token = localStorage.getItem('harvestmitra_token') || localStorage.getItem('token');
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_BASE_URL}/api/reports/farm-decision/print`, {
+        headers
+      });
+      if (!res.ok) {
+        window.print();
+        return;
+      }
+      const htmlText = await res.text();
+      const blob = new Blob([htmlText], { type: 'text/html;charset=utf-8' });
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+    } catch {
+      window.print();
+    }
   };
 
   /**

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   AlertCircle,
   CheckCircle2,
@@ -16,7 +16,8 @@ import {
   Layers,
   Scale,
   ArrowLeft,
-  X
+  X,
+  Search
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -32,30 +33,16 @@ const MAHARASHTRA_DISTRICTS = [
 const STANDARD_CROPS = [
   'Tomato', 'Onion', 'Potato', 'Cotton', 'Wheat',
   'Soybean', 'Rice', 'Maize', 'Pomegranate', 'Grapes',
-  'Sugarcane', 'Turmeric', 'Other'
+  'Sugarcane', 'Turmeric', 'Green Chilli', 'Brinjal', 'Garlic',
+  'Groundnut', 'Mustard', 'Other'
 ];
 
 export default function AuthPage({ mode = 'login' }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, register } = useAuth();
   const { showToast } = useToast();
   const isRegister = mode === 'register';
-
-  // Requirement: When user refreshes / reloads while on /register, return to the landing page without login
-  useEffect(() => {
-    if (isRegister) {
-      try {
-        const navEntries = window.performance?.getEntriesByType?.('navigation');
-        const isReload = (navEntries && navEntries[0]?.type === 'reload') ||
-                         (window.performance?.navigation?.type === 1);
-        if (isReload) {
-          navigate('/', { replace: true });
-        }
-      } catch (e) {
-        // Safe ignore
-      }
-    }
-  }, [isRegister, navigate]);
 
   // 4-Way Role Selector: 'farmer', 'transporter', 'mandi', 'admin'
   const [role, setRole] = useState('farmer');
@@ -95,6 +82,7 @@ export default function AuthPage({ mode = 'login' }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [cropSearchTerm, setCropSearchTerm] = useState('');
 
   // 3D Success Popup Modal state (registration only)
   const [modalState, setModalState] = useState({
@@ -115,27 +103,33 @@ export default function AuthPage({ mode = 'login' }) {
       const item = quantities[crop] || quantities[entryKey];
       if (item && item.qty) {
         const val = Number(item.qty) || 0;
-        total += item.unit === 'tonne' ? val * 1000 : val;
+        const u = String(item.unit || 'kg').toLowerCase();
+        if (u === 'tonne' || u === 'ton' || u === 'mt') {
+          total += val * 1000;
+        } else if (u === 'quintal' || u === 'qtl') {
+          total += val * 100;
+        } else {
+          total += val;
+        }
       }
     });
-    return total;
+    return Math.round(total);
   };
 
   function handleCropToggle(crop) {
     setForm((prev) => {
       const exists = prev.selectedCrops?.includes(crop);
       let updatedCrops;
+      const updatedQuantities = { ...prev.productQuantities };
+
       if (exists) {
         updatedCrops = prev.selectedCrops.filter(c => c !== crop);
-        if (updatedCrops.length === 0) updatedCrops = ['Tomato'];
+        delete updatedQuantities[crop];
       } else {
         updatedCrops = [...(prev.selectedCrops || []), crop];
-      }
-
-      // Sync product quantities map
-      const updatedQuantities = { ...prev.productQuantities };
-      if (!exists && !updatedQuantities[crop]) {
-        updatedQuantities[crop] = { qty: 250, unit: 'kg' };
+        if (!updatedQuantities[crop]) {
+          updatedQuantities[crop] = { qty: 250, unit: 'kg' };
+        }
       }
 
       const totalKg = calculateTotalKg(updatedQuantities, updatedCrops, prev.customCrop);
@@ -144,18 +138,37 @@ export default function AuthPage({ mode = 'login' }) {
         ...prev,
         selectedCrops: updatedCrops,
         productQuantities: updatedQuantities,
-        currentHarvestKg: String(totalKg || 250)
+        currentHarvestKg: String(totalKg)
+      };
+    });
+  }
+
+  function handleCropRemove(crop) {
+    setForm((prev) => {
+      const updatedCrops = prev.selectedCrops.filter(c => c !== crop);
+      const updatedQuantities = { ...prev.productQuantities };
+      delete updatedQuantities[crop];
+      const totalKg = calculateTotalKg(updatedQuantities, updatedCrops, prev.customCrop);
+      return {
+        ...prev,
+        selectedCrops: updatedCrops,
+        productQuantities: updatedQuantities,
+        currentHarvestKg: String(totalKg)
       };
     });
   }
 
   function handleProductQtyChange(crop, qtyVal, unitVal) {
     setForm((prev) => {
+      const currentEntry = prev.productQuantities[crop] || { qty: 250, unit: 'kg' };
+      const nextQty = qtyVal !== undefined ? qtyVal : currentEntry.qty;
+      const nextUnit = unitVal !== undefined ? unitVal : currentEntry.unit;
+
       const updatedQuantities = {
         ...prev.productQuantities,
         [crop]: {
-          qty: qtyVal !== undefined ? qtyVal : (prev.productQuantities[crop]?.qty || 0),
-          unit: unitVal !== undefined ? unitVal : (prev.productQuantities[crop]?.unit || 'kg')
+          qty: nextQty,
+          unit: nextUnit
         }
       };
 
@@ -196,8 +209,19 @@ export default function AuthPage({ mode = 'login' }) {
       if (Number.isNaN(farmSize) || farmSize <= 0) {
         return 'Please enter a valid farm size in acres.';
       }
+      if (!form.selectedCrops || form.selectedCrops.length === 0) {
+        return 'Please select at least one crop grown on your land.';
+      }
       if (form.selectedCrops.includes('Other') && !form.customCrop.trim()) {
         return 'Please enter your custom crop name.';
+      }
+      for (const crop of form.selectedCrops) {
+        const item = form.productQuantities[crop];
+        const val = item ? Number(item.qty) : 0;
+        if (!item || Number.isNaN(val) || val <= 0) {
+          const dName = crop === 'Other' && form.customCrop ? form.customCrop : crop;
+          return `Please enter a valid harvest quantity (> 0) for ${dName}.`;
+        }
       }
       const harvestKg = Number(form.currentHarvestKg);
       if (Number.isNaN(harvestKg) || harvestKg <= 0) {
@@ -292,28 +316,26 @@ export default function AuthPage({ mode = 'login' }) {
           facilities: form.facilities
         });
 
-        const msg = payload.message || 'Account registered successfully! Please login with your credentials.';
+        const msg = payload.message || 'Account registered successfully! Entering your dashboard...';
         setSuccess(msg);
 
         showToast({
           type: 'celebrate',
           title: '🙏 Registration Complete!',
-          message: `Thank you, ${form.name.trim()}! Your ${role === 'mandi' ? 'Mandi Official' : role === 'transporter' ? 'Transporter' : 'Farmer'} profile is now active.`,
-          duration: 5000,
+          message: `Welcome, ${form.name.trim()}! Your ${role === 'mandi' ? 'Mandi Official' : role === 'transporter' ? 'Transporter' : 'Farmer'} profile is active. Opening dashboard...`,
+          duration: 3000,
         });
 
-        // 3D Celebration Modal for Registration
-        setModalState({
-          isOpen: true,
-          mode: 'register',
-          data: {
-            name: form.name.trim(),
-            role,
-            phone: form.phone.replace(/\D/g, '').slice(-10),
-            email: form.email.trim(),
-            district: role === 'farmer' ? form.district : role === 'mandi' ? form.mandiName : form.baseMandi,
-          },
-        });
+        // Role-based redirect after registration (BUG FIX: was hardcoded to /dashboard for all roles)
+        if (role === 'admin') {
+          navigate('/admin');
+        } else if (role === 'transporter') {
+          navigate('/transport');
+        } else if (role === 'mandi') {
+          navigate('/markets');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         // INSTANT LOGIN REDIRECT (Requirement 5: No delay, no countdown, immediate redirect)
         const loggedUser = await login(form.email.trim(), form.password);
@@ -328,6 +350,12 @@ export default function AuthPage({ mode = 'login' }) {
           message: `Welcome back, ${loggedUser?.name || 'User'}! Connecting to live Maharashtra APMCs...`,
           duration: 2500,
         });
+
+        const fromPath = location.state?.from?.pathname;
+        if (fromPath && fromPath !== '/' && fromPath !== '/login') {
+          navigate(fromPath, { replace: true });
+          return;
+        }
 
         const userRole = loggedUser?.role || role;
         if (userRole === 'admin') {
@@ -354,7 +382,7 @@ export default function AuthPage({ mode = 'login' }) {
 
   function handleModalProceed() {
     setModalState((prev) => ({ ...prev, isOpen: false }));
-    navigate('/login');
+    navigate('/dashboard');
   }
 
   return (
@@ -659,39 +687,94 @@ export default function AuthPage({ mode = 'login' }) {
                         </label>
                       </div>
 
-                      {/* Multi-Crop Selection with "Other" Custom Crop Option (Requirement 8) */}
-                      <div className="space-y-1.5">
+                      {/* Multi-Crop Selection with Searchable Selector and Tags */}
+                      <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                            Crops Grown on Your Land *
+                          <span className="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-1.5">
+                            <Sprout className="w-3.5 h-3.5 text-primary" />
+                            <span>Select Crops Grown on Your Land *</span>
                           </span>
-                          <span className="text-[11px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                            {form.selectedCrops.length} selected
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
+                            form.selectedCrops.length > 0 
+                              ? 'text-emerald-700 bg-emerald-50 border-emerald-200' 
+                              : 'text-amber-700 bg-amber-50 border-amber-200'
+                          }`}>
+                            {form.selectedCrops.length} crop{form.selectedCrops.length === 1 ? '' : 's'} selected
                           </span>
                         </div>
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {STANDARD_CROPS.map((crop) => {
-                            const isSelected = form.selectedCrops.includes(crop);
-                            return (
-                              <button
-                                key={crop}
-                                type="button"
-                                onClick={() => handleCropToggle(crop)}
-                                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                                  isSelected
-                                    ? 'bg-emerald-600 text-white shadow-xs border border-emerald-700'
-                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
-                                }`}
-                              >
-                                <span>{crop}</span>
-                                {isSelected ? <span>✓</span> : <span className="opacity-40">+</span>}
-                              </button>
-                            );
-                          })}
+
+                        {/* Search Bar for Crops */}
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Search crops (e.g. Tomato, Onion, Wheat, Cotton)..."
+                            value={cropSearchTerm}
+                            onChange={(e) => setCropSearchTerm(e.target.value)}
+                            className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-border text-xs bg-white outline-none focus:border-primary"
+                          />
+                          {cropSearchTerm && (
+                            <button
+                              type="button"
+                              onClick={() => setCropSearchTerm('')}
+                              className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Selected Crops Badge Chips */}
+                        {form.selectedCrops.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 p-2 bg-emerald-50/70 rounded-xl border border-emerald-200">
+                            {form.selectedCrops.map((crop) => {
+                              const displayName = crop === 'Other' && form.customCrop ? form.customCrop : crop;
+                              return (
+                                <span
+                                  key={crop}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-700 text-white text-xs font-bold shadow-2xs"
+                                >
+                                  <span>{displayName}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCropRemove(crop)}
+                                    className="hover:bg-emerald-900 rounded-full w-4 h-4 inline-flex items-center justify-center text-xs ml-0.5 cursor-pointer font-bold"
+                                    title={`Remove ${displayName}`}
+                                  >
+                                    ✕
+                                  </button>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Available Crops Grid (Filtered) */}
+                        <div className="flex flex-wrap gap-1.5 pt-1 max-h-36 overflow-y-auto pr-1">
+                          {STANDARD_CROPS
+                            .filter(crop => crop.toLowerCase().includes(cropSearchTerm.toLowerCase()) || crop === 'Other')
+                            .map((crop) => {
+                              const isSelected = form.selectedCrops.includes(crop);
+                              return (
+                                <button
+                                  key={crop}
+                                  type="button"
+                                  onClick={() => handleCropToggle(crop)}
+                                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-emerald-600 text-white shadow-xs border border-emerald-700'
+                                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                                  }`}
+                                >
+                                  <span>{crop}</span>
+                                  {isSelected ? <span>✓</span> : <span className="opacity-40">+</span>}
+                                </button>
+                              );
+                            })}
                         </div>
                       </div>
 
-                      {/* Custom Crop Input when "Other" is chosen (Requirement 8) */}
+                      {/* Custom Crop Input when "Other" is chosen */}
                       {form.selectedCrops.includes('Other') && (
                         <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-1.5">
                           <label className="block space-y-1">
@@ -713,73 +796,89 @@ export default function AuthPage({ mode = 'login' }) {
                         </div>
                       )}
 
-                      {/* Product-Wise Quantity Inputs with kg / tonne toggle (Requirement 8, 16) */}
-                      <div className="space-y-2 pt-1 border-t border-slate-200">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                            <Scale className="w-3.5 h-3.5 text-primary" />
-                            <span>Product-Wise Harvest Quantities *</span>
-                          </span>
-                          <span className="text-xs font-mono font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md">
-                            Total: {Number(form.currentHarvestKg).toLocaleString('en-IN')} kg
-                          </span>
-                        </div>
+                      {/* Product-Wise Quantity Inputs with kg / quintal / tonne toggle */}
+                      {form.selectedCrops.length > 0 && (
+                        <div className="space-y-2 pt-2 border-t border-slate-200">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                              <Scale className="w-3.5 h-3.5 text-primary" />
+                              <span>Harvest Quantity per Crop *</span>
+                            </span>
+                            <span className="text-xs font-mono font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                              Total: {Number(form.currentHarvestKg).toLocaleString('en-IN')} kg
+                            </span>
+                          </div>
 
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                          {form.selectedCrops.map((crop) => {
-                            const displayName = crop === 'Other' && form.customCrop ? form.customCrop : crop;
-                            const item = form.productQuantities[crop] || { qty: 250, unit: 'kg' };
-                            return (
-                              <div
-                                key={crop}
-                                className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2"
-                              >
-                                <span className="text-xs font-bold text-slate-800 min-w-[90px] truncate">
-                                  {displayName}
-                                </span>
+                          <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                            {form.selectedCrops.map((crop) => {
+                              const displayName = crop === 'Other' && form.customCrop ? form.customCrop : crop;
+                              const item = form.productQuantities[crop] || { qty: 250, unit: 'kg' };
+                              return (
+                                <div
+                                  key={crop}
+                                  className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2"
+                                >
+                                  <div className="flex items-center gap-1.5 min-w-[90px] truncate">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                                    <span className="text-xs font-bold text-slate-800 truncate">
+                                      {displayName}
+                                    </span>
+                                  </div>
 
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    step="1"
-                                    required
-                                    value={item.qty}
-                                    onChange={(e) => handleProductQtyChange(crop, Number(e.target.value), item.unit)}
-                                    className="w-24 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-mono font-bold outline-none focus:border-primary text-right"
-                                  />
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      step="any"
+                                      required
+                                      value={item.qty}
+                                      onChange={(e) => handleProductQtyChange(crop, Number(e.target.value), item.unit)}
+                                      className="w-20 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-mono font-bold outline-none focus:border-primary text-right"
+                                    />
 
-                                  {/* Unit Toggle: kg vs tonne */}
-                                  <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5 text-[11px] font-bold">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleProductQtyChange(crop, item.qty, 'kg')}
-                                      className={`px-2 py-0.5 rounded-md transition-all ${
-                                        item.unit === 'kg'
-                                          ? 'bg-primary text-white shadow-2xs'
-                                          : 'text-slate-600 hover:text-black'
-                                      }`}
-                                    >
-                                      kg
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleProductQtyChange(crop, item.qty, 'tonne')}
-                                      className={`px-2 py-0.5 rounded-md transition-all ${
-                                        item.unit === 'tonne'
-                                          ? 'bg-primary text-white shadow-2xs'
-                                          : 'text-slate-600 hover:text-black'
-                                      }`}
-                                    >
-                                      tonne
-                                    </button>
+                                    {/* Unit Toggle: kg vs quintal vs tonne */}
+                                    <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5 text-[10px] font-bold">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleProductQtyChange(crop, item.qty, 'kg')}
+                                        className={`px-1.5 py-0.5 rounded-md transition-all ${
+                                          item.unit === 'kg'
+                                            ? 'bg-primary text-white shadow-2xs'
+                                            : 'text-slate-600 hover:text-black'
+                                        }`}
+                                      >
+                                        kg
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleProductQtyChange(crop, item.qty, 'quintal')}
+                                        className={`px-1.5 py-0.5 rounded-md transition-all ${
+                                          item.unit === 'quintal' || item.unit === 'qtl'
+                                            ? 'bg-primary text-white shadow-2xs'
+                                            : 'text-slate-600 hover:text-black'
+                                        }`}
+                                      >
+                                        qtl
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleProductQtyChange(crop, item.qty, 'tonne')}
+                                        className={`px-1.5 py-0.5 rounded-md transition-all ${
+                                          item.unit === 'tonne' || item.unit === 'ton'
+                                            ? 'bg-primary text-white shadow-2xs'
+                                            : 'text-slate-600 hover:text-black'
+                                        }`}
+                                      >
+                                        tonne
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </>
                   )}
 
@@ -940,28 +1039,48 @@ export default function AuthPage({ mode = 'login' }) {
                 </div>
               )}
 
-              {/* Admin 1-Click Credentials Helper on Login */}
-              {!isRegister && role === 'admin' && (
-                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs flex items-center justify-between gap-3 shadow-2xs">
+              {/* 1-Click Presentation Demo Credentials Helpers */}
+              {!isRegister && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border border-emerald-200 text-xs flex items-center justify-between gap-3 shadow-xs">
                   <div className="min-w-0">
-                    <p className="font-bold text-amber-950 flex items-center gap-1.5">
-                      <Shield className="w-3.5 h-3.5 text-amber-700" />
-                      <span>APMC Master Administrator</span>
+                    <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>
+                        {role === 'admin'
+                          ? 'APMC Master Admin Demo'
+                          : role === 'transporter'
+                          ? 'Verified Transporter Fleet Demo'
+                          : role === 'mandi'
+                          ? 'APMC Mandi Secretary Demo'
+                          : 'Maharashtra Farmer Demo'}
+                      </span>
                     </p>
-                    <p className="text-[11px] text-amber-800 font-mono mt-0.5 truncate">
-                      admin@harvestmitra.local • Admin@12345
+                    <p className="text-[11px] text-slate-600 font-mono mt-0.5 truncate">
+                      {role === 'admin'
+                        ? 'admin@harvestmitra.local • Admin@12345'
+                        : role === 'transporter'
+                        ? 'transporter@harvestmitra.local • Transporter@12345'
+                        : 'demo@harvestmitra.local • Demo@12345'}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => {
-                      updateField('email', 'admin@harvestmitra.local');
-                      updateField('password', 'Admin@12345');
+                      if (role === 'admin') {
+                        updateField('email', 'admin@harvestmitra.local');
+                        updateField('password', 'Admin@12345');
+                      } else if (role === 'transporter') {
+                        updateField('email', 'transporter@harvestmitra.local');
+                        updateField('password', 'Transporter@12345');
+                      } else {
+                        updateField('email', 'demo@harvestmitra.local');
+                        updateField('password', 'Demo@12345');
+                      }
                       setError('');
                     }}
-                    className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all shrink-0 cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-hover active:scale-95 text-white font-bold text-xs shadow-xs transition-all shrink-0 cursor-pointer flex items-center gap-1"
                   >
-                    ⚡ Auto-Fill
+                    <span>⚡ Quick Fill</span>
                   </button>
                 </div>
               )}

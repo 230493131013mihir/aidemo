@@ -1,0 +1,41 @@
+name: Security & CI Verification
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security-audit:
+    name: Backend Security & Integrity Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install
+
+      - name: Run API Security & RBAC Tests
+        working-directory: backend
+        env:
+          DB_DIALECT: sqlite
+          JWT_SECRET: harvestmitra_super_secret_jwt_token_key_2026_hackathon
+        run: node test/api_security.test.js
+
+      - name: Run All Backend Unit & Integration Tests
+        working-directory: backend
+        env:
+          DB_DIALECT: sqlite
+          JWT_SECRET: harvestmitra_super_secret_jwt_token_key_2026_hackathon
+        run: npm test

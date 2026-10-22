@@ -12,6 +12,8 @@ const Report = require("./report");
 const Scheme = require("./scheme");
 const SavedScheme = require("./savedScheme");
 const SchemeChecklist = require("./schemeChecklist");
+const Vehicle = require("./vehicle");
+const SharedTrip = require("./sharedTrip");
 
 User.hasOne(FarmerProfile, { foreignKey: "userId", onDelete: "CASCADE" });
 FarmerProfile.belongsTo(User, { foreignKey: "userId" });
@@ -30,6 +32,21 @@ Report.belongsTo(User, { foreignKey: "userId" });
 
 User.hasMany(TransportRequest, { foreignKey: "userId" });
 TransportRequest.belongsTo(User, { foreignKey: "userId" });
+
+User.hasMany(Vehicle, { foreignKey: "userId", as: "Vehicles" });
+Vehicle.belongsTo(User, { foreignKey: "userId" });
+
+Vehicle.hasMany(TransportRequest, { foreignKey: "vehicleId" });
+TransportRequest.belongsTo(Vehicle, { foreignKey: "vehicleId" });
+
+User.hasMany(SharedTrip, { foreignKey: "transporterId", as: "SharedTrips" });
+SharedTrip.belongsTo(User, { foreignKey: "transporterId" });
+
+Vehicle.hasMany(SharedTrip, { foreignKey: "vehicleId" });
+SharedTrip.belongsTo(Vehicle, { foreignKey: "vehicleId" });
+
+SharedTrip.hasMany(TransportRequest, { foreignKey: "sharedTripId", as: "Bookings" });
+TransportRequest.belongsTo(SharedTrip, { foreignKey: "sharedTripId" });
 
 User.hasMany(ContactRequest, { foreignKey: "senderId", as: "SentContactRequests" });
 User.hasMany(ContactRequest, { foreignKey: "receiverId", as: "ReceivedContactRequests" });
@@ -65,5 +82,7 @@ module.exports = {
   Report,
   Scheme,
   SavedScheme,
-  SchemeChecklist
+  SchemeChecklist,
+  Vehicle,
+  SharedTrip
 };
