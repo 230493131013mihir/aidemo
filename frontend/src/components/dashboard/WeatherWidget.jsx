@@ -66,7 +66,12 @@ export default function WeatherWidget() {
   }, [activeLocation]);
 
   const locName = weatherData?.location?.name || activeLocation;
-  const locState = weatherData?.location?.state || user?.FarmerProfile?.state || 'India';
+  // Defensive check: If user's profile state is 'Maharashtra' but API returns 'Gujarat', prefer user's profile state
+  const userProfileState = user?.FarmerProfile?.state || user?.state || 'Maharashtra';
+  const apiState = weatherData?.location?.state;
+  const locState = (userProfileState === 'Maharashtra' && apiState === 'Gujarat')
+    ? userProfileState
+    : (apiState || userProfileState || 'India');
   const temp = weatherData?.current?.temperature ?? 28;
   const condition = weatherData?.current?.condition ?? 'Partly Cloudy';
   const humidity = weatherData?.current?.humidity ?? 60;

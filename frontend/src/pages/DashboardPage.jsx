@@ -79,7 +79,12 @@ export default function DashboardPage() {
     return <Navigate to="/admin" replace />;
   }
 
-  // 2. Transporter views their dedicated Cargo & Trip Logistics Dashboard
+  // 2. Mandi Official views dedicated Mandi Market Rates & APMC workspace
+  if (user?.role === 'mandi') {
+    return <Navigate to="/markets" replace />;
+  }
+
+  // 3. Transporter views their dedicated Cargo & Trip Logistics Dashboard
   if (user?.role === 'transporter') {
     return <TransporterDashboard />;
   }

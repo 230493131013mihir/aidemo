@@ -87,7 +87,7 @@ export default function AuthPage({ mode = 'login' }) {
     // Mandi Official fields
     mandiName: '',
     licenseNumber: '',
-    operatingDays: 'Monday to Saturday',
+    operatingDays: 'Mon-Sat',
     facilities: 'Electronic Auction, Cold Storage, Modern Weighbridge, RTGS Direct Settlement'
   });
 
@@ -783,12 +783,12 @@ export default function AuthPage({ mode = 'login' }) {
                     </>
                   )}
 
-                  {/* MANDI OFFICIAL REGISTRATION SPECIFICS (Requirement 6) */}
+                  {/* MANDI OFFICIAL REGISTRATION SPECIFICS */}
                   {role === 'mandi' && (
                     <div className="space-y-3 p-3.5 rounded-2xl bg-teal-50/70 border border-teal-200">
                       <label className="block space-y-1">
                         <span className="text-xs font-semibold text-teal-900 uppercase tracking-wider">
-                          Mandi Market Name *
+                          APMC Mandi Name
                         </span>
                         <input
                           type="text"
@@ -803,7 +803,7 @@ export default function AuthPage({ mode = 'login' }) {
                       <div className="grid grid-cols-2 gap-2.5">
                         <label className="block space-y-1">
                           <span className="text-xs font-semibold text-teal-900 uppercase tracking-wider">
-                            APMC License / Reg No *
+                            APMC License Number
                           </span>
                           <input
                             type="text"
@@ -819,12 +819,15 @@ export default function AuthPage({ mode = 'login' }) {
                           <span className="text-xs font-semibold text-teal-900 uppercase tracking-wider">
                             Operating Days
                           </span>
-                          <input
-                            type="text"
+                          <select
                             value={form.operatingDays}
                             onChange={(e) => updateField('operatingDays', e.target.value)}
-                            className="w-full rounded-xl border border-teal-300 bg-white px-3.5 py-2 text-sm outline-none focus:border-teal-600"
-                          />
+                            className="w-full rounded-xl border border-teal-300 bg-white px-3.5 py-2 text-sm outline-none focus:border-teal-600 cursor-pointer"
+                          >
+                            <option value="Mon-Sat">Mon-Sat</option>
+                            <option value="Mon-Fri">Mon-Fri</option>
+                            <option value="Daily">Daily</option>
+                          </select>
                         </label>
                       </div>
 
