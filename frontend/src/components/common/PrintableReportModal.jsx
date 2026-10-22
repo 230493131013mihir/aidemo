@@ -273,45 +273,6 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
     }
   };
 
-  /**
-   * 1-Click PDF Download using html2pdf.js
-   * Generates a crisp A4 PDF fitted to exactly one page with QR code and digital seal.
-   */
-  const handleDownloadPDF = async () => {
-    const element = printContentRef.current;
-    if (!element) return;
-
-    setDownloading(true);
-    try {
-      const fileName = `HarvestMitra_Farm_Report_${currentReport.reportId}_${currentReport.generatedDate.replace(/\s/g, '_')}.pdf`;
-
-      const opt = {
-        margin:       [8, 10, 8, 10], // top, right, bottom, left in mm
-        filename:     fileName,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  {
-          scale: 2,
-          useCORS: true,
-          letterRendering: true,
-          logging: false,
-          backgroundColor: '#ffffff'
-        },
-        jsPDF:        {
-          unit: 'mm',
-          format: 'a4',
-          orientation: 'portrait'
-        },
-        pagebreak:    { mode: ['avoid-all'] } // Force fit to 1 page
-      };
-
-      await html2pdf().set(opt).from(element).save();
-    } catch (err) {
-      console.error('PDF download failed:', err);
-    } finally {
-      setDownloading(false);
-    }
-  };
-
   return (
     <div 
       className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/80 backdrop-blur-sm flex justify-center items-start p-2 sm:p-6 print:p-0 print:bg-white print:static print:overflow-visible"
