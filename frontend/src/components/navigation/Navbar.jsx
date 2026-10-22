@@ -21,10 +21,7 @@ import ThemeToggle from '../common/ThemeToggle';
 export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
   const { t } = useLanguage();
   const { user, isAuthenticated, logout } = useAuth();
-<<<<<<< HEAD
   const { isDark } = useTheme();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-=======
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef(null);
 
@@ -47,7 +44,6 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
     setAccountMenuOpen(false);
     logout();
   }
->>>>>>> main
 
   const isAdmin = user?.role === 'admin';
   const isTransporter = user?.role === 'transporter';
@@ -244,6 +240,7 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
           onClick={handleSignOut}
         >
           Sign Out
+        </button>
       </div>
     </header>
   );

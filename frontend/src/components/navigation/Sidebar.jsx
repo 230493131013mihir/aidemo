@@ -87,17 +87,6 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
     ];
   }, [isAdmin, isTransporter, t]);
 
-<<<<<<< HEAD
-  return (
-    <aside 
-      className={`w-64 shrink-0 border-r flex flex-col justify-between p-4 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-surface border-border'} ${className}`}
-      aria-label="Dashboard sidebar navigation"
-    >
-      <div className="space-y-6">
-        {/* Role-Aware User Status Pill */}
-        <div className="p-3 rounded-xl bg-secondary/80 border border-border/80 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
-=======
   const handleLinkClick = () => {
     if (onClose) {
       onClose();
@@ -129,7 +118,6 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
         {/* User Status Card */}
         <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-teal-50/50 border border-emerald-200/80 flex items-center gap-3 shadow-2xs">
           <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
->>>>>>> main
             {isTransporter ? '🚚' : isAdmin ? '🛡️' : '🌾'}
           </div>
           <div className="min-w-0 flex-1">
@@ -296,7 +284,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
     <>
       {/* 1. Desktop Static Sidebar (Always visible on lg screens and up) */}
       <aside 
-        className={`hidden lg:flex w-64 shrink-0 bg-surface border-r border-border min-h-[calc(100vh-4rem)] flex-col justify-between p-4 sticky top-16 z-20 ${className}`}
+        className={`hidden lg:flex w-64 shrink-0 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-surface border-border'} border-r min-h-[calc(100vh-4rem)] flex-col justify-between p-4 sticky top-16 z-20 ${className}`}
         aria-label="Dashboard desktop sidebar navigation"
       >
         {renderSidebarContent(false)}
@@ -314,7 +302,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
 
           {/* Off-canvas Sliding Drawer */}
           <aside 
-            className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-white shadow-2xl flex flex-col justify-between p-4 overflow-y-auto lg:hidden animate-in slide-in-from-left duration-200"
+            className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] ${isDark ? 'bg-slate-900 text-white' : 'bg-white'} shadow-2xl flex flex-col justify-between p-4 overflow-y-auto lg:hidden animate-in slide-in-from-left duration-200`}
             aria-label="Dashboard mobile sidebar drawer"
           >
             {renderSidebarContent(true)}
