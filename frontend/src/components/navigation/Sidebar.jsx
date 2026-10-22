@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import ThemeToggle from '../common/ThemeToggle';
 
 export default function Sidebar({ isOpen = false, onClose, className = '' }) {
   const { t } = useLanguage();
@@ -258,6 +259,11 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
             )}
           </nav>
         </div>
+      </div>
+
+      {/* Theme Switcher Toggle (Issue #141) */}
+      <div className="pt-2">
+        <ThemeToggle variant="full" />
       </div>
 
       {/* HarvestMitra Version & Security Seal */}

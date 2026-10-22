@@ -15,6 +15,7 @@ import {
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import LanguageSelector from '../common/LanguageSelector';
+import ThemeToggle from '../common/ThemeToggle';
 
 export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
   const { t } = useLanguage();
@@ -103,6 +104,9 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
                 <span className="sm:hidden">Pass</span>
               </NavLink>
             )}
+
+            {/* Theme Switcher Toggle (Issue #141) */}
+            <ThemeToggle variant="pill" />
 
             {/* Language Selector */}
             <div className="flex items-center">
