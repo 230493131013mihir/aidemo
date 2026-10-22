@@ -90,7 +90,16 @@ const CROP_TRANSLATIONS = {
   pomegranate: { mr: 'डाळिंब', hi: 'अनार', gu: 'દાડમ', en: 'Pomegranate' },
   grapes: { mr: 'द्राक्षे', hi: 'अंगूर', gu: 'દ્રાક્ષ', en: 'Grapes' },
   sugarcane: { mr: 'ऊस', hi: 'गन्ना', gu: 'શેરડી', en: 'Sugarcane' },
-  maize: { mr: 'मका', hi: 'मक्का', gu: 'મકાઈ', en: 'Maize' }
+  maize: { mr: 'मका', hi: 'मक्का', gu: 'મકાઈ', en: 'Maize' },
+  'lady finger': { mr: 'भेंडी', hi: 'भिंडी', gu: 'ભીંડા', en: 'Lady Finger' },
+  ladyfinger: { mr: 'भेंडी', hi: 'भिंडी', gu: 'ભીંડા', en: 'Lady Finger' },
+  okra: { mr: 'भेंडी', hi: 'भिंडी', gu: 'ભીંડા', en: 'Lady Finger' },
+  bhindi: { mr: 'भेंडी', hi: 'भिंडी', gu: 'ભીંડા', en: 'Lady Finger' },
+  bhendi: { mr: 'भेंडी', hi: 'भिंडी', gu: 'ભીંડા', en: 'Lady Finger' },
+  brinjal: { mr: 'वांगी', hi: 'बैंगन', gu: 'રીંગણ', en: 'Brinjal' },
+  cauliflower: { mr: 'फ्लॉवर', hi: 'फूलगोभी', gu: 'ફૂલકોબી', en: 'Cauliflower' },
+  cabbage: { mr: 'कोबी', hi: 'पत्ता गोभी', gu: 'કોબી', en: 'Cabbage' },
+  groundnut: { mr: 'शेंगदाणा', hi: 'मूंगफली', gu: 'મગફળી', en: 'Groundnut' }
 };
 
 function getLocalizedCropName(name, lang) {
@@ -106,7 +115,8 @@ function getLocalizedCropName(name, lang) {
  */
 function handleMarketPrice(context, lang) {
   const market = context.marketData?.currentMarket;
-  const cropName = context.crop?.name || 'crop';
+  const rawCropName = context.crop?.name || 'crop';
+  const cropName = getLocalizedCropName(rawCropName, lang);
 
   if (!market || market.pricePerKg === null || market.pricePerKg === undefined) {
     if (lang === 'mr') {

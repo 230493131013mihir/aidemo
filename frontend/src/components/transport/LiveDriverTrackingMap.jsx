@@ -215,19 +215,22 @@ export default function LiveDriverTrackingMap({
   // Component States
   const [isExpanded, setIsExpanded] = useState(isExpandedDefault);
   const [isPhoneGpsActive, setIsPhoneGpsActive] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [trackingMode, setTrackingMode] = useState('live'); // 'live' (Real-time backend polling) | 'demo' (Simulated corridor demo)
+  const [isPlaying, setIsPlaying] = useState(false); // Default false: Do not fake-move automatically in Live mode
   const [playbackSpeed, setPlaybackSpeed] = useState(1); // 1x Natural | 2x Brisk | 4x Fast-Forward
   const [autoFollow, setAutoFollow] = useState(true); // Follow vehicle camera
   const [isSimulatingRain, setIsSimulatingRain] = useState(false); // Dynamic monsoon weather advisory
   const [currentIndex, setCurrentIndex] = useState(65); // Initial point along route (~38%)
-  const [liveSpeedKmh, setLiveSpeedKmh] = useState(58);
+  const [liveSpeedKmh, setLiveSpeedKmh] = useState(0);
   const [liveBearing, setLiveBearing] = useState(236);
   const [liveOdometerCoveredKm, setLiveOdometerCoveredKm] = useState(54.2);
   const [liveDistanceRemainingKm, setLiveDistanceRemainingKm] = useState(89.8);
   const [liveEtaMinutes, setLiveEtaMinutes] = useState(98);
-  const [currentMilestoneText, setCurrentMilestoneText] = useState('⛰️ Kasara Ghat Curves (NH-160)');
+  const [currentMilestoneText, setCurrentMilestoneText] = useState('🛰️ Connecting to live driver telemetry...');
   const [nextMilestoneText, setNextMilestoneText] = useState('🚧 Shahapur Agri Freight Bypass');
   const [hasGpsError, setHasGpsError] = useState(false);
+  const [lastTelemetryTimestamp, setLastTelemetryTimestamp] = useState(null);
+  const [isLiveTelemetryActive, setIsLiveTelemetryActive] = useState(false);
 
   // Booking particulars
   const originName = booking?.pickupLocation || booking?.location || 'Nashik Rural Farm #4';
@@ -434,9 +437,9 @@ export default function LiveDriverTrackingMap({
     };
   }, [denseRoute, originCoords, destCoords, originName, destinationName, driverName, driverPhone, vehicleNumber, vehicleType, cropInfo, passCode]);
 
-  // Smooth Continuous Navigation along Maharashtra Highway Corridor
+  // Smooth Continuous Navigation along Maharashtra Highway Corridor (Only active during Demo Simulation Mode)
   useEffect(() => {
-    if (isPhoneGpsActive || !isPlaying) {
+    if (isPhoneGpsActive || trackingMode !== 'demo' || !isPlaying) {
       if (animFrameTimerRef.current) clearInterval(animFrameTimerRef.current);
       return;
     }
@@ -514,7 +517,78 @@ export default function LiveDriverTrackingMap({
     return () => {
       if (animFrameTimerRef.current) clearInterval(animFrameTimerRef.current);
     };
-  }, [isPhoneGpsActive, isPlaying, playbackSpeed, denseRoute, totalCorridorKm, autoFollow, isSimulatingRain]);
+  }, [isPhoneGpsActive, trackingMode, isPlaying, playbackSpeed, denseRoute, totalCorridorKm, autoFollow, isSimulatingRain]);
+
+  // Live Real-World Backend Polling Mode (Fetches driver reported GPS coordinates every 3.5s)
+  useEffect(() => {
+    if (isPhoneGpsActive || trackingMode !== 'live') return;
+
+    let isMounted = true;
+
+    const pollLiveTelemetry = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/transport/telemetry/${encodeURIComponent(passCode)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!isMounted || !data?.success || !data?.telemetry) return;
+
+        const t = data.telemetry;
+        if (t.latitude && t.longitude) {
+          const lat = Number(t.latitude);
+          const lng = Number(t.longitude);
+          const speed = Number(t.speedKmh ?? 0);
+          const heading = Number(t.heading ?? 0);
+
+          setLiveSpeedKmh(speed);
+          setLiveBearing(heading);
+          if (t.distanceRemainingKm !== undefined) setLiveDistanceRemainingKm(Number(t.distanceRemainingKm));
+          if (t.distanceCoveredKm !== undefined) setLiveOdometerCoveredKm(Number(t.distanceCoveredKm));
+          if (t.etaMinutes !== undefined) setLiveEtaMinutes(Number(t.etaMinutes));
+          if (t.checkpoint) setCurrentMilestoneText(t.checkpoint);
+          setLastTelemetryTimestamp(t.lastUpdated ? new Date(t.lastUpdated) : new Date());
+          setIsLiveTelemetryActive(true);
+
+          const latLng = [lat, lng];
+
+          if (truckMarkerRef.current) {
+            truckMarkerRef.current.setLatLng(latLng);
+
+            const truckIcon = L.divIcon({
+              className: 'custom-map-icon',
+              html: `
+                <div id="truck-marker-wrapper" style="position: relative; display: flex; align-items: center; justify-content: center; width: 46px; height: 46px;">
+                  <div style="position: absolute; width: 44px; height: 44px; border-radius: 9999px; background: rgba(16, 185, 129, 0.4); animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+                  <div id="truck-body-box" style="width: 38px; height: 38px; border-radius: 12px; background: #090d16; border: 2.5px solid #10b981; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.6); transform: rotate(${heading}deg); transition: transform 0.6s ease-in-out;">
+                    <span style="font-size: 19px;">🚚</span>
+                  </div>
+                  <div id="truck-speed-pill" style="position: absolute; bottom: -8px; background: ${isSimulatingRain ? '#0284c7' : '#059669'}; color: white; font-family: monospace; font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 9999px; white-space: nowrap; box-shadow: 0 2px 5px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2);">
+                    ${speed} km/h
+                  </div>
+                </div>
+              `,
+              iconSize: [46, 46],
+              iconAnchor: [23, 23]
+            });
+            truckMarkerRef.current.setIcon(truckIcon);
+
+            if (autoFollow && mapInstanceRef.current) {
+              mapInstanceRef.current.panTo(latLng, { animate: true, duration: 1.0 });
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[LiveDriverTrackingMap] Telemetry poll failed:', err.message);
+      }
+    };
+
+    pollLiveTelemetry();
+    const pollInterval = setInterval(pollLiveTelemetry, 3500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(pollInterval);
+    };
+  }, [isPhoneGpsActive, trackingMode, passCode, autoFollow, isSimulatingRain]);
 
   // Live Real-World Phone Geolocation Streaming Mode
   useEffect(() => {
@@ -675,30 +749,77 @@ export default function LiveDriverTrackingMap({
       <div className="absolute top-3 left-3 right-3 sm:right-auto z-10 flex flex-wrap items-center gap-2">
         <div className="px-3.5 py-1.5 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-white/15 text-xs flex items-center gap-2.5 shadow-lg">
           <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${trackingMode === 'live' ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${trackingMode === 'live' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
           </span>
           <span className="font-extrabold text-white tracking-wide">
             🛰️ Live Delivery Radar
           </span>
-          <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30">
-            {isPhoneGpsActive ? 'PHONE GPS ACTIVE' : 'EN ROUTE TO APMC'}
+          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
+            isPhoneGpsActive
+              ? 'bg-blue-500/20 text-blue-300 border-blue-400/30'
+              : trackingMode === 'live'
+              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30'
+              : 'bg-amber-500/20 text-amber-300 border-amber-400/30'
+          }`}>
+            {isPhoneGpsActive ? 'PHONE GPS BROADCAST' : trackingMode === 'live' ? 'REAL-TIME GPS SYNC (3s)' : 'DEMO HIGHWAY SIMULATION'}
           </span>
+        </div>
+
+        {/* Tracking Mode Switcher: Live vs Demo */}
+        <div className="flex items-center rounded-2xl bg-slate-900/90 backdrop-blur-md border border-white/15 p-0.5 shadow-lg text-xs font-bold">
+          <button
+            type="button"
+            onClick={() => {
+              setTrackingMode('live');
+              setIsPlaying(false);
+            }}
+            className={`px-2.5 py-1 rounded-xl transition-all cursor-pointer ${
+              trackingMode === 'live'
+                ? 'bg-emerald-500 text-slate-950 shadow font-extrabold'
+                : 'text-slate-300 hover:text-white'
+            }`}
+            title="Live Real-time GPS stream from backend"
+          >
+            🟢 Live GPS
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTrackingMode('demo');
+              setIsPlaying(true);
+            }}
+            className={`px-2.5 py-1 rounded-xl transition-all cursor-pointer ${
+              trackingMode === 'demo'
+                ? 'bg-amber-500 text-slate-950 shadow font-extrabold'
+                : 'text-slate-300 hover:text-white'
+            }`}
+            title="Switch to Demo Highway Corridor Simulation"
+          >
+            🎮 Demo
+          </button>
         </div>
 
         {/* Clean Driver Phone GPS Button */}
         <button
           type="button"
-          onClick={() => setIsPhoneGpsActive((prev) => !prev)}
-          className={`px-3 py-1.5 rounded-2xl backdrop-blur-md border text-xs font-bold flex items-center gap-1.5 shadow-lg transition-all ${
+          onClick={() => {
+            const next = !isPhoneGpsActive;
+            setIsPhoneGpsActive(next);
+            if (next) {
+              setTrackingMode('live');
+              setIsPlaying(false);
+            }
+          }}
+          className={`px-3 py-1.5 rounded-2xl backdrop-blur-md border text-xs font-bold flex items-center gap-1.5 shadow-lg transition-all cursor-pointer ${
             isPhoneGpsActive
               ? 'bg-blue-600 border-blue-400 text-white shadow-blue-500/30'
               : 'bg-slate-900/90 border-white/15 text-slate-300 hover:text-white hover:bg-slate-800'
           }`}
-          title={isPhoneGpsActive ? 'Switch to Highway Radar View' : 'Use Driver Smartphone Live GPS'}
+          title={isPhoneGpsActive ? 'Stop Phone GPS Broadcast' : 'Use Driver Smartphone Live GPS'}
         >
           <LocateFixed className="w-3.5 h-3.5" />
-          <span>{isPhoneGpsActive ? 'Using Phone GPS' : 'Driver Phone GPS'}</span>
+          <span>{isPhoneGpsActive ? 'Broadcasting Phone GPS' : 'Driver Phone GPS'}</span>
         </button>
       </div>
 
@@ -769,24 +890,36 @@ export default function LiveDriverTrackingMap({
           <p className="text-[11px] font-extrabold text-white truncate">{currentMilestoneText}</p>
         </div>
 
-        {/* Interactive Timeline Scrubber Slider */}
-        <div className="space-y-1 pt-0.5">
-          <div className="flex items-center justify-between text-[10px] text-slate-400">
-            <span className="flex items-center gap-1">
-              <Sliders className="w-2.5 h-2.5 text-emerald-400" />
-              <span>Interactive Scrubber</span>
-            </span>
-            <span>{liveDistanceRemainingKm} km remaining</span>
+        {/* Live Telemetry Pulse & Status Banner (when in Live mode) vs Timeline Scrubber (Demo mode) */}
+        {trackingMode === 'demo' ? (
+          <div className="space-y-1 pt-0.5">
+            <div className="flex items-center justify-between text-[10px] text-slate-400">
+              <span className="flex items-center gap-1">
+                <Sliders className="w-2.5 h-2.5 text-emerald-400" />
+                <span>Demo Highway Scrubber</span>
+              </span>
+              <span>{liveDistanceRemainingKm} km remaining</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={progressPct}
+              onChange={handleScrubberChange}
+              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+            />
           </div>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={progressPct}
-            onChange={handleScrubberChange}
-            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-          />
-        </div>
+        ) : (
+          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-white/5">
+            <span className="flex items-center gap-1.5 text-emerald-300 font-mono">
+              <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse shrink-0" />
+              <span>{isPhoneGpsActive ? 'Streaming device phone GPS' : 'Polling live driver coordinates'}</span>
+            </span>
+            <span className="font-mono text-slate-400 text-[9px] bg-white/5 px-2 py-0.5 rounded border border-white/10">
+              {lastTelemetryTimestamp ? `Updated ${Math.max(1, Math.round((Date.now() - new Date(lastTelemetryTimestamp).getTime()) / 1000))}s ago` : 'Waiting for telemetry...'}
+            </span>
+          </div>
+        )}
 
         {/* Weather / Rain Simulation Banner if active */}
         {isSimulatingRain && (
@@ -847,8 +980,8 @@ export default function LiveDriverTrackingMap({
           {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
         </button>
 
-        {/* Dynamic Navigation Controls */}
-        {!isPhoneGpsActive && (
+        {/* Dynamic Navigation Controls (Demo Simulation Mode only) */}
+        {!isPhoneGpsActive && trackingMode === 'demo' && (
           <div className="rounded-xl bg-slate-900/90 border border-white/15 backdrop-blur-md p-1 flex flex-col items-center gap-1 shadow-lg">
             <button
               type="button"

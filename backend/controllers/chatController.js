@@ -78,8 +78,18 @@ async function handleChatMessage(req, res) {
     const extractedCrop = extractCropMention(cleanMessage);
     const extractedLocation = extractLocationMention(cleanMessage);
 
-    // User's explicit message mention always takes priority over static/default callerContext
-    const cropMention = extractedCrop || callerContext.crop?.name || null;
+    // Check if query is explicitly asking about a price/rate of a specific crop
+    const isAskingSpecificRate = /\b(?:rate|price|cost|bhav|market\s*rate)\b/i.test(cleanMessage) &&
+      /\b(?:of|for|चा|का|नो|चे|ची)\b/i.test(cleanMessage);
+
+    // If callerContext.crop?.name contains multiple crops (e.g. "Tomato, Wheat, Soybean"), pick the primary first crop
+    const defaultProfileCrop = callerContext.crop?.name
+      ? String(callerContext.crop.name).split(',')[0].trim()
+      : null;
+
+    // User's explicit message mention always takes priority.
+    // If user explicitly asked for a specific crop rate ("rate of X") but X wasn't matched, do NOT pretend they asked for their profile crop.
+    const cropMention = extractedCrop || (!isAskingSpecificRate ? defaultProfileCrop : null);
     const quantityInfo = callerContext.crop?.quantityKg || extractQuantity(cleanMessage).quantityKg;
 
     // Auto-enrich market data if query asks about price or harvest decision

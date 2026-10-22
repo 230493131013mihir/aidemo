@@ -185,7 +185,12 @@ function extractCropMention(text) {
     { name: 'Pomegranate', patterns: [/\b(pomegranate)\b/i, /દાડમ/i, /अनार/i, /डाळिंब/i] },
     { name: 'Grapes', patterns: [/\b(grapes)\b/i, /દ્રાક્ષ/i, /अंगूर/i, /द्राक्षे/i] },
     { name: 'Sugarcane', patterns: [/\b(sugarcane)\b/i, /શેરડી/i, /गन्ना/i, /ऊस/i] },
-    { name: 'Maize', patterns: [/\b(maize|corn)\b/i, /મકાઈ/i, /मक्का/i, /मका/i] }
+    { name: 'Maize', patterns: [/\b(maize|corn)\b/i, /મકાઈ/i, /મક્કા/i, /मका/i] },
+    { name: 'Lady Finger', patterns: [/\b(lady\s*finger|ladyfinger|okra|bhindi|bhendi)\b/i, /ભીંડો/i, /ભીંડા/i, /भिंडी/i, /भेंडी/i] },
+    { name: 'Brinjal', patterns: [/\b(brinjal|eggplant|baingan|vangi)\b/i, /રીંગણ/i, /बैंगन/i, /वांगी/i] },
+    { name: 'Cauliflower', patterns: [/\b(cauliflower|gobhi|phool\s*gobhi)\b/i, /ફૂલકોબી/i, /फूलगोभी/i, /फ्लॉवर/i] },
+    { name: 'Cabbage', patterns: [/\b(cabbage|patta\s*gobhi|kobi)\b/i, /કોબી/i, /पत्ता\s*गोभी/i, /कोबी/i] },
+    { name: 'Groundnut', patterns: [/\b(groundnut|peanut|shengdana|mungfali)\b/i, /મગફળી/i, /मूंगफली/i, /शेंगदाणा/i] }
   ];
 
   for (const crop of crops) {
@@ -193,6 +198,16 @@ function extractCropMention(text) {
       if (pattern.test(text)) return crop.name;
     }
   }
+
+  // Dynamic fallback for queries asking for "rate of <crop>" or "price of <crop>"
+  const priceOfMatch = text.match(/\b(?:rate|price|cost|bhav|market\s*rate)\s+of\s+([a-zA-Z\s]+?)(?:\s+in|\s+at|\s+today|\s+near|\?|$)/i);
+  if (priceOfMatch && priceOfMatch[1]) {
+    const candidate = priceOfMatch[1].trim();
+    if (candidate.length >= 3 && candidate.length <= 25 && !/\b(today|tomorrow|market|mandi)\b/i.test(candidate)) {
+      return candidate.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    }
+  }
+
   return null;
 }
 

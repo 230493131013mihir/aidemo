@@ -49,7 +49,8 @@ async function seed() {
         { nameEn: "Cauliflower", nameGu: "ફૂલકોબી", nameHi: "फूलगोभी", category: "vegetable", shelfLifeDays: 8 },
         { nameEn: "Cabbage", nameGu: "કોબી", nameHi: "पत्ता गोभी", category: "vegetable", shelfLifeDays: 14 },
         { nameEn: "Garlic", nameGu: "લસણ", nameHi: "लहसुन", category: "vegetable", shelfLifeDays: 90 },
-        { nameEn: "Cumin", nameGu: "જીરું", nameHi: "जीरा", category: "oilseed", shelfLifeDays: 365 }
+        { nameEn: "Cumin", nameGu: "જીરું", nameHi: "जीरा", category: "oilseed", shelfLifeDays: 365 },
+        { nameEn: "Lady Finger", nameGu: "ભીંડા", nameHi: "भिंडी", category: "vegetable", shelfLifeDays: 4 }
     ];
     const crops = [];
     for (const cropData of cropsToSeed) {
@@ -163,7 +164,8 @@ async function seed() {
         Cauliflower: 30,
         Cabbage: 16,
         Garlic: 135,
-        Cumin: 255
+        Cumin: 255,
+        "Lady Finger": 38
     };
     const priceDate = new Date().toISOString().slice(0, 10);
     for (const crop of crops) {

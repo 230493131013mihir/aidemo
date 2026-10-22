@@ -285,14 +285,14 @@ const liveDriverTelemetry = {
  */
 function handleGetTelemetry(req, res) {
   try {
-    const passCode = (req.params.passCode || 'MH-APMC-9421').trim();
+    const passCode = (req.params.passCode || req.query.passCode || 'MH-APMC-9421').trim();
     const telemetry = liveDriverTelemetry[passCode] || liveDriverTelemetry['MH-APMC-9421'];
 
     return res.json({
       success: true,
       telemetry: {
         ...telemetry,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: telemetry.lastUpdated || new Date().toISOString()
       }
     });
   } catch (err) {
