@@ -70,6 +70,27 @@ const MAHARASHTRA_DESTINATIONS = [
   'Ahmedabad APMC Mandi'
 ];
 
+function getCropMeta(name) {
+  const found = SUPPORTED_CROPS.find((c) => c.name.toLowerCase() === name.toLowerCase());
+  if (found) return { ...found, name };
+  const lower = name.toLowerCase();
+  let icon = '🌾';
+  let category = 'Produce';
+  let vehicleHint = 'Standard Agri Transport';
+  if (lower.includes('tomato')) { icon = '🍅'; category = 'Vegetable'; vehicleHint = 'Ventilated / Crate Carrier'; }
+  else if (lower.includes('onion')) { icon = '🧅'; category = 'Vegetable'; vehicleHint = 'Ventilated Mesh Truck'; }
+  else if (lower.includes('wheat')) { icon = '🌾'; category = 'Grain'; vehicleHint = 'Covered High-Side Truck'; }
+  else if (lower.includes('cotton')) { icon = '🌿'; category = 'Cash Crop'; vehicleHint = 'High-Volume Bale Carrier'; }
+  else if (lower.includes('soybean')) { icon = '🌱'; category = 'Oilseed'; vehicleHint = 'Dry Bulk Carrier'; }
+  else if (lower.includes('sugarcane')) { icon = '🎋'; category = 'Cash Crop'; vehicleHint = 'Open Flatbed High-Capacity Truck'; }
+  else if (lower.includes('potato')) { icon = '🥔'; category = 'Vegetable'; vehicleHint = 'Dry Jute Sacks Carrier'; }
+  else if (lower.includes('grape')) { icon = '🍇'; category = 'Fruit'; vehicleHint = 'Refrigerated Cold Chain'; }
+  else if (lower.includes('banana')) { icon = '🍌'; category = 'Fruit'; vehicleHint = 'Cushioned Padded Bed'; }
+  else if (lower.includes('pomegranate') || lower.includes('anar')) { icon = '🍎'; category = 'Fruit'; vehicleHint = 'Cushioned Crates Transport'; }
+  else if (lower.includes('rice') || lower.includes('paddy')) { icon = '🍚'; category = 'Grain'; vehicleHint = 'Dry Weather-Proof Carrier'; }
+  return { name, category, icon, vehicleHint };
+}
+
 export default function SharedTransportFarmerWidget({ 
   registeredCrops = [],
   initialCrop = '',
@@ -82,11 +103,43 @@ export default function SharedTransportFarmerWidget({
   const farmerProfile = user?.FarmerProfile;
   const defaultDistrict = farmerProfile?.district || 'Pune';
 
-  // Form State
+  // Extract farmer's registered crops from props or context
+  const userRegisteredCropNames = useMemo(() => {
+    const list = [];
+    if (Array.isArray(registeredCrops) && registeredCrops.length > 0) {
+      registeredCrops.forEach((c) => {
+        const name = typeof c === 'string' ? c : (c.cropName || c.name);
+        if (name && typeof name === 'string' && !list.some((item) => item.toLowerCase() === name.trim().toLowerCase())) {
+          list.push(name.trim());
+        }
+      });
+    }
+    const contextMainCrop = user?.FarmerProfile?.mainCrop || user?.farmerProfile?.mainCrop;
+    if (contextMainCrop && typeof contextMainCrop === 'string' && contextMainCrop !== 'Not set') {
+      contextMainCrop.split(',').forEach((c) => {
+        const trimmed = c.trim();
+        if (trimmed && !list.some((item) => item.toLowerCase() === trimmed.toLowerCase())) {
+          list.push(trimmed);
+        }
+      });
+    }
+    return list;
+  }, [registeredCrops, user]);
+
+  const [showAllCommodities, setShowAllCommodities] = useState(false);
+
+  // Form State - default to primary crop
   const [selectedCrop, setSelectedCrop] = useState(() => {
     if (initialCrop) return initialCrop;
-    if (registeredCrops.length > 0 && registeredCrops[0].cropName) {
-      return registeredCrops[0].cropName;
+    if (Array.isArray(registeredCrops) && registeredCrops.length > 0) {
+      const first = registeredCrops[0];
+      const name = typeof first === 'string' ? first : (first.cropName || first.name);
+      if (name) return name;
+    }
+    const mainCropStr = user?.FarmerProfile?.mainCrop || user?.farmerProfile?.mainCrop;
+    if (mainCropStr && typeof mainCropStr === 'string' && mainCropStr !== 'Not set') {
+      const first = mainCropStr.split(',')[0].trim();
+      if (first) return first;
     }
     return 'Tomato';
   });
@@ -139,18 +192,17 @@ export default function SharedTransportFarmerWidget({
     if (initialDestination) setDestination(initialDestination);
   }, [initialDestination]);
 
-  // Update selected crop if registeredCrops changes
+  // Update selected crop if registeredCrops changes and ensure primary crop default
   useEffect(() => {
-    if (!initialCrop && registeredCrops.length > 0 && registeredCrops[0].cropName) {
-      setSelectedCrop(registeredCrops[0].cropName);
-      if (registeredCrops[0].harvestQuantity) {
-        setQuantity(registeredCrops[0].harvestQuantity);
-        if (registeredCrops[0].quantityUnit) {
-          setQuantityUnit(registeredCrops[0].quantityUnit);
-        }
+    if (initialCrop) {
+      setSelectedCrop(initialCrop);
+    } else if (userRegisteredCropNames.length > 0) {
+      const match = userRegisteredCropNames.find((c) => c.toLowerCase() === selectedCrop.toLowerCase());
+      if (!match) {
+        setSelectedCrop(userRegisteredCropNames[0]);
       }
     }
-  }, [registeredCrops, initialCrop]);
+  }, [userRegisteredCropNames, initialCrop]);
 
   // Fetch verified vehicles matching crop & route from backend API
   const fetchVehicles = async () => {
@@ -403,41 +455,108 @@ export default function SharedTransportFarmerWidget({
                 <Tag className="w-3.5 h-3.5 text-primary" />
                 <span>Step 1: Select Crop to Transport *</span>
               </label>
-              <span className="text-[11px] text-muted">
-                {registeredCrops.length > 0 ? 'Loaded from your Registered Crops' : 'Select commodity'}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-muted hidden sm:inline">
+                  {userRegisteredCropNames.length > 0 ? 'Loaded from your Registered Crops' : 'Select commodity'}
+                </span>
+                <button
+                  type="button"
+                  id="all-commodities-toggle"
+                  onClick={() => setShowAllCommodities((prev) => !prev)}
+                  className={`text-xs font-semibold px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
+                    showAllCommodities
+                      ? 'bg-primary text-white border-primary shadow-xs'
+                      : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                  }`}
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>{showAllCommodities ? 'Show Only My Crops' : 'All Commodities'}</span>
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-              {SUPPORTED_CROPS.map((crop) => {
-                const isSelected = selectedCrop === crop.name;
-                return (
-                  <button
-                    key={crop.name}
-                    type="button"
-                    onClick={() => setSelectedCrop(crop.name)}
-                    className={`p-2.5 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
-                      isSelected
-                        ? 'border-primary bg-emerald-50/70 ring-2 ring-primary/20 shadow-xs'
-                        : 'border-slate-200 bg-white hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xl">{crop.icon}</span>
-                      {isSelected && <Check className="w-4 h-4 text-primary" />}
-                    </div>
-                    <div className="mt-1">
-                      <span className="text-xs font-black text-slate-900 block truncate">
-                        {crop.name}
-                      </span>
-                      <span className="text-[9.5px] text-muted font-medium block truncate">
-                        {crop.vehicleHint}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+            {/* Display farmer's registered crops first with green '🌾 Registered Crop' badge */}
+            {userRegisteredCropNames.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {userRegisteredCropNames.map((cropName) => {
+                    const cropMeta = getCropMeta(cropName);
+                    const isSelected = selectedCrop?.toLowerCase() === cropName.toLowerCase();
+                    return (
+                      <button
+                        key={cropName}
+                        type="button"
+                        onClick={() => setSelectedCrop(cropName)}
+                        className={`p-2.5 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
+                          isSelected
+                            ? 'border-primary bg-emerald-50/80 ring-2 ring-primary/20 shadow-xs'
+                            : 'border-emerald-200/90 bg-emerald-50/30 hover:bg-emerald-50/60'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xl">{cropMeta.icon}</span>
+                          {isSelected && <Check className="w-4 h-4 text-primary" />}
+                        </div>
+                        <div className="mt-1.5 space-y-1">
+                          <span className="text-xs font-black text-slate-900 block truncate">
+                            {cropName}
+                          </span>
+                          <span className="text-[9.5px] text-muted font-medium block truncate">
+                            {cropMeta.vehicleHint}
+                          </span>
+                          <span className="inline-flex items-center text-[9px] font-bold text-emerald-700 bg-emerald-100/90 border border-emerald-300/80 px-1.5 py-0.5 rounded-full">
+                            🌾 Registered Crop
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* All Commodities (visible either if toggled ON or if farmer has no registered crops) */}
+            {(showAllCommodities || userRegisteredCropNames.length === 0) && (
+              <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                {userRegisteredCropNames.length > 0 && (
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                    All Market Commodities:
+                  </span>
+                )}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {SUPPORTED_CROPS.filter(
+                    (c) => !userRegisteredCropNames.some((rc) => rc.toLowerCase() === c.name.toLowerCase())
+                  ).map((crop) => {
+                    const isSelected = selectedCrop?.toLowerCase() === crop.name.toLowerCase();
+                    return (
+                      <button
+                        key={crop.name}
+                        type="button"
+                        onClick={() => setSelectedCrop(crop.name)}
+                        className={`p-2.5 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
+                          isSelected
+                            ? 'border-primary bg-emerald-50/70 ring-2 ring-primary/20 shadow-xs'
+                            : 'border-slate-200 bg-white hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xl">{crop.icon}</span>
+                          {isSelected && <Check className="w-4 h-4 text-primary" />}
+                        </div>
+                        <div className="mt-1">
+                          <span className="text-xs font-black text-slate-900 block truncate">
+                            {crop.name}
+                          </span>
+                          <span className="text-[9.5px] text-muted font-medium block truncate">
+                            {crop.vehicleHint}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* SECTION B: HARVEST DETAILS & UNIT CONVERTER */}
