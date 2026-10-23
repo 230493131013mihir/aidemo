@@ -94,41 +94,7 @@ export default function DashboardPage() {
 
   // 3. Transporter views their dedicated Cargo & Trip Logistics Dashboard with quick toggle to Farmer Suite
   if (user?.role === 'transporter') {
-    return (
-      <div className="space-y-4">
-        <div className="bg-white/90 backdrop-blur-md p-2 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-700 px-2">
-            <span>Dashboard Workspace:</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setViewMode('transporter')}
-              className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'transporter'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              🚚 Logistics Console
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('farmer')}
-              className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'farmer'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              🌾 Farmer Decision Suite
-            </button>
-          </div>
-        </div>
-
-        {viewMode === 'transporter' ? <TransporterDashboard /> : <FarmerDashboard user={user} t={t} />}
-      </div>
-    );
+    return <TransporterDashboard />;
   }
 
   // 3. Farmer views full crop analytics & harvest decision dashboard

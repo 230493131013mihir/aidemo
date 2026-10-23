@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Sprout, Menu, X, Sparkles, LogOut } from 'lucide-react';
+import { Sprout, Menu, X, Sparkles, LogOut, Truck } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import LanguageSelector from '../common/LanguageSelector';
@@ -88,13 +88,17 @@ export default function Header() {
             {isAuthenticated ? (
               <div className="flex items-center gap-2">
                 <Link
-                  to="/dashboard"
+                  to={user?.role === 'transporter' ? '/transport' : '/dashboard'}
                   id="header-dashboard-btn"
                   className="btn-primary text-xs sm:text-sm py-2 px-3.5 sm:px-4 shadow-xs flex items-center gap-2"
                   title={`Logged in as ${user?.name || 'User'}`}
                 >
-                  <Sprout className="w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
-                  <span className="truncate max-w-[110px]">{user?.name?.split(' ')[0] || 'Dashboard'}</span>
+                  {user?.role === 'transporter' ? (
+                    <Truck className="w-4 h-4" aria-hidden="true" />
+                  ) : (
+                    <Sprout className="w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
+                  )}
+                  <span className="truncate max-w-[110px]">{user?.name?.split(' ')[0] || (user?.role === 'transporter' ? 'Transport' : 'Dashboard')}</span>
                   <span className="text-[10px] opacity-80 hidden sm:inline font-normal">→</span>
                 </Link>
                 <button
@@ -188,12 +192,16 @@ export default function Header() {
               {isAuthenticated ? (
                 <div className="space-y-2">
                   <Link
-                    to="/dashboard"
+                    to={user?.role === 'transporter' ? '/transport' : '/dashboard'}
                     onClick={() => setMobileMenuOpen(false)}
                     className="btn-primary w-full text-xs py-2.5 px-3 text-center justify-center flex items-center gap-2"
                   >
-                    <Sprout className="w-4 h-4" />
-                    <span>Go to Dashboard ({user?.name || 'Farmer'})</span>
+                    {user?.role === 'transporter' ? (
+                      <Truck className="w-4 h-4" />
+                    ) : (
+                      <Sprout className="w-4 h-4" />
+                    )}
+                    <span>{user?.role === 'transporter' ? `Go to Transport (${user?.name || 'Transporter'})` : `Go to Dashboard (${user?.name || 'Farmer'})`}</span>
                   </Link>
                   <button
                     type="button"

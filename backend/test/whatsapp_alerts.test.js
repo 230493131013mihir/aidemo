@@ -37,9 +37,9 @@ function makeRequest({ method = 'GET', path = '/', body = null, headers = {} }) 
       ...headers,
       ...(payload
         ? {
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(payload),
-          }
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload),
+        }
         : {}),
     };
 
@@ -233,10 +233,14 @@ async function runWhatsAppAlertTests() {
   // -------------------------------------------------------------------------
   console.log('\n--- [Part 5] HTTP API Endpoint: POST /api/alerts/whatsapp/send-gatepass ---');
 
+  process.env.ENABLE_GUEST_MODE = 'true';
+  const authHeaders = { Authorization: 'Bearer guest' };
+
   try {
     const res = await makeRequest({
       method: 'POST',
       path: '/api/alerts/whatsapp/send-gatepass',
+      headers: authHeaders,
       body: {
         farmerName: 'Varun Patil',
         farmerPhone: '+91 98229 44120',
@@ -272,6 +276,7 @@ async function runWhatsAppAlertTests() {
     const badRes = await makeRequest({
       method: 'POST',
       path: '/api/alerts/whatsapp/send-gatepass',
+      headers: authHeaders,
       body: {}
     });
 

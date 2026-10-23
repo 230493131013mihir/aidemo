@@ -825,33 +825,12 @@ export default function TransportPage() {
           </div>
 
           {/* Mode Switcher Tabs */}
-          <div className="p-1.5 rounded-2xl bg-slate-900/70 backdrop-blur-md border border-white/20 flex items-center gap-1.5 shrink-0 shadow-lg">
-            <button
-              type="button"
-              onClick={() => setActiveTab('farmer')}
-              className={`py-2 px-4 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
-                activeTab === 'farmer'
-                  ? 'bg-primary text-white shadow-md'
-                  : 'text-slate-300 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-                <span>Farmer Booking</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('transporter')}
-              className={`py-2 px-4 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
-                activeTab === 'transporter'
-                  ? 'bg-primary text-white shadow-md'
-                  : 'text-slate-300 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Truck className="w-4 h-4" />
-              <span>Transporter Console</span>
-            </button>
-          </div>
+          {user?.role === 'admin' && (
+            <div className="p-1.5 rounded-2xl bg-slate-900/70 backdrop-blur-md border border-white/20 flex items-center gap-1.5 shrink-0 shadow-lg">
+              <button type="button" onClick={() => setActiveTab('farmer')} className={`py-2 px-4 rounded-xl text-xs font-bold ${activeTab === 'farmer' ? 'bg-primary text-white shadow-md' : 'text-slate-300'}`}>Farmer Booking</button>
+              <button type="button" onClick={() => setActiveTab('transporter')} className={`py-2 px-4 rounded-xl text-xs font-bold ${activeTab === 'transporter' ? 'bg-primary text-white shadow-md' : 'text-slate-300'}`}>Transporter Console</button>
+            </div>
+          )}
         </div>
       </section>
 
