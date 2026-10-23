@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "test": "node test/speechService.test.js && node test/voiceLogisticsFeatures.test.js && node test/marketWeatherServices.test.js && node test/sayaliUiFeatures.test.js && node test/simulatorMandiQa.test.js && node test/liveWeatherRefresh.test.js && node test/simulatorToTransportFlow.test.js && node test/driverGatePassPrint.test.js && node test/mitraVoiceAiMultilingual.test.js && node test/sessionExpiryAuth.test.js && node test/kisanVoiceAssistant.test.js && node test/logoutNavigation.test.js",
+    "test": "node test/speechService.test.js && node test/voiceLogisticsFeatures.test.js && node test/marketWeatherServices.test.js && node test/sayaliUiFeatures.test.js && node test/simulatorMandiQa.test.js && node test/liveWeatherRefresh.test.js && node test/simulatorToTransportFlow.test.js && node test/driverGatePassPrint.test.js && node test/mitraVoiceAiMultilingual.test.js && node test/sessionExpiryAuth.test.js && node test/kisanVoiceAssistant.test.js && node test/logoutNavigation.test.js && node test/sidebarScrolling.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

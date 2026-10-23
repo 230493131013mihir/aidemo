@@ -14,7 +14,7 @@ export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className={`min-h-screen max-w-full overflow-x-hidden flex flex-col text-text selection:bg-primary/20 selection:text-primary-dark relative ${
+    <div className={`min-h-screen max-w-full flex flex-col text-text selection:bg-primary/20 selection:text-primary-dark relative ${
       isDark
         ? 'bg-[#0f172a]'
         : 'bg-gradient-to-br from-[#f8faf8] via-[#fcfbf7] to-[#f4f7f4]'
@@ -30,7 +30,7 @@ export default function DashboardLayout() {
       />
 
       {/* Main Workspace Body with Sidebar & Content */}
-      <div className="flex-1 flex max-w-7xl w-full mx-auto min-w-0 overflow-x-hidden">
+      <div className="flex-1 flex max-w-7xl w-full mx-auto min-w-0">
         {/* Left Sidebar (Desktop Static + Mobile Drawer) */}
         <Sidebar 
           isOpen={sidebarOpen} 
