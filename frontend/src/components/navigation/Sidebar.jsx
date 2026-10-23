@@ -264,11 +264,6 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
         </div>
       </div>
 
-      {/* Theme Switcher Toggle (Issue #141) */}
-      <div className="pt-2">
-        <ThemeToggle variant="full" />
-      </div>
-
       {/* HarvestMitra Version & Security Seal */}
       <div className="pt-3 border-t border-border/80">
         <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">

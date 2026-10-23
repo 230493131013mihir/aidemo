@@ -107,8 +107,7 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
               </NavLink>
             )}
 
-            {/* Theme Switcher Toggle (Issue #141) */}
-            <ThemeToggle variant="pill" />
+            {/* ThemeToggle consolidated to Sidebar 'Light Mode' switch as the single app-wide toggle */}
 
             {/* Language Selector */}
             <div className="flex items-center">
