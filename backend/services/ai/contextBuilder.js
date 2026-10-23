@@ -31,7 +31,7 @@ function buildContext(params = {}) {
     rawInputs = null
   } = params;
 
-  // 1. Farmer Information
+  // 1. Farmer Information (Fixes #161 - default location fallback to Maharashtra)
   const farmerContext = {
     name: farmer.name || farmer.full_name || 'Farmer',
     location: farmer.location || farmer.district || 'Maharashtra',
