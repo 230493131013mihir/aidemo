@@ -14,30 +14,42 @@
  */
 
 const assert = require("assert");
-
-const API_BASE = "http://127.0.0.1:5000";
+const app = require("../app");
 
 async function runE2E() {
   console.log("🚀 Starting End-to-End Multi-Crop Workflow Integration Tests...\n");
 
-  const timestamp = Date.now();
-  const farmer1Email = `ramesh_${timestamp}@harvestmitra.local`;
-  const farmer2Email = `suresh_${timestamp}@harvestmitra.local`;
-  const phone1 = "98" + String(Math.floor(10000000 + Math.random() * 90000000));
-  const phone2 = "98" + String(Math.floor(10000000 + Math.random() * 90000000));
-  const password = "Password123";
+  let server = null;
+  let API_BASE = "http://127.0.0.1:5000";
 
-  // STEP 1: Register Farmer 1 (Ramesh) with 3 crops: Tomato (500kg), Onion (300kg), Wheat (800kg)
-  console.log("TEST 1 & 2: Multi-Crop Registration for Ramesh Patel (Tomato 500kg, Onion 300kg, Wheat 800kg)");
-  const reg1Res = await fetch(`${API_BASE}/api/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: "Ramesh Patel",
-      email: farmer1Email,
-      phone: phone1,
-      password: password,
-      role: "farmer",
+  try {
+    const healthCheck = await fetch(`${API_BASE}/api/health`, { signal: AbortSignal.timeout(800) });
+    if (!healthCheck.ok) throw new Error("Daemon not ready");
+  } catch (_) {
+    server = app.listen(0);
+    const port = server.address().port;
+    API_BASE = `http://127.0.0.1:${port}`;
+  }
+
+  try {
+    const timestamp = Date.now();
+    const farmer1Email = `ramesh_${timestamp}@harvestmitra.local`;
+    const farmer2Email = `suresh_${timestamp}@harvestmitra.local`;
+    const phone1 = "98" + String(Math.floor(10000000 + Math.random() * 90000000));
+    const phone2 = "98" + String(Math.floor(10000000 + Math.random() * 90000000));
+    const password = "Password123";
+
+    // STEP 1: Register Farmer 1 (Ramesh) with 3 crops: Tomato (500kg), Onion (300kg), Wheat (800kg)
+    console.log("TEST 1 & 2: Multi-Crop Registration for Ramesh Patil (Tomato 500kg, Onion 300kg, Wheat 800kg)");
+    const reg1Res = await fetch(`${API_BASE}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Ramesh Patil",
+        email: farmer1Email,
+        phone: phone1,
+        password: password,
+        role: "farmer",
       district: "Pune",
       state: "Maharashtra",
       farmSizeAcres: 6.5,
@@ -229,6 +241,11 @@ async function runE2E() {
   console.log("  ✅ Complete isolation verified: Suresh only sees Soybean; Ramesh only sees Tomato, Wheat, Cotton.");
 
   console.log("\n🎉 ALL 10 END-TO-END WORKFLOW INTEGRATION TESTS PASSED WITH 100% SUCCESS!\n");
+  } finally {
+    if (server) {
+      server.close();
+    }
+  }
 }
 
 runE2E()

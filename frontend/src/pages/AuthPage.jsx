@@ -247,36 +247,17 @@ export default function AuthPage({ mode = 'login' }) {
     setError('');
     setLoading(true);
     try {
-      let loggedUser;
-      try {
-        loggedUser = await loginWithWhatsApp({
-          phone: '9822012345',
-          name: 'Mihir Jadav',
-          role: 'farmer',
-          district: 'Pune',
-          state: 'Maharashtra',
-          agristackId: 'PMK-MH-98201'
-        });
-      } catch (waErr) {
-        console.warn('WhatsApp quick login fallback:', waErr.message);
-        try {
-          loggedUser = await demoLogin();
-        } catch {
-          loggedUser = await login('demo@harvestmitra.local', 'Demo@12345');
-        }
-      }
-
+      await demoLogin('farmer');
       showToast({
         type: 'celebrate',
-        title: '⚡ 1-Click Demo Login Successful!',
-        message: `Welcome, ${loggedUser?.name || 'Mihir Jadav'}! Entering Farmer Suite...`,
+        title: '⚡ Instant Demo Access!',
+        message: 'Welcome Mihir Jadav! Logged in as Demo Farmer with 3.5 acres in Pune.',
         duration: 2500
       });
-
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message || '1-Click demo farmer login failed.');
-      showToast({ type: 'error', title: 'Login Error', message: err.message });
+      setError(err.message || 'Demo login failed');
+      showToast({ type: 'error', title: 'Demo Login Error', message: err.message });
     } finally {
       setLoading(false);
     }
@@ -586,7 +567,15 @@ export default function AuthPage({ mode = 'login' }) {
 
   function handleModalProceed() {
     setModalState((prev) => ({ ...prev, isOpen: false }));
-    navigate('/dashboard');
+    if (role === 'admin') {
+      navigate('/admin');
+    } else if (role === 'transporter') {
+      navigate('/transport');
+    } else if (role === 'mandi') {
+      navigate('/markets');
+    } else {
+      navigate('/dashboard');
+    }
   }
 
   return (
@@ -1015,7 +1004,7 @@ export default function AuthPage({ mode = 'login' }) {
                         type="button"
                         onClick={() => {
                           setOtpPhone('9822012345');
-                          setOtpName('Ramesh Patel');
+                          setOtpName('Ramesh Patil');
                           setOtpAgristackId('PMK-MH-98201');
                           setRole('farmer');
                         }}

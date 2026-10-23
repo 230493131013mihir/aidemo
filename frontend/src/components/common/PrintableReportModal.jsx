@@ -36,11 +36,11 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
     generatedTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
     digitalSignatureHash: 'SHA256:7B9F4E81C02D3A556947FF10E28B9643AA',
     farmer: {
-      name: 'Ramesh Patel',
+      name: 'Ramesh Patil',
       phone: '+91 98765 43210',
-      village: 'Bardoli',
-      district: 'Surat District',
-      state: 'Gujarat',
+      village: 'Haveli',
+      district: 'Pune District',
+      state: 'Maharashtra',
       farmSizeAcres: '4.5 Acres',
       crop: 'Hybrid Tomatoes',
       variety: 'Abhinav / US-440',
@@ -49,7 +49,7 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
     },
     mandiBenchmarks: [
       {
-        market: 'Surat APMC Mandi (Local)',
+        market: 'Pune APMC Mandi (Gultekdi)',
         distance: '18 km',
         modalPrice: 22.50,
         modalPriceQuintal: 2250,
@@ -58,8 +58,8 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
         status: 'Active Local Benchmark'
       },
       {
-        market: 'Pune APMC / Regional Hub',
-        distance: '340 km (Shared Pool)',
+        market: 'Mumbai APMC (Vashi) / Regional Hub',
+        distance: '165 km (Shared Pool)',
         modalPrice: 28.00,
         modalPriceQuintal: 2800,
         dailyArrivals: '1,450 Quintals',
@@ -186,12 +186,12 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            farmerName: 'Ramesh Patel',
+            farmerName: 'Ramesh Patil',
             crop: 'Tomato',
             farmSizeAcres: 4.5,
             quantityKg: 1500,
-            district: 'Surat',
-            state: 'Gujarat'
+            district: 'Pune',
+            state: 'Maharashtra'
           })
         });
         const data = await res.json();

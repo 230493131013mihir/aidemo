@@ -13,7 +13,6 @@ const adminRoutes = require('./routes/admin.routes');
 const chatRoutes = require('./routes/chatRoutes');
 const marketRoutes = require('./routes/marketRoutes');
 const weatherRoutes = require('./routes/weatherRoutes');
-const transportRoutes = require('./routes/transportRoutes');
 
 const app = express();
 

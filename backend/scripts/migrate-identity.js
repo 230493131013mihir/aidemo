@@ -55,11 +55,21 @@ async function migrateIdentity() {
         }
 
         console.log("🎉 Identity migration complete!");
-        process.exit(0);
+        if (require.main === module) {
+            process.exit(0);
+        }
+        return true;
     } catch (err) {
         console.error("❌ Identity migration error:", err.message);
-        process.exit(1);
+        if (require.main === module) {
+            process.exit(1);
+        }
+        return false;
     }
 }
 
-migrateIdentity();
+if (require.main === module) {
+    migrateIdentity();
+}
+
+module.exports = migrateIdentity;
