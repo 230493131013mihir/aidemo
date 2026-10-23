@@ -93,7 +93,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
   };
 
   const renderSidebarContent = (isMobileDrawer = false) => (
-    <div className="flex flex-col justify-between min-h-full space-y-6 pb-2">
+    <div className="flex flex-col justify-between min-h-full space-y-6 pb-10 overscroll-contain touch-pan-y">
       <div className="space-y-5">
         {/* Mobile Header with Close Button */}
         {isMobileDrawer && (
@@ -195,28 +195,6 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
                 <User className="w-4 h-4 shrink-0" />
                 <span className="truncate">{profileLabel}</span>
               </div>
-              <ChevronRight className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
-            </NavLink>
-
-            {user?.role === 'admin' && (
-              <NavLink
-                to="/admin"
-                onClick={handleLinkClick}
-                className={({ isActive }) =>
-                  `flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all group ${
-                    isActive
-                      ? 'bg-primary text-white shadow-xs font-bold'
-                      : 'text-text hover:bg-emerald-50/90 hover:text-primary'
-                  }`
-                }
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <Shield className="w-4 h-4 shrink-0" />
-                  <span className="truncate">Admin Panel</span>
-                </div>
-                <ChevronRight className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
-              </NavLink>
-            )}
 
             {isAuthenticated ? (
               <button
@@ -289,7 +267,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
       {/* 1. Desktop Static Sidebar (Always visible on lg screens and up) */}
       <aside 
         id="dashboard-sidebar-desktop"
-        className={`hidden lg:flex w-64 shrink-0 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-surface border-border'} border-r h-[calc(100vh-4rem)] flex-col sticky top-16 z-20 overflow-y-auto overflow-x-hidden min-h-0 p-4 sidebar-scroll ${className}`}
+        className={`hidden lg:flex w-64 shrink-0 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-surface border-border'} border-r h-[calc(100vh-4rem)] flex-col sticky top-16 z-20 overflow-y-auto overflow-x-hidden min-h-0 p-4 sidebar-scroll overscroll-contain touch-pan-y ${className}`}
         aria-label="Dashboard desktop sidebar navigation"
       >
         {renderSidebarContent(false)}
@@ -308,7 +286,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
           {/* Off-canvas Sliding Drawer */}
           <aside 
             id="dashboard-sidebar-mobile"
-            className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] ${isDark ? 'bg-slate-900 text-white' : 'bg-white'} shadow-2xl flex flex-col p-4 overflow-y-auto overflow-x-hidden min-h-0 sidebar-scroll lg:hidden animate-in slide-in-from-left duration-200`}
+            className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] ${isDark ? 'bg-slate-900 text-white' : 'bg-white'} shadow-2xl flex flex-col p-4 overflow-y-auto overflow-x-hidden min-h-0 sidebar-scroll overscroll-contain touch-pan-y lg:hidden animate-in slide-in-from-left duration-200`}
             aria-label="Dashboard mobile sidebar drawer"
           >
             {renderSidebarContent(true)}
