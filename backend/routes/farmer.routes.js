@@ -9,12 +9,19 @@ const router = express.Router();
 const authMiddleware = require('../middleware/auth.middleware');
 const farmerController = require('../controllers/farmer.controller');
 
-// All farmer crop endpoints are protected with authMiddleware
-router.get('/crops', authMiddleware, farmerController.getCrops);
-router.post('/crops', authMiddleware, farmerController.addCrop);
-router.put('/crops/:cropName', authMiddleware, farmerController.updateCropQuantity);
-router.delete('/crops/:cropName', authMiddleware, farmerController.removeCrop);
-router.get('/market-prices', authMiddleware, farmerController.getFarmerMarketPrices);
-router.get('/revenue-summary', authMiddleware, farmerController.getRevenueSummary);
+const requireFarmer = (req, res, next) => {
+  if (req.user?.role !== 'farmer' && req.user?.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Crop management is restricted to farmer accounts.' });
+  }
+  next();
+};
+
+// All farmer crop endpoints are protected with authMiddleware and requireFarmer
+router.get('/crops', authMiddleware, requireFarmer, farmerController.getCrops);
+router.post('/crops', authMiddleware, requireFarmer, farmerController.addCrop);
+router.put('/crops/:cropName', authMiddleware, requireFarmer, farmerController.updateCropQuantity);
+router.delete('/crops/:cropName', authMiddleware, requireFarmer, farmerController.removeCrop);
+router.get('/market-prices', authMiddleware, requireFarmer, farmerController.getFarmerMarketPrices);
+router.get('/revenue-summary', authMiddleware, requireFarmer, farmerController.getRevenueSummary);
 
 module.exports = router;

@@ -45,7 +45,7 @@ export default function ProtectedRoute({ children, requiredRole, requireAuth = f
   const isSharedPage = SHARED_PATHS.some((path) => location.pathname === path || location.pathname.startsWith(path + '/'));
 
   if (!isSharedPage && user?.role !== 'admin') {
-    // Farmer-specific pages (crop harvest simulator / management)
+    // Farmer-specific pages (crop harvest simulator / management) - guard for non-farmers
     const isFarmerOnly = location.pathname.startsWith('/harvest') || location.pathname.startsWith('/simulator') || requiredRole === 'farmer';
     if (isFarmerOnly && user?.role !== 'farmer') {
       return <Navigate to="/dashboard" replace />;
