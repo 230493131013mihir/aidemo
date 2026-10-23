@@ -360,6 +360,7 @@ function handleWeather(context, lang) {
 function handleProfile(context, lang) {
   const farmer = context.farmer || {};
   const name = farmer.name || 'Farmer';
+  // Default location fallback to Maharashtra (Fixes #159)
   const location = farmer.location || 'Maharashtra';
 
   if (lang === 'mr') {
