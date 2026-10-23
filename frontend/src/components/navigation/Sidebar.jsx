@@ -195,6 +195,8 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
                 <User className="w-4 h-4 shrink-0" />
                 <span className="truncate">{profileLabel}</span>
               </div>
+              <ChevronRight className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
+            </NavLink>
 
             {isAuthenticated ? (
               <button
