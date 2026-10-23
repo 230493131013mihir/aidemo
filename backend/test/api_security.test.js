@@ -130,6 +130,12 @@ async function runSecurityTests() {
   // Ensure test database is connected and synchronized
   await sequelize.authenticate();
   await sequelize.sync();
+  try {
+    const migrateIdentity = require("../scripts/migrate-identity");
+    if (typeof migrateIdentity === "function") await migrateIdentity();
+  } catch (mErr) {
+    // ignore
+  }
 
   // Ensure demo and admin accounts are properly seeded and match test credentials
   let adminUser = await User.findOne({ where: { email: ADMIN_CREDENTIALS.email } });

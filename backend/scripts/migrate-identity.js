@@ -28,6 +28,17 @@ async function migrateIdentity() {
                     console.log(`✅ [SQLite] Added column: ${col.name}`);
                 }
             }
+
+            try {
+                const [mandiCols] = await sequelize.query("PRAGMA table_info(mandi_profiles)");
+                const existingMandiCols = mandiCols.map(r => r.name);
+                if (!existingMandiCols.includes("operating_days")) {
+                    await sequelize.query("ALTER TABLE mandi_profiles ADD COLUMN operating_days TEXT DEFAULT 'Mon-Sat'");
+                    console.log("✅ [SQLite] Added column: operating_days to mandi_profiles");
+                }
+            } catch (mandiErr) {
+                // Table might not exist yet before sync
+            }
         } else {
             // MySQL
             const [cols] = await sequelize.query("DESCRIBE farmer_profiles");
@@ -51,6 +62,17 @@ async function migrateIdentity() {
                     await sequelize.query(`ALTER TABLE farmer_profiles ADD COLUMN ${col.name} ${col.def}`);
                     console.log(`✅ [MySQL] Added column: ${col.name}`);
                 }
+            }
+
+            try {
+                const [mandiCols] = await sequelize.query("DESCRIBE mandi_profiles");
+                const existingMandiCols = mandiCols.map(c => c.Field);
+                if (!existingMandiCols.includes("operating_days")) {
+                    await sequelize.query("ALTER TABLE mandi_profiles ADD COLUMN operating_days VARCHAR(100) NOT NULL DEFAULT 'Mon-Sat'");
+                    console.log("✅ [MySQL] Added column: operating_days to mandi_profiles");
+                }
+            } catch (mandiErr) {
+                // Table might not exist yet
             }
         }
 
