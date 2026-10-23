@@ -526,12 +526,14 @@ Explore personalized matching on our **Kisan Sahayata — Government Schemes** f
   }
 
   if (lang === 'hi') {
+    // Primary Maharashtra MahaDBT recommendation alongside Gujarat i-Khedut (Fixes #160)
     return `🏛️ **किसान सहायता — सरकारी कृषि योजनाएं एवं सब्सिडी**:
 किसानों के लिए प्रमुख सत्यापित योजनाएं:
 1. **PM-KISAN**: ₹6,000 प्रति वर्ष आय सहायता (https://pmkisan.gov.in/)
 2. **प्रधानमंत्री फसल बीमा योजना (PMFBY)**: फसल सुरक्षा एवं क्षतिपूर्ति (https://pmfby.gov.in/)
-3. **i-Khedut पोर्टल**: ट्रैक्टर, ड्रिप सिंचाई और कृषि यंत्रों पर सरकारी सब्सिडी (https://ikhedut.gujarat.gov.in/)
-4. **किसान क्रेडिट कार्ड (KCC)**: 4% रियायती ब्याज दर पर कृषि ऋण।
+3. **महाराष्ट्र महाडीबीटी (Maharashtra MahaDBT)**: ट्रैक्टर, ड्रिप सिंचाई और फार्म सब्सिडी (https://mahadbt.maharashtra.gov.in/)
+4. **i-Khedut पोर्टल**: गुजरात सरकार की कृषि सब्सिडी योजनाएं (https://ikhedut.gujarat.gov.in/)
+5. **किसान क्रेडिट कार्ड (KCC)**: 4% रियायती ब्याज दर पर कृषि ऋण।
 
 👉 अपनी जमीन व फसल के अनुसार उपयुक्त योजनाएं खोजने के लिए हमारे मेनू में **'सरकारी योजनाएं' (Kisan Sahayata)** देखें!`;
   }
