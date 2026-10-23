@@ -838,6 +838,98 @@ const createContactRequest = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/auth/mandi-procurement-request
+ * Allows Mandi Officials or Admins to issue a produce procurement booking inquiry to a farmer.
+ * Dispatches and records a persistent notification alert in database.
+ */
+const mandiProcurementRequest = async (req, res) => {
+    try {
+        if (!req.user || (req.user.role !== 'mandi' && req.user.role !== 'admin')) {
+            return res.status(403).json({
+                success: false,
+                message: "Access denied. Only Mandi officials and administrators can issue procurement requests."
+            });
+        }
+
+        const { farmerId, cropName, quantityKg, offeredRate } = req.body;
+
+        if (!farmerId || !cropName || !quantityKg || !offeredRate) {
+            return res.status(400).json({
+                success: false,
+                message: "farmerId, cropName, quantityKg, and offeredRate are required."
+            });
+        }
+
+        const qty = parseFloat(quantityKg);
+        const rate = parseFloat(offeredRate);
+
+        if (isNaN(qty) || qty <= 0 || isNaN(rate) || rate <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "quantityKg and offeredRate must be valid positive numbers."
+            });
+        }
+
+        const farmer = await User.findByPk(Number(farmerId), {
+            include: [{ model: FarmerProfile }]
+        });
+
+        if (!farmer) {
+            return res.status(404).json({
+                success: false,
+                message: "Target farmer not found."
+            });
+        }
+
+        // Fetch Mandi Profile for official credentials
+        const mandiProfile = await MandiProfile.findOne({ where: { userId: req.user.id } });
+        const mandiName = mandiProfile?.mandiName || req.user.name || "APMC Mandi";
+
+        const formattedRate = Number(rate.toFixed(2));
+        const notificationText = `🏪 ${mandiName} placed a procurement inquiry for ${qty} kg ${cropName} at ₹${formattedRate}/kg`;
+
+        const contactReq = await ContactRequest.create({
+            senderId: req.user.id,
+            senderName: mandiName,
+            senderRole: req.user.role,
+            senderContact: mandiProfile?.contactPhone || req.user.phone || mandiProfile?.contactEmail || req.user.email,
+            receiverId: farmer.id,
+            receiverName: farmer.name,
+            receiverRole: farmer.role,
+            cropName: String(cropName).trim(),
+            quantityKg: qty,
+            proposedPricePerKg: formattedRate,
+            message: notificationText,
+            status: "pending",
+            contactType: "mandi_to_farmer"
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: `Procurement booking request sent to ${farmer.name} successfully.`,
+            alert: {
+                id: contactReq.id,
+                farmerId: farmer.id,
+                farmerName: farmer.name,
+                mandiName,
+                cropName,
+                quantityKg: qty,
+                offeredRate: formattedRate,
+                message: notificationText,
+                createdAt: contactReq.createdAt
+            },
+            data: contactReq
+        });
+    } catch (error) {
+        console.error("Mandi procurement request error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to issue procurement request."
+        });
+    }
+};
+
 // Retrieve contact requests for current user (both sent and received)
 const getContactRequests = async (req, res) => {
     try {
@@ -1360,6 +1452,7 @@ module.exports = {
     verifyOtp,
     whatsappLogin,
     linkAgristack,
-    lookupAgristack
+    lookupAgristack,
+    mandiProcurementRequest
 };
 
