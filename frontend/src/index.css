@@ -45,7 +45,7 @@
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   #root {
@@ -53,11 +53,11 @@
     display: flex;
     flex-direction: column;
     max-width: 100vw;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   html {
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 }
 
@@ -87,11 +87,11 @@
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-color: rgba(27, 94, 32, 0.25) transparent;
 }
 
 .sidebar-scroll::-webkit-scrollbar {
-  width: 5px;
+  width: 4px;
 }
 
 .sidebar-scroll::-webkit-scrollbar-track {
@@ -99,12 +99,13 @@
 }
 
 .sidebar-scroll::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgba(27, 94, 32, 0.22);
   border-radius: 9999px;
+  transition: background-color 0.2s ease;
 }
 
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: rgba(27, 94, 32, 0.45);
 }
 
 @keyframes fadeIn {
