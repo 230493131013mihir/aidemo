@@ -97,7 +97,7 @@ export default function NetworkStatusBadge({ className = '', inline = false }) {
       className={
         inline
           ? `relative inline-block print:hidden ${className}`
-          : `fixed bottom-5 left-5 z-40 print:hidden ${className}`
+          : `fixed bottom-5 left-5 lg:left-72 z-30 print:hidden ${className}`
       }
       id="network-status-badge-container"
     >

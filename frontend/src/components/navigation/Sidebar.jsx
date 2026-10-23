@@ -91,7 +91,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
   };
 
   const renderSidebarContent = (isMobileDrawer = false) => (
-    <div className="flex flex-col justify-between h-full space-y-6">
+    <div className="flex flex-col justify-between min-h-full space-y-6 pb-2">
       <div className="space-y-5">
         {/* Mobile Header with Close Button */}
         {isMobileDrawer && (
@@ -279,7 +279,8 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
     <>
       {/* 1. Desktop Static Sidebar (Always visible on lg screens and up) */}
       <aside 
-        className={`hidden lg:flex w-64 shrink-0 bg-surface border-r border-border min-h-[calc(100vh-4rem)] flex-col justify-between p-4 sticky top-16 z-20 ${className}`}
+        id="dashboard-sidebar-desktop"
+        className={`hidden lg:flex w-64 shrink-0 bg-surface border-r border-border h-[calc(100vh-4rem)] flex-col sticky top-16 z-20 overflow-y-auto overflow-x-hidden min-h-0 p-4 sidebar-scroll ${className}`}
         aria-label="Dashboard desktop sidebar navigation"
       >
         {renderSidebarContent(false)}
@@ -297,7 +298,8 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
 
           {/* Off-canvas Sliding Drawer */}
           <aside 
-            className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-white shadow-2xl flex flex-col justify-between p-4 overflow-y-auto lg:hidden animate-in slide-in-from-left duration-200"
+            id="dashboard-sidebar-mobile"
+            className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-white shadow-2xl flex flex-col p-4 overflow-y-auto overflow-x-hidden min-h-0 sidebar-scroll lg:hidden animate-in slide-in-from-left duration-200"
             aria-label="Dashboard mobile sidebar drawer"
           >
             {renderSidebarContent(true)}

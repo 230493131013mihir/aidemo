@@ -12,7 +12,7 @@ export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen max-w-full overflow-x-hidden flex flex-col bg-gradient-to-br from-[#f8faf8] via-[#fcfbf7] to-[#f4f7f4] text-text selection:bg-primary/20 selection:text-primary-dark relative">
+    <div className="min-h-screen max-w-full flex flex-col bg-gradient-to-br from-[#f8faf8] via-[#fcfbf7] to-[#f4f7f4] text-text selection:bg-primary/20 selection:text-primary-dark relative">
       {/* Ambient glowing backdrops */}
       <div className="fixed -top-40 -left-40 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="fixed -bottom-40 -right-40 w-96 h-96 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none -z-10" />
@@ -24,7 +24,7 @@ export default function DashboardLayout() {
       />
 
       {/* Main Workspace Body with Sidebar & Content */}
-      <div className="flex-1 flex max-w-7xl w-full mx-auto min-w-0 overflow-x-hidden">
+      <div className="flex-1 flex max-w-7xl w-full mx-auto min-w-0">
         {/* Left Sidebar (Desktop Static + Mobile Drawer) */}
         <Sidebar 
           isOpen={sidebarOpen} 
