@@ -173,11 +173,26 @@ export async function fetchWeather(district = 'Pune', state = 'Maharashtra', opt
 
   const query = new URLSearchParams(params);
   const url = `${API_BASE_URL}/api/weather?${query.toString()}`;
-  
+
   try {
     const res = await fetch(url, { signal: options.signal });
     if (!res.ok) throw new Error(`Failed to load weather: HTTP ${res.status}`);
     const data = await res.json();
+
+    // When GPS coordinates are supplied, ensure real Open-Meteo live telemetry is used (0% on clear days, Issue #176)
+    if (options.latitude && options.longitude && (data.dataStatus === 'DEMO' || data.source?.includes('Demo'))) {
+      try {
+        const direct = await fetchDirectOpenMeteo({
+          latitude: options.latitude,
+          longitude: options.longitude,
+          name: district
+        }, options.signal);
+        if (direct && direct.success) {
+          return enrichWithWhatsAppRainAlert(direct, district);
+        }
+      } catch (_) {}
+    }
+
     return enrichWithWhatsAppRainAlert(data, district);
   } catch (err) {
     // If backend proxy failed and coordinates were provided, attempt direct Open-Meteo fallback

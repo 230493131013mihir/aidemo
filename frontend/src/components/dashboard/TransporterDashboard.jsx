@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Truck,
   CheckCircle2,
@@ -99,10 +99,25 @@ const SPECIAL_HANDLINGS = [
 export default function TransporterDashboard() {
   const { user, token } = useAuth();
   const { showToast } = useToast();
+  const location = useLocation();
 
   const [activeTab, setActiveTab] = useState('requests'); // 'requests' | 'shared-pools' | 'fleet'
   const prevRequestIdsRef = useRef(new Set());
   const isInitialLoadRef = useRef(true);
+
+  // Sync tab with URL parameters (e.g., /transport?tab=trips from header My Bookings)
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'trips' || tabParam === 'requests') {
+      setActiveTab('requests');
+      setFilterStatus('all');
+    } else if (tabParam === 'fleet') {
+      setActiveTab('fleet');
+    } else if (tabParam === 'shared') {
+      setActiveTab('shared-pools');
+    }
+  }, [location.search]);
 
   // Stats
   const [stats, setStats] = useState({
@@ -678,10 +693,11 @@ export default function TransporterDashboard() {
               <button
                 type="button"
                 onClick={() => setSelectedGatePass(activeTrip)}
-                className="px-3 py-1.5 rounded-xl border border-white/20 hover:bg-white/10 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-xl border border-white/20 hover:bg-white/10 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="View Official Digital Mandi Gate Pass with QR verification"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Mandi Pass</span>
+                <span>View Gate Pass (QR)</span>
               </button>
             </div>
           </div>
@@ -949,13 +965,24 @@ export default function TransporterDashboard() {
                         <CheckCheck className="w-4 h-4" />
                         <span>Accepted • Driver {req.driverName || 'Assigned'} ({req.vehicleNumber})</span>
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateStatus(req.id, 'in_transit')}
-                        className="btn-primary py-1 px-3 rounded-lg text-xs font-bold cursor-pointer"
-                      >
-                        Start Transit (Depart)
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedGatePass(req)}
+                          className="px-2.5 py-1 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-bold inline-flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                          title="View Digital Mandi Gate Pass with QR verification"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>View Gate Pass (QR)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus(req.id, 'in_transit')}
+                          className="btn-primary py-1 px-3 rounded-lg text-xs font-bold cursor-pointer"
+                        >
+                          Start Transit (Depart)
+                        </button>
+                      </div>
                     </div>
                   ) : req.status === 'in_transit' ? (
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
@@ -963,12 +990,39 @@ export default function TransporterDashboard() {
                         <Navigation className="w-4 h-4" />
                         <span>In Transit to {req.destinationMarket}</span>
                       </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedGatePass(req)}
+                          className="px-2.5 py-1 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-bold inline-flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                          title="View Digital Mandi Gate Pass with QR verification"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>View Gate Pass (QR)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus(req.id, 'delivered')}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white py-1 px-3 rounded-lg text-xs font-bold cursor-pointer"
+                        >
+                          Mark Delivered at Mandi
+                        </button>
+                      </div>
+                    </div>
+                  ) : req.status === 'delivered' || req.status === 'completed' ? (
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Delivered at Mandi</span>
+                      </span>
                       <button
                         type="button"
-                        onClick={() => handleUpdateStatus(req.id, 'delivered')}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white py-1 px-3 rounded-lg text-xs font-bold cursor-pointer"
+                        onClick={() => setSelectedGatePass(req)}
+                        className="px-2.5 py-1 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-bold inline-flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                        title="View Digital Mandi Gate Pass with QR verification"
                       >
-                        Mark Delivered at Mandi
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>View Gate Pass (QR)</span>
                       </button>
                     </div>
                   ) : null}

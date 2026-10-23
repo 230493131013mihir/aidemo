@@ -130,12 +130,16 @@ export default function WeatherAdvisoryWidget({
   const [weatherData, setWeatherData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isUsingGps, setIsUsingGps] = useState(false);
+  const [detectingGps, setDetectingGps] = useState(false);
+  const [gpsCoords, setGpsCoords] = useState(null);
 
-  const loadWeather = async (district, state) => {
+  const loadWeather = async (district, state, coords = null) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await fetchWeather(district, state);
+      const options = coords ? { latitude: coords.latitude, longitude: coords.longitude } : {};
+      const data = await fetchWeather(district, state, options);
       // Defensive check: if user/selected state is Maharashtra but API returns Gujarat, prefer Maharashtra
       if (data && (state === 'Maharashtra' || selectedState === 'Maharashtra') && (data.state === 'Gujarat' || data.location?.state === 'Gujarat')) {
         if (data.state) data.state = 'Maharashtra';
@@ -150,13 +154,54 @@ export default function WeatherAdvisoryWidget({
   };
 
   useEffect(() => {
-    loadWeather(selectedDistrict, selectedState);
+    if (!isUsingGps) {
+      loadWeather(selectedDistrict, selectedState);
+    }
   }, [selectedDistrict, selectedState]);
 
   const handleDistrictChange = (distName) => {
+    setIsUsingGps(false);
+    setGpsCoords(null);
     const found = DISTRICT_OPTIONS.find(d => d.name === distName);
     setSelectedDistrict(distName);
     if (found) setSelectedState(found.state);
+  };
+
+  // Live GPS geolocation detection per Hackathon Audit (Issue #176)
+  const handleUseLiveLocation = () => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setError('GPS Geolocation is not supported in this browser environment.');
+      return;
+    }
+    setDetectingGps(true);
+    setError(null);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setGpsCoords({ latitude, longitude });
+        setIsUsingGps(true);
+        try {
+          setLoading(true);
+          const data = await fetchWeather(selectedDistrict, selectedState, { latitude, longitude });
+          if (data && (selectedState === 'Maharashtra') && (data.state === 'Gujarat' || data.location?.state === 'Gujarat')) {
+            if (data.state) data.state = 'Maharashtra';
+            if (data.location?.state) data.location.state = 'Maharashtra';
+          }
+          setWeatherData(data);
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setLoading(false);
+          setDetectingGps(false);
+        }
+      },
+      (geoErr) => {
+        console.warn('Geolocation error:', geoErr.message);
+        setError('Location access was denied or timed out. Please allow GPS access or choose a district.');
+        setDetectingGps(false);
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
   };
 
   const isRainAdvisory = weatherData?.advisory?.level === 'RAIN_ADVISORY' || (weatherData?.weather?.rainProbability >= 60);
@@ -180,20 +225,47 @@ export default function WeatherAdvisoryWidget({
           </p>
         </div>
 
-        {/* District Selector Dropdown */}
-        <div className="flex items-center gap-2 bg-emerald-950/70 border border-emerald-700/50 px-3 py-1.5 rounded-xl self-start sm:self-auto text-xs">
-          <span className="text-emerald-300 font-medium shrink-0">{t.selectDistrict}</span>
-          <select
-            value={selectedDistrict}
-            onChange={(e) => handleDistrictChange(e.target.value)}
-            className="bg-transparent text-white font-bold focus:outline-none cursor-pointer"
+        {/* District Selector & Live GPS Location Button (Issue #176) */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            id="weather-use-live-location-btn"
+            onClick={handleUseLiveLocation}
+            disabled={detectingGps}
+            className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
+              isUsingGps
+                ? 'bg-emerald-500 text-white border border-emerald-400'
+                : 'bg-emerald-800/80 hover:bg-emerald-700 text-emerald-100 border border-emerald-600/60'
+            }`}
+            title="Detect current GPS coordinates for real-time live Open-Meteo weather"
           >
-            {DISTRICT_OPTIONS.map((d) => (
-              <option key={d.name} value={d.name} className="bg-emerald-950 text-white">
-                {d.name} ({d.state})
-              </option>
-            ))}
-          </select>
+            {detectingGps ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Locating GPS...</span>
+              </>
+            ) : (
+              <>
+                <span>📍 Use Live Location</span>
+                {isUsingGps && <span className="text-[10px] bg-emerald-950/40 px-1.5 py-0.5 rounded-full font-mono">GPS Active</span>}
+              </>
+            )}
+          </button>
+
+          <div className="flex items-center gap-2 bg-emerald-950/70 border border-emerald-700/50 px-3 py-1.5 rounded-xl self-start sm:self-auto text-xs">
+            <span className="text-emerald-300 font-medium shrink-0">{t.selectDistrict}</span>
+            <select
+              value={selectedDistrict}
+              onChange={(e) => handleDistrictChange(e.target.value)}
+              className="bg-transparent text-white font-bold focus:outline-none cursor-pointer"
+            >
+              {DISTRICT_OPTIONS.map((d) => (
+                <option key={d.name} value={d.name} className="bg-emerald-950 text-white">
+                  {d.name} ({d.state})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 

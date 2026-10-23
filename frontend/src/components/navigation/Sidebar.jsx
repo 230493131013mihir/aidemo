@@ -62,7 +62,6 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
         { to: '/dashboard', label: 'Logistics Dashboard', icon: LayoutDashboard },
         { to: '/transport', label: 'Cargo Trips & Gate Pass', icon: Truck },
         { to: '/weather', label: 'Route Weather Alerts', icon: CloudSunRain },
-        { to: '/markets', label: t('nav.markets', 'Mandi Prices'), icon: TrendingUp },
         { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
       ];
     }

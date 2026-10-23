@@ -9,14 +9,13 @@ import {
   User, 
   Shield, 
   LogOut,
-  ShieldCheck,
   ChevronDown
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import LanguageSelector from '../common/LanguageSelector';
-import ThemeToggle from '../common/ThemeToggle';
+// Note: ThemeToggle component is maintained in Sidebar.jsx (Issue #176)
 
 export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
   const { t } = useLanguage();
@@ -94,21 +93,20 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
 
           {/* Right Header: Language Selector & User Profile (Prashant - Farmer) */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Quick Mandi Gate Pass for Transporter */}
+            {/* Direct 'My Bookings' button for Transporter linking to cargo trips & individual gate passes (Issue #176) */}
             {isTransporter && (
               <NavLink
-                to="/transport?showpass=true"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-xs transition-all animate-pulse"
-                title="Display Official APMC Digital Gate Pass to Security Inspector"
+                to="/transport?tab=trips"
+                id="header-transporter-bookings"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-primary hover:bg-primary-hover text-white shadow-2xs transition-all"
+                title="View Assigned Cargo Trips & Digital Gate Passes"
               >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Mandi Gate Pass</span>
-                <span className="sm:hidden">Pass</span>
+                <Truck className="w-3.5 h-3.5" />
+                <span>My Bookings</span>
               </NavLink>
             )}
 
-            {/* Theme Switcher Toggle (Issue #141) */}
-            <ThemeToggle variant="pill" />
+            {/* ThemeToggle variant="pill" removed from header - available in Sidebar (Issue #176) */}
 
             {/* Language Selector */}
             <div className="flex items-center">
