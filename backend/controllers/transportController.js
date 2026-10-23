@@ -256,8 +256,97 @@ function handleBookPool(req, res) {
   }
 }
 
+// In-Memory Live Driver Telemetry State
+const liveDriverTelemetry = {
+  'MH-APMC-9421': {
+    passCode: 'MH-APMC-9421',
+    driverName: 'Dnyaneshwar Shinde',
+    driverPhone: '+91 98220 44120',
+    vehicleNumber: 'MH-12-RN-4120',
+    vehicleType: 'Tata 407 (Agri Freight)',
+    latitude: 19.6644,
+    longitude: 73.4735,
+    speedKmh: 58,
+    heading: 236,
+    checkpoint: 'Kasara Ghat Pass (NH-160)',
+    checkpointIndex: 3,
+    status: 'in_transit',
+    tarpSecured: true,
+    distanceCoveredKm: 54,
+    distanceRemainingKm: 94,
+    etaMinutes: 98,
+    lastUpdated: new Date().toISOString()
+  }
+};
+
+/**
+ * GET /api/transport/telemetry/:passCode
+ * Retrieve live GPS and telemetry for a specific gate pass / driver
+ */
+function handleGetTelemetry(req, res) {
+  try {
+    const passCode = (req.params.passCode || req.query.passCode || 'MH-APMC-9421').trim();
+    const telemetry = liveDriverTelemetry[passCode] || liveDriverTelemetry['MH-APMC-9421'];
+
+    return res.json({
+      success: true,
+      telemetry: {
+        ...telemetry,
+        lastUpdated: telemetry.lastUpdated || new Date().toISOString()
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+/**
+ * POST /api/transport/telemetry/update
+ * Driver or IoT Gateway updates live GPS coordinates, speed, and status
+ */
+function handleUpdateTelemetry(req, res) {
+  try {
+    const {
+      passCode = 'MH-APMC-9421',
+      latitude,
+      longitude,
+      speedKmh,
+      heading,
+      checkpoint,
+      status,
+      distanceRemainingKm,
+      etaMinutes
+    } = req.body;
+
+    const current = liveDriverTelemetry[passCode] || { passCode };
+
+    liveDriverTelemetry[passCode] = {
+      ...current,
+      latitude: Number(latitude) || current.latitude || 19.6644,
+      longitude: Number(longitude) || current.longitude || 73.4735,
+      speedKmh: speedKmh !== undefined ? Number(speedKmh) : current.speedKmh || 58,
+      heading: heading !== undefined ? Number(heading) : current.heading || 236,
+      checkpoint: checkpoint || current.checkpoint || 'State Highway Transit',
+      status: status || current.status || 'in_transit',
+      distanceRemainingKm: distanceRemainingKm !== undefined ? Number(distanceRemainingKm) : current.distanceRemainingKm,
+      etaMinutes: etaMinutes !== undefined ? Number(etaMinutes) : current.etaMinutes,
+      lastUpdated: new Date().toISOString()
+    };
+
+    return res.json({
+      success: true,
+      message: 'Telemetry coordinates updated successfully',
+      telemetry: liveDriverTelemetry[passCode]
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
 module.exports = {
   handleGetVehicles,
   handleMatchTransport,
-  handleBookPool
+  handleBookPool,
+  handleGetTelemetry,
+  handleUpdateTelemetry
 };

@@ -35,7 +35,10 @@ const MARATHI_CROP_NAMES = {
   Grapes: 'द्राक्षे',
   Sugarcane: 'ऊस',
   Rice: 'तांदूळ',
-  Maize: 'मका'
+  Maize: 'मका',
+  'Lady Finger': 'भेंडी',
+  Okra: 'भेंडी',
+  Bhindi: 'भेंडी'
 };
 
 class MarketService {

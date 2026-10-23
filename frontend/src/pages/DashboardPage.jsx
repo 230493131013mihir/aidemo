@@ -87,7 +87,12 @@ export default function DashboardPage() {
     return <Navigate to="/admin" replace />;
   }
 
-  // 2. Transporter views their dedicated Cargo & Trip Logistics Dashboard with quick toggle to Farmer Suite
+  // 2. Mandi Official views dedicated Mandi Market Rates & APMC workspace
+  if (user?.role === 'mandi') {
+    return <Navigate to="/markets" replace />;
+  }
+
+  // 3. Transporter views their dedicated Cargo & Trip Logistics Dashboard with quick toggle to Farmer Suite
   if (user?.role === 'transporter') {
     return (
       <div className="space-y-4">
@@ -155,7 +160,16 @@ function FarmerDashboard({ user, t }) {
   const fetchFarmerCrops = async () => {
     try {
       setLoadingCrops(true);
-      const res = await apiClient('/api/farmer/crops');
+      const token = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('harvestmitra_token')) || 
+                    (typeof localStorage !== 'undefined' && localStorage.getItem('harvestmitra_token')) || 'guest';
+      const headers = { 'Content-Type': 'application/json' };
+      if (token && token !== 'guest') {
+        headers.Authorization = `Bearer ${token}`;
+      } else {
+        headers['x-guest-mode'] = 'true';
+      }
+
+      const res = await fetch(`${API_BASE_URL}/api/farmer/crops`, { headers });
       const json = await res.json();
       if (json.success && Array.isArray(json.crops)) {
         setCrops(json.crops);

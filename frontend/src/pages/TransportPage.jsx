@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { 
   AlertCircle, 
@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   Phone,
   QrCode,
+  Navigation,
   CheckCheck,
   Star,
   Lock,
@@ -29,6 +30,7 @@ import DigitalGatePassModal from '../components/transport/DigitalGatePassModal';
 import EscrowPaymentModal from '../components/transport/EscrowPaymentModal';
 import DriverRatingModal from '../components/transport/DriverRatingModal';
 import CorridorFreightCalculator from '../components/transport/CorridorFreightCalculator';
+import LiveDriverTrackingMap from '../components/transport/LiveDriverTrackingMap';
 import SharedTransportFarmerWidget from '../components/dashboard/SharedTransportFarmerWidget';
 import TransporterDashboard from '../components/dashboard/TransporterDashboard';
 import apiClient from '../services/apiClient';
@@ -94,6 +96,25 @@ export default function TransportPage() {
 
   // Modal for Digital Mandi Gate Pass
   const [selectedGatePass, setSelectedGatePass] = useState(null);
+  const [showGpsMap, setShowGpsMap] = useState(true);
+  const [showTransporterGpsMap, setShowTransporterGpsMap] = useState(true);
+
+  // Live dynamic telemetry state synced from the interactive radar map
+  const [liveTelemetry, setLiveTelemetry] = useState({
+    speedKmh: 58,
+    bearing: 236,
+    distanceCoveredKm: 54.2,
+    distanceRemainingKm: 89.8,
+    etaMinutes: 98,
+    checkpoint: '⛰️ Kasara Ghat Curves (NH-160)',
+    nextCheckpoint: '🚧 Shahapur Agri Freight Bypass',
+    progressPct: 38,
+    isSimulatingRain: false
+  });
+
+  const handleTelemetryUpdate = useCallback((telemetry) => {
+    setLiveTelemetry(telemetry);
+  }, []);
 
   // Modal for UPI Freight Escrow Payment
   const [escrowPaymentBooking, setEscrowPaymentBooking] = useState(null);
@@ -105,9 +126,25 @@ export default function TransportPage() {
   const activeFarmerBooking = useMemo(() => {
     return (
       myRequests.find((r) => ['accepted', 'driver_assigned', 'in_transit', 'delivered'].includes(r.status)) ||
-      (myRequests.length > 0 ? myRequests[0] : null)
+      (myRequests.length > 0 ? myRequests[0] : null) || {
+        id: 'DEMO-9421',
+        gatePassCode: 'MH-APMC-9421',
+        farmerName: user?.name || 'Varun Patil',
+        farmerPhone: user?.phone || '9822994411',
+        cropName: 'Tomato',
+        weightKg: 1200,
+        pickupLocation: 'Nashik Rural Farm #4',
+        destinationMarket: 'Mumbai Vashi Mega APMC',
+        pickupDate: new Date().toISOString().slice(0, 10),
+        driverName: 'Dnyaneshwar Shinde',
+        driverPhone: '9822044120',
+        vehicleType: 'Tata 407 (Agri Freight)',
+        vehicleNumber: 'MH-12-RN-4120',
+        status: 'in_transit',
+        estimatedDurationMinutes: 102
+      }
     );
-  }, [myRequests]);
+  }, [myRequests, user]);
 
   // Apply selected highway corridor to booking form
   const handleApplyCorridor = (data) => {
@@ -413,6 +450,18 @@ export default function TransportPage() {
     setError('');
     setMessage('');
 
+    if (Number(weight) > 5000) {
+      const errMsg = 'Overload Warning: Single vehicle shared dispatch cannot exceed the 5,000 kg safety limit. Please reduce weight or split across multiple trucks.';
+      setError(errMsg);
+      showToast({
+        type: 'warning',
+        title: '⚠️ Overloaded Dispatch Prevented',
+        message: errMsg,
+        duration: 6000
+      });
+      return;
+    }
+
     if (!token || token === 'guest' || user?.isGuest) {
       if (!cropName.trim() || !pickupLocation.trim()) {
         const errMsg = 'Please fill in crop commodity and pickup location.';
@@ -431,16 +480,16 @@ export default function TransportPage() {
           destinationMarket: destination || 'Pune APMC',
           pickupDate: date || new Date().toISOString().slice(0, 10),
           status: 'assigned',
-          gatePassCode: `HM-GP-DEMO-${Math.floor(1000 + Math.random() * 9000)}`,
+          gatePassCode: `MH-APMC-DEMO-${Math.floor(1000 + Math.random() * 9000)}`,
           driverName: 'Sanjay Shinde (Verified Driver)',
           driverPhone: '9876543210',
           vehicleType: 'Mahindra Bolero Maxi Truck',
-          vehicleNumber: 'GJ-05-AB-4921',
+          vehicleNumber: 'MH-12-RN-4921',
           estimatedDurationMinutes: 120,
           estimatedSharedCost: Math.round(Number(weight || 500) * 1.8),
           createdAt: new Date().toISOString()
         };
-        setActiveFarmerBooking(guestBooking);
+        setMyRequests((prev) => [guestBooking, ...prev]);
         setSelectedGatePass(guestBooking);
         setSubmitting(false);
         showToast({
@@ -525,6 +574,7 @@ export default function TransportPage() {
         duration: 5000,
       });
 
+      setSelectedGatePass(payload.data);
       await loadMyRequests();
     } catch (err) {
       setError(err.message || 'Unable to save transport request');
@@ -536,16 +586,46 @@ export default function TransportPage() {
 
   // Join shared vehicle pool
   async function handleJoinPool(pool) {
-    if (!token) {
+    if (isUserTransporter) {
       showToast({
-        type: 'error',
-        title: 'Login Required',
-        message: 'Sign in to book an available transporter.',
+        type: 'warning',
+        title: 'Role Restriction',
+        message: 'Transporters cannot book cargo slots.',
       });
       return;
     }
 
     const estimatedCost = Math.round(pool.cost * (Number(weight || 500) / Math.max(pool.capacityKg, 1)));
+
+    if (!token || token === 'guest' || user?.isGuest) {
+      const guestBooking = {
+        id: `guest-${Date.now()}`,
+        farmerName: farmerName.trim() || user?.name || 'Guest Farmer (अतिथी शेतकरी)',
+        cropName: cropName.trim() || 'Produce',
+        weightKg: Number(weight || 500),
+        pickupLocation: pickupLocation.trim() || 'Pune, Maharashtra',
+        destinationMarket: pool.route || destination || 'Pune APMC',
+        pickupDate: pool.date || date || new Date().toISOString().slice(0, 10),
+        status: 'accepted',
+        gatePassCode: `MH-APMC-POOL-${Math.floor(1000 + Math.random() * 9000)}`,
+        driverName: pool.driver || 'Sanjay Shinde (Verified Driver)',
+        driverPhone: '9876543210',
+        vehicleType: pool.vehicle || 'Mahindra Bolero Maxi Truck',
+        vehicleNumber: pool.vehicleNumber || 'MH-12-RN-4921',
+        estimatedDurationMinutes: 120,
+        estimatedSharedCost: estimatedCost,
+        createdAt: new Date().toISOString()
+      };
+      setMyRequests((prev) => [guestBooking, ...prev]);
+      setSelectedGatePass(guestBooking);
+      showToast({
+        type: 'celebrate',
+        title: '🎉 Shared Slot Booked & Confirmed!',
+        message: `Reserved ${pool.vehicle} with ${pool.driver}. Estimated cost: ${formatINR(estimatedCost)}. Gate pass issued.`,
+        duration: 5000,
+      });
+      return;
+    }
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/transport/bookings`, {
@@ -844,11 +924,20 @@ export default function TransportPage() {
 
                   <button
                     type="button"
+                    onClick={() => setShowGpsMap((prev) => !prev)}
+                    className="px-3 py-1.5 rounded-xl border border-blue-400/30 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>{showGpsMap ? 'Hide GPS Radar' : '🛰️ Live Driver GPS Map'}</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setSelectedGatePass(activeFarmerBooking)}
                     className="px-3 py-1.5 rounded-xl border border-emerald-400/30 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition-colors"
                   >
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>View Gate Pass</span>
+                    <span>Digital Mandi Gate Pass</span>
                   </button>
                 </div>
               </div>
@@ -887,7 +976,7 @@ export default function TransportPage() {
                   <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Estimated Arrival Time (ETA)</span>
                   <p className="font-mono font-extrabold text-sm text-amber-300 flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5" />
-                    <span>~{activeFarmerBooking.estimatedDurationMinutes || 120} Minutes</span>
+                    <span>~{liveTelemetry?.etaMinutes || activeFarmerBooking.estimatedDurationMinutes || 120} Minutes</span>
                   </p>
                   <span className="text-[11px] text-slate-400">Scheduled: {activeFarmerBooking.pickupDate}</span>
                 </div>
@@ -950,7 +1039,7 @@ export default function TransportPage() {
                         ['delivered', 'completed'].includes(activeFarmerBooking.status)
                           ? '100%'
                           : activeFarmerBooking.status === 'in_transit'
-                          ? '66%'
+                          ? `${Math.max(35, Math.min(96, liveTelemetry?.progressPct || 66))}%`
                           : ['accepted', 'driver_assigned'].includes(activeFarmerBooking.status)
                           ? '33%'
                           : '0%',
@@ -1039,6 +1128,17 @@ export default function TransportPage() {
                 </div>
               </div>
 
+              {/* Interactive Real-Time Live GPS Driver Highway Radar Map */}
+              {showGpsMap && (
+                <div className="mt-4 pt-1 animate-in fade-in duration-300">
+                  <LiveDriverTrackingMap
+                    booking={activeFarmerBooking}
+                    isExpandedDefault={false}
+                    onTelemetryUpdate={handleTelemetryUpdate}
+                  />
+                </div>
+              )}
+
               {/* Dynamic Live Cargo Route Checkpoint & Telemetry Radar */}
               <div className="mt-4 p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
@@ -1053,7 +1153,7 @@ export default function TransportPage() {
                   </div>
                   <span className="text-[10px] font-mono text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-400/30 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>Dynamic 4s Driver Sync Active</span>
+                    <span>Dynamic Radar Stream Sync Active</span>
                   </span>
                 </div>
 
@@ -1064,16 +1164,12 @@ export default function TransportPage() {
                     <p className="text-xs font-extrabold text-white flex items-center gap-1.5">
                       {activeFarmerBooking.status === 'delivered'
                         ? '🏁 Mandi Auction Bay'
-                        : activeFarmerBooking.status === 'in_transit'
-                        ? '🛣️ En Route on State Highway'
-                        : '🚜 Farm Gate Loading Yard'}
+                        : liveTelemetry?.checkpoint || '🛣️ En Route on State Highway'}
                     </p>
                     <p className="text-[11px] text-slate-300">
                       {activeFarmerBooking.status === 'delivered'
                         ? 'Produce unloaded at destination APMC'
-                        : activeFarmerBooking.status === 'in_transit'
-                        ? 'Truck moving at ~58 km/h • Tarp secured'
-                        : 'Produce inspected & loaded into commercial vehicle'}
+                        : `Truck moving at ~${liveTelemetry?.speedKmh || 58} km/h • ${liveTelemetry?.isSimulatingRain ? '🌧️ Rain Alert Active' : 'Tarp secured & verified'}`}
                     </p>
                   </div>
 
@@ -1082,9 +1178,7 @@ export default function TransportPage() {
                     <p className="text-xs font-mono font-extrabold text-emerald-400">
                       {activeFarmerBooking.status === 'delivered'
                         ? '100% Completed (Reached APMC)'
-                        : activeFarmerBooking.status === 'in_transit'
-                        ? '38 km covered • ~18 km remaining'
-                        : '0 km covered • Vehicle at Pickup Point'}
+                        : `${liveTelemetry?.distanceCoveredKm || 54.2} km covered • ~${liveTelemetry?.distanceRemainingKm || 89.8} km remaining (${liveTelemetry?.progressPct || 38}%)`}
                     </p>
                     <p className="text-[11px] text-slate-300 truncate">
                       Pickup: {activeFarmerBooking.pickupLocation}
@@ -1096,9 +1190,7 @@ export default function TransportPage() {
                     <p className="text-xs font-extrabold text-amber-300">
                       {activeFarmerBooking.status === 'delivered'
                         ? '✅ Weight Slip Verified & Auction Ready'
-                        : activeFarmerBooking.status === 'in_transit'
-                        ? '⚖️ APMC Gate & Weighbridge'
-                        : '🛣️ State Highway Dispatch'}
+                        : liveTelemetry?.nextCheckpoint || '⚖️ APMC Gate & Weighbridge'}
                     </p>
                     <p className="text-[11px] text-slate-300 truncate">
                       Target Mandi: {activeFarmerBooking.destinationMarket}
@@ -1193,9 +1285,19 @@ export default function TransportPage() {
                   required
                   value={weight}
                   onChange={(e) => setWeight(e.target.value)}
-                  className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary"
+                  className={`w-full rounded-xl border px-3.5 py-2 text-sm outline-none transition-colors ${
+                    Number(weight) > 5000
+                      ? 'border-amber-500 bg-amber-50/30 focus:border-amber-600'
+                      : 'border-border focus:border-primary'
+                  }`}
                   placeholder="500"
                 />
+                {Number(weight) > 5000 && (
+                  <div className="mt-1 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 flex items-start gap-1.5 font-semibold">
+                    <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                    <span>⚠️ Weight limit guard: Weight exceeds 5,000 kg max capacity. Reduce weight to prevent overloaded dispatch.</span>
+                  </div>
+                )}
               </label>
             </div>
 
@@ -1222,11 +1324,13 @@ export default function TransportPage() {
                 )}
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="btn-primary py-2.5 px-6 rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm"
+                  disabled={submitting || Number(weight) > 5000}
+                  className={`btn-primary py-2.5 px-6 rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm ${
+                    Number(weight) > 5000 ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
                   <PlusCircle className="w-4 h-4" />
-                  <span>{submitting ? 'Connecting...' : 'Book & Issue Gate Pass'}</span>
+                  <span>{submitting ? 'Connecting...' : 'Request Shared Truck Pool'}</span>
                 </button>
               </div>
             </div>
@@ -1344,7 +1448,7 @@ export default function TransportPage() {
           <section className="rounded-3xl border border-border bg-white shadow-xs overflow-hidden">
             <div className="px-6 py-4 bg-slate-50 border-b border-border flex items-center justify-between">
               <div>
-                <h2 className="font-bold text-sm text-text">My Live Transport Bookings & Tracking</h2>
+                <h2 className="font-bold text-sm text-text">My Transport Requests & Live Tracking</h2>
                 <p className="text-[11px] text-muted">Stored in MySQL • Your requests, assigned transporter, and digital mandi gate passes</p>
               </div>
               <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-lg bg-white border border-slate-200">
@@ -1467,7 +1571,7 @@ export default function TransportPage() {
                             className="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
                           >
                             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Mandi Gate Pass</span>
+                            <span>Digital Mandi Gate Pass</span>
                           </button>
                         </div>
                       </div>

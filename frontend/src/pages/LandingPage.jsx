@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { LogIn, UserPlus, X } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import HeroSection from '../components/landing/HeroSection';
 import ProblemSection from '../components/landing/ProblemSection';
 import FeaturesSection from '../components/landing/FeaturesSection';
@@ -10,7 +9,6 @@ import CTASection from '../components/landing/CTASection';
 
 export default function LandingPage() {
   const location = useLocation();
-  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
 
   // Handle smooth scroll when navigating with hash (e.g., /#features)
   useEffect(() => {
@@ -24,16 +22,6 @@ export default function LandingPage() {
       }
     }
   }, [location]);
-
-  // Auth prompt is kept inactive on landing load so user can freely explore the UI without being blocked
-  useEffect(() => {
-    // Zero intrusive popups on mount
-  }, []);
-
-  function closePrompt() {
-    sessionStorage.setItem('harvestmitra_auth_prompt_dismissed', 'true');
-    setShowAuthPrompt(false);
-  }
 
   return (
     <div className="w-full">
@@ -54,52 +42,6 @@ export default function LandingPage() {
 
       {/* 6. Call To Action */}
       <CTASection />
-
-      {showAuthPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
-          <div className="w-full max-w-md rounded-xl bg-white border border-border shadow-2xl p-6 relative">
-            <button
-              type="button"
-              onClick={closePrompt}
-              className="absolute right-3 top-3 p-2 rounded-lg text-muted hover:text-text hover:bg-secondary"
-              aria-label="Close login prompt"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            <div className="space-y-3 pr-8">
-              <p className="text-xs font-bold uppercase tracking-wider text-primary">
-                Farmer Access
-              </p>
-              <h2 className="text-2xl font-extrabold text-text">
-                Login or register to save your work
-              </h2>
-              <p className="text-sm text-muted">
-                Farmers can save transport requests, manage their profile, and access protected tools after login.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
-              <Link to="/login" className="btn-primary w-full" onClick={closePrompt}>
-                <LogIn className="w-4 h-4" />
-                <span>Login</span>
-              </Link>
-              <Link to="/register" className="btn-secondary w-full" onClick={closePrompt}>
-                <UserPlus className="w-4 h-4" />
-                <span>Register</span>
-              </Link>
-            </div>
-
-            <button
-              type="button"
-              onClick={closePrompt}
-              className="mt-4 w-full text-sm font-semibold text-muted hover:text-primary"
-            >
-              Continue without login
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

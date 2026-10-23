@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Calculator, 
   CheckCircle2, 
@@ -291,18 +291,42 @@ export default function HarvestPage() {
     return init;
   });
 
+  const location = useLocation();
+  const weatherParams = location.state?.weatherParams;
+
   // Dynamic parameters per crop: { [cropName]: { holdingDays: number, damageRisk: number } }
   const [cropDynamicParams, setCropDynamicParams] = useState(() => {
     const init = {};
+    const weatherRisk = weatherParams?.damageRisk || (weatherParams?.rainProbability >= 60 ? 15 : null);
     Object.keys(CROP_PROFILES).forEach((cropName) => {
       const profile = CROP_PROFILES[cropName];
       init[cropName] = {
         holdingDays: profile.defaultHoldingDays,
-        damageRisk: profile.defaultDamageRisk,
+        damageRisk: weatherRisk !== null ? weatherRisk : profile.defaultDamageRisk,
       };
     });
     return init;
   });
+
+  // Auto-apply pre-populated parameters from Weather page
+  useEffect(() => {
+    if (weatherParams && weatherParams.rainProbability !== undefined) {
+      const appliedRisk = weatherParams.damageRisk || (weatherParams.rainProbability >= 60 ? 15 : 5);
+      setCropDynamicParams((prev) => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach((k) => {
+          updated[k] = { ...updated[k], damageRisk: appliedRisk };
+        });
+        return updated;
+      });
+      showToast({
+        type: weatherParams.rainProbability >= 60 ? 'warning' : 'info',
+        title: `🌦️ Weather Applied: ${weatherParams.district || 'District'}`,
+        message: `Rain Probability: ${weatherParams.rainProbability}%, Humidity: ${weatherParams.humidity}%. Storage holding damage risk adjusted to ${appliedRisk}%.`,
+        duration: 6000
+      });
+    }
+  }, [weatherParams]);
 
   // Synced Live prices per crop from API or fallback
   const [pricesByCrop, setPricesByCrop] = useState(() => {

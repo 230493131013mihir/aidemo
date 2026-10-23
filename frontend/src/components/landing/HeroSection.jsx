@@ -14,9 +14,11 @@ import {
   UserPlus
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function HeroSection() {
   const { t } = useLanguage();
+  const { isAuthenticated } = useAuth();
 
   return (
     <section 

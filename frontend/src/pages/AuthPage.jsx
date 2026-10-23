@@ -17,7 +17,15 @@ import {
   Scale,
   ArrowLeft,
   X,
-  Search
+  Search,
+  MessageSquare,
+  Smartphone,
+  KeyRound,
+  Users,
+  Award,
+  RefreshCw,
+  Send,
+  ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -40,12 +48,31 @@ const STANDARD_CROPS = [
 export default function AuthPage({ mode = 'login' }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, register } = useAuth();
+  const { login, register, demoLogin, sendOtp, loginWithOtp, loginWithWhatsApp } = useAuth();
   const { showToast } = useToast();
   const isRegister = mode === 'register';
 
-  // 4-Way Role Selector: 'farmer', 'transporter', 'mandi', 'admin'
+  // 5-Way Role Selector: 'farmer', 'fpo_leader', 'transporter', 'mandi', 'admin'
   const [role, setRole] = useState('farmer');
+
+  // Authentication Mode: 'otp' (Farmer-First Passwordless) vs 'password' (Admin & Standard)
+  const [authMethod, setAuthMethod] = useState(isRegister ? 'password' : 'otp');
+  const [otpStep, setOtpStep] = useState('phone'); // 'phone' | 'verify'
+  const [otpPhone, setOtpPhone] = useState('9822012345');
+  const [otpName, setOtpName] = useState('');
+  const [otpAgristackId, setOtpAgristackId] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [devOtp, setDevOtp] = useState('');
+  const [countdown, setCountdown] = useState(0);
+
+  // Countdown timer for resending OTP
+  useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [countdown]);
 
   const [form, setForm] = useState({
     name: '',
@@ -65,6 +92,11 @@ export default function AuthPage({ mode = 'login' }) {
       Tomato: { qty: 500, unit: 'kg' }
     },
     currentHarvestKg: '500',
+    // FPO Leader fields
+    fpoName: 'Pune Kisan Samruddhi Producer Co Ltd',
+    fpoRegistrationNumber: 'FPO-MH-4921',
+    memberFarmerCount: '45',
+    agristackId: '',
     // Transporter fields
     vehicleType: 'Mahindra Bolero Maxi Truck',
     vehicleNumber: '',
@@ -74,7 +106,7 @@ export default function AuthPage({ mode = 'login' }) {
     // Mandi Official fields
     mandiName: '',
     licenseNumber: '',
-    operatingDays: 'Monday to Saturday',
+    operatingDays: 'Mon-Sat',
     facilities: 'Electronic Auction, Cold Storage, Modern Weighbridge, RTGS Direct Settlement'
   });
 
@@ -90,6 +122,126 @@ export default function AuthPage({ mode = 'login' }) {
     mode: 'register',
     data: {},
   });
+
+  async function handleSendOtp(channel = 'sms') {
+    setError('');
+    setSuccess('');
+    const cleanPhone = otpPhone.replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      const msg = 'Please enter a valid 10-digit Indian mobile number.';
+      setError(msg);
+      showToast({ type: 'error', title: 'Mobile Required', message: msg });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await sendOtp({
+        phone: cleanPhone,
+        channel,
+        role,
+        name: otpName.trim()
+      });
+
+      setDevOtp(res.devOtp || '');
+      setOtpStep('verify');
+      setCountdown(30);
+      showToast({
+        type: 'success',
+        title: channel === 'whatsapp' ? '💬 WhatsApp Code Sent' : '📲 SMS OTP Dispatched',
+        message: res.message || `Verification code sent to +91 ${cleanPhone}.`
+      });
+    } catch (err) {
+      setError(err.message || 'Failed to dispatch verification code.');
+      showToast({ type: 'error', title: 'Dispatch Error', message: err.message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    setError('');
+    const cleanPhone = otpPhone.replace(/\D/g, '').slice(-10);
+    if (!otpCode || otpCode.trim().length < 4) {
+      const msg = 'Please enter the 6-digit verification code.';
+      setError(msg);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const loggedUser = await loginWithOtp({
+        phone: cleanPhone,
+        otp: otpCode.trim(),
+        role,
+        name: otpName.trim(),
+        district: form.district || 'Pune',
+        state: 'Maharashtra',
+        agristackId: otpAgristackId.trim()
+      });
+
+      showToast({
+        type: 'celebrate',
+        title: '🌾 Verification Complete!',
+        message: `Welcome, ${loggedUser?.name || 'Farmer'}! Logging into HarvestMitra...`,
+        duration: 2500
+      });
+
+      const userRole = loggedUser?.role || role;
+      if (userRole === 'admin') navigate('/admin');
+      else if (userRole === 'transporter') navigate('/transport');
+      else if (userRole === 'mandi') navigate('/markets');
+      else navigate('/dashboard');
+
+    } catch (err) {
+      setError(err.message || 'Verification failed. Please check your code.');
+      showToast({ type: 'error', title: 'Verification Error', message: err.message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleWhatsAppQuickLogin() {
+    setError('');
+    const cleanPhone = otpPhone.replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      const msg = 'Please enter a valid 10-digit mobile number for WhatsApp verification.';
+      setError(msg);
+      showToast({ type: 'error', title: 'Mobile Required', message: msg });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const loggedUser = await loginWithWhatsApp({
+        phone: cleanPhone,
+        name: otpName.trim(),
+        role,
+        district: form.district || 'Pune',
+        state: 'Maharashtra',
+        agristackId: otpAgristackId.trim()
+      });
+
+      showToast({
+        type: 'celebrate',
+        title: '🟢 1-Click WhatsApp Verified!',
+        message: `Welcome, ${loggedUser?.name || 'Farmer'}! Verified via WhatsApp handshake.`,
+        duration: 2500
+      });
+
+      const userRole = loggedUser?.role || role;
+      if (userRole === 'admin') navigate('/admin');
+      else if (userRole === 'transporter') navigate('/transport');
+      else if (userRole === 'mandi') navigate('/markets');
+      else navigate('/dashboard');
+
+    } catch (err) {
+      setError(err.message || 'WhatsApp authentication failed.');
+      showToast({ type: 'error', title: 'WhatsApp Error', message: err.message });
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function updateField(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -265,6 +417,14 @@ export default function AuthPage({ mode = 'login' }) {
     setError('');
     setSuccess('');
 
+    if (!isRegister && authMethod === 'otp' && role !== 'admin') {
+      if (otpStep === 'phone') {
+        return handleSendOtp('sms');
+      } else {
+        return handleVerifyOtp();
+      }
+    }
+
     if (isRegister) {
       const validationError = validateRegister();
       if (validationError) {
@@ -303,6 +463,11 @@ export default function AuthPage({ mode = 'login' }) {
           currentHarvestKg: Number(form.currentHarvestKg) || 500,
           productQuantities: JSON.stringify(form.productQuantities),
           preferredLanguage: 'mr',
+          // FPO specifics
+          fpoName: role === 'fpo_leader' ? form.fpoName?.trim() : null,
+          fpoRegistrationNumber: role === 'fpo_leader' ? form.fpoRegistrationNumber?.trim() : null,
+          memberFarmerCount: role === 'fpo_leader' ? Number(form.memberFarmerCount) || 45 : null,
+          agristackId: form.agristackId?.trim() || null,
           // Transporter specifics
           vehicleType: form.vehicleType,
           vehicleNumber: form.vehicleNumber.trim().toUpperCase(),
@@ -471,6 +636,8 @@ export default function AuthPage({ mode = 'login' }) {
                 ? 'APMC Mandi Official Login'
                 : role === 'transporter'
                 ? 'Transporter & Fleet Login'
+                : role === 'fpo_leader'
+                ? 'FPO Leader / Aggregator Portal'
                 : 'Farmer & Produce Login'}
             </h1>
 
@@ -480,6 +647,8 @@ export default function AuthPage({ mode = 'login' }) {
                   ? 'Connect your Maharashtra APMC yard with verified local farmers and logistics networks.'
                   : role === 'transporter'
                   ? 'Offer empty truck capacity and earn fair rates directly from Maharashtra farmers.'
+                  : role === 'fpo_leader'
+                  ? 'Aggregate member farmers, pool transport freight, and negotiate direct mandi deals.'
                   : role === 'admin'
                   ? 'Administrative clearance portal for certified Maharashtra APMC regulators.'
                   : 'Join HarvestMitra for real-time Maharashtra mandi rates, harvest intelligence, and shared transport.'
@@ -489,26 +658,72 @@ export default function AuthPage({ mode = 'login' }) {
                 ? 'Access incoming farmer produce batches, publish auction rates, and direct procurement.'
                 : role === 'transporter'
                 ? 'Manage your transport bookings, available truck payload, and view farmer pickup requests.'
-                : 'Enter your registered email address or 10-digit mobile number to access your farmer dashboard.'}
+                : role === 'fpo_leader'
+                ? 'Manage collective produce batches and coordinate group transport.'
+                : 'Enter your 10-digit mobile number for instant password-free OTP login or use your registered email.'}
             </p>
           </div>
 
-          {/* 4-Way Role Selection Tabs (Requirement 6: Mandi Official role added) */}
-          <div className="p-1 rounded-2xl bg-slate-100 border border-slate-200 grid grid-cols-4 gap-1 text-xs font-bold">
+          {/* Top-Level Mode Selector: Login vs Register */}
+          <div className="p-1 rounded-2xl bg-slate-100 border border-slate-200 grid grid-cols-2 gap-1 text-xs sm:text-sm font-bold">
+            <Link
+              to="/login"
+              onClick={() => { setError(''); setSuccess(''); }}
+              className={`py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all text-center ${
+                !isRegister
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
+              }`}
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Login to Account</span>
+            </Link>
+            <Link
+              to="/register"
+              onClick={() => { setError(''); setSuccess(''); }}
+              className={`py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all text-center ${
+                isRegister
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
+              }`}
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Register Account</span>
+            </Link>
+          </div>
+
+          {/* 5-Way Role Selection Tabs */}
+          <div className="p-1 rounded-2xl bg-slate-100 border border-slate-200 grid grid-cols-5 gap-1 text-xs font-bold">
             <button
               type="button"
               onClick={() => {
                 setRole('farmer');
                 setError('');
               }}
-              className={`py-2 px-1.5 rounded-xl flex flex-col sm:flex-row items-center justify-center gap-1 transition-all ${
+              className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 role === 'farmer'
                   ? 'bg-white text-primary shadow-xs border border-primary/20'
                   : 'text-muted hover:text-text'
               }`}
             >
               <Sprout className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate text-[11px]">Farmer</span>
+              <span className="truncate text-[10px] sm:text-[11px]">Farmer</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setRole('fpo_leader');
+                setError('');
+              }}
+              className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                role === 'fpo_leader'
+                  ? 'bg-white text-emerald-800 shadow-xs border border-emerald-300'
+                  : 'text-muted hover:text-text'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate text-[10px] sm:text-[11px]">FPO Leader</span>
             </button>
 
             <button
@@ -517,14 +732,14 @@ export default function AuthPage({ mode = 'login' }) {
                 setRole('transporter');
                 setError('');
               }}
-              className={`py-2 px-1.5 rounded-xl flex flex-col sm:flex-row items-center justify-center gap-1 transition-all ${
+              className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 role === 'transporter'
                   ? 'bg-white text-primary shadow-xs border border-primary/20'
                   : 'text-muted hover:text-text'
               }`}
             >
               <Truck className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate text-[11px]">Transporter</span>
+              <span className="truncate text-[10px] sm:text-[11px]">Transporter</span>
             </button>
 
             <button
@@ -533,32 +748,70 @@ export default function AuthPage({ mode = 'login' }) {
                 setRole('mandi');
                 setError('');
               }}
-              className={`py-2 px-1.5 rounded-xl flex flex-col sm:flex-row items-center justify-center gap-1 transition-all ${
+              className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 role === 'mandi'
                   ? 'bg-white text-teal-700 shadow-xs border border-teal-300'
                   : 'text-muted hover:text-text'
               }`}
             >
               <Building2 className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate text-[11px]">Mandi</span>
+              <span className="truncate text-[10px] sm:text-[11px]">Mandi</span>
             </button>
 
             <button
               type="button"
               onClick={() => {
                 setRole('admin');
+                setAuthMethod('password');
                 setError('');
               }}
-              className={`py-2 px-1.5 rounded-xl flex flex-col sm:flex-row items-center justify-center gap-1 transition-all ${
+              className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 role === 'admin'
                   ? 'bg-white text-amber-700 shadow-xs border border-amber-300'
                   : 'text-muted hover:text-text'
               }`}
             >
               <Shield className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate text-[11px]">Admin</span>
+              <span className="truncate text-[10px] sm:text-[11px]">Admin</span>
             </button>
           </div>
+
+          {/* Authentication Mode Switcher: Mobile OTP vs Password (Non-admin Login) */}
+          {!isRegister && role !== 'admin' && (
+            <div className="p-1 rounded-2xl bg-emerald-50/70 border border-emerald-200 grid grid-cols-2 gap-1 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMethod('otp');
+                  setError('');
+                }}
+                className={`py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  authMethod === 'otp'
+                    ? 'bg-gradient-to-r from-emerald-600 to-primary text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                }`}
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span>📱 Mobile OTP & WhatsApp</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMethod('password');
+                  setError('');
+                }}
+                className={`py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  authMethod === 'password'
+                    ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                }`}
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>🔑 Password Login</span>
+              </button>
+            </div>
+          )}
 
           {/* Success Notification */}
           {success && (
@@ -591,17 +844,259 @@ export default function AuthPage({ mode = 'login' }) {
                 <span>Proceed to Admin Login</span>
               </Link>
             </div>
+          ) : !isRegister && authMethod === 'otp' && role !== 'admin' ? (
+            /* ============================================================ */
+            /* FARMER-FIRST OTP & 1-CLICK WHATSAPP AUTHENTICATION UI         */
+            /* ============================================================ */
+            <div className="space-y-4 pt-1">
+              {/* Informative Banner */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 text-xs flex items-center gap-3 shadow-2xs">
+                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Smartphone className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-emerald-950">Farmer-First Access (No Password Required)</p>
+                  <p className="text-[11px] text-emerald-800 leading-snug">
+                    Instant 1-Click WhatsApp verification or 6-digit SMS OTP. Pre-approved Agristack 7/12 land records auto-link seamlessly.
+                  </p>
+                </div>
+              </div>
+
+              {otpStep === 'phone' ? (
+                <div className="space-y-3.5">
+                  {/* Mobile Number Input */}
+                  <label className="block space-y-1">
+                    <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                      10-Digit Mobile Number *
+                    </span>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-2.5 text-xs font-bold text-slate-500 font-mono">
+                        🇮🇳 +91
+                      </span>
+                      <input
+                        type="tel"
+                        maxLength={10}
+                        required
+                        placeholder="9822012345"
+                        value={otpPhone}
+                        onChange={(e) => setOtpPhone(e.target.value.replace(/\D/g, ''))}
+                        className="w-full rounded-xl border border-border pl-16 pr-3.5 py-2.5 text-sm font-bold font-mono outline-none focus:border-primary tracking-wider"
+                      />
+                    </div>
+                  </label>
+
+                  {/* Full Name (Optional) */}
+                  <label className="block space-y-1">
+                    <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                      Full Name (Optional for First-Time Users)
+                    </span>
+                    <input
+                      type="text"
+                      placeholder={
+                        role === 'fpo_leader'
+                          ? 'e.g. Kisan Samruddhi FPO'
+                          : role === 'transporter'
+                          ? 'e.g. Suresh Pawar'
+                          : role === 'mandi'
+                          ? 'e.g. Ramesh Patil'
+                          : 'e.g. Ramesh Patel'
+                      }
+                      value={otpName}
+                      onChange={(e) => setOtpName(e.target.value)}
+                      className="w-full rounded-xl border border-border px-3.5 py-2 text-sm outline-none focus:border-primary"
+                    />
+                  </label>
+
+                  {/* PM-KISAN / Agristack ID (Optional) */}
+                  {(role === 'farmer' || role === 'fpo_leader') && (
+                    <label className="block space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>PM-KISAN / Agristack ID (Optional)</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setOtpAgristackId('PMK-MH-98201')}
+                          className="text-[10px] text-emerald-700 font-bold hover:underline cursor-pointer"
+                        >
+                          ⚡ Auto-fill PMK-MH-98201
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="e.g. PMK-MH-98201 or AGRI-IND-4921"
+                        value={otpAgristackId}
+                        onChange={(e) => setOtpAgristackId(e.target.value)}
+                        className="w-full rounded-xl border border-border px-3.5 py-2 text-sm font-mono outline-none focus:border-primary"
+                      />
+                      <span className="text-[10px] text-muted block">
+                        Pre-fills official 7/12 land survey and activates paperwork-free DBT matching.
+                      </span>
+                    </label>
+                  )}
+
+                  {/* Action Buttons: SMS OTP vs WhatsApp 1-Click */}
+                  <div className="space-y-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSendOtp('sms')}
+                      disabled={loading}
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-primary hover:from-emerald-700 hover:to-primary-dark text-white font-bold text-sm shadow-md shadow-primary/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>{loading ? 'Dispatching Code...' : 'Send SMS OTP to Mobile'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleWhatsAppQuickLogin}
+                      disabled={loading}
+                      className="w-full py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <MessageSquare className="w-4 h-4 text-emerald-600" />
+                      <span>💬 1-Click WhatsApp Login (No OTP Needed)</span>
+                    </button>
+                  </div>
+
+                  {/* Quick Demo Pre-fill & 1-Click Instant Login */}
+                  <div className="pt-2 space-y-2 border-t border-slate-200">
+                    <button
+                      type="button"
+                      onClick={handleQuickDemoFarmerLogin}
+                      disabled={loading}
+                      className="w-full py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                      <span>⚡ 1-Click Demo Farmer Login (Mihir Jadav • 3.5 Acres)</span>
+                    </button>
+
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOtpPhone('9822012345');
+                          setOtpName('Ramesh Patel');
+                          setOtpAgristackId('PMK-MH-98201');
+                          setRole('farmer');
+                        }}
+                        className="text-[11px] text-slate-500 hover:text-primary font-semibold underline cursor-pointer"
+                      >
+                        ⚡ Fill Sample Smallholder Farmer (+91 9822012345)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* OTP Verification Step */
+                <div className="space-y-4">
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-1">
+                    <p className="text-xs text-slate-600">Verification code sent to</p>
+                    <p className="text-sm font-black text-slate-900 font-mono tracking-wider">
+                      +91 {otpPhone}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setOtpStep('phone')}
+                      className="text-[11px] text-primary hover:underline font-semibold cursor-pointer"
+                    >
+                      ← Change Mobile Number
+                    </button>
+                  </div>
+
+                  {/* Dev OTP Helper Badge */}
+                  {devOtp && (
+                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs flex items-center justify-between">
+                      <span className="text-[11px] text-amber-900 font-semibold">
+                        Demo Code: <span className="font-mono font-bold text-amber-950">{devOtp}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setOtpCode(devOtp)}
+                        className="px-2 py-0.5 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold cursor-pointer"
+                      >
+                        Auto-Fill
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 6-Digit OTP Input */}
+                  <label className="block space-y-1">
+                    <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                      Enter 6-Digit Code *
+                    </span>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      required
+                      placeholder="••••••"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                      className="w-full text-center tracking-[0.5em] text-lg font-black font-mono rounded-xl border border-border px-3.5 py-2.5 outline-none focus:border-primary bg-white"
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={handleVerifyOtp}
+                    disabled={loading}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-primary hover:from-emerald-700 hover:to-primary-dark text-white font-bold text-sm shadow-md shadow-primary/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{loading ? 'Verifying...' : 'Verify OTP & Enter Dashboard'}</span>
+                  </button>
+
+                  <div className="flex items-center justify-between text-xs text-muted pt-1">
+                    <span>
+                      {countdown > 0 ? `Resend code in ${countdown}s` : "Didn't receive code?"}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={countdown > 0}
+                      onClick={() => handleSendOtp('sms')}
+                      className={`font-bold ${countdown > 0 ? 'text-slate-300 cursor-not-allowed' : 'text-primary hover:underline cursor-pointer'}`}
+                    >
+                      Resend via SMS
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
             <>
               {/* Registration Specific Fields */}
               {isRegister && (
                 <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-1">
+                    <span className="text-xs font-bold text-text">Account Information</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const unique = Math.floor(1000 + Math.random() * 9000);
+                        updateField('name', 'Ramesh Patil');
+                        updateField('phone', `982200${unique}`);
+                        updateField('email', `farmer_${unique}@harvestmitra.local`);
+                        updateField('password', 'Farmer@123');
+                        updateField('district', 'Pune');
+                        updateField('village', 'Haveli');
+                        updateField('farmSizeAcres', '4.5');
+                        updateField('currentHarvestKg', '500');
+                        setError('');
+                      }}
+                      className="text-[11px] text-emerald-700 font-bold hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <span>⚡ Auto-Fill Sample Details</span>
+                    </button>
+                  </div>
                   <label className="block space-y-1">
                     <span className="text-xs font-semibold text-muted uppercase tracking-wider">
                       {role === 'mandi'
                         ? 'Official In-Charge Name *'
                         : role === 'transporter'
                         ? 'Driver / Transporter Full Name *'
+                        : role === 'fpo_leader'
+                        ? 'FPO President / Aggregator Name *'
                         : 'Farmer Full Name *'}
                     </span>
                     <input
@@ -653,9 +1148,50 @@ export default function AuthPage({ mode = 'login' }) {
                     </label>
                   </div>
 
-                  {/* FARMER REGISTRATION SPECIFICS (Requirements 8, 11, 16) */}
-                  {role === 'farmer' && (
+                  {/* FARMER & FPO LEADER REGISTRATION SPECIFICS */}
+                  {(role === 'farmer' || role === 'fpo_leader') && (
                     <>
+                      {role === 'fpo_leader' && (
+                        <div className="p-3.5 rounded-2xl bg-teal-50/80 border border-teal-200 space-y-2.5">
+                          <div className="flex items-center gap-1.5 text-teal-950 font-bold text-xs">
+                            <Users className="w-4 h-4 text-teal-700" />
+                            <span>Farmer Producer Organization (FPO) Details</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <label className="block space-y-1">
+                              <span className="text-[11px] font-semibold text-slate-700">FPO Organization Name *</span>
+                              <input
+                                type="text"
+                                placeholder="e.g. Pune Kisan Samruddhi FPO"
+                                value={form.fpoName}
+                                onChange={(e) => updateField('fpoName', e.target.value)}
+                                className="w-full rounded-xl border border-teal-300 bg-white px-3 py-1.5 text-xs outline-none focus:border-teal-600"
+                              />
+                            </label>
+                            <label className="block space-y-1">
+                              <span className="text-[11px] font-semibold text-slate-700">Member Farmer Count</span>
+                              <input
+                                type="number"
+                                placeholder="45"
+                                value={form.memberFarmerCount}
+                                onChange={(e) => updateField('memberFarmerCount', e.target.value)}
+                                className="w-full rounded-xl border border-teal-300 bg-white px-3 py-1.5 text-xs outline-none focus:border-teal-600"
+                              />
+                            </label>
+                          </div>
+                          <label className="block space-y-1">
+                            <span className="text-[11px] font-semibold text-slate-700">FPO Agristack / Registration No.</span>
+                            <input
+                              type="text"
+                              placeholder="e.g. FPO-MH-4921 or FPO-MH-7701"
+                              value={form.fpoRegistrationNumber}
+                              onChange={(e) => updateField('fpoRegistrationNumber', e.target.value)}
+                              className="w-full rounded-xl border border-teal-300 bg-white px-3 py-1.5 text-xs font-mono outline-none focus:border-teal-600"
+                            />
+                          </label>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-2.5">
                         <label className="block space-y-1">
                           <span className="text-xs font-semibold text-muted uppercase tracking-wider">
@@ -672,7 +1208,7 @@ export default function AuthPage({ mode = 'login' }) {
 
                         <label className="block space-y-1">
                           <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                            Farm Land (Acres) *
+                            {role === 'fpo_leader' ? 'Collective Land (Acres) *' : 'Farm Land (Acres) *'}
                           </span>
                           <input
                             type="number"
@@ -882,12 +1418,12 @@ export default function AuthPage({ mode = 'login' }) {
                     </>
                   )}
 
-                  {/* MANDI OFFICIAL REGISTRATION SPECIFICS (Requirement 6) */}
+                  {/* MANDI OFFICIAL REGISTRATION SPECIFICS */}
                   {role === 'mandi' && (
                     <div className="space-y-3 p-3.5 rounded-2xl bg-teal-50/70 border border-teal-200">
                       <label className="block space-y-1">
                         <span className="text-xs font-semibold text-teal-900 uppercase tracking-wider">
-                          Mandi Market Name *
+                          APMC Mandi Name
                         </span>
                         <input
                           type="text"
@@ -902,7 +1438,7 @@ export default function AuthPage({ mode = 'login' }) {
                       <div className="grid grid-cols-2 gap-2.5">
                         <label className="block space-y-1">
                           <span className="text-xs font-semibold text-teal-900 uppercase tracking-wider">
-                            APMC License / Reg No *
+                            APMC License Number
                           </span>
                           <input
                             type="text"
@@ -918,12 +1454,15 @@ export default function AuthPage({ mode = 'login' }) {
                           <span className="text-xs font-semibold text-teal-900 uppercase tracking-wider">
                             Operating Days
                           </span>
-                          <input
-                            type="text"
+                          <select
                             value={form.operatingDays}
                             onChange={(e) => updateField('operatingDays', e.target.value)}
-                            className="w-full rounded-xl border border-teal-300 bg-white px-3.5 py-2 text-sm outline-none focus:border-teal-600"
-                          />
+                            className="w-full rounded-xl border border-teal-300 bg-white px-3.5 py-2 text-sm outline-none focus:border-teal-600 cursor-pointer"
+                          >
+                            <option value="Mon-Sat">Mon-Sat</option>
+                            <option value="Mon-Fri">Mon-Fri</option>
+                            <option value="Daily">Daily</option>
+                          </select>
                         </label>
                       </div>
 

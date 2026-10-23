@@ -18,10 +18,13 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import ThemeToggle from '../common/ThemeToggle';
 
 export default function Sidebar({ isOpen = false, onClose, className = '' }) {
   const { t } = useLanguage();
   const { user, isAuthenticated, logout } = useAuth();
+  const { isDark } = useTheme();
 
   const displayName = user?.name || 'Prashant Warule';
   const roleName =
@@ -176,6 +179,8 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
             Account Settings
           </div>
           <nav className="space-y-1 pt-1" aria-label="Sidebar account navigation">
+            {/* Dark/Light Mode Toggle */}
+            <ThemeToggle variant="sidebar" />
             <NavLink
               to="/profile"
               onClick={handleLinkClick}
@@ -260,6 +265,11 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
         </div>
       </div>
 
+      {/* Theme Switcher Toggle (Issue #141) */}
+      <div className="pt-2">
+        <ThemeToggle variant="full" />
+      </div>
+
       {/* HarvestMitra Version & Security Seal */}
       <div className="pt-3 border-t border-border/80">
         <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
@@ -280,7 +290,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
       {/* 1. Desktop Static Sidebar (Always visible on lg screens and up) */}
       <aside 
         id="dashboard-sidebar-desktop"
-        className={`hidden lg:flex w-64 shrink-0 bg-surface border-r border-border h-[calc(100vh-4rem)] flex-col sticky top-16 z-20 overflow-y-auto overflow-x-hidden min-h-0 p-4 sidebar-scroll ${className}`}
+        className={`hidden lg:flex w-64 shrink-0 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-surface border-border'} border-r h-[calc(100vh-4rem)] flex-col sticky top-16 z-20 overflow-y-auto overflow-x-hidden min-h-0 p-4 sidebar-scroll ${className}`}
         aria-label="Dashboard desktop sidebar navigation"
       >
         {renderSidebarContent(false)}
@@ -299,7 +309,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
           {/* Off-canvas Sliding Drawer */}
           <aside 
             id="dashboard-sidebar-mobile"
-            className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-white shadow-2xl flex flex-col p-4 overflow-y-auto overflow-x-hidden min-h-0 sidebar-scroll lg:hidden animate-in slide-in-from-left duration-200"
+            className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] ${isDark ? 'bg-slate-900 text-white' : 'bg-white'} shadow-2xl flex flex-col p-4 overflow-y-auto overflow-x-hidden min-h-0 sidebar-scroll lg:hidden animate-in slide-in-from-left duration-200`}
             aria-label="Dashboard mobile sidebar drawer"
           >
             {renderSidebarContent(true)}

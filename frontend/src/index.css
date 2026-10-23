@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Gujarati:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&family=Noto+Sans+Gujarati:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -24,7 +24,7 @@
   --color-warning: #d97706;
   --color-error: #dc2626;
 
-  --font-sans: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Gujarati', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Inter', 'Poppins', 'Noto Sans Devanagari', 'Noto Sans Gujarati', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 @layer base {
@@ -199,3 +199,179 @@
   font-weight: 600;
   white-space: nowrap;
 }
+
+/* ============================================
+   DARK MODE - CSS Variable Overrides
+   Applied when <html class="dark"> is set
+   ============================================ */
+
+html.dark {
+  --color-primary: #34d399;
+  --color-primary-dark: #10b981;
+  --color-primary-light: #6ee7b7;
+  --color-primary-50: rgba(16, 185, 129, 0.08);
+  --color-primary-100: rgba(16, 185, 129, 0.15);
+
+  --color-secondary: #1e293b;
+  --color-secondary-dark: #0f172a;
+
+  --color-accent: #fbbf24;
+  --color-accent-light: rgba(251, 191, 36, 0.15);
+
+  --color-background: #0f172a;
+  --color-surface: #1e293b;
+  --color-text: #e2e8f0;
+  --color-muted: #94a3b8;
+  --color-border: #334155;
+
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-error: #f87171;
+
+  color-scheme: dark;
+}
+
+/* Dark mode body background */
+html.dark body {
+  background-color: #0f172a;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.06) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(251, 191, 36, 0.04) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(52, 211, 153, 0.03) 0px, transparent 50%);
+  color: #e2e8f0;
+}
+
+/* Dark mode scrollbars */
+html.dark ::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Dark mode card overrides */
+html.dark .card-harvest {
+  background-color: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+}
+
+html.dark .card-harvest:hover {
+  box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.4), 0 8px 10px -4px rgba(0, 0, 0, 0.3);
+}
+
+/* Dark mode buttons */
+html.dark .btn-primary {
+  background-color: #059669;
+  color: #ffffff;
+}
+
+html.dark .btn-primary:hover {
+  background-color: #047857;
+}
+
+html.dark .btn-secondary {
+  background-color: #1e293b;
+  color: #a7f3d0;
+  border-color: #334155;
+}
+
+html.dark .btn-secondary:hover {
+  background-color: #334155;
+}
+
+html.dark .btn-outline {
+  color: #34d399;
+  border-color: #34d399;
+}
+
+html.dark .btn-outline:hover {
+  background-color: rgba(16, 185, 129, 0.1);
+}
+
+/* Dark mode navbar & header overrides */
+html.dark header.sticky {
+  background-color: rgba(15, 23, 42, 0.95) !important;
+  border-bottom-color: #334155;
+}
+
+/* Dark mode sidebar overrides */
+html.dark aside {
+  background-color: #1e293b;
+  border-right-color: #334155;
+}
+
+/* Dark mode dashboard layout */
+html.dark .bg-gradient-to-br.from-\[\#f8faf8\] {
+  background: linear-gradient(to bottom right, #0f172a, #1a2332, #0f172a) !important;
+}
+
+/* ============================================
+   DEVANAGARI & MARATHI TYPOGRAPHY SUPPORT
+   Enhanced rendering for Indian languages
+   ============================================ */
+
+/* Devanagari text utility — use on elements rendering Hindi/Marathi */
+.text-devanagari {
+  font-family: 'Noto Sans Devanagari', 'Poppins', 'Inter', sans-serif;
+  font-feature-settings: 'liga' 1, 'calt' 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* When language is set to Marathi or Hindi, apply Devanagari as primary */
+[lang="mr"] body,
+[lang="hi"] body,
+[data-lang="mr"] body,
+[data-lang="hi"] body {
+  font-family: 'Noto Sans Devanagari', 'Poppins', 'Inter', system-ui, sans-serif;
+}
+
+/* Devanagari-specific line height adjustments for mobile readability */
+.text-devanagari,
+[lang="mr"],
+[lang="hi"] {
+  line-height: 1.75;
+  letter-spacing: 0.01em;
+}
+
+/* Improved font rendering on small screens for Indic scripts */
+@media (max-width: 640px) {
+  .text-devanagari,
+  [lang="mr"] *,
+  [lang="hi"] * {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+}
+
+/* ============================================
+   MOBILE RESPONSIVE ENHANCEMENTS (375px)
+   ============================================ */
+
+@media (max-width: 375px) {
+  /* Tighter spacing for very small screens */
+  .p-4 { padding: 0.75rem; }
+  .p-6 { padding: 1rem; }
+  .gap-4 { gap: 0.75rem; }
+  .gap-6 { gap: 1rem; }
+
+  /* Report modal mobile fit */
+  #printable-report-modal {
+    padding: 0.25rem;
+  }
+
+  #printable-report-modal .a4-print-canvas {
+    border-radius: 0.75rem;
+  }
+}
+

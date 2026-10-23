@@ -11,17 +11,28 @@ const {
     getContactRequests,
     updateContactRequestStatus,
     getRelevantFarmers,
-    getRelevantMandis
+    getRelevantMandis,
+    sendOtp,
+    verifyOtp,
+    whatsappLogin,
+    linkAgristack,
+    lookupAgristack
 } = require("../controllers/auth.controller");
 
 const authMiddleware = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
-// Register
-router.post("/register", register);
+// Passwordless Farmer-First OTP & WhatsApp Authentication
+router.post("/otp/send", sendOtp);
+router.post("/otp/verify", verifyOtp);
+router.post("/whatsapp/login", whatsappLogin);
+// National Agristack & PM-KISAN Verification
+router.post("/agristack/link", authMiddleware, linkAgristack);
+router.get("/agristack/lookup", lookupAgristack);
 
-// Login & Logout
+// Standard Register & Login & Logout
+router.post("/register", register);
 router.post("/login", login);
 router.post("/logout", logout);
 router.post("/demo", demoLogin);

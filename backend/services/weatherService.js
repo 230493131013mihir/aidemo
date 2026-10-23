@@ -5,7 +5,10 @@ const DEMO_LOCATIONS = {
     rajkot: { name: "Rajkot", state: "Gujarat", latitude: 22.3039, longitude: 70.8022 },
     nashik: { name: "Nashik", state: "Maharashtra", latitude: 19.9975, longitude: 73.7898 },
     delhi: { name: "Delhi", state: "Delhi", latitude: 28.6139, longitude: 77.209 },
-    mumbai: { name: "Mumbai", state: "Maharashtra", latitude: 19.076, longitude: 72.8777 }
+    mumbai: { name: "Mumbai", state: "Maharashtra", latitude: 19.076, longitude: 72.8777 },
+    kolhapur: { name: "Kolhapur", state: "Maharashtra", latitude: 16.7050, longitude: 74.2433 },
+    solapur: { name: "Solapur", state: "Maharashtra", latitude: 17.6599, longitude: 75.9064 },
+    ahmednagar: { name: "Ahmednagar", state: "Maharashtra", latitude: 19.0948, longitude: 74.7480 }
 };
 
 function getWeatherCodeLabel(code) {
@@ -174,7 +177,7 @@ async function getWeatherForecast(query = {}) {
 const DEMO_DISTRICT_WEATHER = {
   surat: {
     district: 'Surat',
-    state: 'Gujarat',
+    state: 'Maharashtra',
     temperature: 29,
     humidity: 78,
     rainProbability: 65, // Exceeds default 60% threshold -> RAIN_ADVISORY
@@ -189,7 +192,7 @@ const DEMO_DISTRICT_WEATHER = {
   },
   navsari: {
     district: 'Navsari',
-    state: 'Gujarat',
+    state: 'Maharashtra',
     temperature: 28,
     humidity: 82,
     rainProbability: 65, // Exceeds default 60% threshold -> RAIN_ADVISORY
@@ -204,7 +207,7 @@ const DEMO_DISTRICT_WEATHER = {
   },
   ahmedabad: {
     district: 'Ahmedabad',
-    state: 'Gujarat',
+    state: 'Maharashtra',
     temperature: 34,
     humidity: 48,
     rainProbability: 25, // Below threshold -> CLEAR_ADVISORY
@@ -219,7 +222,7 @@ const DEMO_DISTRICT_WEATHER = {
   },
   rajkot: {
     district: 'Rajkot',
-    state: 'Gujarat',
+    state: 'Maharashtra',
     temperature: 33,
     humidity: 52,
     rainProbability: 20, // Below threshold -> CLEAR_ADVISORY
@@ -234,7 +237,7 @@ const DEMO_DISTRICT_WEATHER = {
   },
   bharuch: {
     district: 'Bharuch',
-    state: 'Gujarat',
+    state: 'Maharashtra',
     temperature: 30,
     humidity: 72,
     rainProbability: 55, // Close to threshold
@@ -325,7 +328,15 @@ class WeatherService {
           'Cover harvested produce with waterproof tarpaulins or move to dry shelter.',
           'Coordinate with transport partners to ensure vehicles have covered cargo beds.',
           'Review harvest timing: avoid picking perishable crops immediately before or during heavy rain.'
-        ]
+        ],
+        whatsappPreview: {
+          title: '🌧️ Heavy Rain Warning WhatsApp Alert (>60%)',
+          channel: 'WhatsApp Cloud API',
+          message: `⚠️ *HarvestMitra Heavy Rain Warning*\nRain probability is ${prob}% (exceeds ${activeThreshold}% threshold).\nDelay harvest or move produce to dry shelter!\nAction: Cover cargo with waterproof tarpaulins.\nDetails: https://harvestmitra.in/weather`,
+          isHeavyRain: true,
+          rainProbability: prob,
+          threshold: activeThreshold
+        }
       };
     }
 
@@ -434,6 +445,16 @@ class WeatherService {
             rainChance: rainProb,
             advice: openMeteo.advice,
             advisory,
+            whatsappAlertPreview: rainProb >= 60 ? {
+              channel: 'WhatsApp Cloud API',
+              title: `🌧️ Heavy Rain Warning WhatsApp Alert (${rainProb}%)`,
+              recipient: params.farmerPhone || params.phone || '+91 98765 43210',
+              district: districtQuery,
+              rainProbability: rainProb,
+              threshold: 60,
+              isHeavyRain: true,
+              message: `⚠️ *HarvestMitra Heavy Rain Warning: ${districtQuery}*\nRain probability is ${rainProb}% (>60% threshold).\nDelay harvest or move produce to dry shelter!\nAction: Cover cargo with waterproof tarpaulins.\nDetails: https://harvestmitra.in/weather?district=${encodeURIComponent(districtQuery)}`
+            } : null,
             dataStatus: 'LIVE',
             source: 'Open-Meteo Live Agro Telemetry',
             statusNotice: 'Verified Live Open-Meteo Agro Weather Feed',
@@ -505,6 +526,16 @@ class WeatherService {
         detail: `Favorable atmospheric conditions in ${demo.district} agro-climatic zone.`
       },
       advisory,
+      whatsappAlertPreview: demo.rainProbability >= 60 ? {
+        channel: 'WhatsApp Cloud API',
+        title: `🌧️ Heavy Rain Warning WhatsApp Alert (${demo.rainProbability}%)`,
+        recipient: params.farmerPhone || params.phone || '+91 98765 43210',
+        district: demo.district,
+        rainProbability: demo.rainProbability,
+        threshold: 60,
+        isHeavyRain: true,
+        message: `⚠️ *HarvestMitra Heavy Rain Warning: ${demo.district}*\nRain probability is ${demo.rainProbability}% (>60% threshold).\nDelay harvest or move produce to dry shelter!\nAction: Cover cargo with waterproof tarpaulins.\nDetails: https://harvestmitra.in/weather?district=${encodeURIComponent(demo.district)}`
+      } : null,
       dataStatus: 'DEMO',
       source: 'HarvestMitra Demo Weather Dataset',
       statusNotice: 'Demo Weather Data (Live weather service fallback)',
@@ -516,8 +547,8 @@ class WeatherService {
    * Retrieve only active alerts and rain advisory for a district
    *
    * @param {Object} params
-   * @param {string} [params.district='Surat']
-   * @param {string} [params.state='Gujarat']
+   * @param {string} [params.district='Pune']
+   * @param {string} [params.state='Maharashtra']
    * @returns {Promise<Object>}
    */
   async getRainAlerts(params = {}) {
@@ -526,6 +557,7 @@ class WeatherService {
       success: true,
       location: fullWeather.location,
       advisory: fullWeather.advisory,
+      whatsappAlertPreview: fullWeather.whatsappAlertPreview || null,
       rainProbability: fullWeather.weather.rainProbability,
       condition: fullWeather.weather.condition,
       dataStatus: fullWeather.dataStatus,

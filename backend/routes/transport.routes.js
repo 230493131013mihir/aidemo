@@ -29,13 +29,11 @@ function normalizeTransportInput(body, reqUser = {}) {
     if (Number.isNaN(rawQty) || rawQty <= 0) {
         return { error: "Quantity must be a positive number" };
     }
-
     // Convert to standard kg: 1 quintal = 100 kg, 1 tonne = 1000 kg
     const weightKg = convertToKg(rawQty, quantityUnit);
     if (weightKg <= 0 || weightKg > 5000) {
         return { error: "Weight in kg must be greater than 0 and cannot exceed 5000 kg" };
     }
-
     const pickupDate = String(body.pickupDate);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(pickupDate) || Number.isNaN(Date.parse(`${pickupDate}T00:00:00Z`))) {
         return { error: "pickupDate must use YYYY-MM-DD format" };
@@ -115,6 +113,14 @@ function normalizeTransportInput(body, reqUser = {}) {
         }
     };
 }
+
+// Import public telemetry handlers for Live Driver GPS & Highway Telemetry Radar
+const { handleGetTelemetry, handleUpdateTelemetry } = require("../controllers/transportController");
+
+// Public live telemetry endpoints (accessible for real-time radar polling without auth block)
+router.get("/telemetry", handleGetTelemetry);
+router.get("/telemetry/:passCode", handleGetTelemetry);
+router.post("/telemetry/update", handleUpdateTelemetry);
 
 router.use(authMiddleware);
 
@@ -1137,6 +1143,23 @@ router.get("/transporter-stats", requireRole("transporter"), async (req, res) =>
     }
 });
 
+// Admin: List ALL transport requests across all farmers (Fixes #158)
+router.get("/admin/all-requests", requireRole("admin"), async (req, res) => {
+    try {
+        await ensureTransportSchema();
+        const allRequests = await TransportRequest.findAll({
+            include: [{ model: User, as: 'farmer', attributes: ['id', 'name', 'email'] }],
+            order: [['createdAt', 'DESC']],
+            limit: 100
+        });
+        res.json({ success: true, requests: allRequests });
+    } catch (err) {
+        console.error("Admin all transport requests error:", err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Driver / Transporter accepts a cargo request (Strict Single-Trip Lock)
 router.put("/requests/:id/accept", requireRole("transporter"), async (req, res) => {
     try {
         const activeTripCount = await TransportRequest.count({

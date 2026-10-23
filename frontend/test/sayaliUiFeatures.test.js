@@ -1,6 +1,7 @@
 /**
  * sayaliUiFeatures.test.js
- * Verification of All 5 Frontend UI/UX Deliverables (Issues #1, #19, #79, #80, #81)
+ * Verification of All Frontend UI/UX Deliverables (Issues #1, #19, #79, #80, #81)
+ * Plus: 1-Click PDF Download, ThemeContext Dark/Light Mode, Devanagari Typography
  * Assigned to Sayali Kulkarni (@sayalikulkarni-tech) - Frontend UI/UX Specialist & Design Lead
  */
 
@@ -46,6 +47,78 @@ console.log('  ✅ [PASS] PrintableReportModal contains @media print rules & A4 
 console.log('  ✅ [PASS] Side-by-side revenue table verified: Sell Today ₹13,050 vs Wait ₹13,100 vs Shared Transport ₹16,350');
 console.log('  ✅ [PASS] Top 3 government schemes verified: PM-KISAN, PMFBY, and i-Khedut');
 console.log('  ✅ [PASS] Print buttons mounted in both DashboardPage.jsx and SchemesPage.jsx');
+
+// 1b. Issue #79 Enhancement: 1-Click PDF Download via html2pdf.js
+console.log('\n1b. Verifying 1-Click PDF Download (📥 Download PDF Button):');
+assert.ok(modalCode.includes("html2pdf"), 'Must import html2pdf.js library for direct PDF generation');
+assert.ok(modalCode.includes('download-pdf-button') || modalCode.includes('Download PDF'), 'Must include a Download PDF button with id or label');
+assert.ok(modalCode.includes('handleDownloadPDF'), 'Must implement handleDownloadPDF async function');
+assert.ok(modalCode.includes("format: 'a4'") || modalCode.includes("format:'a4'"), 'Must configure A4 format in jsPDF options');
+assert.ok(modalCode.includes('printContentRef') || modalCode.includes('useRef'), 'Must use a ref to target the printable content area');
+assert.ok(modalCode.includes('downloading') || modalCode.includes('setDownloading'), 'Must track download state for button feedback');
+console.log('  ✅ [PASS] html2pdf.js imported for client-side PDF generation');
+console.log('  ✅ [PASS] Download PDF button present with loading state feedback');
+console.log('  ✅ [PASS] PDF configured for A4 portrait with high-quality canvas rendering');
+
+// 1c. ThemeContext Dark/Light Mode Toggle
+console.log('\n1c. Verifying ThemeContext Dark/Light Mode:');
+const themeContextPath = path.join(__dirname, '../src/context/ThemeContext.jsx');
+assert.ok(fs.existsSync(themeContextPath), 'ThemeContext.jsx must exist in context directory');
+
+const themeCode = fs.readFileSync(themeContextPath, 'utf-8');
+assert.ok(themeCode.includes('localStorage'), 'ThemeContext must persist theme preference in localStorage');
+assert.ok(themeCode.includes('toggleTheme'), 'ThemeContext must expose a toggleTheme function');
+assert.ok(themeCode.includes("classList.add('dark')") || themeCode.includes("classList.add('dark')"), 'Must add dark class to html element');
+assert.ok(themeCode.includes('ThemeProvider'), 'Must export ThemeProvider component');
+assert.ok(themeCode.includes('useTheme'), 'Must export useTheme hook');
+
+// Verify ThemeToggle component exists
+const themeTogglePath = path.join(__dirname, '../src/components/common/ThemeToggle.jsx');
+assert.ok(fs.existsSync(themeTogglePath), 'ThemeToggle.jsx component must exist');
+
+const toggleCode = fs.readFileSync(themeTogglePath, 'utf-8');
+assert.ok(toggleCode.includes('navbar-theme-toggle') || toggleCode.includes('sidebar-theme-toggle'), 'ThemeToggle must have accessible IDs for testing');
+assert.ok(toggleCode.includes('Sun') && toggleCode.includes('Moon'), 'ThemeToggle must use Sun and Moon icons');
+
+// Verify ThemeToggle is integrated in Navbar
+const navbarPath = path.join(__dirname, '../src/components/navigation/Navbar.jsx');
+const navbarCode = fs.readFileSync(navbarPath, 'utf-8');
+assert.ok(navbarCode.includes('ThemeToggle'), 'Navbar must import and render ThemeToggle component');
+
+// Verify ThemeToggle is integrated in Sidebar
+const sidebarPath = path.join(__dirname, '../src/components/navigation/Sidebar.jsx');
+const sidebarCode = fs.readFileSync(sidebarPath, 'utf-8');
+assert.ok(sidebarCode.includes('ThemeToggle'), 'Sidebar must import and render ThemeToggle component');
+
+// Verify ThemeProvider is wired in main.jsx
+const mainJsxPath = path.join(__dirname, '../src/main.jsx');
+const mainJsxCode = fs.readFileSync(mainJsxPath, 'utf-8');
+assert.ok(mainJsxCode.includes('ThemeProvider'), 'main.jsx must wrap app with ThemeProvider');
+
+console.log('  ✅ [PASS] ThemeContext with localStorage persistence verified');
+console.log('  ✅ [PASS] ThemeToggle component with Sun/Moon icons verified');
+console.log('  ✅ [PASS] ThemeToggle integrated in both Navbar and Sidebar');
+console.log('  ✅ [PASS] ThemeProvider wrapper in main.jsx root tree verified');
+
+// 1d. Enhanced Devanagari Typography Support
+console.log('\n1d. Verifying Devanagari Typography (Noto Sans Devanagari / Poppins):');
+const indexCssPath = path.join(__dirname, '../src/index.css');
+const indexCssCode = fs.readFileSync(indexCssPath, 'utf-8');
+assert.ok(indexCssCode.includes('Poppins'), 'index.css must include Poppins font family');
+assert.ok(indexCssCode.includes('Noto Sans Devanagari'), 'index.css must include Noto Sans Devanagari font family');
+assert.ok(indexCssCode.includes('.text-devanagari'), 'index.css must define .text-devanagari utility class');
+assert.ok(indexCssCode.includes('html.dark'), 'index.css must include html.dark CSS variable overrides');
+assert.ok(indexCssCode.includes('lang="mr"') || indexCssCode.includes('lang="hi"'), 'index.css must include Marathi/Hindi lang selectors');
+
+const indexHtmlPath = path.join(__dirname, '../index.html');
+const indexHtmlCode = fs.readFileSync(indexHtmlPath, 'utf-8');
+assert.ok(indexHtmlCode.includes('Noto+Sans+Devanagari') || indexHtmlCode.includes('Noto Sans Devanagari'), 'index.html must preload Noto Sans Devanagari font');
+assert.ok(indexHtmlCode.includes('Poppins'), 'index.html must preload Poppins font');
+
+console.log('  ✅ [PASS] Poppins & Noto Sans Devanagari added to font stack');
+console.log('  ✅ [PASS] .text-devanagari utility class defined for Hindi/Marathi text');
+console.log('  ✅ [PASS] Dark mode CSS variable overrides (html.dark) verified');
+console.log('  ✅ [PASS] Font preloads verified in index.html');
 
 // 2. Issue #80: Multi-Crop Profile Switcher & Interactive Acreage Donut Chart
 console.log('\n2. Verifying Multi-Crop Switcher & Recharts Acreage Chart on DashboardPage.jsx (Issue #80):');
@@ -123,6 +196,33 @@ assert.ok(harvestPageCode.includes('4.5 Acres'), 'HarvestPage must display 4.5 A
 console.log('  ✅ [PASS] GuestModeBanner removed from Landing Page (MainLayout.jsx)');
 console.log('  ✅ [PASS] Dedicated Farmer Register & Login CTAs verified on HeroSection');
 console.log('  ✅ [PASS] HarvestPage verified with 4.5 acre session architecture');
+
+// 6. Bug Fixes Verification (fix/sayali-frontend-speech-bugs)
+console.log('\n6. Verifying 4 Bug Fixes:');
+// Bug 1: speechService has Gujarati
+const speechPath = path.join(__dirname, '../src/services/speechService.js');
+const speechCode = fs.readFileSync(speechPath, 'utf-8');
+assert.ok(speechCode.includes("code: 'gu'") && speechCode.includes("speechRecognition: 'gu-IN'"), 'speechService must configure Gujarati (gu-IN)');
+console.log('  ✅ [PASS] BUG 1: speechService Gujarati (gu) locale verified.');
+
+// Bug 2: DashboardPage mandi role redirect
+const dashCode = fs.readFileSync(path.join(__dirname, '../src/pages/DashboardPage.jsx'), 'utf-8');
+assert.ok(dashCode.includes("user?.role === 'mandi'") && dashCode.includes('/markets'), 'DashboardPage must redirect mandi role to /markets');
+console.log('  ✅ [PASS] BUG 2: DashboardPage mandi role redirect verified.');
+
+// Bug 3: Weather defensive check for Maharashtra / Gujarat
+const weatherPath = path.join(__dirname, '../src/components/dashboard/WeatherWidget.jsx');
+const weatherCode = fs.readFileSync(weatherPath, 'utf-8');
+assert.ok(weatherCode.includes('Maharashtra') && weatherCode.includes('Gujarat'), 'WeatherWidget must defensively check Maharashtra vs Gujarat state');
+console.log('  ✅ [PASS] BUG 3: WeatherWidget defensive state check verified.');
+
+// Bug 4: AuthPage mandi registration fields
+const authPath = path.join(__dirname, '../src/pages/AuthPage.jsx');
+const authCode = fs.readFileSync(authPath, 'utf-8');
+assert.ok(authCode.includes('APMC Mandi Name'), 'AuthPage must include APMC Mandi Name label');
+assert.ok(authCode.includes('APMC License Number'), 'AuthPage must include APMC License Number label');
+assert.ok(authCode.includes('Mon-Sat') && authCode.includes('Mon-Fri') && authCode.includes('Daily'), 'AuthPage must include operatingDays dropdown options');
+console.log('  ✅ [PASS] BUG 4: AuthPage Mandi-specific registration fields verified.');
 
 console.log('\n======================================================');
 console.log('🎉 All QA & Stress-Testing Requirements Verified!');

@@ -14,11 +14,14 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import LanguageSelector from '../common/LanguageSelector';
+import ThemeToggle from '../common/ThemeToggle';
 
 export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
   const { t } = useLanguage();
   const { user, isAuthenticated, logout } = useAuth();
+  const { isDark } = useTheme();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef(null);
 
@@ -48,7 +51,7 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
   const userRole = isAdmin ? 'Admin' : isTransporter ? 'Transporter' : 'Farmer';
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border bg-white/95 backdrop-blur-md transition-colors shadow-2xs">
+    <header className={`sticky top-0 z-40 w-full border-b backdrop-blur-md transition-colors shadow-2xs ${isDark ? 'border-slate-700 bg-slate-900/95' : 'border-border bg-white/95'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex min-h-16 items-center justify-between gap-3 py-2">
           {/* Left: Mobile Sidebar Drawer Toggle & Brand Logo */}
@@ -103,6 +106,9 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
                 <span className="sm:hidden">Pass</span>
               </NavLink>
             )}
+
+            {/* Theme Switcher Toggle (Issue #141) */}
+            <ThemeToggle variant="pill" />
 
             {/* Language Selector */}
             <div className="flex items-center">

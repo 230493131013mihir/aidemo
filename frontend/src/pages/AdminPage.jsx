@@ -50,7 +50,7 @@ export default function AdminPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [token, setToken] = useState(() => localStorage.getItem('harvestmitra_admin_token') || '');
+  const [token, setToken] = useState(() => (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('harvestmitra_admin_token')) || '');
   const [summary, setSummary] = useState(null);
   const [users, setUsers] = useState([]);
   const [prices, setPrices] = useState([]);
@@ -103,7 +103,12 @@ export default function AdminPage() {
   useEffect(() => {
     if (user?.role === 'admin' && userToken && !token) {
       setToken(userToken);
-      localStorage.setItem('harvestmitra_admin_token', userToken);
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('harvestmitra_admin_token', userToken);
+      }
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('harvestmitra_admin_token');
+      }
     }
   }, [user, userToken, token]);
 
@@ -131,7 +136,12 @@ export default function AdminPage() {
         throw new Error('Access denied: Account is not an APMC administrator.');
       }
 
-      localStorage.setItem('harvestmitra_admin_token', payload.token);
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('harvestmitra_admin_token', payload.token);
+      }
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('harvestmitra_admin_token');
+      }
       setToken(payload.token);
       showToast({
         type: 'success',
@@ -631,6 +641,9 @@ export default function AdminPage() {
               type="button"
               id="admin-sign-out-btn"
               onClick={() => {
+                if (typeof sessionStorage !== 'undefined') {
+                  sessionStorage.removeItem('harvestmitra_admin_token');
+                }
                 localStorage.removeItem('harvestmitra_admin_token');
                 setToken('');
                 showToast({ type: 'info', title: 'Signed Out', message: 'Admin session terminated.' });

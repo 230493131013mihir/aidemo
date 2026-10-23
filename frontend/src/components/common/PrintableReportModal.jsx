@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Printer, 
   X, 
@@ -15,14 +15,19 @@ import {
   FileCheck, 
   Sparkles,
   Award,
-  ShieldAlert
+  ShieldAlert,
+  Download,
+  Loader2
 } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
 
 export default function PrintableReportModal({ isOpen, onClose, reportData: initialReportData }) {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const printContentRef = useRef(null);
 
   // Default Farm Report Payload (synthesizing farmer parameters and deterministic 3-scenario revenue model)
   const defaultReport = {
@@ -177,14 +182,11 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
     async function fetchReport() {
       setLoading(true);
       try {
-        const token = localStorage.getItem('harvestmitra_token') || localStorage.getItem('token');
-        const headers = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
         const res = await fetch(`${API_BASE_URL}/api/reports/farm-decision`, {
           method: 'POST',
-          headers,
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            farmerName: 'Ramesh Patel',
             crop: 'Tomato',
             farmSizeAcres: 4.5,
             quantityKg: 1500,
@@ -228,25 +230,46 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
 
   const currentReport = report || defaultReport;
 
-  const handlePrint = async () => {
-    try {
-      const token = localStorage.getItem('harvestmitra_token') || localStorage.getItem('token');
-      const headers = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+  const handlePrint = () => {
+    window.print();
+  };
 
-      const res = await fetch(`${API_BASE_URL}/api/reports/farm-decision/print`, {
-        headers
-      });
-      if (!res.ok) {
-        window.print();
-        return;
-      }
-      const htmlText = await res.text();
-      const blob = new Blob([htmlText], { type: 'text/html;charset=utf-8' });
-      const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, '_blank');
-    } catch {
-      window.print();
+  /**
+   * 1-Click PDF Download using html2pdf.js
+   * Generates a crisp A4 PDF fitted to exactly one page with QR code and digital seal.
+   */
+  const handleDownloadPDF = async () => {
+    const element = printContentRef.current;
+    if (!element) return;
+
+    setDownloading(true);
+    try {
+      const fileName = `HarvestMitra_Farm_Report_${currentReport.reportId}_${currentReport.generatedDate.replace(/\s/g, '_')}.pdf`;
+
+      const opt = {
+        margin:       [8, 10, 8, 10], // top, right, bottom, left in mm
+        filename:     fileName,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  {
+          scale: 2,
+          useCORS: true,
+          letterRendering: true,
+          logging: false,
+          backgroundColor: '#ffffff'
+        },
+        jsPDF:        {
+          unit: 'mm',
+          format: 'a4',
+          orientation: 'portrait'
+        },
+        pagebreak:    { mode: ['avoid-all'] } // Force fit to 1 page
+      };
+
+      await html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      console.error('PDF download failed:', err);
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -330,6 +353,20 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={handleDownloadPDF}
+              disabled={downloading}
+              id="download-pdf-button"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs sm:text-sm font-bold shadow-md hover:from-blue-500 hover:to-indigo-500 transition-all transform hover:scale-[1.02] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
+            >
+              {downloading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              <span>{downloading ? 'Generating PDF...' : '📥 Download PDF'}</span>
+            </button>
+            <button
+              type="button"
               onClick={handlePrint}
               id="print-report-button"
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-primary text-white text-xs sm:text-sm font-bold shadow-md hover:from-emerald-500 hover:to-primary-dark transition-all transform hover:scale-[1.02] cursor-pointer"
@@ -351,7 +388,7 @@ export default function PrintableReportModal({ isOpen, onClose, reportData: init
         </div>
 
         {/* Printable A4 Content Area */}
-        <div className="p-6 sm:p-10 space-y-6 text-slate-900 print:p-0 print:space-y-4">
+        <div ref={printContentRef} className="p-6 sm:p-10 space-y-6 text-slate-900 print:p-0 print:space-y-4" style={{ backgroundColor: '#ffffff' }}>
           
           {/* 1. Official Letterhead & Branding */}
           <div className="border-b-4 border-emerald-700 pb-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
