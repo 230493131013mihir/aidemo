@@ -611,8 +611,10 @@ export default function HarvestPage() {
 
     const basePerKmRate = 26;
     const truckMultiplier = isShared ? 0.5 : 1.0;
-    const localTransportCost = Math.round(Math.max(600, localDistanceKm * basePerKmRate * truckMultiplier * (validQty / 1500)));
-    const regionalTransportCost = Math.round(Math.max(1800, regionalDistanceKm * basePerKmRate * truckMultiplier * (validQty / 1800)));
+    const minLocalCost = isShared ? 300 : 600;
+    const minRegionalCost = isShared ? 900 : 1800;
+    const localTransportCost = Math.round(Math.max(minLocalCost, localDistanceKm * basePerKmRate * truckMultiplier * (validQty / 1500)));
+    const regionalTransportCost = Math.round(Math.max(minRegionalCost, regionalDistanceKm * basePerKmRate * truckMultiplier * (validQty / 1800)));
 
     // Dynamic crop storage and packaging
     const coldStorageCost = Math.round((validQty / 1000) * profile.storageRatePerTonneDay * Number(params.holdingDays));
@@ -874,18 +876,20 @@ export default function HarvestPage() {
     const target = scenario || winningScenario;
     const targetCrop = isPortfolioView ? selectedCrops.join(', ') : activeCropTab;
     const targetWeight = isPortfolioView ? totalEnteredKg : activeCropAnalytics.quantityKg;
+    const isSolo = transportMode === 'solo';
 
     showToast({
       type: 'celebrate',
-      title: '🚚 Routing to Shared Transport...',
-      message: `Pre-filling ${target.mandi} for ${targetWeight} kg ${targetCrop}.`,
+      title: isSolo ? '🚚 Routing to Dedicated Truck Transport...' : '🚚 Routing to Shared Transport...',
+      message: `Pre-filling ${target.mandi} for ${targetWeight} kg ${targetCrop} (${isSolo ? 'Dedicated Truck' : 'Shared Pool'}).`,
     });
 
     navigate(`/transport?destination=${encodeURIComponent(target.mandi)}&weight=${targetWeight}&crop=${encodeURIComponent(targetCrop)}`, {
       state: {
         destination: target.mandi,
         weightKg: targetWeight,
-        crop: targetCrop
+        crop: targetCrop,
+        transportMode: isSolo ? 'solo' : 'shared'
       }
     });
   }
@@ -1331,11 +1335,12 @@ export default function HarvestPage() {
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
+                id="transport-mode-shared-btn"
                 onClick={() => setTransportMode('shared')}
                 className={`py-2 px-3 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                   transportMode === 'shared'
                     ? 'bg-emerald-50 text-emerald-900 border-emerald-400 shadow-2xs'
-                    : 'bg-white text-muted border-slate-200'
+                    : 'bg-white text-muted border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 <Truck className="w-3.5 h-3.5 text-emerald-600" />
@@ -1344,11 +1349,12 @@ export default function HarvestPage() {
 
               <button
                 type="button"
+                id="transport-mode-solo-btn"
                 onClick={() => setTransportMode('solo')}
                 className={`py-2 px-3 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                   transportMode === 'solo'
                     ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
-                    : 'bg-white text-muted border-slate-200'
+                    : 'bg-white text-muted border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 <Building2 className="w-3.5 h-3.5" />
@@ -1632,7 +1638,7 @@ export default function HarvestPage() {
                         validationError ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                       }`}
                     >
-                      <span>Book Shared Truck for Winning Mandi</span>
+                      <span>{transportMode === 'solo' ? 'Book Dedicated Truck for Winning Mandi' : 'Book Shared Truck for Winning Mandi'}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -1648,7 +1654,7 @@ export default function HarvestPage() {
                       }`}
                     >
                       <Truck className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>Book Shared Truck for Winning Mandi</span>
+                      <span>{transportMode === 'solo' ? 'Book Dedicated Truck for Winning Mandi' : 'Book Shared Truck for Winning Mandi'}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
