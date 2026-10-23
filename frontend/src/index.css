@@ -98,6 +98,12 @@
   background: transparent;
 }
 
+.sidebar-scroll::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 .sidebar-scroll::-webkit-scrollbar-thumb {
   background: rgba(27, 94, 32, 0.22);
   border-radius: 9999px;

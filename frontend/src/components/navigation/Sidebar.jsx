@@ -92,8 +92,8 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
   };
 
   const renderSidebarContent = (isMobileDrawer = false) => (
-    <div className="flex flex-col justify-between min-h-full space-y-6 pb-10 overscroll-contain touch-pan-y">
-      <div className="space-y-5">
+    <div className="flex flex-col justify-between min-h-full space-y-4 pb-2 overscroll-contain touch-pan-y">
+      <div className="space-y-3.5">
         {/* Mobile Header with Close Button */}
         {isMobileDrawer && (
           <div className="flex items-center justify-between pb-3 border-b border-border">
@@ -114,8 +114,8 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
         )}
 
         {/* User Status Card */}
-        <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-teal-50/50 border border-emerald-200/80 flex items-center gap-3 shadow-2xs">
-          <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
+        <div className="py-2.5 px-3 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-teal-50/50 border border-emerald-200/80 flex items-center gap-3 shadow-2xs">
+          <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
             {isTransporter ? '🚚' : isAdmin ? '🛡️' : '🌾'}
           </div>
           <div className="min-w-0 flex-1">
@@ -136,7 +136,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
           <div className="px-3 text-[11px] font-extrabold uppercase tracking-wider text-muted">
             Main Menu
           </div>
-          <nav className="space-y-1.5 pt-1" aria-label="Sidebar main navigation">
+          <nav className="space-y-1 pt-0.5" aria-label="Sidebar main navigation">
             {navigationItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -145,21 +145,21 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
                   to={item.to}
                   onClick={handleLinkClick}
                   className={({ isActive }) =>
-                    `flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all group ${
+                    `flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all group ${
                       isActive
-                        ? 'bg-primary text-white shadow-xs font-bold'
+                        ? 'bg-primary text-white shadow-xs'
                         : 'text-text hover:bg-emerald-50/90 hover:text-primary'
                     }`
                   }
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
                     <span className="truncate">{item.label}</span>
                   </div>
 
                   <div className="flex items-center gap-1.5">
                     {item.badge && (
-                      <span className="px-1.5 py-0.5 text-[10px] font-extrabold rounded-md bg-accent/20 text-accent group-hover:bg-accent group-hover:text-black transition-colors">
+                      <span className="px-1.5 py-0.5 text-[9.5px] font-extrabold rounded-md bg-accent/20 text-accent group-hover:bg-accent group-hover:text-black transition-colors">
                         {item.badge}
                       </span>
                     )}
@@ -172,25 +172,25 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
         </div>
 
         {/* Account & Profile Section */}
-        <div className="space-y-1 pt-2 border-t border-border/80">
+        <div className="space-y-1 pt-1.5 border-t border-border/80">
           <div className="px-3 text-[11px] font-extrabold uppercase tracking-wider text-muted">
             Account Settings
           </div>
-          <nav className="space-y-1 pt-1" aria-label="Sidebar account navigation">
+          <nav className="space-y-1 pt-0.5" aria-label="Sidebar account navigation">
             {/* Dark/Light Mode Toggle */}
             <ThemeToggle variant="sidebar" />
             <NavLink
               to="/profile"
               onClick={handleLinkClick}
               className={({ isActive }) =>
-                `flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all group ${
+                `flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all group ${
                   isActive
-                    ? 'bg-primary text-white shadow-xs font-bold'
+                    ? 'bg-primary text-white shadow-xs'
                     : 'text-text hover:bg-emerald-50/90 hover:text-primary'
                 }`
               }
             >
-              <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <User className="w-4 h-4 shrink-0" />
                 <span className="truncate">{profileLabel}</span>
               </div>
@@ -206,9 +206,9 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
                   if (onClose) onClose();
                   logout();
                 }}
-                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors group text-left"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 transition-colors group text-left cursor-pointer"
               >
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <LogOut className="w-4 h-4 shrink-0" />
                   <span className="truncate">Sign Out</span>
                 </div>
@@ -218,9 +218,9 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
                 <NavLink
                   to="/login"
                   onClick={handleLinkClick}
-                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold text-text hover:bg-emerald-50 hover:text-primary transition-all"
+                  className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-text hover:bg-emerald-50 hover:text-primary transition-all"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <User className="w-4 h-4 shrink-0" />
                     <span className="truncate">Farmer Login</span>
                   </div>
@@ -229,9 +229,9 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
                 <NavLink
                   to="/register"
                   onClick={handleLinkClick}
-                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold text-text hover:bg-emerald-50 hover:text-primary transition-all"
+                  className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-text hover:bg-emerald-50 hover:text-primary transition-all"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <UserPlus className="w-4 h-4 shrink-0" />
                     <span className="truncate">Create Account</span>
                   </div>
