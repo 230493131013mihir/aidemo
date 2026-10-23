@@ -289,7 +289,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
       {/* 1. Desktop Static Sidebar (Always visible on lg screens and up) */}
       <aside 
         id="dashboard-sidebar-desktop"
-        className={`hidden lg:flex w-64 shrink-0 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-surface border-border'} border-r h-[calc(100vh-4rem)] flex-col sticky top-16 z-20 overflow-y-auto overflow-x-hidden min-h-0 p-4 sidebar-scroll ${className}`}
+        className={`hidden lg:flex w-64 shrink-0 self-start ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-surface border-border'} border-r h-[calc(100vh-4rem)] flex-col sticky top-16 z-20 overflow-y-auto overflow-x-hidden min-h-0 p-4 sidebar-scroll ${className}`}
         aria-label="Dashboard desktop sidebar navigation"
       >
         {renderSidebarContent(false)}
