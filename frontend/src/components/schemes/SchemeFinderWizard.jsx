@@ -19,8 +19,8 @@ export default function SchemeFinderWizard({ onComplete, onCancel, initialData =
   const [step, setStep] = useState(1);
 
   const [form, setForm] = useState({
-    state: initialData.state || 'Gujarat',
-    district: initialData.district || 'Surat',
+    state: initialData.state || 'Maharashtra',
+    district: initialData.district || 'Pune',
     farmSizeAcres: initialData.farmSizeAcres || '3.5',
     hasLandOwnership: true,
     crops: initialData.crops || ['Tomato'],
@@ -327,8 +327,8 @@ export default function SchemeFinderWizard({ onComplete, onCancel, initialData =
             type="button"
             onClick={() => {
               setForm({
-                state: 'Gujarat',
-                district: 'Surat',
+                state: 'Maharashtra',
+                district: 'Pune',
                 farmSizeAcres: '3.5',
                 hasLandOwnership: true,
                 crops: ['Tomato'],

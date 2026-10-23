@@ -21,8 +21,8 @@ async function resolveFarmerParams(req) {
     ...params,
     farmerName: req.user?.name || "Farmer",
     phone: req.user?.phone || "",
-    district: profile?.district || req.user?.district || params.district || "Surat",
-    state: profile?.state || req.user?.state || params.state || "Gujarat"
+    district: profile?.district || req.user?.district || params.district || "Pune",
+    state: profile?.state || req.user?.state || params.state || "Maharashtra"
   };
 }
 

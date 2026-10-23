@@ -137,7 +137,7 @@ export default function HeroSection() {
                   </span>
                 </div>
                 <p className="text-xs text-slate-300 flex items-center gap-1 font-mono">
-                  <span>Surat APMC Mandi Hub</span>
+                  <span>Pune APMC Mandi Hub</span>
                   <span>•</span>
                   <span className="text-emerald-400 font-bold">Active Today</span>
                 </p>
@@ -154,7 +154,7 @@ export default function HeroSection() {
                   <p className="text-2xl font-black text-white font-mono">
                     {t('hero.mandiPriceValue')}
                   </p>
-                  <p className="text-[10px] text-emerald-300 font-medium">Surat APMC Modal</p>
+                  <p className="text-[10px] text-emerald-300 font-medium">Pune APMC Modal</p>
                 </div>
 
                 {/* Metric 2: Estimated Revenue */}

@@ -204,7 +204,7 @@ export default function AdminPage() {
       if (marketsPayload.data && marketsPayload.data.length > 0 && !priceForm.marketId) {
         setPriceForm((prev) => ({
           ...prev,
-          state: marketsPayload.data[0].state || 'Gujarat',
+          state: marketsPayload.data[0].state || 'Maharashtra',
           marketId: String(marketsPayload.data[0].id),
           cropId: cropsPayload.data && cropsPayload.data.length > 0 ? String(cropsPayload.data[0].id) : '',
         }));
@@ -350,7 +350,7 @@ export default function AdminPage() {
     setEditingPriceId(item.id);
     const itemMarket = markets.find((m) => m.id === item.marketId || m.id === item.Market?.id);
     setPriceForm({
-      state: itemMarket?.state || item.Market?.state || 'Gujarat',
+      state: itemMarket?.state || item.Market?.state || 'Maharashtra',
       marketId: String(item.marketId || item.Market?.id || ''),
       cropId: String(item.cropId || item.Crop?.id || ''),
       pricePerQuintal: String(item.pricePerQuintal || ''),

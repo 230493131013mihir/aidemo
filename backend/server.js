@@ -17,6 +17,12 @@ async function startServer() {
   try {
     await sequelize.authenticate();
     await sequelize.sync();
+    try {
+      const migrateIdentity = require('./scripts/migrate-identity');
+      if (typeof migrateIdentity === 'function') await migrateIdentity();
+    } catch (migErr) {
+      console.warn('⚠️ Identity migration check skipped:', migErr.message);
+    }
     console.log(`✅ Database (${sequelize.getDialect()}) connected & synced successfully!`);
 
     const userCount = await User.count().catch(() => 0);

@@ -53,12 +53,18 @@ export async function sendChatMessage({
   };
 
   try {
-    const token = localStorage.getItem('harvestmitra_token') || localStorage.getItem('token');
+    const token = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('harvestmitra_token')) ||
+                  (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('token')) ||
+                  (typeof localStorage !== 'undefined' && localStorage.getItem('harvestmitra_token')) ||
+                  (typeof localStorage !== 'undefined' && localStorage.getItem('token'));
     const headers = {
       'Content-Type': 'application/json'
     };
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      headers['x-guest-mode'] = 'true';
+      headers['Authorization'] = 'Bearer guest';
     }
 
     const response = await fetch(`${API_BASE_URL}/api/chat/message`, {

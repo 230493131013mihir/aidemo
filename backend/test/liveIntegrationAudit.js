@@ -138,7 +138,10 @@ async function runAudit() {
   try {
     const res = await fetch(`${API_BASE}/api/chat/message`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${farmerToken}`
+      },
       body: JSON.stringify({
         message: 'When should I sell my cotton in Maharashtra for maximum profit?',
         crop: 'Cotton',

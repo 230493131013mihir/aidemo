@@ -61,7 +61,7 @@ export default function KisanFloatingBar() {
     showToast({
       type: 'celebrate',
       title: '📻 Kisan Mandi Radio Playing',
-      message: 'Broadcasting live Gujarat APMC agricultural bulletin...',
+      message: 'Broadcasting live Maharashtra APMC agricultural bulletin...',
       duration: 6000,
     });
   }
@@ -71,9 +71,9 @@ export default function KisanFloatingBar() {
     const path = location.pathname;
 
     if (path.includes('dashboard')) {
-      summary = 'You are on your Live Farmer Dashboard. Your verified crops, live Surat APMC prices, and estimated revenue are ready.';
+      summary = 'You are on your Live Farmer Dashboard. Your verified crops, live Pune APMC prices, and estimated revenue are ready.';
     } else if (path.includes('markets')) {
-      summary = 'Viewing live APMC mandi prices for Gujarat. Tomato, Potato, and Onion prices are updated from APMC database.';
+      summary = 'Viewing live APMC mandi prices for Maharashtra. Tomato, Potato, and Onion prices are updated from APMC database.';
     } else if (path.includes('harvest')) {
       summary = 'Harvest Decision Simulator. Compare local mandi rates versus regional mega mandis with shared pooling.';
     } else if (path.includes('transport')) {

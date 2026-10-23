@@ -11,7 +11,10 @@ const USER_KEY = 'harvestmitra_user';
 export async function apiClient(endpoint, options = {}) {
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
   
-  const token = localStorage.getItem(TOKEN_KEY) || localStorage.getItem('token');
+  const token = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(TOKEN_KEY)) ||
+                (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('token')) ||
+                (typeof localStorage !== 'undefined' && localStorage.getItem(TOKEN_KEY)) ||
+                (typeof localStorage !== 'undefined' && localStorage.getItem('token'));
   
   const headers = {
     'Content-Type': 'application/json',

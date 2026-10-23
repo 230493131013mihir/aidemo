@@ -70,7 +70,10 @@ export default function EscrowPaymentModal({ isOpen, booking, onClose, onPayment
     setSubmitting(true);
     try {
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
-      const token = localStorage.getItem('token');
+      const token = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('harvestmitra_token')) ||
+                    (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('token')) ||
+                    (typeof localStorage !== 'undefined' && localStorage.getItem('harvestmitra_token')) ||
+                    (typeof localStorage !== 'undefined' && localStorage.getItem('token'));
 
       const response = await fetch(`${API_BASE_URL}/api/transport/bookings/${booking.id}/pay`, {
         method: 'POST',
