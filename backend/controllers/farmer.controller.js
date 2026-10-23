@@ -43,13 +43,6 @@ function parseFarmerCropRecords(profile) {
     rawCrops = profile.mainCrop.split(",").map(c => c.trim()).filter(Boolean);
   }
 
-  // Also include any crops present in quantitiesMap that might not be in mainCrop
-  Object.keys(quantitiesMap).forEach(cropKey => {
-    if (!rawCrops.some(c => c.toLowerCase() === cropKey.toLowerCase())) {
-      rawCrops.push(cropKey);
-    }
-  });
-
   // Deduplicate case-insensitively
   const uniqueCrops = [];
   const seen = new Set();

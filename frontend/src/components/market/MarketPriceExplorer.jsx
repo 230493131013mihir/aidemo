@@ -181,13 +181,42 @@ export default function MarketPriceExplorer({
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastError, setForecastError] = useState(null);
 
-  // Inter-Mandi Arbitrage State
-  const [arbitrageCrop, setArbitrageCrop] = useState('Tomato');
+  // Extract farmer's registered crops if available
+  const farmerRegisteredCrops = React.useMemo(() => {
+    const mainCropStr = user?.FarmerProfile?.mainCrop || user?.farmerProfile?.mainCrop;
+    if (!mainCropStr || mainCropStr === 'Not set') return [];
+    return mainCropStr
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean);
+  }, [user]);
+
+  // Inter-Mandi Arbitrage State - default to farmer's primary registered crop
+  const [arbitrageCrop, setArbitrageCrop] = useState(() => {
+    const mainCropStr = user?.FarmerProfile?.mainCrop || user?.farmerProfile?.mainCrop;
+    if (mainCropStr && mainCropStr !== 'Not set') {
+      const first = mainCropStr.split(',')[0].trim();
+      if (first) return first;
+    }
+    return 'Tomato';
+  });
   const [arbitrageQuantityKg, setArbitrageQuantityKg] = useState(1000);
   const [arbitrageOrigin, setArbitrageOrigin] = useState('Surat');
   const [arbitrageData, setArbitrageData] = useState(null);
   const [arbitrageLoading, setArbitrageLoading] = useState(false);
   const [arbitrageError, setArbitrageError] = useState(null);
+
+  // Sync arbitrageCrop if farmer registered crops load/update
+  useEffect(() => {
+    if (farmerRegisteredCrops.length > 0) {
+      setArbitrageCrop((prev) => {
+        if (!farmerRegisteredCrops.some((c) => c.toLowerCase() === prev.toLowerCase())) {
+          return farmerRegisteredCrops[0];
+        }
+        return prev;
+      });
+    }
+  }, [farmerRegisteredCrops]);
 
   const [crops, setCrops] = useState([]);
   const [markets, setMarkets] = useState([]);
@@ -944,10 +973,40 @@ export default function MarketPriceExplorer({
                   onChange={(e) => setArbitrageCrop(e.target.value)}
                   className="px-3 py-1.5 bg-slate-50 border border-amber-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-600"
                 >
-                  {crops.length > 0 ? (
-                    crops.map(c => <option key={c.name} value={c.name}>{c.name}</option>)
+                  {farmerRegisteredCrops.length > 0 ? (
+                    <>
+                      <optgroup label="Your Registered Crops">
+                        {farmerRegisteredCrops.map((c) => (
+                          <option key={`reg-${c}`} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="All Market Commodities">
+                        {(crops.length > 0
+                          ? crops.map((c) => c.name)
+                          : ['Tomato', 'Onion', 'Potato', 'Wheat', 'Soybean', 'Cotton']
+                        )
+                          .filter((c) => !farmerRegisteredCrops.some((rc) => rc.toLowerCase() === c.toLowerCase()))
+                          .map((c) => (
+                            <option key={`all-${c}`} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                      </optgroup>
+                    </>
+                  ) : crops.length > 0 ? (
+                    crops.map((c) => (
+                      <option key={c.name} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))
                   ) : (
-                    ['Tomato', 'Onion', 'Potato', 'Wheat', 'Soybean', 'Cotton'].map(c => <option key={c} value={c}>{c}</option>)
+                    ['Tomato', 'Onion', 'Potato', 'Wheat', 'Soybean', 'Cotton'].map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))
                   )}
                 </select>
               </div>

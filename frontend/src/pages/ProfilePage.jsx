@@ -148,9 +148,35 @@ export default function ProfilePage() {
         setSuccessMsg('Transporter fleet profile and vehicle specs updated in MySQL!');
       } else {
         // Farmer
-        const cropsToSave = form.selectedCrops?.length > 0 
-          ? form.selectedCrops.join(', ') 
-          : (form.mainCrop || 'Tomato');
+        const selectedList = form.selectedCrops?.length > 0 
+          ? form.selectedCrops 
+          : [form.mainCrop || 'Tomato'];
+        const cropsToSave = selectedList.join(', ');
+
+        // Create cleanQuantities containing ONLY the crops in form.selectedCrops
+        let existingQuantities = {};
+        const rawPQ = farmerProfile?.productQuantities || user?.farmerProfile?.productQuantities;
+        if (typeof rawPQ === 'string') {
+          try {
+            existingQuantities = JSON.parse(rawPQ) || {};
+          } catch {
+            existingQuantities = {};
+          }
+        } else if (typeof rawPQ === 'object' && rawPQ !== null) {
+          existingQuantities = rawPQ;
+        }
+
+        const cleanQuantities = {};
+        selectedList.forEach((crop) => {
+          const matchKey = Object.keys(existingQuantities).find(
+            (k) => k.toLowerCase() === crop.toLowerCase()
+          );
+          if (matchKey && existingQuantities[matchKey]) {
+            cleanQuantities[crop] = existingQuantities[matchKey];
+          } else {
+            cleanQuantities[crop] = { qty: 500, unit: 'kg' };
+          }
+        });
 
         await updateProfile({
           name: form.name,
@@ -160,6 +186,7 @@ export default function ProfilePage() {
           village: form.village,
           farmSizeAcres: Number(form.farmSizeAcres) || 1,
           mainCrop: cropsToSave,
+          productQuantities: cleanQuantities,
           currentHarvestKg: form.currentHarvestKg ? Number(form.currentHarvestKg) : null,
           preferredLanguage: form.preferredLanguage,
         });
