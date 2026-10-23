@@ -20,7 +20,10 @@ import {
   ExternalLink,
   Award,
   Key,
-  LogOut
+  LogOut,
+  Store,
+  Calendar,
+  Warehouse
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -33,6 +36,7 @@ export default function ProfilePage() {
   const userRole = user?.role || 'farmer';
   const farmerProfile = user?.FarmerProfile;
   const transporterProfile = user?.TransporterProfile;
+  const mandiProfile = user?.MandiProfile;
 
   const initialFarmerCrops = (farmerProfile?.mainCrop || 'Tomato')
     .split(',')
@@ -62,6 +66,11 @@ export default function ProfilePage() {
     // Admin fields
     department: 'APMC Market Intelligence & Agricultural Standards Bureau',
     designation: 'Chief APMC Mandi Market Regulator',
+    // Mandi Official fields
+    mandiName: mandiProfile?.mandiName || 'Pune APMC',
+    licenseNumber: mandiProfile?.licenseNumber || '',
+    operatingDays: mandiProfile?.operatingDays || 'Mon-Sat',
+    facilities: mandiProfile?.facilities || 'Cold Storage, Grading, Weighbridge',
   });
 
   const [saving, setSaving] = useState(false);
@@ -109,7 +118,17 @@ export default function ProfilePage() {
     setErrorMsg('');
 
     try {
-      if (userRole === 'admin') {
+      if (userRole === 'mandi') {
+        await updateProfile({
+          name: form.name,
+          phone: form.phone,
+          mandiName: form.mandiName,
+          licenseNumber: form.licenseNumber,
+          operatingDays: form.operatingDays,
+          facilities: form.facilities,
+        });
+        setSuccessMsg('Mandi Official APMC profile updated successfully in MySQL!');
+      } else if (userRole === 'admin') {
         await updateProfile({
           name: form.name,
           phone: form.phone,
@@ -162,6 +181,8 @@ export default function ProfilePage() {
           <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary uppercase tracking-wider mb-1">
             {userRole === 'admin' ? (
               <Shield className="w-4 h-4 text-purple-600" />
+            ) : userRole === 'mandi' ? (
+              <Store className="w-4 h-4 text-orange-600" />
             ) : userRole === 'transporter' ? (
               <Truck className="w-4 h-4 text-blue-600" />
             ) : (
@@ -170,6 +191,8 @@ export default function ProfilePage() {
             <span>
               {userRole === 'admin'
                 ? 'APMC Central Regulatory Authority'
+                : userRole === 'mandi'
+                ? 'APMC Mandi Official Profile'
                 : userRole === 'transporter'
                 ? 'Commercial Transport Fleet Profile'
                 : 'Verified Farmer Agricultural Profile'}
@@ -179,6 +202,8 @@ export default function ProfilePage() {
           <h1 className="text-2xl sm:text-3xl font-extrabold text-text">
             {userRole === 'admin'
               ? 'Administrator Profile & System Clearance'
+              : userRole === 'mandi'
+              ? 'Mandi Official Profile & APMC License'
               : userRole === 'transporter'
               ? 'Transporter & Fleet Vehicle Profile'
               : t('profile.title', 'Farmer Profile Settings')}
@@ -187,6 +212,8 @@ export default function ProfilePage() {
           <p className="text-sm text-muted mt-1">
             {userRole === 'admin'
               ? 'System access credentials, regulatory permissions, and APMC audit controls.'
+              : userRole === 'mandi'
+              ? 'Manage your APMC mandi details, license, operating schedule, and market facilities.'
               : userRole === 'transporter'
               ? 'Commercial vehicle specifications, payload limits, base mandi routes, and fare rates.'
               : 'Manage personal farmer credentials, ready harvest quantity, and APMC market location.'}
@@ -198,6 +225,8 @@ export default function ProfilePage() {
             className={`badge-tag text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full border ${
               userRole === 'admin'
                 ? 'bg-purple-50 text-purple-800 border-purple-200'
+                : userRole === 'mandi'
+                ? 'bg-orange-50 text-orange-800 border-orange-200'
                 : userRole === 'transporter'
                 ? 'bg-blue-50 text-blue-800 border-blue-200'
                 : 'bg-emerald-50 text-emerald-800 border-emerald-300'
@@ -575,7 +604,233 @@ export default function ProfilePage() {
       )}
 
       {/* ======================================================== */}
-      {/* ROLE 3: FARMER PROFILE (Land, Crop & Harvest Details)      */}
+      {/* ROLE 3: MANDI OFFICIAL PROFILE (APMC License & Facilities) */}
+      {/* ======================================================== */}
+      {userRole === 'mandi' && (
+        <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Mandi Official Identity Card */}
+            <div className="card-harvest p-6 space-y-5 bg-white border border-border rounded-3xl shadow-sm">
+              <div className="border-b border-border/80 pb-3 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-text">Mandi Official Identity</h2>
+                  <p className="text-xs text-muted">Authorized APMC mandi official details and license information</p>
+                </div>
+                <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-lg bg-orange-50 text-orange-700 border border-orange-200">
+                  APMC Licensed
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                    Official Name *
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    value={form.name}
+                    onChange={(e) => handleChange('name', e.target.value)}
+                    className="w-full rounded-xl border border-border px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-primary"
+                    placeholder="e.g. Sayali Kulkarni"
+                  />
+                </label>
+
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                    Contact Phone *
+                  </span>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-muted absolute left-3 top-3.5" />
+                    <input
+                      type="tel"
+                      required
+                      value={form.phone}
+                      onChange={(e) => handleChange('phone', e.target.value)}
+                      className="w-full rounded-xl border border-border pl-9 pr-3 py-2.5 text-sm font-mono outline-none focus:border-primary"
+                      placeholder="9876543210"
+                    />
+                  </div>
+                </label>
+              </div>
+
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                  Official APMC Email (Read-Only)
+                </span>
+                <input
+                  type="email"
+                  disabled
+                  value={user?.email || 'mandi@harvestmitra.local'}
+                  className="w-full rounded-xl border border-border/60 bg-slate-50 px-3.5 py-2.5 text-sm text-muted cursor-not-allowed font-mono"
+                />
+              </label>
+            </div>
+
+            {/* APMC Mandi Details */}
+            <div className="card-harvest p-6 space-y-5 bg-white border border-border rounded-3xl shadow-sm">
+              <div className="border-b border-border/80 pb-3">
+                <h2 className="text-lg font-bold text-text">APMC Mandi Details & License</h2>
+                <p className="text-xs text-muted">
+                  Market yard registration, operating schedule, and available facilities
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                    Mandi Name *
+                  </span>
+                  <div className="relative">
+                    <Store className="w-4 h-4 text-muted absolute left-3 top-3.5" />
+                    <input
+                      type="text"
+                      required
+                      value={form.mandiName}
+                      onChange={(e) => handleChange('mandiName', e.target.value)}
+                      className="w-full rounded-xl border border-border pl-9 pr-3 py-2.5 text-sm font-semibold outline-none focus:border-primary"
+                      placeholder="e.g. Pune APMC"
+                    />
+                  </div>
+                </label>
+
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                    APMC License Number *
+                  </span>
+                  <div className="relative">
+                    <Award className="w-4 h-4 text-muted absolute left-3 top-3.5" />
+                    <input
+                      type="text"
+                      required
+                      value={form.licenseNumber}
+                      onChange={(e) => handleChange('licenseNumber', e.target.value)}
+                      className="w-full rounded-xl border border-border pl-9 pr-3 py-2.5 text-sm font-mono font-bold uppercase outline-none focus:border-primary"
+                      placeholder="e.g. APMC-MH-PUN-2024-0091"
+                    />
+                  </div>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                    Operating Days *
+                  </span>
+                  <div className="relative">
+                    <Calendar className="w-4 h-4 text-muted absolute left-3 top-3.5" />
+                    <select
+                      value={form.operatingDays}
+                      onChange={(e) => handleChange('operatingDays', e.target.value)}
+                      className="w-full rounded-xl border border-border pl-9 pr-3 py-2.5 text-sm font-semibold outline-none focus:border-primary bg-white"
+                    >
+                      <option value="Mon-Sat">Mon-Sat (6 days)</option>
+                      <option value="Mon-Fri">Mon-Fri (5 days)</option>
+                      <option value="All Days">All Days (7 days)</option>
+                      <option value="Tue-Sun">Tue-Sun (6 days)</option>
+                    </select>
+                  </div>
+                </label>
+
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                    Market Facilities
+                  </span>
+                  <div className="relative">
+                    <Warehouse className="w-4 h-4 text-muted absolute left-3 top-3.5" />
+                    <input
+                      type="text"
+                      value={form.facilities}
+                      onChange={(e) => handleChange('facilities', e.target.value)}
+                      className="w-full rounded-xl border border-border pl-9 pr-3 py-2.5 text-sm font-semibold outline-none focus:border-primary"
+                      placeholder="e.g. Cold Storage, Grading, Weighbridge"
+                    />
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={saving}
+                className="btn-primary py-2.5 px-6 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm"
+              >
+                <Save className="w-4 h-4" />
+                <span>{saving ? 'Updating...' : 'Save Mandi Profile'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Right Column: Mandi Quick Info */}
+          <div className="space-y-6">
+            <div className="p-6 rounded-3xl bg-orange-50/60 border border-orange-200/80 shadow-xs space-y-4">
+              <h3 className="font-extrabold text-sm text-orange-950 flex items-center gap-2">
+                <Store className="w-4 h-4 text-orange-600" />
+                <span>Mandi Snapshot</span>
+              </h3>
+
+              <div className="space-y-3 text-xs">
+                <div className="flex justify-between py-1.5 border-b border-orange-200/50">
+                  <span className="text-slate-600 font-medium">Mandi:</span>
+                  <span className="font-bold text-slate-900">{form.mandiName}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-orange-200/50">
+                  <span className="text-slate-600 font-medium">License:</span>
+                  <span className="font-mono font-bold text-orange-800">
+                    {form.licenseNumber || 'Not Set'}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-orange-200/50">
+                  <span className="text-slate-600 font-medium">Operating:</span>
+                  <span className="font-bold text-slate-900">{form.operatingDays}</span>
+                </div>
+                <div className="flex justify-between py-1.5">
+                  <span className="text-slate-600 font-medium">Facilities:</span>
+                  <span className="font-bold text-slate-900 text-right max-w-[150px] truncate">{form.facilities}</span>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <Link
+                  to="/markets"
+                  className="w-full btn-primary py-2 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2"
+                >
+                  <span>View Market Prices</span>
+                </Link>
+              </div>
+            </div>
+
+            <div className="p-6 rounded-3xl bg-white border border-border shadow-sm space-y-4">
+              <h3 className="font-bold text-sm text-text flex items-center gap-2">
+                <Award className="w-4 h-4 text-orange-600" />
+                <span>Mandi Permissions</span>
+              </h3>
+              <ul className="space-y-2.5 text-xs text-muted">
+                <li className="flex items-center gap-2 text-slate-700 font-semibold">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Daily Arrival & Rate Entry</span>
+                </li>
+                <li className="flex items-center gap-2 text-slate-700 font-semibold">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Trader & Commission Agent Management</span>
+                </li>
+                <li className="flex items-center gap-2 text-slate-700 font-semibold">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Weighbridge & Gate Pass Issuance</span>
+                </li>
+                <li className="flex items-center gap-2 text-slate-700 font-semibold">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>APMC Facility Management</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </form>
+      )}
+
+      {/* ======================================================== */}
+      {/* ROLE 4: FARMER PROFILE (Land, Crop & Harvest Details)      */}
       {/* ======================================================== */}
       {userRole === 'farmer' && (
         <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6">

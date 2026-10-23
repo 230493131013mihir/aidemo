@@ -53,7 +53,6 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
         { to: '/admin', label: 'Admin Control Center', icon: Shield, badge: 'Gov' },
         { to: '/markets', label: t('nav.markets', 'Mandi Prices'), icon: TrendingUp },
         { to: '/schemes', label: t('nav.schemes', 'Govt Schemes'), icon: Landmark, badge: 'New' },
-        { to: '/harvest', label: t('nav.harvest', 'Harvest Simulator'), icon: Calculator },
         { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
       ];
     }
