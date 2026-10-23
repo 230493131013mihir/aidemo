@@ -907,6 +907,14 @@ const updateContactRequestStatus = async (req, res) => {
 // Discover relevant registered farmers for Mandi users
 const getRelevantFarmers = async (req, res) => {
     try {
+        // Strict Privacy Guard: Only Mandi APMC Officials and Administrators may query the farmer directory
+        if (req.user?.role !== "mandi" && req.user?.role !== "admin") {
+            return res.status(403).json({
+                success: false,
+                message: "Access denied. Farmer directory is restricted to verified Mandi APMC Officials and Administrators."
+            });
+        }
+
         const { crop, district } = req.query;
         const where = { role: "farmer" };
         const profileWhere = { state: "Maharashtra" };
