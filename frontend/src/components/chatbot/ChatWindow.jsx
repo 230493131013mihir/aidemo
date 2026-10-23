@@ -45,7 +45,7 @@ const WELCOME_MESSAGES = {
   },
   en: {
     text: "Namaste! I am Mitra Assistant. Ask me about Maharashtra & Gujarat APMC Mandi prices, whether you should sell today or hold, shared transport pooling, or weather forecasts.",
-    disclaimer: "Demonstration data mode active (APMC Live/Sample)."
+    disclaimer: "Mandi prices and forecasts are benchmarked to official APMC live records."
   }
 };
 

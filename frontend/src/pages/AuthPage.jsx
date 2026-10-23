@@ -804,6 +804,19 @@ export default function AuthPage({ mode = 'login' }) {
             </button>
           </div>
 
+          {/* FPO Leader Educational Explanation Banner */}
+          {role === 'fpo_leader' && (
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/90 text-xs text-emerald-950 space-y-1 shadow-2xs animate-fadeIn">
+              <div className="flex items-center gap-1.5 font-bold text-emerald-800">
+                <Users className="w-4 h-4 text-emerald-600" />
+                <span>What is an FPO Leader Portal?</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-slate-700">
+                A <strong>Farmer Producer Organisation (FPO)</strong> aggregates harvest batches across 40+ member farmers to negotiate higher bulk APMC wholesale rates and coordinate shared truck transport for collective agricultural dispatches.
+              </p>
+            </div>
+          )}
+
           {/* Authentication Mode Switcher: Mobile OTP vs Password (Non-admin Login) */}
           {!isRegister && role !== 'admin' && (
             <div className="p-1 rounded-2xl bg-emerald-50/70 border border-emerald-200 grid grid-cols-2 gap-1 text-xs font-bold">
