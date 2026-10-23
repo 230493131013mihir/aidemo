@@ -92,7 +92,7 @@ export default function DashboardPage() {
     return <Navigate to="/markets" replace />;
   }
 
-  // 3. Transporter views their dedicated Cargo & Trip Logistics Dashboard with quick toggle to Farmer Suite
+  // 3. Transporter views their dedicated Cargo & Trip Logistics Dashboard (Farmer Decision Suite toggle removed, Issue #173)
   if (user?.role === 'transporter') {
     return <TransporterDashboard />;
   }

@@ -84,7 +84,7 @@ export default function Header() {
             {/* Language Selector */}
             <LanguageSelector id="header-language-selector" />
 
-            {/* Auth Actions: Profile Pill when logged in, Login & Register when unauthenticated */}
+            {/* Auth Actions: Transporters route to /transport with Truck icon, others to /dashboard (Issue #173) */}
             {isAuthenticated ? (
               <div className="flex items-center gap-2">
                 <Link

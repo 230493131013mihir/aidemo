@@ -824,7 +824,7 @@ export default function TransportPage() {
             </p>
           </div>
 
-          {/* Mode Switcher Tabs */}
+          {/* Mode Switcher Tabs - Locked to admin role (Issue #173) */}
           {user?.role === 'admin' && (
             <div className="p-1.5 rounded-2xl bg-slate-900/70 backdrop-blur-md border border-white/20 flex items-center gap-1.5 shrink-0 shadow-lg">
               <button type="button" onClick={() => setActiveTab('farmer')} className={`py-2 px-4 rounded-xl text-xs font-bold ${activeTab === 'farmer' ? 'bg-primary text-white shadow-md' : 'text-slate-300'}`}>Farmer Booking</button>
