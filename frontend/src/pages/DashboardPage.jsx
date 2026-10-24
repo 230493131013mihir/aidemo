@@ -29,6 +29,7 @@ import { useAuth } from '../context/AuthContext';
 import DashboardHeader from '../components/dashboard/DashboardHeader';
 import ProfileSummary from '../components/dashboard/ProfileSummary';
 import TransporterDashboard from '../components/dashboard/TransporterDashboard';
+import MandiDashboard from '../components/dashboard/MandiDashboard';
 import StatCard from '../components/dashboard/StatCard';
 import WeatherWidget from '../components/dashboard/WeatherWidget';
 import MarketTrendChart from '../components/dashboard/MarketTrendChart';
@@ -87,9 +88,9 @@ export default function DashboardPage() {
     return <Navigate to="/admin" replace />;
   }
 
-  // 2. Mandi Official views dedicated Mandi Market Rates & APMC workspace
+  // 2. Mandi Official views dedicated APMC Mandi Portal & Procurement Workspace (previously /markets)
   if (user?.role === 'mandi') {
-    return <Navigate to="/markets" replace />;
+    return <MandiDashboard />;
   }
 
   // 3. Transporter views their dedicated Cargo & Trip Logistics Dashboard (Farmer Decision Suite toggle removed, Issue #173)

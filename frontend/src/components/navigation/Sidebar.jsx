@@ -27,22 +27,27 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
   const { isDark } = useTheme();
 
   const displayName = user?.name || 'Prashant Warule';
+  const isMandi = user?.role === 'mandi';
+  const isAdmin = user?.role === 'admin';
+  const isTransporter = user?.role === 'transporter';
+
   const roleName =
-    user?.role === 'admin'
+    isAdmin
       ? 'Administrator'
+      : isMandi
+      ? 'APMC Mandi Official'
       : user?.role === 'transporter'
       ? 'Transporter / Driver'
       : 'Farmer / Producer';
 
   const rolePillText =
-    user?.role === 'admin'
+    isAdmin
       ? 'Admin'
+      : isMandi
+      ? 'Mandi Official'
       : user?.role === 'transporter'
       ? 'Transporter'
       : 'Farmer';
-
-  const isAdmin = user?.role === 'admin';
-  const isTransporter = user?.role === 'transporter';
 
   const profileLabel = t('nav.profile', 'My Profile');
 
@@ -57,11 +62,21 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
       ];
     }
 
+    if (isMandi) {
+      return [
+        { to: '/dashboard', label: 'Mandi Dashboard', icon: LayoutDashboard },
+        { to: '/markets', label: 'Live APMC Rates', icon: TrendingUp },
+        { to: '/markets', label: 'Farmer Directory', icon: Landmark },
+        { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
+      ];
+    }
+
     if (isTransporter) {
       return [
         { to: '/dashboard', label: 'Logistics Dashboard', icon: LayoutDashboard },
         { to: '/transport', label: 'Cargo Trips & Gate Pass', icon: Truck },
         { to: '/weather', label: 'Route Weather Alerts', icon: CloudSunRain },
+        { to: '/markets', label: t('nav.markets', 'Mandi Prices'), icon: TrendingUp },
         { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
       ];
     }
@@ -116,7 +131,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
         {/* User Status Card */}
         <div className="py-2.5 px-3 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-teal-50/50 border border-emerald-200/80 flex items-center gap-3 shadow-2xs">
           <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
-            {isTransporter ? '🚚' : isAdmin ? '🛡️' : '🌾'}
+            {isTransporter ? '🚚' : isAdmin ? '🛡️' : isMandi ? '🏪' : '🌾'}
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-extrabold text-slate-900 truncate">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Calculator, TrendingUp, Truck, AlertCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Clock, Calculator, TrendingUp, Truck, AlertCircle, RefreshCw, CheckCircle2, Store } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
@@ -12,18 +12,56 @@ export default function RecentActivity() {
   const fetchDynamicActivity = async () => {
     try {
       setLoading(true);
+      const mandiAlertItems = [];
+
+      // 1. Fetch user's incoming Mandi purchase alerts if authenticated
+      try {
+        const token = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('harvestmitra_token')) ||
+                      (typeof localStorage !== 'undefined' && localStorage.getItem('harvestmitra_token')) ||
+                      (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('token')) ||
+                      (typeof localStorage !== 'undefined' && localStorage.getItem('token'));
+        if (token && token !== 'guest') {
+          const reqRes = await fetch(`${API_BASE_URL}/api/auth/contact-requests`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          const reqJson = await reqRes.json();
+          if (reqJson.success && Array.isArray(reqJson.data)) {
+            const incoming = reqJson.data.filter(r => r.contactType === 'mandi_to_farmer' || r.message?.includes('🏪') || r.senderRole === 'mandi');
+            incoming.slice(0, 3).forEach((item, idx) => {
+              mandiAlertItems.push({
+                id: `mandi-req-${item.id || idx}`,
+                title: item.message || `🏪 ${item.senderName || 'Pune APMC'} placed a procurement inquiry for ${item.quantityKg} kg ${item.cropName} at ₹${item.proposedPricePerKg}/kg`,
+                time: item.createdAt ? 'Live Alert' : 'Just now',
+                type: 'mandi',
+                badge: 'APMC Booking'
+              });
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch procurement contact requests:', err.message);
+      }
+
+      // 2. Fetch live market price surge & APMC alerts
       const res = await fetch(`${API_BASE_URL}/api/market/alerts`);
       const json = await res.json();
 
+      let dynamicMarketItems = [];
       if (json.success && Array.isArray(json.alerts) && json.alerts.length > 0) {
-        const dynamicItems = json.alerts.slice(0, 4).map((a, i) => ({
+        dynamicMarketItems = json.alerts.slice(0, 4).map((a, i) => ({
           id: `alert-${i}`,
           title: a.title || `${a.crop} Price Alert in ${a.mandiName || 'APMC'}`,
           time: a.timestamp ? 'Live Just Now' : `${(i + 1) * 12} mins ago`,
           type: a.alertType === 'PRICE_SURGE' ? 'surge' : 'market',
           badge: a.changePercent ? `${a.changePercent > 0 ? '+' : ''}${a.changePercent}%` : 'APMC Update'
         }));
-        setActivities(dynamicItems);
+      }
+
+      if (mandiAlertItems.length > 0 || dynamicMarketItems.length > 0) {
+        setActivities([...mandiAlertItems, ...dynamicMarketItems].slice(0, 5));
       } else {
         generateLiveFeed();
       }
@@ -36,6 +74,13 @@ export default function RecentActivity() {
 
   const generateLiveFeed = () => {
     const liveItems = [
+      {
+        id: 'act-mandi-procure',
+        title: '🏪 Pune APMC placed a procurement inquiry for 250 kg Cotton at ₹75.65/kg',
+        time: 'Just now',
+        type: 'mandi',
+        badge: 'APMC Booking'
+      },
       {
         id: 'act-1',
         title: 'Tomato Rate Updated: ₹26.50/kg at Pune APMC (Gultekdi)',
@@ -74,6 +119,8 @@ export default function RecentActivity() {
 
   const getIcon = (type) => {
     switch (type) {
+      case 'mandi':
+        return <Store className="w-4 h-4 text-emerald-600" />;
       case 'calculator':
         return <Calculator className="w-4 h-4 text-primary" />;
       case 'surge':
