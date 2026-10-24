@@ -103,6 +103,11 @@ export default function ProfilePage() {
         baseMandi: user.TransporterProfile?.baseMandi || prev.baseMandi,
         ratePerKm: user.TransporterProfile?.ratePerKm ? String(user.TransporterProfile.ratePerKm) : prev.ratePerKm,
         isAvailable: user.TransporterProfile?.isAvailable ?? prev.isAvailable,
+        // Mandi Official fields
+        mandiName: user.MandiProfile?.mandiName || prev.mandiName || 'Pune APMC (Gultekdi Wholesale Mandi)',
+        licenseNumber: user.MandiProfile?.licenseNumber || prev.licenseNumber || 'MH-APMC-PUN-2024-8841',
+        operatingDays: user.MandiProfile?.operatingDays || prev.operatingDays || 'Mon - Sat (06:00 AM - 08:00 PM)',
+        facilities: user.MandiProfile?.facilities || prev.facilities || 'Weighbridge, Cold Storage (500 MT), Electronic Auction Hall, Direct DBT Settlement',
       }));
     }
   }, [user]);

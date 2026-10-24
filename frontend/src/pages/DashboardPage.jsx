@@ -42,6 +42,7 @@ import QuickActions from '../components/dashboard/QuickActions';
 import PrintableReportModal from '../components/common/PrintableReportModal';
 import RegisteredCropsManager from '../components/dashboard/RegisteredCropsManager';
 import SharedTransportFarmerWidget from '../components/dashboard/SharedTransportFarmerWidget';
+import MandiBookingNotificationWidget from '../components/dashboard/MandiBookingNotificationWidget';
 import apiClient from '../services/apiClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
@@ -280,6 +281,9 @@ function FarmerDashboard({ user, t }) {
 
       {/* 2. Farmer Profile Summary */}
       <ProfileSummary />
+
+      {/* 2.2 Live APMC Mandi Booking & Procurement Inquiries */}
+      <MandiBookingNotificationWidget />
 
       {/* 2.5 Action Bar: Printable Kisan Farm Decision Report Banner */}
       <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-950 rounded-3xl p-4 sm:p-6 text-white shadow-xl border border-emerald-800/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
