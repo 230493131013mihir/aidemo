@@ -173,7 +173,7 @@ export default function TransportPage() {
         setVehicleForm((prev) => ({ ...prev, driverName: user.name, phone: user.phone || '' }));
       }
       if (user.FarmerProfile) {
-        if (user.FarmerProfile.mainCrop) setCropName(user.FarmerProfile.mainCrop);
+        if (user.FarmerProfile.mainCrop) setCropName(user.FarmerProfile.mainCrop.split(',')[0].trim());
         if (user.FarmerProfile.currentHarvestKg) setWeight(Number(user.FarmerProfile.currentHarvestKg));
         if (user.FarmerProfile.district) {
           const loc = `${user.FarmerProfile.district}${user.FarmerProfile.state ? `, ${user.FarmerProfile.state}` : ''}`;

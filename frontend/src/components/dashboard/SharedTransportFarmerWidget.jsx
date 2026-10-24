@@ -103,11 +103,50 @@ export default function SharedTransportFarmerWidget({
   const farmerProfile = user?.FarmerProfile;
   const defaultDistrict = farmerProfile?.district || 'Pune';
 
-  // Extract farmer's registered crops from props or context
+  const [farmerCropsList, setFarmerCropsList] = useState(() => (Array.isArray(registeredCrops) ? registeredCrops : []));
+
+  useEffect(() => {
+    if (Array.isArray(registeredCrops) && registeredCrops.length > 0) {
+      setFarmerCropsList(registeredCrops);
+    }
+  }, [registeredCrops]);
+
+  // Auto-fetch farmer's registered crops with their individual harvest weights from backend API
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCropsWithWeights = async () => {
+      try {
+        const authToken = token || 
+          (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('harvestmitra_token')) || 
+          (typeof localStorage !== 'undefined' && localStorage.getItem('harvestmitra_token')) || 'guest';
+        
+        const headers = { 'Content-Type': 'application/json' };
+        if (authToken && authToken !== 'guest') {
+          headers.Authorization = `Bearer ${authToken}`;
+        } else {
+          headers['x-guest-mode'] = 'true';
+        }
+
+        const res = await fetch(`${API_BASE_URL}/api/farmer/crops`, { headers });
+        const json = await res.json();
+        if (isMounted && json.success && Array.isArray(json.crops) && json.crops.length > 0) {
+          setFarmerCropsList(json.crops);
+        }
+      } catch (err) {
+        console.warn('Could not auto-fetch farmer crop weights:', err.message);
+      }
+    };
+
+    fetchCropsWithWeights();
+    return () => { isMounted = false; };
+  }, [token]);
+
+  // Extract farmer's registered crops from props, context, or fetched list
   const userRegisteredCropNames = useMemo(() => {
     const list = [];
-    if (Array.isArray(registeredCrops) && registeredCrops.length > 0) {
-      registeredCrops.forEach((c) => {
+    const sourceList = farmerCropsList.length > 0 ? farmerCropsList : (Array.isArray(registeredCrops) ? registeredCrops : []);
+    if (sourceList.length > 0) {
+      sourceList.forEach((c) => {
         const name = typeof c === 'string' ? c : (c.cropName || c.name);
         if (name && typeof name === 'string' && !list.some((item) => item.toLowerCase() === name.trim().toLowerCase())) {
           list.push(name.trim());
@@ -124,17 +163,27 @@ export default function SharedTransportFarmerWidget({
       });
     }
     return list;
-  }, [registeredCrops, user]);
+  }, [farmerCropsList, registeredCrops, user]);
 
   const [showAllCommodities, setShowAllCommodities] = useState(false);
+  const [isOtherCropSelected, setIsOtherCropSelected] = useState(false);
+  const [customCropName, setCustomCropName] = useState('');
+  const [isOtherVehicleSelected, setIsOtherVehicleSelected] = useState(false);
+  const [customVehicleType, setCustomVehicleType] = useState('');
+
+  // Clean initial crop string to single commodity if passed with commas
+  const cleanInitialCrop = useMemo(() => {
+    if (!initialCrop || typeof initialCrop !== 'string') return '';
+    return initialCrop.split(',')[0].trim();
+  }, [initialCrop]);
 
   // Form State - default to primary crop
   const [selectedCrop, setSelectedCrop] = useState(() => {
-    if (initialCrop) return initialCrop;
+    if (cleanInitialCrop) return cleanInitialCrop;
     if (Array.isArray(registeredCrops) && registeredCrops.length > 0) {
       const first = registeredCrops[0];
       const name = typeof first === 'string' ? first : (first.cropName || first.name);
-      if (name) return name;
+      if (name) return name.split(',')[0].trim();
     }
     const mainCropStr = user?.FarmerProfile?.mainCrop || user?.farmerProfile?.mainCrop;
     if (mainCropStr && typeof mainCropStr === 'string' && mainCropStr !== 'Not set') {
@@ -181,8 +230,8 @@ export default function SharedTransportFarmerWidget({
 
   // Sync initial props if changed externally
   useEffect(() => {
-    if (initialCrop) setSelectedCrop(initialCrop);
-  }, [initialCrop]);
+    if (cleanInitialCrop) setSelectedCrop(cleanInitialCrop);
+  }, [cleanInitialCrop]);
 
   useEffect(() => {
     if (initialWeightKg && Number(initialWeightKg) > 0) setQuantity(Number(initialWeightKg));
@@ -192,17 +241,52 @@ export default function SharedTransportFarmerWidget({
     if (initialDestination) setDestination(initialDestination);
   }, [initialDestination]);
 
+  // Auto-fetch farmer's harvest weight for the selected crop when crops load
+  useEffect(() => {
+    if (farmerCropsList.length > 0 && selectedCrop && !isOtherCropSelected) {
+      const match = farmerCropsList.find(
+        (c) => (c.cropName || c.name || '').toLowerCase() === selectedCrop.toLowerCase()
+      );
+      if (match) {
+        const cropWeight = Number(match.harvestQuantityKg || match.quantity || match.enteredQuantity || 0);
+        if (cropWeight > 0) {
+          setQuantity(cropWeight);
+          if (match.unit) setQuantityUnit(match.unit);
+        }
+      }
+    }
+  }, [farmerCropsList]);
+
   // Update selected crop if registeredCrops changes and ensure primary crop default
   useEffect(() => {
-    if (initialCrop) {
-      setSelectedCrop(initialCrop);
-    } else if (userRegisteredCropNames.length > 0) {
+    if (cleanInitialCrop) {
+      setSelectedCrop(cleanInitialCrop);
+    } else if (userRegisteredCropNames.length > 0 && !isOtherCropSelected) {
       const match = userRegisteredCropNames.find((c) => c.toLowerCase() === selectedCrop.toLowerCase());
       if (!match) {
         setSelectedCrop(userRegisteredCropNames[0]);
       }
     }
-  }, [userRegisteredCropNames, initialCrop]);
+  }, [userRegisteredCropNames, cleanInitialCrop, isOtherCropSelected]);
+
+  // Handler to select crop and automatically fetch & set user's weight for that specific crop
+  const handleSelectCrop = (cropName) => {
+    setSelectedCrop(cropName);
+    setIsOtherCropSelected(false);
+    setIsOtherVehicleSelected(false);
+
+    // Auto-fetch and sync the farmer's registered harvest weight for this specific crop
+    const match = farmerCropsList.find(
+      (c) => (c.cropName || c.name || '').toLowerCase() === cropName.toLowerCase()
+    );
+    if (match) {
+      const cropWeight = Number(match.harvestQuantityKg || match.quantity || match.enteredQuantity || 0);
+      if (cropWeight > 0) {
+        setQuantity(cropWeight);
+        if (match.unit) setQuantityUnit(match.unit);
+      }
+    }
+  };
 
   // Fetch verified vehicles matching crop & route from backend API
   const fetchVehicles = async () => {
@@ -223,8 +307,14 @@ export default function SharedTransportFarmerWidget({
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         setAvailableVehicles(data.data);
-        if (data.data.length > 0 && !selectedVehicle) {
-          setSelectedVehicle(data.data[0]);
+        // Automatically select the best matching truck tailored for the selected crop
+        if (data.data.length > 0 && !isOtherVehicleSelected) {
+          const matchingVehicle =
+            data.data.find((v) => v.isRecommended && v.canAccommodateCargo) ||
+            data.data.find((v) => v.isCropSuitable && v.canAccommodateCargo) ||
+            data.data.find((v) => v.canAccommodateCargo) ||
+            data.data[0];
+          setSelectedVehicle(matchingVehicle);
         }
       }
     } catch (err) {
@@ -477,16 +567,20 @@ export default function SharedTransportFarmerWidget({
 
             {/* Display farmer's registered crops first with green '🌾 Registered Crop' badge */}
             {userRegisteredCropNames.length > 0 && (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {userRegisteredCropNames.map((cropName) => {
                     const cropMeta = getCropMeta(cropName);
-                    const isSelected = selectedCrop?.toLowerCase() === cropName.toLowerCase();
+                    const foundCrop = farmerCropsList.find(
+                      (c) => (c.cropName || c.name || '').toLowerCase() === cropName.toLowerCase()
+                    );
+                    const registeredWeight = Number(foundCrop?.harvestQuantityKg || foundCrop?.quantity || foundCrop?.enteredQuantity || 0);
+                    const isSelected = !isOtherCropSelected && selectedCrop?.toLowerCase() === cropName.toLowerCase();
                     return (
                       <button
                         key={cropName}
                         type="button"
-                        onClick={() => setSelectedCrop(cropName)}
+                        onClick={() => handleSelectCrop(cropName)}
                         className={`p-2.5 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
                           isSelected
                             ? 'border-primary bg-emerald-50/80 ring-2 ring-primary/20 shadow-xs'
@@ -505,13 +599,88 @@ export default function SharedTransportFarmerWidget({
                             {cropMeta.vehicleHint}
                           </span>
                           <span className="inline-flex items-center text-[9px] font-bold text-emerald-700 bg-emerald-100/90 border border-emerald-300/80 px-1.5 py-0.5 rounded-full">
-                            🌾 Registered Crop
+                            🌾 Registered Crop{registeredWeight > 0 ? ` • ${registeredWeight} kg` : ''}
                           </span>
                         </div>
                       </button>
                     );
                   })}
+
+                  {/* NEW 'Other' Crop Option Card */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsOtherCropSelected(true);
+                      setSelectedCrop(customCropName.trim() || 'Other');
+                      setIsOtherVehicleSelected(false);
+                    }}
+                    className={`p-2.5 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
+                      isOtherCropSelected
+                        ? 'border-primary bg-emerald-50/90 ring-2 ring-primary/20 shadow-xs'
+                        : 'border-dashed border-emerald-300 bg-emerald-50/30 hover:bg-emerald-50/70'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xl">📦</span>
+                      {isOtherCropSelected && <Check className="w-4 h-4 text-primary" />}
+                    </div>
+                    <div className="mt-1.5 space-y-1">
+                      <span className="text-xs font-black text-slate-900 block truncate">
+                        {customCropName.trim() ? customCropName : 'Other Crop'}
+                      </span>
+                      <span className="text-[9.5px] text-muted font-medium block truncate">
+                        Custom Agri Transport
+                      </span>
+                      <span className="inline-flex items-center text-[9px] font-bold text-teal-800 bg-teal-100/90 border border-teal-300 px-1.5 py-0.5 rounded-full">
+                        ➕ Other Option
+                      </span>
+                    </div>
+                  </button>
                 </div>
+
+                {/* Custom Crop Input Box when 'Other Crop' is selected */}
+                {isOtherCropSelected && (
+                  <div className="p-3 bg-emerald-50/70 border border-emerald-300/80 rounded-2xl space-y-2 animate-in fade-in">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                      <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Tag className="w-3.5 h-3.5 text-primary" />
+                        <span>Specify Your Other Crop / Harvest Produce:</span>
+                      </label>
+                      <span className="text-[10px] text-muted font-medium">Type any crop name to assign specialized transport</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={customCropName}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCustomCropName(val);
+                        setSelectedCrop(val.trim() || 'Other');
+                      }}
+                      placeholder="e.g. Maize, Sugarcane, Chana / Gram, Ginger, Turmeric, Garlic..."
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-primary shadow-2xs"
+                    />
+                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      <span className="text-[10px] font-semibold text-slate-500">Quick suggestions:</span>
+                      {['Maize', 'Sugarcane', 'Chana / Gram', 'Pomegranate', 'Ginger', 'Turmeric', 'Garlic'].map((sug) => (
+                        <button
+                          key={sug}
+                          type="button"
+                          onClick={() => {
+                            setCustomCropName(sug);
+                            setSelectedCrop(sug);
+                          }}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all border cursor-pointer ${
+                            selectedCrop === sug
+                              ? 'bg-primary text-white border-primary'
+                              : 'bg-white border-slate-200 text-slate-700 hover:border-primary hover:text-primary'
+                          }`}
+                        >
+                          + {sug}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -527,12 +696,20 @@ export default function SharedTransportFarmerWidget({
                   {SUPPORTED_CROPS.filter(
                     (c) => !userRegisteredCropNames.some((rc) => rc.toLowerCase() === c.name.toLowerCase())
                   ).map((crop) => {
-                    const isSelected = selectedCrop?.toLowerCase() === crop.name.toLowerCase();
+                    const isSelected = !isOtherCropSelected && selectedCrop?.toLowerCase() === crop.name.toLowerCase();
                     return (
                       <button
                         key={crop.name}
                         type="button"
-                        onClick={() => setSelectedCrop(crop.name)}
+                        onClick={() => {
+                          if (crop.name.toLowerCase() === 'other') {
+                            setIsOtherCropSelected(true);
+                            setSelectedCrop(customCropName.trim() || 'Other');
+                          } else {
+                            handleSelectCrop(crop.name);
+                          }
+                          setIsOtherVehicleSelected(false);
+                        }}
                         className={`p-2.5 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
                           isSelected
                             ? 'border-primary bg-emerald-50/70 ring-2 ring-primary/20 shadow-xs'
@@ -724,14 +901,17 @@ export default function SharedTransportFarmerWidget({
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {availableVehicles.map((vehicle) => {
-                  const isSelected = selectedVehicle?.id === vehicle.id;
+                  const isSelected = !isOtherVehicleSelected && selectedVehicle?.id === vehicle.id;
                   const estimatedFare = isSharedPooling ? vehicle.estimatedSharedFare : vehicle.estimatedSoloFare;
                   const savings = vehicle.estimatedSoloFare - vehicle.estimatedSharedFare;
 
                   return (
                     <div
                       key={vehicle.id}
-                      onClick={() => setSelectedVehicle(vehicle)}
+                      onClick={() => {
+                        setSelectedVehicle(vehicle);
+                        setIsOtherVehicleSelected(false);
+                      }}
                       className={`p-4 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between space-y-3 ${
                         isSelected
                           ? 'border-primary bg-emerald-50/50 shadow-md ring-2 ring-primary/20'
@@ -753,9 +933,16 @@ export default function SharedTransportFarmerWidget({
                             {vehicle.registrationNumber}
                           </span>
                         </div>
-                        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md inline-block">
-                          {vehicle.cropSuitabilityReason}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                          {vehicle.isRecommended && (
+                            <span className="text-[9.5px] font-black text-emerald-800 bg-emerald-100/90 border border-emerald-300/80 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                              ⭐️ Recommended for {selectedCrop}
+                            </span>
+                          )}
+                          <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md inline-block">
+                            {vehicle.cropSuitabilityReason}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Specs Matrix */}
@@ -809,6 +996,126 @@ export default function SharedTransportFarmerWidget({
                     </div>
                   );
                 })}
+
+                {/* NEW 'Other' Transport Truck / Custom Fleet Option Card */}
+                <div
+                  onClick={() => {
+                    setIsOtherVehicleSelected(true);
+                    const customType = customVehicleType.trim() || 'Custom Specialized Transport Truck';
+                    const customVeh = {
+                      id: 'custom-vehicle-other',
+                      vehicleType: customType,
+                      registrationNumber: 'CUSTOM-FLEET',
+                      capacityKg: Math.max(3000, totalWeightKg * 2),
+                      remainingCapacityKg: Math.max(3000, totalWeightKg * 2),
+                      driverName: 'Assigned Transporter on Dispatch',
+                      baseLocation: pickupLocation || 'Maharashtra APMC Corridor',
+                      ratePerKm: 28,
+                      estimatedSoloFare: Math.round(Math.max(1200, totalWeightKg * 3.2)),
+                      estimatedSharedFare: Math.round(Math.max(650, totalWeightKg * 1.7)),
+                      cropSuitabilityReason: `Custom specialized transport tailored for ${selectedCrop}`,
+                      isCropSuitable: true,
+                      isRecommended: true
+                    };
+                    setSelectedVehicle(customVeh);
+                  }}
+                  className={`p-4 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between space-y-3 ${
+                    isOtherVehicleSelected
+                      ? 'border-primary bg-emerald-50/70 shadow-md ring-2 ring-primary/20'
+                      : 'border-dashed border-emerald-300 bg-emerald-50/30 hover:border-emerald-400 hover:bg-emerald-50/60 shadow-2xs'
+                  }`}
+                >
+                  {isOtherVehicleSelected && (
+                    <div className="absolute -top-2.5 right-4 px-2 py-0.5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center gap-1 shadow-xs">
+                      <Check className="w-3 h-3" /> Selected Vehicle
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="text-sm font-black text-slate-900 leading-snug flex items-center gap-1.5">
+                        <span>🚛 Other Transport Truck</span>
+                      </h4>
+                      <span className="text-[10px] font-mono font-bold bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded border border-teal-300">
+                        ➕ Other Option
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-teal-900 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md inline-block">
+                      Custom carrier: Flatbed, Tractor-Trolley, 14-Wheeler, or Custom Dispatch
+                    </span>
+
+                    {/* Custom Truck Type Input */}
+                    {isOtherVehicleSelected && (
+                      <div className="pt-2 space-y-1" onClick={(e) => e.stopPropagation()}>
+                        <label className="text-[10.5px] font-bold text-slate-700 block">
+                          Specify Truck Type / Trailer:
+                        </label>
+                        <input
+                          type="text"
+                          value={customVehicleType}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setCustomVehicleType(val);
+                            setSelectedVehicle((prev) => ({
+                              ...prev,
+                              vehicleType: val.trim() || 'Custom Specialized Transport Truck'
+                            }));
+                          }}
+                          placeholder="e.g. Tractor Trolley, 14-Wheeler Flatbed, Eicher 19-ft, Open Body Carrier..."
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold outline-none focus:border-primary shadow-2xs"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Specs Matrix */}
+                  <div className="grid grid-cols-2 gap-1.5 text-[11px] bg-white p-2.5 rounded-xl border border-slate-200/90">
+                    <div>
+                      <span className="text-muted block text-[10px]">Capacity:</span>
+                      <span className="font-bold text-slate-900 font-mono">
+                        On-Demand Flexible
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted block text-[10px]">Space:</span>
+                      <span className="font-bold text-emerald-700 font-mono">
+                        Guaranteed for {totalWeightKg} kg
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted block text-[10px]">Driver:</span>
+                      <span className="font-semibold text-slate-800 block truncate">
+                        Assigned Transporter
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted block text-[10px]">Corridor:</span>
+                      <span className="font-semibold text-slate-800 block truncate">
+                        {pickupLocation || 'Local Farm'} ➔ {destination}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Pricing Details */}
+                  <div className="pt-2 border-t border-slate-200/80 flex items-baseline justify-between">
+                    <div>
+                      <span className="text-[10px] text-muted block">
+                        {isSharedPooling ? 'Estimated Shared Fare:' : 'Solo Truck Fare:'}
+                      </span>
+                      <span className="text-base font-black text-slate-900">
+                        {formatINR(isSharedPooling ? Math.round(Math.max(650, totalWeightKg * 1.7)) : Math.round(Math.max(1200, totalWeightKg * 3.2)))}
+                      </span>
+                    </div>
+                    {isSharedPooling && (
+                      <div className="text-right">
+                        <span className="text-[10px] text-emerald-700 font-bold block">
+                          ~50% Pool Savings
+                        </span>
+                        <span className="text-[9px] text-muted font-mono">Specialized Transit</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

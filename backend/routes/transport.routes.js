@@ -258,23 +258,61 @@ router.get("/vehicles", async (req, res) => {
             const bookedWeightKg = activeBookings.reduce((sum, b) => sum + (b.weightKg || 0), 0);
             const remainingCapacityKg = Math.max(0, v.capacityKg - bookedWeightKg);
 
-            // Crop suitability
+            // Crop suitability & smart matching score
             let isCropSuitable = true;
+            let isRecommended = false;
+            let cropMatchScore = 50;
             let cropSuitabilityReason = "Standard goods transport suitable";
+
             if (cropProfile) {
                 const supportedStr = String(v.supportedCrops || "").toLowerCase();
-                const cropCategory = cropProfile.category;
-                const cropNameLower = cropProfile.name.toLowerCase();
+                const cropCategory = String(cropProfile.category || "").toLowerCase();
+                const cropNameLower = String(cropProfile.name || "").toLowerCase();
+                const vTypeLower = String(v.vehicleType || "").toLowerCase();
 
-                if (supportedStr.includes(cropNameLower) || supportedStr.includes("vegetables") && cropCategory.includes("vegetable") || supportedStr.includes("grains") && cropCategory.includes("grain") || supportedStr.includes("fruits") && cropCategory.includes("fruit")) {
-                    isCropSuitable = true;
-                    cropSuitabilityReason = `Verified match: ${cropProfile.specialHandling}`;
-                } else if (v.vehicleType.toLowerCase().includes("reefer") && cropCategory.includes("fruit")) {
-                    isCropSuitable = true;
-                    cropSuitabilityReason = "Refrigerated cold chain protection";
-                } else if (cropCategory.includes("fruit") && !v.specialHandling?.toLowerCase().includes("refrigerated") && !v.specialHandling?.toLowerCase().includes("covered")) {
+                const isSpecificallyRecommended = (cropProfile.recommendedVehicles || []).some(rv => {
+                    const rvLower = rv.toLowerCase();
+                    return vTypeLower.includes(rvLower) || rvLower.includes(vTypeLower);
+                });
+
+                const directCropNameMatch = supportedStr.includes(cropNameLower);
+                const categoryMatch = 
+                    (cropCategory.includes("vegetable") && supportedStr.includes("vegetable")) ||
+                    (cropCategory.includes("grain") && (supportedStr.includes("grain") || supportedStr.includes("bulk"))) ||
+                    (cropCategory.includes("oilseed") && (supportedStr.includes("oilseed") || supportedStr.includes("grain") || supportedStr.includes("bulk"))) ||
+                    (cropCategory.includes("cash_crop") && (supportedStr.includes("cotton") || supportedStr.includes("commercial") || supportedStr.includes("bulk"))) ||
+                    (cropCategory.includes("fruit") && supportedStr.includes("fruit"));
+
+                if (cropCategory.includes("fruit") && !vTypeLower.includes("reefer") && !vTypeLower.includes("refrigerated") && !v.specialHandling?.toLowerCase().includes("refrigerated") && !v.specialHandling?.toLowerCase().includes("covered")) {
                     isCropSuitable = false;
+                    isRecommended = false;
+                    cropMatchScore = 10;
                     cropSuitabilityReason = "Delicate fruit requires covered/refrigerated carrier";
+                } else if (cropCategory.includes("cash_crop") && vTypeLower.includes("mini") && !vTypeLower.includes("large") && !vTypeLower.includes("medium")) {
+                    isCropSuitable = false;
+                    isRecommended = false;
+                    cropMatchScore = 15;
+                    cropSuitabilityReason = "Cotton bulk bales require High-Side Medium or Large Goods Truck";
+                } else if (isSpecificallyRecommended || directCropNameMatch) {
+                    isCropSuitable = true;
+                    isRecommended = true;
+                    cropMatchScore = 100;
+                    cropSuitabilityReason = `Verified match: ${cropProfile.specialHandling || 'Recommended for ' + cropProfile.name}`;
+                } else if (categoryMatch) {
+                    isCropSuitable = true;
+                    isRecommended = true;
+                    cropMatchScore = 80;
+                    cropSuitabilityReason = `Category match: ${cropProfile.specialHandling || 'Suitable for ' + cropCategory}`;
+                } else if (cropCategory.includes("general_cargo") || cropNameLower === "other" || cropNameLower === "other crops") {
+                    isCropSuitable = true;
+                    isRecommended = true;
+                    cropMatchScore = 75;
+                    cropSuitabilityReason = "Agri-logistics cargo bed suitable";
+                } else {
+                    isCropSuitable = true;
+                    isRecommended = false;
+                    cropMatchScore = 40;
+                    cropSuitabilityReason = "General cargo suitable (standard haulage)";
                 }
             }
 
@@ -295,6 +333,8 @@ router.get("/vehicles", async (req, res) => {
                 bookedWeightKg,
                 remainingCapacityKg,
                 isCropSuitable,
+                isRecommended,
+                cropMatchScore,
                 cropSuitabilityReason,
                 estimatedSoloFare,
                 estimatedSharedFare,
@@ -316,6 +356,14 @@ router.get("/vehicles", async (req, res) => {
         if (sharedOnly === "true") {
             result = result.filter(v => v.hasActiveSharedPool || v.remainingCapacityKg > 500);
         }
+
+        // Prioritize vehicles tailored for the selected crop
+        result.sort((a, b) => {
+            if ((b.cropMatchScore || 0) !== (a.cropMatchScore || 0)) {
+                return (b.cropMatchScore || 0) - (a.cropMatchScore || 0);
+            }
+            return (a.capacityKg || 0) - (b.capacityKg || 0);
+        });
 
         return res.json({ success: true, count: result.length, data: result });
     } catch (error) {
