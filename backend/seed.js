@@ -14,6 +14,8 @@ async function seed() {
 
     const demoPassword = await bcrypt.hash(process.env.DEMO_PASSWORD || "Demo@12345", 10);
     const adminPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || "Admin@12345", 10);
+    const { FarmerProfile, MandiProfile } = require("./models");
+
     const [demoUser] = await User.findOrCreate({
         where: { email: "demo@harvestmitra.local" },
         defaults: {
@@ -24,6 +26,93 @@ async function seed() {
             role: "farmer"
         }
     });
+
+    const [demoFarmerProf, created] = await FarmerProfile.findOrCreate({
+        where: { userId: demoUser.id },
+        defaults: {
+            userId: demoUser.id,
+            district: "Pune",
+            state: "Maharashtra",
+            village: "Haveli",
+            farmSizeAcres: 4.5,
+            mainCrop: "Tomato, Onion, Wheat, Soybean",
+            productQuantities: JSON.stringify({ Tomato: 1200, Onion: 800, Wheat: 1500, Soybean: 600 }),
+            currentHarvestKg: 4100,
+            preferredLanguage: "mr",
+            isGovtVerified: true,
+            govtVerifiedLandAcres: 4.5,
+            surveyNumber: "142/2A",
+            aadhaarLinked: true,
+            dbtAccountLinked: true
+        }
+    });
+
+    if (!created && (!demoFarmerProf.productQuantities || demoFarmerProf.productQuantities === "null")) {
+        demoFarmerProf.district = "Pune";
+        demoFarmerProf.state = "Maharashtra";
+        demoFarmerProf.village = "Haveli";
+        demoFarmerProf.mainCrop = "Tomato, Onion, Wheat, Soybean";
+        demoFarmerProf.productQuantities = JSON.stringify({ Tomato: 1200, Onion: 800, Wheat: 1500, Soybean: 600 });
+        demoFarmerProf.currentHarvestKg = 4100;
+        demoFarmerProf.isGovtVerified = true;
+        await demoFarmerProf.save();
+    }
+
+    // Seed Demo APMC Mandi Official
+    const mandiPassword = await bcrypt.hash(process.env.MANDI_PASSWORD || "Demo@12345", 10);
+    const [mandiUser] = await User.findOrCreate({
+        where: { email: "mandi@harvestmitra.local" },
+        defaults: {
+            name: "Sayali Kulkarni (APMC Mandi Official)",
+            email: "mandi@harvestmitra.local",
+            phone: "9822481920",
+            password: mandiPassword,
+            role: "mandi"
+        }
+    });
+
+    await MandiProfile.findOrCreate({
+        where: { userId: mandiUser.id },
+        defaults: {
+            userId: mandiUser.id,
+            mandiName: "Pune APMC (Gultekdi Wholesale Mandi)",
+            licenseNumber: "MH-APMC-PUN-2024-8841",
+            district: "Pune",
+            state: "Maharashtra",
+            operatingDays: "Mon - Sat (06:00 AM - 08:00 PM)",
+            contactPhone: "9822481920",
+            contactEmail: "mandi@harvestmitra.local",
+            facilities: "Weighbridge, Cold Storage (500 MT), Electronic Auction Hall, Direct DBT Settlement"
+        }
+    });
+
+    // Seed additional realistic Maharashtra farmers for Mandi arrivals
+    const [farmer2] = await User.findOrCreate({
+        where: { email: "rameshwar.patil@harvestmitra.local" },
+        defaults: {
+            name: "Rameshwar Patil",
+            email: "rameshwar.patil@harvestmitra.local",
+            phone: "9822481921",
+            password: demoPassword,
+            role: "farmer"
+        }
+    });
+    await FarmerProfile.findOrCreate({
+        where: { userId: farmer2.id },
+        defaults: {
+            userId: farmer2.id,
+            district: "Pune",
+            state: "Maharashtra",
+            village: "Haveli",
+            farmSizeAcres: 5.0,
+            mainCrop: "Tomato, Cotton",
+            productQuantities: JSON.stringify({ Tomato: 2200, Cotton: 1800 }),
+            currentHarvestKg: 4000,
+            preferredLanguage: "mr",
+            isGovtVerified: true
+        }
+    });
+
     const [adminUser] = await User.findOrCreate({
         where: { email: "admin@harvestmitra.local" },
         defaults: {
