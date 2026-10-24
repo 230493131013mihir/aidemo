@@ -131,9 +131,13 @@ async function handleChatMessage(req, res) {
       } catch (_) {}
     }
 
-    // Auto-enrich weather data if query asks about weather
+    // Auto-enrich weather data if query asks about weather or weather affects harvest/operations
+    const isWeatherRelated = detectedIntent === 'weather' ||
+      /\b(weather|rain|raining|rainfall|monsoon|storm|temperature|humidity|barish|barsat|mausam|mosam|paus|havaman|varsad)\b/i.test(cleanMessage) ||
+      /(मौसम|बारिश|वर्षा|तापमान|हवामान|पाऊस|વરસાદ|હવામાન)/i.test(cleanMessage);
+
     let weatherData = callerContext.weather;
-    if (!weatherData && detectedIntent === 'weather') {
+    if (!weatherData && isWeatherRelated) {
       try {
         const farmerDist = extractedLocation || req.user?.district || callerContext.farmer?.location || 'Nashik';
         weatherData = await weatherService.getWeather({ district: farmerDist });

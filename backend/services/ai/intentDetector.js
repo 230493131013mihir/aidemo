@@ -61,14 +61,14 @@ const INTENT_PATTERNS = {
   ],
 
   weather: [
-    // English
-    /\b(weather|rain|forecast|monsoon|storm|temperature|humidity|climate)\b/i,
+    // English & Romanized Indian / Hinglish terms
+    /\b(weather|rain|raining|rainfall|forecast|monsoon|storm|temperature|humidity|climate|barish|barsat|mausam|mosam|badal|dhund|paus|havaman|tapman|varsad|vaatavaran)\b/i,
     // Hindi
-    /(मौसम|बारिश|वर्षा|तूफान|तापमान|पूर्वानुमान)/i,
+    /(मौसम|बारिश|वर्षा|तूफान|तापमान|पूर्वानुमान|बादल|ओले|पाला)/i,
     // Gujarati
-    /(હવામાન|વરસાદ|વાતાવરણ|તાપમાન|આગાહી)/i,
+    /(હવામાન|વરસાદ|વાતાવરણ|તાપમાન|આગાહી|વાદળ)/i,
     // Marathi
-    /(हवामान|पाऊस|तापमान|अंदाज|वादळ)/i
+    /(हवामान|पाऊस|तापमान|अंदाज|वादळ|ढग|गारपीट)/i
   ],
 
   profile: [

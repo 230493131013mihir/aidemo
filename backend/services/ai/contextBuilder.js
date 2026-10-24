@@ -135,14 +135,18 @@ function buildContext(params = {}) {
   }
 
   // 5. Weather Context
+  const weatherDistrict = weather.district || weather.location?.district || weather.location?.name || farmerContext.location || 'Maharashtra';
   const weatherContext = {
     available: weather.available ?? Boolean(weather.condition || weather.weather?.condition || weather.rainProbability !== undefined || weather.advisory),
-    condition: weather.condition || weather.weather?.condition || null,
-    temperatureC: weather.temperatureC ?? weather.temperature ?? weather.weather?.temperature ?? null,
-    rainProbability: weather.rainProbability ?? weather.weather?.rainProbability ?? null,
+    district: weatherDistrict,
+    condition: weather.condition || weather.weather?.condition || weather.current?.condition || null,
+    temperatureC: weather.temperatureC ?? weather.temperature ?? weather.weather?.temperature ?? weather.current?.temperature ?? null,
+    rainProbability: weather.rainProbability ?? weather.weather?.rainProbability ?? weather.current?.rainProbability ?? weather.rainChance ?? null,
+    rainfallMm: weather.rainfallMm ?? weather.weather?.rainfallMm ?? weather.current?.rainfallMm ?? null,
     rainAlert: weather.rainAlert || weather.advisory?.message || weather.alert || null,
     advisoryLevel: weather.advisory?.level || null,
-    forecastDays: weather.forecastDays || weather.weather?.forecast || null
+    harvestAdvice: weather.harvestAdvice || weather.advice?.status || null,
+    forecastDays: weather.forecastDays || weather.weather?.forecast || weather.forecast || null
   };
 
   // 6. Transport Context
@@ -246,8 +250,12 @@ function formatContextForPrompt(context) {
   // Weather
   lines.push(`\nWEATHER ADVISORY:`);
   if (context.weather?.available) {
+    if (context.weather.district) lines.push(`- Location: ${context.weather.district}`);
     if (context.weather.condition) lines.push(`- Condition: ${context.weather.condition}`);
-    if (context.weather.temperatureC) lines.push(`- Temperature: ${context.weather.temperatureC}°C`);
+    if (context.weather.temperatureC !== null && context.weather.temperatureC !== undefined) lines.push(`- Temperature: ${context.weather.temperatureC}°C`);
+    if (context.weather.rainProbability !== null && context.weather.rainProbability !== undefined) lines.push(`- Rain Probability: ${context.weather.rainProbability}%`);
+    if (context.weather.rainfallMm !== null && context.weather.rainfallMm !== undefined) lines.push(`- Expected Rainfall: ${context.weather.rainfallMm} mm`);
+    if (context.weather.harvestAdvice) lines.push(`- Harvest Readiness Advice: ${context.weather.harvestAdvice}`);
     if (context.weather.rainAlert) lines.push(`- Alert: ${context.weather.rainAlert}`);
   } else {
     lines.push(`- Status: Weather data NOT available.`);

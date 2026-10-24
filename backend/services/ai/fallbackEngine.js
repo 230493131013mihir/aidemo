@@ -320,26 +320,90 @@ function handleTransport(context, lang) {
   return `I couldn't find a compatible transport request for the selected destination and date. You can create a new shared transport request from the Transport section.`;
 }
 
+const WEATHER_CONDITION_TRANSLATIONS = {
+  'clear sky': { hi: 'साफ़ मौसम', mr: 'स्वच्छ आकाश', gu: 'ચોખ્ખું આકાશ', en: 'Clear sky' },
+  'clear': { hi: 'साफ़ मौसम', mr: 'स्वच्छ आकाश', gu: 'ચોખ્ખું આકાશ', en: 'Clear' },
+  'partly cloudy': { hi: 'हल्के बादल', mr: 'अंशतः ढगाळ', gu: 'અંશતઃ વાદળછાયું', en: 'Partly cloudy' },
+  'passing clouds': { hi: 'हल्के बादल', mr: 'अंशतः ढगाळ', gu: 'અંશતઃ વાદળછાયું', en: 'Passing clouds' },
+  'rain expected': { hi: 'बारिश की संभावना', mr: 'पावसाची शक्यता', gu: 'વરસાદની શક્યતા', en: 'Rain expected' },
+  'scattered showers': { hi: 'हल्की बारिश / फुहारें', mr: 'हलका पाऊस / सरी', gu: 'ઝરમર વરસાદ', en: 'Scattered showers' },
+  'moderate rain': { hi: 'मध्यम बारिश', mr: 'मध्यम पाऊस', gu: 'મધ્યમ વરસાદ', en: 'Moderate rain' },
+  'thunderstorms expected': { hi: 'आंधी-तूफान और बारिश', mr: 'वादळी पाऊस', gu: 'ગાજવીજ સાથે વરસાદ', en: 'Thunderstorms expected' },
+  'thunderstorms': { hi: 'आंधी-तूफान', mr: 'वादळी पाऊस', gu: 'ગાજવીજ સાથે વરસાદ', en: 'Thunderstorms' },
+  'fog': { hi: 'कोहरा', mr: 'धुके', gu: 'ધુમ્મસ', en: 'Fog' },
+  'overcast': { hi: 'घने बादल', mr: 'ढगाळ वातावरण', gu: 'વાદળછાયું', en: 'Overcast' }
+};
+
+function getLocalizedWeatherCondition(condition, lang) {
+  if (!condition) return lang === 'mr' ? 'स्वच्छ हवामान' : lang === 'hi' ? 'साफ़ मौसम' : lang === 'gu' ? 'ચોખ્ખું હવામાન' : 'Clear';
+  const key = String(condition).trim().toLowerCase();
+  const found = WEATHER_CONDITION_TRANSLATIONS[key];
+  if (found && found[lang]) return found[lang];
+  return condition;
+}
+
 /**
  * Handle weather intent
  */
 function handleWeather(context, lang) {
   const weather = context.weather;
 
-  if (weather && weather.available && (weather.condition || weather.rainAlert)) {
-    const condition = weather.condition || 'Clear';
-    const alert = weather.rainAlert ? ` Alert: ${weather.rainAlert}` : '';
+  if (weather && weather.available && (weather.condition || weather.rainProbability !== null || weather.rainAlert)) {
+    const loc = weather.district || context.farmer?.location || 'Maharashtra';
+    const localizedCondition = getLocalizedWeatherCondition(weather.condition, lang);
+    const temp = weather.temperatureC !== null && weather.temperatureC !== undefined ? `${weather.temperatureC}°C` : null;
+    const rainProb = weather.rainProbability !== null && weather.rainProbability !== undefined ? Number(weather.rainProbability) : null;
+    const isHeavyRain = (rainProb !== null && rainProb >= 60) || weather.advisoryLevel === 'RAIN_ADVISORY';
 
     if (lang === 'mr') {
-      return `हवामानाची स्थिती: ${condition}.${weather.temperatureC ? ` तापमान: ${weather.temperatureC}°C.` : ''}${weather.rainAlert ? ` चेतावणी: ${weather.rainAlert}.` : ''} हवामानाचा अंदाज लक्षात घेऊन काढणीचे नियोजन करा.`;
+      let msg = `${loc} मधील हवामान: ${localizedCondition}`;
+      if (temp) msg += `, तापमान: ${temp}`;
+      if (rainProb !== null) msg += `, पावसाची शक्यता: ${rainProb}%`;
+      msg += '।';
+      if (isHeavyRain) {
+        msg += ` ⚠️ सतर्कता: मुसळधार पावसाचा धोका (${rainProb ?? 'उच्च'}%) आहे. पिकांची काढणी पुढे ढकला किंवा शेतमाल ताडपत्रीने सुरक्षित झाकून ठेवा!`;
+      } else {
+        msg += ` हवामान शेतमाल काढणी आणि वाहतुकीसाठी अनुकूल आहे.`;
+      }
+      return msg;
     }
-    if (lang === 'gu') {
-      return `હવામાન માહિતી: ${condition}.${weather.temperatureC ? ` તાપમાન: ${weather.temperatureC}°C.` : ''}${weather.rainAlert ? ` ચેતવણી: ${weather.rainAlert}.` : ''} વરસાદની સ્થિતિ અનુસાર લણણીનું આયોજન કરો.`;
-    }
+
     if (lang === 'hi') {
-      return `मौसम की स्थिति: ${condition}.${weather.temperatureC ? ` तापमान: ${weather.temperatureC}°C.` : ''}${weather.rainAlert ? ` चेतावनी: ${weather.rainAlert}.` : ''} मौसम के अनुसार कटाई की योजना बनाएं।`;
+      let msg = `${loc} में मौसम की स्थिति: ${localizedCondition}`;
+      if (temp) msg += `, तापमान: ${temp}`;
+      if (rainProb !== null) msg += `, बारिश की संभावना: ${rainProb}%`;
+      msg += '।';
+      if (isHeavyRain) {
+        msg += ` ⚠️ सतर्कता: भारी बारिश का जोखिम (${rainProb ?? 'उच्च'}%) है। फसल कटाई टालें या माल को तिरपाल से सुरक्षित ढकें!`;
+      } else {
+        msg += ` कटाई और मंडी परिवहन के लिए मौसम अनुकूल है।`;
+      }
+      return msg;
     }
-    return `Weather condition: ${condition}.${weather.temperatureC ? ` Temperature: ${weather.temperatureC}°C.` : ''}${alert}`;
+
+    if (lang === 'gu') {
+      let msg = `${loc} માં હવામાન: ${localizedCondition}`;
+      if (temp) msg += `, તાપમાન: ${temp}`;
+      if (rainProb !== null) msg += `, વરસાદની શક્યતા: ${rainProb}%`;
+      msg += '.';
+      if (isHeavyRain) {
+        msg += ` ⚠️ સાવચેતી: ભારે વરસાદનું જોખમ (${rainProb ?? 'વધારે'}%) છે. પાક લણણી મુલતવી રાખો અથવા માલને તાડપત્રીથી ઢાંકી રાખો!`;
+      } else {
+        msg += ` પાકની લણણી અને પરિવહન માટે હવામાન અનુકૂળ છે.`;
+      }
+      return msg;
+    }
+
+    let msg = `Weather in ${loc}: ${weather.condition || 'Clear'}`;
+    if (temp) msg += `, Temperature: ${temp}`;
+    if (rainProb !== null) msg += `, Rain Probability: ${rainProb}%`;
+    msg += '.';
+    if (isHeavyRain) {
+      msg += ` ⚠️ High Rain Risk (${rainProb ?? 'High'}%): Consider delaying harvest or using covered transport!`;
+    } else {
+      msg += ` Favorable conditions for harvesting and Mandi dispatch.`;
+    }
+    return msg;
   }
 
   if (lang === 'mr') {
