@@ -32,7 +32,9 @@ import {
   CloudRain,
   Eye,
   Sliders,
-  Activity
+  Activity,
+  Sun,
+  ShieldAlert
 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
@@ -211,10 +213,14 @@ export default function LiveDriverTrackingMap({
   const coveredPolylineRef = useRef(null);
   const geoWatchIdRef = useRef(null);
   const animFrameTimerRef = useRef(null);
+  const wakeLockRef = useRef(null);
 
   // Component States
   const [isExpanded, setIsExpanded] = useState(isExpandedDefault);
   const [isPhoneGpsActive, setIsPhoneGpsActive] = useState(false);
+  const [isWakeLockActive, setIsWakeLockActive] = useState(false);
+  const [isTabHidden, setIsTabHidden] = useState(false);
+  const [wasThrottledAlert, setWasThrottledAlert] = useState(false);
   const [trackingMode, setTrackingMode] = useState('live'); // 'live' (Real-time backend polling) | 'demo' (Simulated corridor demo)
   const [isPlaying, setIsPlaying] = useState(false); // Default false: Do not fake-move automatically in Live mode
   const [playbackSpeed, setPlaybackSpeed] = useState(1); // 1x Natural | 2x Brisk | 4x Fast-Forward
@@ -590,6 +596,143 @@ export default function LiveDriverTrackingMap({
     };
   }, [isPhoneGpsActive, trackingMode, passCode, autoFollow, isSimulatingRain]);
 
+  // Process real-world GPS coordinates from device sensor
+  const handleProcessGpsFix = useCallback((pos) => {
+    if (!pos || !pos.coords) return;
+    const { latitude, longitude, speed, heading, accuracy } = pos.coords;
+
+    const latLng = [latitude, longitude];
+    const kmh = speed ? Math.round(speed * 3.6) : 56;
+    setLiveSpeedKmh(kmh);
+
+    if (heading !== null && !isNaN(heading)) {
+      setLiveBearing(Math.round(heading));
+    }
+
+    const remaining = Math.round(getDistanceKm(latitude, longitude, destCoords[0], destCoords[1]));
+    const covered = Math.max(0, Math.round(getDistanceKm(originCoords[0], originCoords[1], latitude, longitude)));
+    setLiveDistanceRemainingKm(remaining);
+    setLiveOdometerCoveredKm(covered);
+    setLiveEtaMinutes(Math.max(5, Math.round((remaining / (kmh || 50)) * 60)));
+
+    if (truckMarkerRef.current && mapInstanceRef.current) {
+      truckMarkerRef.current.setLatLng(latLng);
+      if (autoFollow) {
+        mapInstanceRef.current.panTo(latLng);
+      }
+
+      if (!accuracyCircleRef.current) {
+        accuracyCircleRef.current = L.circle(latLng, {
+          radius: accuracy || 50,
+          color: '#3b82f6',
+          fillColor: '#60a5fa',
+          fillOpacity: 0.15,
+          weight: 1.5
+        }).addTo(mapInstanceRef.current);
+      } else {
+        accuracyCircleRef.current.setLatLng(latLng);
+        accuracyCircleRef.current.setRadius(accuracy || 50);
+      }
+    }
+
+    // Broadcast driver phone GPS to backend telemetry hub
+    try {
+      fetch(`${API_BASE_URL}/api/transport/telemetry/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          passCode,
+          latitude,
+          longitude,
+          speedKmh: kmh,
+          heading: heading || 0,
+          distanceRemainingKm: remaining,
+          etaMinutes: Math.max(5, Math.round((remaining / (kmh || 50)) * 60))
+        })
+      }).catch(() => {});
+    } catch (_) {}
+  }, [destCoords, originCoords, autoFollow, passCode]);
+
+  // Request Screen Wake Lock so phone screen does not turn off/lock while driving
+  const requestWakeLock = useCallback(async () => {
+    if (typeof window !== 'undefined' && 'wakeLock' in navigator) {
+      try {
+        if (!wakeLockRef.current) {
+          wakeLockRef.current = await navigator.wakeLock.request('screen');
+          setIsWakeLockActive(true);
+          wakeLockRef.current.addEventListener('release', () => {
+            setIsWakeLockActive(false);
+            wakeLockRef.current = null;
+          });
+        }
+      } catch (err) {
+        console.warn('[LiveDriverTrackingMap] Screen Wake Lock error:', err.message);
+        setIsWakeLockActive(false);
+      }
+    }
+  }, []);
+
+  const releaseWakeLock = useCallback(async () => {
+    if (wakeLockRef.current) {
+      try {
+        await wakeLockRef.current.release();
+      } catch (_) {}
+      wakeLockRef.current = null;
+      setIsWakeLockActive(false);
+    }
+  }, []);
+
+  // Manage Screen Wake Lock lifecycle with phone GPS broadcast
+  useEffect(() => {
+    if (isPhoneGpsActive) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+      setWasThrottledAlert(false);
+    }
+    return () => {
+      releaseWakeLock();
+    };
+  }, [isPhoneGpsActive, requestWakeLock, releaseWakeLock]);
+
+  // Page Visibility API: Detect background tab throttling & immediately re-sync GPS on return
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setIsTabHidden(true);
+        if (isPhoneGpsActive) {
+          setWasThrottledAlert(true);
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate([150, 100, 150]);
+          }
+        }
+      } else {
+        setIsTabHidden(false);
+        // Driver brought the tab back to the foreground
+        if (isPhoneGpsActive) {
+          // 1. Re-acquire screen wake lock since browser auto-releases it upon hidden
+          requestWakeLock();
+
+          // 2. Immediate GPS re-sync to eliminate stale location lag
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => handleProcessGpsFix(pos),
+              (err) => console.warn('[LiveDriverTrackingMap] Visibility restore GPS error:', err.message),
+              { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+            );
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isPhoneGpsActive, requestWakeLock, handleProcessGpsFix]);
+
   // Live Real-World Phone Geolocation Streaming Mode
   useEffect(() => {
     if (!isPhoneGpsActive) {
@@ -612,60 +755,7 @@ export default function LiveDriverTrackingMap({
     setHasGpsError(false);
 
     geoWatchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        const { latitude, longitude, speed, heading, accuracy } = pos.coords;
-
-        const latLng = [latitude, longitude];
-        const kmh = speed ? Math.round(speed * 3.6) : 56;
-        setLiveSpeedKmh(kmh);
-
-        if (heading !== null && !isNaN(heading)) {
-          setLiveBearing(Math.round(heading));
-        }
-
-        const remaining = Math.round(getDistanceKm(latitude, longitude, destCoords[0], destCoords[1]));
-        const covered = Math.max(0, Math.round(getDistanceKm(originCoords[0], originCoords[1], latitude, longitude)));
-        setLiveDistanceRemainingKm(remaining);
-        setLiveOdometerCoveredKm(covered);
-        setLiveEtaMinutes(Math.max(5, Math.round((remaining / (kmh || 50)) * 60)));
-
-        if (truckMarkerRef.current && mapInstanceRef.current) {
-          truckMarkerRef.current.setLatLng(latLng);
-          if (autoFollow) {
-            mapInstanceRef.current.panTo(latLng);
-          }
-
-          if (!accuracyCircleRef.current) {
-            accuracyCircleRef.current = L.circle(latLng, {
-              radius: accuracy || 50,
-              color: '#3b82f6',
-              fillColor: '#60a5fa',
-              fillOpacity: 0.15,
-              weight: 1.5
-            }).addTo(mapInstanceRef.current);
-          } else {
-            accuracyCircleRef.current.setLatLng(latLng);
-            accuracyCircleRef.current.setRadius(accuracy || 50);
-          }
-        }
-
-        // Broadcast driver phone GPS to backend telemetry hub
-        try {
-          fetch(`${API_BASE_URL}/api/transport/telemetry/update`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              passCode,
-              latitude,
-              longitude,
-              speedKmh: kmh,
-              heading: heading || 0,
-              distanceRemainingKm: remaining,
-              etaMinutes: Math.max(5, Math.round((remaining / (kmh || 50)) * 60))
-            })
-          }).catch(() => {});
-        } catch (_) {}
-      },
+      (pos) => handleProcessGpsFix(pos),
       (err) => {
         console.warn('[LiveDriverTrackingMap] GPS error:', err.message);
         setHasGpsError(true);
@@ -687,7 +777,7 @@ export default function LiveDriverTrackingMap({
         accuracyCircleRef.current = null;
       }
     };
-  }, [isPhoneGpsActive, destCoords, originCoords, autoFollow, passCode]);
+  }, [isPhoneGpsActive, handleProcessGpsFix]);
 
   // Center Camera on Vehicle
   const handleCenterOnVehicle = () => {
@@ -821,6 +911,25 @@ export default function LiveDriverTrackingMap({
           <LocateFixed className="w-3.5 h-3.5" />
           <span>{isPhoneGpsActive ? 'Broadcasting Phone GPS' : 'Driver Phone GPS'}</span>
         </button>
+
+        {/* Screen Wake Lock Pill Indicator (when phone GPS is active) */}
+        {isPhoneGpsActive && (
+          <div
+            className={`px-2.5 py-1.5 rounded-2xl backdrop-blur-md border text-xs font-bold flex items-center gap-1.5 shadow-lg transition-all ${
+              isWakeLockActive
+                ? 'bg-amber-500/20 text-amber-300 border-amber-400/40 shadow-amber-500/20'
+                : 'bg-slate-900/90 text-slate-400 border-white/10'
+            }`}
+            title={
+              isWakeLockActive
+                ? 'Screen Wake Lock active: Your screen will stay awake to prevent GPS suspension'
+                : 'Wake Lock inactive'
+            }
+          >
+            <Sun className={`w-3.5 h-3.5 ${isWakeLockActive ? 'text-amber-400 animate-pulse' : 'text-slate-500'}`} />
+            <span>{isWakeLockActive ? 'Screen Awake' : 'Screen Sleep Allowed'}</span>
+          </div>
+        )}
       </div>
 
       {/* Floating HUD Telemetry Card (Bottom Left) */}
@@ -934,6 +1043,25 @@ export default function LiveDriverTrackingMap({
           <div className="p-1.5 rounded bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[10px] flex items-center gap-1.5">
             <AlertTriangle className="w-3 h-3 shrink-0" />
             <span>Device GPS permission required. Switched to dynamic Highway Corridor Stream.</span>
+          </div>
+        )}
+
+        {/* Background Throttling Advisory Banner when tab was hidden */}
+        {wasThrottledAlert && isPhoneGpsActive && (
+          <div className="p-2 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-200 text-[10px] flex items-center justify-between gap-2 shadow-lg animate-in fade-in">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-bounce" />
+              <div className="leading-tight">
+                <strong className="text-amber-300 font-bold">App Minimized:</strong> Browser suspended background GPS. Coordinates re-synced! Keep screen awake on dashboard mount.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setWasThrottledAlert(false)}
+              className="text-amber-300 hover:text-white font-bold px-1.5 py-0.5 rounded bg-amber-500/30 text-[9px] shrink-0 cursor-pointer"
+            >
+              Dismiss
+            </button>
           </div>
         )}
       </div>
