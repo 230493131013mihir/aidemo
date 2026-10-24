@@ -264,8 +264,8 @@ export default function HarvestPage() {
   const userDistrict = farmerProfile?.district || 'Pune';
   const farmSizeAcres = Number(farmerProfile?.farmSizeAcres) > 0 ? Number(farmerProfile.farmSizeAcres) : 4.5;
 
-  // Maximum harvest stock available on the farmer's land
-  const userHarvestLimitKg = Number(farmerProfile?.currentHarvestKg) > 0 
+  // Dynamic harvest stock available on the farmer's land
+  const baseHarvestLimitKg = Number(farmerProfile?.currentHarvestKg) > 0 
     ? Number(farmerProfile.currentHarvestKg) 
     : 2000;
 
@@ -285,11 +285,56 @@ export default function HarvestPage() {
   // Crop quantities: { [cropName]: { qty: number, unit: 'kg' | 'tonne' } }
   const [cropQuantities, setCropQuantities] = useState(() => {
     const init = {};
+    let storedPQ = null;
+    const rawPQ = farmerProfile?.productQuantities || user?.farmerProfile?.productQuantities;
+    if (typeof rawPQ === 'string') {
+      try { storedPQ = JSON.parse(rawPQ); } catch {}
+    } else if (typeof rawPQ === 'object' && rawPQ !== null) {
+      storedPQ = rawPQ;
+    }
+
     initialCrops.forEach((c) => {
-      init[c] = { qty: Math.min(1000, userHarvestLimitKg / initialCrops.length), unit: 'kg' };
+      if (storedPQ && storedPQ[c]) {
+        const entry = storedPQ[c];
+        const val = typeof entry === 'object' ? Number(entry.qty || entry.harvestQuantityKg || 500) : Number(entry);
+        const unit = (typeof entry === 'object' && entry.unit) ? entry.unit : 'kg';
+        init[c] = { qty: val > 0 ? val : 500, unit };
+      } else {
+        init[c] = { qty: 500, unit: 'kg' };
+      }
     });
     return init;
   });
+
+  // Dynamically sync stored quantities from farmer profile when loaded
+  useEffect(() => {
+    let storedPQ = null;
+    const rawPQ = farmerProfile?.productQuantities || user?.farmerProfile?.productQuantities;
+    if (typeof rawPQ === 'string') {
+      try { storedPQ = JSON.parse(rawPQ); } catch {}
+    } else if (typeof rawPQ === 'object' && rawPQ !== null) {
+      storedPQ = rawPQ;
+    }
+
+    if (storedPQ) {
+      setCropQuantities((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        initialCrops.forEach((c) => {
+          if (storedPQ[c]) {
+            const entry = storedPQ[c];
+            const val = typeof entry === 'object' ? Number(entry.qty || entry.harvestQuantityKg || 500) : Number(entry);
+            const unit = (typeof entry === 'object' && entry.unit) ? entry.unit : 'kg';
+            if (val > 0 && (!next[c] || next[c].qty === 175)) {
+              next[c] = { qty: val, unit };
+              changed = true;
+            }
+          }
+        });
+        return changed ? next : prev;
+      });
+    }
+  }, [farmerProfile, user, initialCrops]);
 
   const location = useLocation();
   const weatherParams = location.state?.weatherParams;
@@ -389,6 +434,11 @@ export default function HarvestPage() {
     return sum;
   }, [selectedCrops, cropQuantities]);
 
+  // Dynamic harvest limit accommodating user input
+  const userHarvestLimitKg = useMemo(() => {
+    return Math.max(baseHarvestLimitKg, totalEnteredKg);
+  }, [baseHarvestLimitKg, totalEnteredKg]);
+
   // Validation logic
   const validationError = useMemo(() => {
     if (selectedCrops.length === 0) {
@@ -403,11 +453,8 @@ export default function HarvestPage() {
     if (totalEnteredKg <= 0) {
       return 'Total harvest quantity must be greater than 0 kg.';
     }
-    if (totalEnteredKg > userHarvestLimitKg) {
-      return `Entered total quantity (${totalEnteredKg.toLocaleString('en-IN')} kg) exceeds your available harvest-ready stock (${userHarvestLimitKg.toLocaleString('en-IN')} kg). Please reduce quantity or update your harvest profile.`;
-    }
     return null;
-  }, [selectedCrops, cropQuantities, totalEnteredKg, userHarvestLimitKg]);
+  }, [selectedCrops, cropQuantities, totalEnteredKg]);
 
   // Toggle crop selection
   const handleToggleCrop = (cropName) => {
@@ -564,8 +611,10 @@ export default function HarvestPage() {
 
     const basePerKmRate = 26;
     const truckMultiplier = isShared ? 0.5 : 1.0;
-    const localTransportCost = Math.round(Math.max(600, localDistanceKm * basePerKmRate * truckMultiplier * (validQty / 1500)));
-    const regionalTransportCost = Math.round(Math.max(1800, regionalDistanceKm * basePerKmRate * truckMultiplier * (validQty / 1800)));
+    const minLocalCost = isShared ? 300 : 600;
+    const minRegionalCost = isShared ? 900 : 1800;
+    const localTransportCost = Math.round(Math.max(minLocalCost, localDistanceKm * basePerKmRate * truckMultiplier * (validQty / 1500)));
+    const regionalTransportCost = Math.round(Math.max(minRegionalCost, regionalDistanceKm * basePerKmRate * truckMultiplier * (validQty / 1800)));
 
     // Dynamic crop storage and packaging
     const coldStorageCost = Math.round((validQty / 1000) * profile.storageRatePerTonneDay * Number(params.holdingDays));
@@ -827,18 +876,20 @@ export default function HarvestPage() {
     const target = scenario || winningScenario;
     const targetCrop = isPortfolioView ? selectedCrops.join(', ') : activeCropTab;
     const targetWeight = isPortfolioView ? totalEnteredKg : activeCropAnalytics.quantityKg;
+    const isSolo = transportMode === 'solo';
 
     showToast({
       type: 'celebrate',
-      title: '🚚 Routing to Shared Transport...',
-      message: `Pre-filling ${target.mandi} for ${targetWeight} kg ${targetCrop}.`,
+      title: isSolo ? '🚚 Routing to Dedicated Truck Transport...' : '🚚 Routing to Shared Transport...',
+      message: `Pre-filling ${target.mandi} for ${targetWeight} kg ${targetCrop} (${isSolo ? 'Dedicated Truck' : 'Shared Pool'}).`,
     });
 
     navigate(`/transport?destination=${encodeURIComponent(target.mandi)}&weight=${targetWeight}&crop=${encodeURIComponent(targetCrop)}`, {
       state: {
         destination: target.mandi,
         weightKg: targetWeight,
-        crop: targetCrop
+        crop: targetCrop,
+        transportMode: isSolo ? 'solo' : 'shared'
       }
     });
   }
@@ -939,24 +990,49 @@ export default function HarvestPage() {
             const q = cropQuantities[cropName] || { qty: 500, unit: 'kg' };
 
             return (
-              <button
+              <div
                 key={cropName}
-                type="button"
                 onClick={() => setActiveCropTab(cropName)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border cursor-pointer ${
                   isTabActive
-                    ? 'bg-primary text-white border-primary shadow-xs'
+                    ? 'bg-primary text-white border-primary shadow-xs ring-2 ring-primary/20'
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                 }`}
               >
-                <Leaf className={`w-3.5 h-3.5 ${isTabActive ? 'text-amber-300' : 'text-emerald-600'}`} />
-                <span>{prof.name}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                  isTabActive ? 'bg-white/25 text-white' : 'bg-slate-200/80 text-slate-700'
-                }`}>
-                  {q.qty} {q.unit}
-                </span>
-              </button>
+                <div className="flex items-center gap-1.5">
+                  <Leaf className={`w-3.5 h-3.5 ${isTabActive ? 'text-amber-300' : 'text-emerald-600'}`} />
+                  <span>{prof.name}</span>
+                </div>
+
+                {/* Dynamic User Input for Crop Weight */}
+                <div 
+                  className={`flex items-center gap-1 px-1.5 py-0.5 rounded-lg border transition-colors ${
+                    isTabActive 
+                      ? 'bg-black/15 border-white/30 text-white' 
+                      : 'bg-white border-slate-300 text-slate-800'
+                  }`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="number"
+                    min="1"
+                    step="10"
+                    value={q.qty}
+                    onChange={(e) => {
+                      const val = Math.max(0, Number(e.target.value) || 0);
+                      handleUpdateQty(cropName, val, q.unit);
+                    }}
+                    className={`w-14 text-right text-xs font-mono font-bold bg-transparent outline-none ${
+                      isTabActive ? 'text-white' : 'text-slate-900'
+                    }`}
+                    aria-label={`${prof.name} Weight`}
+                    title={`Adjust ${prof.name} harvest weight`}
+                  />
+                  <span className={`text-[10px] font-mono ${isTabActive ? 'text-white/80' : 'text-slate-500'}`}>
+                    {q.unit}
+                  </span>
+                </div>
+              </div>
             );
           })}
         </div>
@@ -1259,11 +1335,12 @@ export default function HarvestPage() {
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
+                id="transport-mode-shared-btn"
                 onClick={() => setTransportMode('shared')}
                 className={`py-2 px-3 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                   transportMode === 'shared'
                     ? 'bg-emerald-50 text-emerald-900 border-emerald-400 shadow-2xs'
-                    : 'bg-white text-muted border-slate-200'
+                    : 'bg-white text-muted border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 <Truck className="w-3.5 h-3.5 text-emerald-600" />
@@ -1272,11 +1349,12 @@ export default function HarvestPage() {
 
               <button
                 type="button"
+                id="transport-mode-solo-btn"
                 onClick={() => setTransportMode('solo')}
                 className={`py-2 px-3 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                   transportMode === 'solo'
                     ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
-                    : 'bg-white text-muted border-slate-200'
+                    : 'bg-white text-muted border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 <Building2 className="w-3.5 h-3.5" />
@@ -1560,7 +1638,7 @@ export default function HarvestPage() {
                         validationError ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                       }`}
                     >
-                      <span>Book Shared Truck for Winning Mandi</span>
+                      <span>{transportMode === 'solo' ? 'Book Dedicated Truck for Winning Mandi' : 'Book Shared Truck for Winning Mandi'}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -1576,7 +1654,7 @@ export default function HarvestPage() {
                       }`}
                     >
                       <Truck className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>Book Shared Truck for Winning Mandi</span>
+                      <span>{transportMode === 'solo' ? 'Book Dedicated Truck for Winning Mandi' : 'Book Shared Truck for Winning Mandi'}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
