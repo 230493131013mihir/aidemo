@@ -19,7 +19,12 @@ import {
   Navigation,
   Bell,
   IndianRupee,
-  X
+  X,
+  Sprout,
+  Scale,
+  Users,
+  Store,
+  ClipboardList
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -32,22 +37,32 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
   const { isDark } = useTheme();
 
   const displayName = user?.name || 'Prashant Warule';
+  const isMandi = user?.role === 'mandi';
+  const isAdmin = user?.role === 'admin';
+  const isTransporter = user?.role === 'transporter';
+  const isFpo = user?.role === 'fpo_leader' || user?.role === 'fpo';
+
   const roleName =
-    user?.role === 'admin'
+    isAdmin
       ? 'Administrator'
-      : user?.role === 'transporter'
+      : isMandi
+      ? 'APMC Mandi Official'
+      : isTransporter
       ? 'Transporter / Driver'
+      : isFpo
+      ? 'FPO Leader / Aggregator'
       : 'Farmer / Producer';
 
   const rolePillText =
-    user?.role === 'admin'
+    isAdmin
       ? 'Admin'
-      : user?.role === 'transporter'
+      : isMandi
+      ? 'Mandi Official'
+      : isTransporter
       ? 'Transporter'
+      : isFpo
+      ? 'FPO Leader'
       : 'Farmer';
-
-  const isAdmin = user?.role === 'admin';
-  const isTransporter = user?.role === 'transporter';
 
   const profileLabel = t('nav.profile', 'My Profile');
 
@@ -58,6 +73,29 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
         { to: '/admin', label: 'Admin Control Center', icon: Shield, badge: 'Gov' },
         { to: '/markets', label: t('nav.markets', 'Mandi Prices'), icon: TrendingUp },
         { to: '/schemes', label: t('nav.schemes', 'Govt Schemes'), icon: Landmark, badge: 'New' },
+        { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
+      ];
+    }
+
+    if (isFpo) {
+      return [
+        { to: '/fpo/dashboard', label: 'FPO Dashboard', icon: LayoutDashboard },
+        { to: '/fpo/members', label: 'Member Roster', icon: Users, badge: 'Team' },
+        { to: '/fpo/crops', label: 'Crop Availability', icon: Sprout },
+        { to: '/fpo/aggregation', label: 'Collective Lots', icon: Layers, badge: 'Pool' },
+        { to: '/fpo/procurement', label: 'Bulk Mandi Offers', icon: Store },
+        { to: '/fpo/transport', label: 'Transport Dispatch', icon: Truck },
+        { to: '/fpo/orders', label: 'Orders & History', icon: ClipboardList },
+        { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
+      ];
+    }
+
+    if (isMandi) {
+      return [
+        { to: '/dashboard', label: 'Mandi Dashboard', icon: LayoutDashboard },
+        { to: '/dashboard?tab=listings', label: 'Incoming Crop Listings', icon: Sprout },
+        { to: '/dashboard?tab=bookings', label: 'Procurement & Bookings', icon: Scale },
+        { to: '/markets', label: 'Live APMC Rates', icon: TrendingUp },
         { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
       ];
     }
@@ -94,7 +132,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
       { to: '/weather', label: t('nav.weather', 'Weather Alerts'), icon: CloudSunRain },
       { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
     ];
-  }, [isAdmin, isTransporter, t]);
+  }, [isAdmin, isTransporter, isMandi, isFpo, t]);
 
   const handleLinkClick = () => {
     if (onClose) {
@@ -125,19 +163,19 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
         )}
 
         {/* User Status Card */}
-        <div className="py-2.5 px-3 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-teal-50/50 border border-emerald-200/80 flex items-center gap-3 shadow-2xs">
-          <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
-            {isTransporter ? '🚚' : isAdmin ? '🛡️' : '🌾'}
+        <div className={`py-2.5 px-3 rounded-2xl ${isMandi ? 'bg-gradient-to-br from-orange-50/90 to-amber-50/50 border-orange-200/90' : 'bg-gradient-to-br from-emerald-50/80 to-teal-50/50 border-emerald-200/80'} border flex items-center gap-3 shadow-2xs`}>
+          <div className={`w-9 h-9 rounded-xl ${isMandi ? 'bg-orange-600 text-white' : 'bg-primary text-white'} flex items-center justify-center font-bold text-base shadow-xs shrink-0`}>
+            {isTransporter ? '🚚' : isAdmin ? '🛡️' : isMandi ? '🏪' : '🌾'}
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-extrabold text-slate-900 truncate">
               {displayName}
             </p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white border border-emerald-300 text-emerald-800 shadow-2xs">
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${isMandi ? 'bg-orange-50 border border-orange-300 text-orange-900' : 'bg-white border border-emerald-300 text-emerald-800'} shadow-2xs`}>
                 {rolePillText}
               </span>
-              <span className="text-[10px] text-muted truncate">Maharashtra</span>
+              <span className="text-[10px] text-muted truncate">{isMandi ? (user?.MandiProfile?.mandiName || 'Pune APMC') : 'Maharashtra'}</span>
             </div>
           </div>
         </div>

@@ -29,6 +29,7 @@ import { useAuth } from '../context/AuthContext';
 import DashboardHeader from '../components/dashboard/DashboardHeader';
 import ProfileSummary from '../components/dashboard/ProfileSummary';
 import TransporterDashboard from '../components/dashboard/TransporterDashboard';
+import MandiDashboard from '../components/dashboard/MandiDashboard';
 import StatCard from '../components/dashboard/StatCard';
 import WeatherWidget from '../components/dashboard/WeatherWidget';
 import MarketTrendChart from '../components/dashboard/MarketTrendChart';
@@ -41,6 +42,7 @@ import QuickActions from '../components/dashboard/QuickActions';
 import PrintableReportModal from '../components/common/PrintableReportModal';
 import RegisteredCropsManager from '../components/dashboard/RegisteredCropsManager';
 import SharedTransportFarmerWidget from '../components/dashboard/SharedTransportFarmerWidget';
+import MandiBookingNotificationWidget from '../components/dashboard/MandiBookingNotificationWidget';
 import apiClient from '../services/apiClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
@@ -87,9 +89,9 @@ export default function DashboardPage() {
     return <Navigate to="/admin" replace />;
   }
 
-  // 2. Mandi Official views dedicated Mandi Market Rates & APMC workspace
+  // 2. Mandi Official views dedicated APMC Mandi Portal & Procurement Workspace (previously /markets)
   if (user?.role === 'mandi') {
-    return <Navigate to="/markets" replace />;
+    return <MandiDashboard />;
   }
 
   // 3. Transporter views their dedicated Cargo & Trip Logistics Dashboard (Farmer Decision Suite toggle removed, Issue #173)
@@ -97,7 +99,12 @@ export default function DashboardPage() {
     return <TransporterDashboard />;
   }
 
-  // 3. Farmer views full crop analytics & harvest decision dashboard
+  // 4. FPO Leader views dedicated FPO Dashboard & Aggregation Workspace
+  if (user?.role === 'fpo_leader' || user?.role === 'fpo') {
+    return <Navigate to="/fpo" replace />;
+  }
+
+  // 5. Farmer views full crop analytics & harvest decision dashboard
   return <FarmerDashboard user={user} t={t} />;
 }
 
@@ -279,6 +286,9 @@ function FarmerDashboard({ user, t }) {
 
       {/* 2. Farmer Profile Summary */}
       <ProfileSummary />
+
+      {/* 2.2 Live APMC Mandi Booking & Procurement Inquiries */}
+      <MandiBookingNotificationWidget />
 
       {/* 2.5 Action Bar: Printable Kisan Farm Decision Report Banner */}
       <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-950 rounded-3xl p-4 sm:p-6 text-white shadow-xl border border-emerald-800/40 flex flex-col md:flex-row md:items-center justify-between gap-4">

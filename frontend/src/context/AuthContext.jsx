@@ -184,10 +184,11 @@ export function AuthProvider({ children }) {
     return payload;
   }
 
-  async function demoLogin() {
+  async function demoLogin(role = 'farmer') {
     const response = await fetch(`${API_BASE_URL}/api/auth/demo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
     });
 
     const payload = await response.json();

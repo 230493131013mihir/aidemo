@@ -25,7 +25,8 @@ import {
   Award,
   RefreshCw,
   Send,
-  ShieldCheck
+  ShieldCheck,
+  Store
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -190,7 +191,8 @@ export default function AuthPage({ mode = 'login' }) {
       const userRole = loggedUser?.role || role;
       if (userRole === 'admin') navigate('/admin');
       else if (userRole === 'transporter') navigate('/transport');
-      else if (userRole === 'mandi') navigate('/markets');
+      else if (userRole === 'fpo_leader' || userRole === 'fpo') navigate('/fpo');
+      else if (userRole === 'mandi') navigate('/dashboard');
       else navigate('/dashboard');
 
     } catch (err) {
@@ -232,7 +234,8 @@ export default function AuthPage({ mode = 'login' }) {
       const userRole = loggedUser?.role || role;
       if (userRole === 'admin') navigate('/admin');
       else if (userRole === 'transporter') navigate('/transport');
-      else if (userRole === 'mandi') navigate('/markets');
+      else if (userRole === 'fpo_leader' || userRole === 'fpo') navigate('/fpo');
+      else if (userRole === 'mandi') navigate('/dashboard');
       else navigate('/dashboard');
 
     } catch (err) {
@@ -250,13 +253,33 @@ export default function AuthPage({ mode = 'login' }) {
       await demoLogin('farmer');
       showToast({
         type: 'celebrate',
-        title: '⚡ Instant Demo Access!',
-        message: 'Welcome Mihir Jadav! Logged in as Demo Farmer with 3.5 acres in Pune.',
+        title: '🌾 Instant Farmer Access!',
+        message: 'Welcome Mihir Jadav! Logged in as Demo Farmer with 4.5 acres in Pune.',
         duration: 2500
       });
       navigate('/dashboard');
     } catch (err) {
       setError(err.message || 'Demo login failed');
+      showToast({ type: 'error', title: 'Demo Login Error', message: err.message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleQuickDemoMandiLogin() {
+    setError('');
+    setLoading(true);
+    try {
+      await demoLogin('mandi');
+      showToast({
+        type: 'celebrate',
+        title: '🏪 APMC Mandi Access Granted!',
+        message: 'Welcome Sayali Kulkarni! Logged in as Mandi Official for Pune APMC.',
+        duration: 2500
+      });
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.message || 'Mandi demo login failed');
       showToast({ type: 'error', title: 'Demo Login Error', message: err.message });
     } finally {
       setLoading(false);
@@ -511,13 +534,15 @@ export default function AuthPage({ mode = 'login' }) {
           duration: 3000,
         });
 
-        // Role-based redirect after registration (BUG FIX: was hardcoded to /dashboard for all roles)
+        // Role-based redirect after registration
         if (role === 'admin') {
           navigate('/admin');
         } else if (role === 'transporter') {
           navigate('/transport');
+        } else if (role === 'fpo_leader' || role === 'fpo') {
+          navigate('/fpo');
         } else if (role === 'mandi') {
-          navigate('/markets');
+          navigate('/dashboard');
         } else {
           navigate('/dashboard');
         }
@@ -547,8 +572,10 @@ export default function AuthPage({ mode = 'login' }) {
           navigate('/admin');
         } else if (userRole === 'transporter') {
           navigate('/transport');
+        } else if (userRole === 'fpo_leader' || userRole === 'fpo') {
+          navigate('/fpo');
         } else if (userRole === 'mandi') {
-          navigate('/markets');
+          navigate('/dashboard');
         } else {
           navigate('/dashboard');
         }
@@ -572,7 +599,7 @@ export default function AuthPage({ mode = 'login' }) {
     } else if (role === 'transporter') {
       navigate('/transport');
     } else if (role === 'mandi') {
-      navigate('/markets');
+      navigate('/dashboard');
     } else {
       navigate('/dashboard');
     }
@@ -727,6 +754,15 @@ export default function AuthPage({ mode = 'login' }) {
               onClick={() => {
                 setRole('farmer');
                 setError('');
+                setOtpPhone('9822012345');
+                setOtpName('Mihir Jadav');
+                setForm(prev => ({
+                  ...prev,
+                  email: 'demo@harvestmitra.local',
+                  password: 'Demo@12345',
+                  name: 'Mihir Jadav',
+                  phone: '9822012345'
+                }));
               }}
               className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 role === 'farmer'
@@ -759,6 +795,15 @@ export default function AuthPage({ mode = 'login' }) {
               onClick={() => {
                 setRole('transporter');
                 setError('');
+                setOtpPhone('9845012345');
+                setOtpName('Varun Patil');
+                setForm(prev => ({
+                  ...prev,
+                  email: 'transporter@harvestmitra.local',
+                  password: 'Transporter@12345',
+                  name: 'Varun Patil',
+                  phone: '9845012345'
+                }));
               }}
               className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 role === 'transporter'
@@ -775,6 +820,18 @@ export default function AuthPage({ mode = 'login' }) {
               onClick={() => {
                 setRole('mandi');
                 setError('');
+                setOtpPhone('9822481920');
+                setOtpName('Sayali Kulkarni');
+                setForm(prev => ({
+                  ...prev,
+                  email: 'mandi@harvestmitra.local',
+                  password: 'Demo@12345',
+                  name: 'Sayali Kulkarni',
+                  phone: '9822481920',
+                  mandiName: 'Pune APMC (Gultekdi Wholesale Mandi)',
+                  licenseNumber: 'MH-APMC-PUN-2024-8841',
+                  district: 'Pune'
+                }));
               }}
               className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 role === 'mandi'
@@ -1002,17 +1059,31 @@ export default function AuthPage({ mode = 'login' }) {
 
                   {/* Quick Demo Pre-fill & 1-Click Instant Login */}
                   <div className="pt-2 space-y-2 border-t border-slate-200">
-                    <button
-                      type="button"
-                      onClick={handleQuickDemoFarmerLogin}
-                      disabled={loading}
-                      className="w-full py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                      <span>⚡ 1-Click Demo Farmer Login (Mihir Jadav • 3.5 Acres)</span>
-                    </button>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        id="quick-demo-farmer-btn"
+                        onClick={handleQuickDemoFarmerLogin}
+                        disabled={loading}
+                        className="w-full py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                        <span>🌾 Demo Farmer (Mihir)</span>
+                      </button>
 
-                    <div className="text-center">
+                      <button
+                        type="button"
+                        id="quick-demo-mandi-btn"
+                        onClick={handleQuickDemoMandiLogin}
+                        disabled={loading}
+                        className="w-full py-2.5 px-3 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-300 text-orange-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                      >
+                        <Store className="w-3.5 h-3.5 text-orange-600" />
+                        <span>🏪 Demo Mandi (Pune APMC)</span>
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-center gap-3 pt-1 text-center">
                       <button
                         type="button"
                         onClick={() => {
@@ -1023,7 +1094,19 @@ export default function AuthPage({ mode = 'login' }) {
                         }}
                         className="text-[11px] text-slate-500 hover:text-primary font-semibold underline cursor-pointer"
                       >
-                        ⚡ Fill Sample Smallholder Farmer (+91 9822012345)
+                        ⚡ Fill Farmer (+91 9822012345)
+                      </button>
+                      <span className="text-slate-300">•</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOtpPhone('9822481920');
+                          setOtpName('Sayali Kulkarni');
+                          setRole('mandi');
+                        }}
+                        className="text-[11px] text-orange-600 hover:underline font-semibold cursor-pointer"
+                      >
+                        ⚡ Fill Mandi Officer (+91 9822481920)
                       </button>
                     </div>
                   </div>
@@ -1640,6 +1723,8 @@ export default function AuthPage({ mode = 'login' }) {
                         ? 'admin@harvestmitra.local • Admin@12345'
                         : role === 'transporter'
                         ? 'transporter@harvestmitra.local • Transporter@12345'
+                        : role === 'mandi'
+                        ? 'mandi@harvestmitra.local • Demo@12345'
                         : 'demo@harvestmitra.local • Demo@12345'}
                     </p>
                   </div>
@@ -1652,6 +1737,9 @@ export default function AuthPage({ mode = 'login' }) {
                       } else if (role === 'transporter') {
                         updateField('email', 'transporter@harvestmitra.local');
                         updateField('password', 'Transporter@12345');
+                      } else if (role === 'mandi') {
+                        updateField('email', 'mandi@harvestmitra.local');
+                        updateField('password', 'Demo@12345');
                       } else {
                         updateField('email', 'demo@harvestmitra.local');
                         updateField('password', 'Demo@12345');

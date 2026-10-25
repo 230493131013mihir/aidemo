@@ -16,7 +16,8 @@ const {
     verifyOtp,
     whatsappLogin,
     linkAgristack,
-    lookupAgristack
+    lookupAgristack,
+    mandiProcurementRequest
 } = require("../controllers/auth.controller");
 
 const authMiddleware = require("../middleware/auth.middleware");
@@ -47,6 +48,9 @@ router.put("/profile", authMiddleware, updateProfile);
 router.post("/contact-request", authMiddleware, createContactRequest);
 router.get("/contact-requests", authMiddleware, getContactRequests);
 router.put("/contact-requests/:id", authMiddleware, updateContactRequestStatus);
+
+// Dedicated APMC Mandi Produce Procurement Alert Flow
+router.post("/mandi-procurement-request", authMiddleware, mandiProcurementRequest);
 
 // Discovery endpoints for contact
 router.get("/farmers", authMiddleware, getRelevantFarmers);

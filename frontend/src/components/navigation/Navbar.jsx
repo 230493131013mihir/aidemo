@@ -9,7 +9,8 @@ import {
   User, 
   Shield, 
   LogOut,
-  ChevronDown
+  ChevronDown,
+  Store
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -46,8 +47,34 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
 
   const isAdmin = user?.role === 'admin';
   const isTransporter = user?.role === 'transporter';
-  const userName = user?.name || 'Farmer';
-  const userRole = isAdmin ? 'Admin' : isTransporter ? 'Transporter' : 'Farmer';
+  const isMandi = user?.role === 'mandi';
+  const userName = user?.name || (isMandi ? 'Sayali Kulkarni' : isTransporter ? 'Transporter' : 'Farmer');
+  const userRole = isAdmin ? 'Admin' : isMandi ? 'Mandi Official' : isTransporter ? 'Transporter' : 'Farmer';
+
+  // Farmer procurement booking notification badge
+  const [unreadBookings, setUnreadBookings] = useState(0);
+
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== 'farmer') return;
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+    async function checkBookings() {
+      try {
+        const token = sessionStorage.getItem('harvestmitra_token') || localStorage.getItem('harvestmitra_token');
+        if (!token || token === 'guest') return;
+        const res = await fetch(`${API_BASE}/api/auth/contact-requests`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          const incoming = json.data.filter(r => r.contactType === 'mandi_to_farmer' && r.status === 'pending');
+          setUnreadBookings(incoming.length);
+        }
+      } catch {}
+    }
+    checkBookings();
+    const interval = setInterval(checkBookings, 15000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, user]);
 
   return (
     <header className={`sticky top-0 z-40 w-full border-b backdrop-blur-md transition-colors shadow-2xs ${isDark ? 'border-slate-700 bg-slate-900/95' : 'border-border bg-white/95'}`}>
@@ -78,22 +105,40 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
               className="flex items-center gap-2.5 group focus:outline-none focus:ring-2 focus:ring-primary/20 rounded-lg p-1"
             >
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-emerald-500 flex items-center justify-center text-white shadow-sm shadow-primary/30 group-hover:scale-105 transition-transform">
-                <Sprout className="w-6 h-6" aria-hidden="true" />
+                {isMandi ? (
+                  <Store className="w-6 h-6 text-white" aria-hidden="true" />
+                ) : (
+                  <Sprout className="w-6 h-6" aria-hidden="true" />
+                )}
               </div>
               <div className="flex flex-col">
                 <span className="font-extrabold text-lg leading-tight tracking-tight text-text group-hover:text-primary transition-colors">
                   Harvest<span className="text-primary">Mitra</span>
+                  {isMandi && <span className="text-xs ml-1.5 px-1.5 py-0.5 rounded-md bg-orange-100 text-orange-800 font-black border border-orange-200">APMC</span>}
                 </span>
                 <span className="text-[10px] text-muted font-bold tracking-wide hidden xs:inline">
-                  Smart Decisions. Better Harvests.
+                  {isMandi ? 'APMC Mandi Procurement Portal' : 'Smart Decisions. Better Harvests.'}
                 </span>
               </div>
             </Link>
           </div>
 
-          {/* Right Header: Language Selector & User Profile (Prashant - Farmer) */}
+          {/* Right Header: Language Selector & User Profile */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Direct 'My Bookings' button for Transporter linking to cargo trips & individual gate passes (Issue #176) */}
+            {/* Farmer Mandi Booking Notification Alert Pill */}
+            {user?.role === 'farmer' && unreadBookings > 0 && (
+              <Link
+                to="/dashboard#mandi-bookings"
+                id="header-farmer-mandi-alert"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-orange-50 hover:bg-orange-100 text-orange-900 border border-orange-300 shadow-xs animate-bounce"
+                title={`${unreadBookings} Mandi Purchase Inquiries Waiting!`}
+              >
+                <Store className="w-3.5 h-3.5 text-orange-600" />
+                <span>{unreadBookings} Mandi Booking{unreadBookings > 1 ? 's' : ''}</span>
+              </Link>
+            )}
+
+            {/* Direct 'My Bookings' button for Transporter */}
             {isTransporter && (
               <NavLink
                 to="/transport?tab=trips"
@@ -105,8 +150,6 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
                 <span>My Bookings</span>
               </NavLink>
             )}
-
-            {/* ThemeToggle consolidated to Sidebar 'Light Mode' switch as the single app-wide toggle */}
 
             {/* Language Selector */}
             <div className="flex items-center">
@@ -127,8 +170,8 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
                     title={`Logged in as ${userName} (${userRole})`}
                   >
                     <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isMandi ? 'bg-orange-400' : 'bg-emerald-400'} opacity-75`} />
+                      <span className={`relative inline-flex rounded-full h-2 w-2 ${isMandi ? 'bg-orange-500' : 'bg-emerald-500'}`} />
                     </span>
 
                     <div className="flex items-center gap-1.5">
@@ -136,13 +179,23 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
                         <Truck className="w-3.5 h-3.5 text-primary" />
                       ) : isAdmin ? (
                         <Shield className="w-3.5 h-3.5 text-purple-600" />
+                      ) : isMandi ? (
+                        <Store className="w-3.5 h-3.5 text-orange-600" />
                       ) : (
                         <Sprout className="w-3.5 h-3.5 text-emerald-600" />
                       )}
                       <span className="max-w-[110px] sm:max-w-[140px] truncate font-bold text-slate-800">
                         {userName}
                       </span>
-                      <span className="text-[10px] font-extrabold text-emerald-800 px-1.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 hidden sm:inline">
+                      <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md border hidden sm:inline ${
+                        isMandi 
+                          ? 'bg-orange-50 text-orange-800 border-orange-200' 
+                          : isTransporter 
+                          ? 'bg-blue-50 text-blue-800 border-blue-200' 
+                          : isAdmin 
+                          ? 'bg-purple-50 text-purple-800 border-purple-200' 
+                          : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      }`}>
                         {userRole}
                       </span>
                     </div>
@@ -154,24 +207,32 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
                   {accountMenuOpen && (
                     <div
                       id="account-dropdown-menu"
-                      className="absolute right-0 mt-2 w-60 rounded-2xl bg-white border border-border shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150"
+                      className="absolute right-0 mt-2 w-64 rounded-2xl bg-white border border-border shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150"
                     >
                       <div className="px-3.5 py-2.5 border-b border-border/80">
                         <p className="text-xs font-extrabold text-text truncate">{userName}</p>
-                        <p className="text-[11px] text-muted truncate">{user?.email || (isTransporter ? 'Transporter Account' : 'Farmer Account')}</p>
-                        <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                          {isAdmin ? 'APMC Administrator' : isTransporter ? 'Verified Transporter' : 'Verified Farmer'}
+                        <p className="text-[11px] text-muted truncate">{user?.email || (isMandi ? 'mandi@harvestmitra.local' : isTransporter ? 'Transporter Account' : 'Farmer Account')}</p>
+                        <span className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          isMandi 
+                            ? 'bg-orange-50 text-orange-800 border-orange-200' 
+                            : isTransporter 
+                            ? 'bg-blue-50 text-blue-800 border-blue-200' 
+                            : isAdmin 
+                            ? 'bg-purple-50 text-purple-800 border-purple-200' 
+                            : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        }`}>
+                          {isAdmin ? 'APMC Administrator' : isMandi ? 'APMC Mandi Official' : isTransporter ? 'Verified Transporter' : 'Verified Farmer'}
                         </span>
                       </div>
 
                       <div className="py-1">
                         <Link
-                          to={isAdmin ? '/admin' : isTransporter ? '/transport' : '/dashboard'}
+                          to={isAdmin ? '/admin' : isTransporter ? '/transport' : isMandi ? '/dashboard' : '/dashboard'}
                           onClick={() => setAccountMenuOpen(false)}
                           className="flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-text hover:bg-slate-50 transition-colors"
                         >
                           <LayoutDashboard className="w-4 h-4 text-primary" />
-                          <span>{isAdmin ? 'APMC Admin Console' : isTransporter ? 'Logistics Dashboard' : 'Farmer Dashboard'}</span>
+                          <span>{isAdmin ? 'APMC Admin Console' : isMandi ? 'APMC Mandi Portal' : isTransporter ? 'Logistics Dashboard' : 'Farmer Dashboard'}</span>
                         </Link>
 
                         <Link
@@ -180,7 +241,7 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
                           className="flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-text hover:bg-slate-50 transition-colors"
                         >
                           <User className="w-4 h-4 text-emerald-600" />
-                          <span>My Profile</span>
+                          <span>{isMandi ? 'Mandi Official Profile' : 'My Profile'}</span>
                         </Link>
                       </div>
 

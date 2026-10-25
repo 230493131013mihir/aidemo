@@ -14,6 +14,11 @@ const SavedScheme = require("./savedScheme");
 const SchemeChecklist = require("./schemeChecklist");
 const Vehicle = require("./vehicle");
 const SharedTrip = require("./sharedTrip");
+const AuditLog = require("./auditLog");
+const FpoMembership = require("./fpoMembership");
+const CropAggregation = require("./cropAggregation");
+const AggregationItem = require("./aggregationItem");
+const FpoProcurementOffer = require("./fpoProcurementOffer");
 
 User.hasOne(FarmerProfile, { foreignKey: "userId", onDelete: "CASCADE" });
 FarmerProfile.belongsTo(User, { foreignKey: "userId" });
@@ -68,6 +73,34 @@ SchemeChecklist.belongsTo(User, { foreignKey: "userId" });
 Scheme.hasMany(SchemeChecklist, { foreignKey: "schemeId", onDelete: "CASCADE" });
 SchemeChecklist.belongsTo(Scheme, { foreignKey: "schemeId" });
 
+User.hasMany(AuditLog, { foreignKey: "actorId" });
+AuditLog.belongsTo(User, { foreignKey: "actorId" });
+
+// FPO Module Associations
+User.hasMany(FpoMembership, { foreignKey: "fpoId", as: "FpoMemberships" });
+FpoMembership.belongsTo(User, { foreignKey: "fpoId", as: "Fpo" });
+
+User.hasMany(FpoMembership, { foreignKey: "farmerId", as: "FarmerMemberships" });
+FpoMembership.belongsTo(User, { foreignKey: "farmerId", as: "Farmer" });
+
+User.hasMany(CropAggregation, { foreignKey: "fpoId", as: "Aggregations" });
+CropAggregation.belongsTo(User, { foreignKey: "fpoId", as: "Fpo" });
+
+CropAggregation.hasMany(AggregationItem, { foreignKey: "aggregationId", as: "Items", onDelete: "CASCADE" });
+AggregationItem.belongsTo(CropAggregation, { foreignKey: "aggregationId", as: "Aggregation" });
+
+User.hasMany(AggregationItem, { foreignKey: "farmerId", as: "AggregationContributions" });
+AggregationItem.belongsTo(User, { foreignKey: "farmerId", as: "Farmer" });
+
+CropAggregation.hasMany(FpoProcurementOffer, { foreignKey: "aggregationId", as: "Offers" });
+FpoProcurementOffer.belongsTo(CropAggregation, { foreignKey: "aggregationId", as: "Aggregation" });
+
+User.hasMany(FpoProcurementOffer, { foreignKey: "fpoId", as: "FpoOffers" });
+FpoProcurementOffer.belongsTo(User, { foreignKey: "fpoId", as: "Fpo" });
+
+TransportRequest.hasOne(FpoProcurementOffer, { foreignKey: "transportRequestId" });
+FpoProcurementOffer.belongsTo(TransportRequest, { foreignKey: "transportRequestId", as: "TransportRequest" });
+
 module.exports = {
   User,
   FarmerProfile,
@@ -84,5 +117,11 @@ module.exports = {
   SavedScheme,
   SchemeChecklist,
   Vehicle,
-  SharedTrip
+  SharedTrip,
+  AuditLog,
+  FpoMembership,
+  CropAggregation,
+  AggregationItem,
+  FpoProcurementOffer
 };
+
