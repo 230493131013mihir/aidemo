@@ -16,7 +16,11 @@ import {
   Landmark,
   X,
   Sprout,
-  Scale
+  Scale,
+  Users,
+  Layers,
+  Store,
+  ClipboardList
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -32,14 +36,17 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
   const isMandi = user?.role === 'mandi';
   const isAdmin = user?.role === 'admin';
   const isTransporter = user?.role === 'transporter';
+  const isFpo = user?.role === 'fpo_leader' || user?.role === 'fpo';
 
   const roleName =
     isAdmin
       ? 'Administrator'
       : isMandi
       ? 'APMC Mandi Official'
-      : user?.role === 'transporter'
+      : isTransporter
       ? 'Transporter / Driver'
+      : isFpo
+      ? 'FPO Leader / Aggregator'
       : 'Farmer / Producer';
 
   const rolePillText =
@@ -47,8 +54,10 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
       ? 'Admin'
       : isMandi
       ? 'Mandi Official'
-      : user?.role === 'transporter'
+      : isTransporter
       ? 'Transporter'
+      : isFpo
+      ? 'FPO Leader'
       : 'Farmer';
 
   const profileLabel = t('nav.profile', 'My Profile');
@@ -60,6 +69,19 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
         { to: '/admin', label: 'Admin Control Center', icon: Shield, badge: 'Gov' },
         { to: '/markets', label: t('nav.markets', 'Mandi Prices'), icon: TrendingUp },
         { to: '/schemes', label: t('nav.schemes', 'Govt Schemes'), icon: Landmark, badge: 'New' },
+        { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
+      ];
+    }
+
+    if (isFpo) {
+      return [
+        { to: '/fpo/dashboard', label: 'FPO Dashboard', icon: LayoutDashboard },
+        { to: '/fpo/members', label: 'Member Roster', icon: Users, badge: 'Team' },
+        { to: '/fpo/crops', label: 'Crop Availability', icon: Sprout },
+        { to: '/fpo/aggregation', label: 'Collective Lots', icon: Layers, badge: 'Pool' },
+        { to: '/fpo/procurement', label: 'Bulk Mandi Offers', icon: Store },
+        { to: '/fpo/transport', label: 'Transport Dispatch', icon: Truck },
+        { to: '/fpo/orders', label: 'Orders & History', icon: ClipboardList },
         { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
       ];
     }
@@ -101,7 +123,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
       { to: '/weather', label: t('nav.weather', 'Weather Alerts'), icon: CloudSunRain },
       { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
     ];
-  }, [isAdmin, isTransporter, isMandi, t]);
+  }, [isAdmin, isTransporter, isMandi, isFpo, t]);
 
   const handleLinkClick = () => {
     if (onClose) {

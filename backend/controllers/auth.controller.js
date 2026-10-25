@@ -440,6 +440,13 @@ const login = async (req, res) => {
             });
         }
 
+        if (user.status === "suspended" || user.status === "disabled") {
+            return res.status(403).json({
+                success: false,
+                message: "This account has been deactivated by an administrator. Please contact APMC regulatory support."
+            });
+        }
+
         // Ensure profile exists based on role
         if (user.role === "farmer" && !user.FarmerProfile) {
             user.FarmerProfile = await ensureFarmerProfile(user.id);

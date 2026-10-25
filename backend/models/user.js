@@ -34,6 +34,11 @@ const User = sequelize.define(
         role: {
             type: DataTypes.STRING(50),
             defaultValue: "farmer"
+        },
+
+        status: {
+            type: DataTypes.STRING(20),
+            defaultValue: "active"
         }
     },
     {

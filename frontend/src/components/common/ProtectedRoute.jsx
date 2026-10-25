@@ -32,6 +32,14 @@ export default function ProtectedRoute({ children, requiredRole, requireAuth = f
     return children;
   }
 
+  // FPO routes strictly require verified FPO leader or administrator credentials
+  if (requiredRole === 'fpo' || requiredRole === 'fpo_leader') {
+    if (user?.role !== 'fpo_leader' && user?.role !== 'fpo' && user?.role !== 'admin') {
+      return <Navigate to="/dashboard" replace />;
+    }
+    return children;
+  }
+
   // Profile strictly requires verified authentication
   if (requiredRole === 'auth' || (requireAuth && (!isAuthenticated || user?.isGuest))) {
     if (!isAuthenticated || user?.isGuest) {

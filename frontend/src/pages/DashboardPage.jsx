@@ -99,7 +99,12 @@ export default function DashboardPage() {
     return <TransporterDashboard />;
   }
 
-  // 3. Farmer views full crop analytics & harvest decision dashboard
+  // 4. FPO Leader views dedicated FPO Dashboard & Aggregation Workspace
+  if (user?.role === 'fpo_leader' || user?.role === 'fpo') {
+    return <Navigate to="/fpo" replace />;
+  }
+
+  // 5. Farmer views full crop analytics & harvest decision dashboard
   return <FarmerDashboard user={user} t={t} />;
 }
 

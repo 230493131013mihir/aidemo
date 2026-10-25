@@ -25,7 +25,8 @@ import {
   Award,
   RefreshCw,
   Send,
-  ShieldCheck
+  ShieldCheck,
+  Store
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -190,6 +191,7 @@ export default function AuthPage({ mode = 'login' }) {
       const userRole = loggedUser?.role || role;
       if (userRole === 'admin') navigate('/admin');
       else if (userRole === 'transporter') navigate('/transport');
+      else if (userRole === 'fpo_leader' || userRole === 'fpo') navigate('/fpo');
       else if (userRole === 'mandi') navigate('/dashboard');
       else navigate('/dashboard');
 
@@ -232,6 +234,7 @@ export default function AuthPage({ mode = 'login' }) {
       const userRole = loggedUser?.role || role;
       if (userRole === 'admin') navigate('/admin');
       else if (userRole === 'transporter') navigate('/transport');
+      else if (userRole === 'fpo_leader' || userRole === 'fpo') navigate('/fpo');
       else if (userRole === 'mandi') navigate('/dashboard');
       else navigate('/dashboard');
 
@@ -536,6 +539,8 @@ export default function AuthPage({ mode = 'login' }) {
           navigate('/admin');
         } else if (role === 'transporter') {
           navigate('/transport');
+        } else if (role === 'fpo_leader' || role === 'fpo') {
+          navigate('/fpo');
         } else if (role === 'mandi') {
           navigate('/dashboard');
         } else {
@@ -567,6 +572,8 @@ export default function AuthPage({ mode = 'login' }) {
           navigate('/admin');
         } else if (userRole === 'transporter') {
           navigate('/transport');
+        } else if (userRole === 'fpo_leader' || userRole === 'fpo') {
+          navigate('/fpo');
         } else if (userRole === 'mandi') {
           navigate('/dashboard');
         } else {
