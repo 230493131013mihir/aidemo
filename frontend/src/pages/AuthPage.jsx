@@ -25,7 +25,8 @@ import {
   Award,
   RefreshCw,
   Send,
-  ShieldCheck
+  ShieldCheck,
+  Store
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
