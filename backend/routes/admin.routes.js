@@ -12,7 +12,8 @@ const {
     deleteMarketPrice,
     listMarkets,
     listCrops,
-    reports
+    reports,
+    listAuditLogs
 } = require("../controllers/admin.controller");
 
 const router = express.Router();
@@ -31,5 +32,6 @@ router.delete("/market-prices/:id", deleteMarketPrice);
 router.get("/markets", listMarkets);
 router.get("/crops", listCrops);
 router.get("/reports", reports);
+router.get("/audit-logs", listAuditLogs);
 
 module.exports = router;
