@@ -37,16 +37,23 @@ const TransportRequest = sequelize.define(
                 isIn: [[
                     "open",
                     "pending",
+                    "request_received",
                     "matched",
                     "confirmed",
                     "accepted",
                     "driver_assigned",
                     "vehicle_assigned",
+                    "awaiting_pickup",
+                    "pickup_confirmed",
                     "in_transit",
+                    "arrived_destination",
                     "delivered",
+                    "delivery_confirmed",
                     "completed",
                     "cancelled",
-                    "rejected"
+                    "rejected",
+                    "delayed",
+                    "failed_delivery"
                 ]]
             }
         },
@@ -61,6 +68,41 @@ const TransportRequest = sequelize.define(
             type: DataTypes.DATE,
             allowNull: true,
             field: "trip_start_time"
+        },
+        actualPickupTime: {
+            type: DataTypes.DATE,
+            allowNull: true,
+            field: "actual_pickup_time"
+        },
+        actualDeliveryTime: {
+            type: DataTypes.DATE,
+            allowNull: true,
+            field: "actual_delivery_time"
+        },
+        loadedQuantity: {
+            type: DataTypes.FLOAT,
+            allowNull: true,
+            field: "loaded_quantity"
+        },
+        deliveredQuantity: {
+            type: DataTypes.FLOAT,
+            allowNull: true,
+            field: "delivered_quantity"
+        },
+        pickupNotes: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+            field: "pickup_notes"
+        },
+        deliveryNotes: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+            field: "delivery_notes"
+        },
+        statusHistory: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+            field: "status_history"
         },
         estimatedSharedCost: { type: DataTypes.INTEGER, field: "estimated_shared_cost" },
         finalCost: { type: DataTypes.INTEGER, allowNull: true, field: "final_cost" },
@@ -92,16 +134,23 @@ const TransportRequest = sequelize.define(
 TransportRequest.STATUSES = {
     OPEN: "open",
     PENDING: "pending",
+    REQUEST_RECEIVED: "request_received",
     MATCHED: "matched",
     CONFIRMED: "confirmed",
     ACCEPTED: "accepted",
     DRIVER_ASSIGNED: "driver_assigned",
     VEHICLE_ASSIGNED: "vehicle_assigned",
+    AWAITING_PICKUP: "awaiting_pickup",
+    PICKUP_CONFIRMED: "pickup_confirmed",
     IN_TRANSIT: "in_transit",
+    ARRIVED_DESTINATION: "arrived_destination",
     DELIVERED: "delivered",
+    DELIVERY_CONFIRMED: "delivery_confirmed",
     COMPLETED: "completed",
     CANCELLED: "cancelled",
-    REJECTED: "rejected"
+    REJECTED: "rejected",
+    DELAYED: "delayed",
+    FAILED_DELIVERY: "failed_delivery"
 };
 
 module.exports = TransportRequest;

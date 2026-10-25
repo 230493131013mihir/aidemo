@@ -69,7 +69,7 @@ const SharedTrip = sequelize.define(
             type: DataTypes.STRING(32),
             defaultValue: "open",
             validate: {
-                isIn: [["open", "matched", "confirmed", "in_transit", "delivered", "completed", "cancelled"]]
+                isIn: [["open", "matched", "confirmed", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit", "arrived_destination", "delivered", "delivery_confirmed", "completed", "cancelled", "delayed"]]
             }
         }
     },

@@ -44,6 +44,8 @@ export default function ChatPage() {
   };
 
 
+  const isTransporter = user?.role === 'transporter';
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto py-6 px-4">
       {/* Photographic AI Assistant Banner */}
@@ -58,20 +60,22 @@ export default function ChatPage() {
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
               <Bot className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Voice & Multilingual AI Agronomist</span>
+              <span>{isTransporter ? 'Multilingual Logistics AI Dispatcher' : 'Voice & Multilingual AI Agronomist'}</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
-              Mitra AI Advisory Assistant
+              {isTransporter ? 'Mitra Logistics Assistant' : 'Mitra AI Advisory Assistant'}
             </h1>
             <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
-              Ask about live APMC mandi prices, rainfall forecast, crop harvest timing, and shared truck pooling in natural language.
+              {isTransporter
+                ? 'Ask about your next pickup point, route corridors, remaining vehicle payload capacity, active trips, and highway weather.'
+                : 'Ask about live APMC mandi prices, rainfall forecast, crop harvest timing, and shared truck pooling in natural language.'}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="badge-tag bg-primary/10 text-primary border border-primary/20">
               <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Active & Multilingual</span>
+              <span>{isTransporter ? 'Logistics Assistant Active' : 'Active & Multilingual'}</span>
             </span>
           </div>
         </div>
@@ -79,7 +83,11 @@ export default function ChatPage() {
 
       {/* Live ChatWindow */}
       <div className="w-full h-[680px] sm:h-[720px] flex flex-col">
-        <ChatWindow contextData={demoFarmerContext} initialLanguage={language} />
+        <ChatWindow 
+          contextData={isTransporter ? { transporter: { id: user?.id, name: user?.name, phone: user?.phone } } : demoFarmerContext} 
+          initialLanguage={language}
+          isTransporter={isTransporter}
+        />
       </div>
     </div>
   );

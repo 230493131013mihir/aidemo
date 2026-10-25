@@ -80,11 +80,66 @@ const SUGGESTED_QUERIES = {
   ]
 };
 
+const TRANSPORTER_WELCOME_MESSAGES = {
+  mr: {
+    text: "नमस्कार ट्रान्सपोर्टर मित्र! मी मित्रा लॉजिस्टिक्स असिस्टंट (Mitra Logistics Assistant) आहे. आपण मला पुढील पिकअप, उर्वरित अंतर व वेळ, वाहनातील शिल्लक जागा, किंवा मार्गावरील हवामानाचा अंदाज विचारू शकता.",
+    disclaimer: "माहिती आपल्या अधिकृत फेऱ्या, नोंदणीकृत वाहन व मार्गाच्या डेटावर आधारित आहे."
+  },
+  hi: {
+    text: "नमस्ते ट्रांसपोर्टर साथी! मैं मित्रा लॉजिस्टिक्स असिस्टेंट (Mitra Logistics Assistant) हूं। आप मुझसे अगला पिकअप, गंतव्य, वाहन की शेष क्षमता, या रूट मौसम के बारे में पूछ सकते हैं।",
+    disclaimer: "जानकारी आपकी अधिकृत यात्राओं एवं वाहन डेटा पर आधारित है।"
+  },
+  gu: {
+    text: "નમસ્તે ટ્રાન્સપોર્ટર મિત્ર! હું મિત્રા લોજિસ્ટિક્સ આસિસ્ટન્ટ (Mitra Logistics Assistant) છું. તમે મને આગામી પીકઅપ, રૂટ અને વાહનની ક્ષમતા વિશે પૂછી શકો છો.",
+    disclaimer: "માહિતી તમારા સત્તાવાર વાહન અને મુસાફરી ડેટા પર આધારિત છે."
+  },
+  en: {
+    text: "Namaste Transporter Partner! I am Mitra Logistics Assistant. Ask me about your next pickup point, destination, total cargo weight, remaining vehicle payload capacity, or route weather.",
+    disclaimer: "Answers are derived directly from your authorized trips, fleet and route records."
+  }
+};
+
+const TRANSPORTER_SUGGESTED_QUERIES = {
+  mr: [
+    "माझे पुढील पिकअप कुठे आहे?",
+    "माझे अंतिम गंतव्यस्थान (Destination) कुठे आहे?",
+    "एकूण शेतीमाल (Cargo) वजन किती आहे?",
+    "माझ्या वाहनात किती क्षमता शिल्लक आहे?",
+    "मार्गावर पावसाचा अंदाज आहे का?",
+    "पूर्ण झालेल्या फेऱ्यांचे भाडे किती जमा झाले?"
+  ],
+  hi: [
+    "मेरा अगला पिकअप कहां है?",
+    "मेरा गंतव्य APMC मंडी कहां है?",
+    "कुल कृषि कार्गो वजन कितना है?",
+    "मेरे वाहन में कितनी क्षमता शेष है?",
+    "क्या मेरे रूट पर बारिश का पूर्वानुमान है?",
+    "मेरी पूर्ण यात्राओं का कुल भाड़ा कितना है?"
+  ],
+  gu: [
+    "મારું આગામી પીકઅપ ક્યાં છે?",
+    "મારું અંતિમ સ્થળ ક્યાં છે?",
+    "કુલ કાર્ગો વજન કેટલું છે?",
+    "મારા વાહનમાં કેટલી ક્ષમતા બાકી છે?",
+    "શું રૂટ પર વરસાદની આગાહી છે?",
+    "મારી પૂર્ણ થયેલ મુસાફરીનું ભાડું કેટલું છે?"
+  ],
+  en: [
+    "Where is my next pickup?",
+    "Where is my destination?",
+    "What is the total cargo weight?",
+    "How much capacity remains in my assigned vehicle?",
+    "Is rain forecast along my route?",
+    "What are my confirmed fares for completed trips?"
+  ]
+};
+
 export default function ChatWindow({
   isOpen = true,
   onClose = null,
   contextData = {},
-  initialLanguage = null
+  initialLanguage = null,
+  isTransporter = false
 }) {
   const { language: globalLanguage, setLanguage: setGlobalLanguage } = useLanguage?.() || {};
 
@@ -111,7 +166,8 @@ export default function ChatWindow({
 
   // 3. Messages list: initialized with welcome message in selected language
   const [messages, setMessages] = useState(() => {
-    const welcome = WELCOME_MESSAGES[selectedLanguage] || WELCOME_MESSAGES.en;
+    const welcomeMap = isTransporter ? TRANSPORTER_WELCOME_MESSAGES : WELCOME_MESSAGES;
+    const welcome = welcomeMap[selectedLanguage] || welcomeMap.en;
     return [
       {
         id: 'welcome_' + Date.now(),
@@ -336,7 +392,8 @@ export default function ChatWindow({
   // Reset conversation to fresh state
   const handleResetChat = () => {
     handleStopSpeaking();
-    const welcome = WELCOME_MESSAGES[selectedLanguage] || WELCOME_MESSAGES.en;
+    const welcomeMap = isTransporter ? TRANSPORTER_WELCOME_MESSAGES : WELCOME_MESSAGES;
+    const welcome = welcomeMap[selectedLanguage] || welcomeMap.en;
     setMessages([
       {
         id: 'welcome_' + Date.now(),
@@ -350,7 +407,8 @@ export default function ChatWindow({
     setApiErrorNotice(null);
   };
 
-  const suggestions = SUGGESTED_QUERIES[selectedLanguage] || SUGGESTED_QUERIES.en;
+  const queryMap = isTransporter ? TRANSPORTER_SUGGESTED_QUERIES : SUGGESTED_QUERIES;
+  const suggestions = queryMap[selectedLanguage] || queryMap.en;
 
   if (!isOpen) return null;
 
@@ -361,12 +419,12 @@ export default function ChatWindow({
         {/* Left: Branding & Status */}
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-sm border border-emerald-400/30 flex items-center justify-center text-lg shadow-inner">
-            🌱
+            {isTransporter ? '🚚' : '🌱'}
           </div>
           <div>
             <div className="flex items-center gap-1.5">
               <h2 className="text-base sm:text-lg font-bold tracking-tight text-white flex items-center gap-1">
-                Mitra Assistant
+                {isTransporter ? 'Mitra Logistics Assistant' : 'Mitra Assistant'}
               </h2>
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -374,7 +432,7 @@ export default function ChatWindow({
               </span>
             </div>
             <p className="text-[11px] text-emerald-200/80">
-              AI Farming & Mandi Decision Support
+              {isTransporter ? 'Agricultural Fleet & Route Decision Support' : 'AI Farming & Mandi Decision Support'}
             </p>
           </div>
         </div>
