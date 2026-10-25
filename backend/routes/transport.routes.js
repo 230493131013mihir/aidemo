@@ -953,9 +953,14 @@ router.put("/bookings/:id/status", requireRole("transporter", "admin"), async (r
         const booking = await TransportRequest.findByPk(req.params.id);
         if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
 
-        if (req.user.role !== "admin" && Number(booking.transporterId) !== Number(req.user.id)) {
-            return res.status(403).json({ success: false, message: "Not your trip." });
+        if (req.user.role !== "admin") {
+            if (booking.transporterId && Number(booking.transporterId) !== Number(req.user.id)) {
+                return res.status(403).json({ success: false, message: "Not your trip." });
+            }
         }
+
+        const nextStatus = req.body.status || req.body.nextStatus;
+        const current = booking.status;
 
         const validTransitions = {
             open: ["driver_assigned", "accepted", "vehicle_assigned", "cancelled", "rejected"],
@@ -982,7 +987,8 @@ router.put("/bookings/:id/status", requireRole("transporter", "admin"), async (r
 
         await booking.update({
             status: nextStatus,
-            ...(nextStatus === "in_transit" ? { tripStartTime: new Date() } : {})
+            ...(nextStatus === "in_transit" ? { tripStartTime: new Date() } : {}),
+            ...(!booking.transporterId ? { transporterId: req.user.id } : {})
         });
 
         if (["delivered", "completed", "cancelled"].includes(nextStatus)) {
