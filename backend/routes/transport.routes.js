@@ -985,8 +985,24 @@ router.put("/bookings/:id/status", requireRole("transporter", "admin"), async (r
             });
         }
 
+        let history = [];
+        try {
+            history = booking.statusHistory ? JSON.parse(booking.statusHistory) : [];
+            if (!Array.isArray(history)) history = [];
+        } catch (_) {
+            history = [];
+        }
+        history.push({
+            from: current,
+            to: nextStatus,
+            timestamp: new Date().toISOString(),
+            userId: req.user.id,
+            notes: req.body.notes || null
+        });
+
         await booking.update({
             status: nextStatus,
+            statusHistory: JSON.stringify(history),
             ...(nextStatus === "in_transit" ? { tripStartTime: new Date() } : {}),
             ...(!booking.transporterId ? { transporterId: req.user.id } : {})
         });
