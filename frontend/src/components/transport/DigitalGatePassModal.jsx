@@ -359,10 +359,10 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
             </p>
           </div>
 
-          {/* Official Print Clearance Watermark Stamp (Visible Only When Printed) */}
+          {/* Digital Transport Verification Notice (Visible Only When Printed) */}
           <div className="hidden print:block text-center pt-3 border-t border-slate-300 text-[10px] text-slate-500 font-mono space-y-1">
             <p className="font-bold text-slate-700">Issued via HarvestMitra National Agritech & APMC Logistics Portal</p>
-            <p>Government of Maharashtra Agriculture Marketing Board • Single-Trip APMC Transit Authorization</p>
+            <p>Digital Transit Pass for Internal Cargo Verification • Official GST E-Way Bill & Mandi Cess must be filed on the authorized government portal.</p>
           </div>
         </div>
 

@@ -14,6 +14,11 @@ import {
   LogOut,
   UserPlus,
   Landmark,
+  Layers,
+  Car,
+  Navigation,
+  Bell,
+  IndianRupee,
   X
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
@@ -60,9 +65,15 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
     if (isTransporter) {
       return [
         { to: '/dashboard', label: 'Logistics Dashboard', icon: LayoutDashboard },
-        { to: '/transport', label: 'Cargo Trips & Gate Pass', icon: Truck },
+        { to: '/transport?tab=requests', label: 'Incoming Requests', icon: Truck },
+        { to: '/transport?tab=shared', label: 'Shared Trips & Groups', icon: Layers, badge: 'Pool' },
+        { to: '/transport?tab=active', label: 'My Active Trips', icon: Navigation },
+        { to: '/transport?tab=gatepass', label: 'Cargo Trips & Gate Pass', icon: Shield },
+        { to: '/transport?tab=fleet', label: 'Fleet & Vehicle Management', icon: Car },
         { to: '/weather', label: 'Route Weather Alerts', icon: CloudSunRain },
-        { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
+        { to: '/transport?tab=notifications', label: 'Messages & Notifications', icon: Bell },
+        { to: '/transport?tab=history', label: 'Trip History & Earnings', icon: IndianRupee },
+        { to: '/chat', label: 'Mitra Logistics Assistant', icon: Bot, badge: 'AI' },
       ];
     }
 

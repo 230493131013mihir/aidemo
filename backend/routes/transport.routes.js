@@ -11,7 +11,8 @@ const {
     areCropsCompatibleForSharedTransport,
     areRoutesCompatible,
     areDatesCompatible,
-    calculateSharedFareAllocation
+    calculateSharedFareAllocation,
+    suggestSharedTripGroups
 } = require("../services/cropTransportCompatibility");
 
 const router = express.Router();
@@ -157,7 +158,14 @@ async function ensureTransportSchema() {
                 payment_status: { type: sequelize.Sequelize.STRING(32), allowNull: true, defaultValue: "unpaid" },
                 escrow_amount: { type: sequelize.Sequelize.INTEGER, allowNull: true },
                 driver_rating: { type: sequelize.Sequelize.INTEGER, allowNull: true },
-                driver_review: { type: sequelize.Sequelize.TEXT, allowNull: true }
+                driver_review: { type: sequelize.Sequelize.TEXT, allowNull: true },
+                actual_pickup_time: { type: sequelize.Sequelize.DATE, allowNull: true },
+                actual_delivery_time: { type: sequelize.Sequelize.DATE, allowNull: true },
+                loaded_quantity: { type: sequelize.Sequelize.FLOAT, allowNull: true },
+                delivered_quantity: { type: sequelize.Sequelize.FLOAT, allowNull: true },
+                pickup_notes: { type: sequelize.Sequelize.TEXT, allowNull: true },
+                delivery_notes: { type: sequelize.Sequelize.TEXT, allowNull: true },
+                status_history: { type: sequelize.Sequelize.TEXT, allowNull: true }
             };
             for (const [column, definition] of Object.entries(requiredColumns)) {
                 if (!columns[column]) await queryInterface.addColumn("transport_requests", column, definition).catch(() => {});
@@ -177,6 +185,13 @@ async function ensureTransportSchema() {
     }
     return transportSchemaReady;
 }
+
+router.use(async (req, res, next) => {
+    try {
+        await ensureTransportSchema();
+    } catch (_) {}
+    next();
+});
 
 function requireRole(...roles) {
     return (req, res, next) => roles.includes(req.user?.role)
@@ -495,7 +510,22 @@ router.put("/vehicles/:id", requireRole("transporter", "admin"), async (req, res
         }
 
         const updates = {};
-        if (req.body.isAvailable !== undefined) updates.isAvailable = Boolean(req.body.isAvailable);
+        if (req.body.isAvailable !== undefined) {
+            const willBeAvailable = Boolean(req.body.isAvailable);
+            const activeAssignment = await TransportRequest.findOne({
+                where: {
+                    vehicleId: vehicle.id,
+                    status: { [Op.in]: ["accepted", "driver_assigned", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit"] }
+                }
+            });
+            if (activeAssignment && willBeAvailable) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Vehicle ${vehicle.registrationNumber} is currently committed to active trip #${activeAssignment.bookingId || activeAssignment.id} and cannot be assigned to new bookings until delivery is completed.`
+                });
+            }
+            updates.isAvailable = willBeAvailable;
+        }
         if (req.body.status !== undefined) updates.status = req.body.status;
         if (req.body.ratePerKm !== undefined) updates.ratePerKm = Number(req.body.ratePerKm);
         if (req.body.driverName) updates.driverName = req.body.driverName.trim();
@@ -657,6 +687,51 @@ router.put("/bookings/:id/cancel", async (req, res) => {
             status: "cancelled",
             cancellationReason: reason
         });
+
+        // Revalidate parent shared trip if linked
+        if (booking.sharedTripId) {
+            try {
+                const siblingBookings = await TransportRequest.findAll({
+                    where: {
+                        sharedTripId: booking.sharedTripId,
+                        id: { [Op.ne]: booking.id },
+                        status: { [Op.notIn]: ["cancelled", "rejected"] }
+                    }
+                });
+                const sharedTrip = await SharedTrip.findByPk(booking.sharedTripId);
+                if (sharedTrip) {
+                    if (siblingBookings.length === 0) {
+                        await sharedTrip.update({
+                            status: "cancelled",
+                            bookedWeightKg: 0,
+                            remainingCapacityKg: sharedTrip.totalCapacityKg
+                        });
+                    } else {
+                        const newBookedWeight = siblingBookings.reduce((sum, b) => sum + (Number(b.weightKg) || 0), 0);
+                        await sharedTrip.update({
+                            bookedWeightKg: newBookedWeight,
+                            remainingCapacityKg: Math.max(0, sharedTrip.totalCapacityKg - newBookedWeight)
+                        });
+                        // Proportional fare rebalancing
+                        const allocations = calculateSharedFareAllocation({
+                            totalVehicleFare: sharedTrip.totalFare,
+                            farmers: siblingBookings.map((b) => ({ id: b.id, weightKg: Number(b.weightKg) }))
+                        });
+                        for (const sibling of siblingBookings) {
+                            const alloc = allocations.find((a) => a.id === sibling.id);
+                            if (alloc) {
+                                await sibling.update({
+                                    estimatedSharedCost: alloc.sharedCost,
+                                    sharingFarmersCount: siblingBookings.length
+                                });
+                            }
+                        }
+                    }
+                }
+            } catch (revalErr) {
+                console.warn("Shared trip revalidation on cancel error:", revalErr.message);
+            }
+        }
 
         return res.json({
             success: true,
@@ -882,16 +957,20 @@ router.put("/bookings/:id/status", requireRole("transporter", "admin"), async (r
             return res.status(403).json({ success: false, message: "Not your trip." });
         }
 
-        const nextStatus = req.body.status || req.body.nextStatus;
-        const current = booking.status;
         const validTransitions = {
-            open: ["driver_assigned", "accepted", "cancelled"],
-            pending: ["driver_assigned", "accepted", "cancelled"],
-            confirmed: ["driver_assigned", "in_transit", "cancelled"],
-            accepted: ["in_transit", "cancelled"],
-            driver_assigned: ["in_transit", "cancelled"],
-            in_transit: ["delivered", "completed", "cancelled"],
-            delivered: ["completed"]
+            open: ["driver_assigned", "accepted", "vehicle_assigned", "cancelled", "rejected"],
+            pending: ["driver_assigned", "accepted", "vehicle_assigned", "cancelled", "rejected"],
+            confirmed: ["vehicle_assigned", "driver_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit", "cancelled"],
+            accepted: ["vehicle_assigned", "driver_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit", "cancelled", "rejected"],
+            driver_assigned: ["vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit", "cancelled"],
+            vehicle_assigned: ["awaiting_pickup", "pickup_confirmed", "in_transit", "cancelled"],
+            awaiting_pickup: ["pickup_confirmed", "in_transit", "delayed", "cancelled"],
+            pickup_confirmed: ["in_transit", "delayed", "cancelled"],
+            in_transit: ["arrived_destination", "delivered", "delivery_confirmed", "completed", "delayed", "cancelled"],
+            arrived_destination: ["delivered", "delivery_confirmed", "completed"],
+            delivered: ["completed", "delivery_confirmed"],
+            delivery_confirmed: ["completed"],
+            delayed: ["pickup_confirmed", "in_transit", "arrived_destination", "delivered", "cancelled"]
         };
 
         if (!nextStatus || !validTransitions[current] || !validTransitions[current].includes(nextStatus)) {
@@ -935,13 +1014,62 @@ router.put("/bookings/:id/status", requireRole("transporter", "admin"), async (r
 // ==============================================================================
 
 /**
+ * GET /api/transport/suggested-groups
+ * Proactively groups compatible pending farmer bookings into 2-4 farmer suggested shared trips
+ */
+router.get("/suggested-groups", requireRole("transporter", "admin"), async (req, res) => {
+    try {
+        await ensureTransportSchema();
+        // Fetch all pending/open unassigned requests or requests for this transporter
+        const requests = await TransportRequest.findAll({
+            where: {
+                status: { [Op.in]: ["open", "pending"] },
+                sharedTripId: null,
+                [Op.or]: [
+                    { transporterId: null },
+                    { transporterId: req.user.id }
+                ]
+            },
+            order: [["pickupDate", "ASC"], ["createdAt", "ASC"]],
+            limit: 100
+        });
+
+        // Transporter's vehicles to check usable capacity
+        const myVehicles = await Vehicle.findAll({
+            where: { userId: req.user.id, isAvailable: true }
+        });
+        const maxCapacity = myVehicles.length > 0
+            ? Math.max(...myVehicles.map((v) => Number(v.capacityKg) || 2000))
+            : 2200;
+        const avgRatePerKm = myVehicles.length > 0 && myVehicles[0].ratePerKm
+            ? Number(myVehicles[0].ratePerKm)
+            : 25;
+
+        const rawBookings = requests.map((r) => (r.toJSON ? r.toJSON() : { ...r }));
+        const suggestions = suggestSharedTripGroups(rawBookings, {
+            maxVehicleCapacityKg: maxCapacity,
+            ratePerKm: avgRatePerKm
+        });
+
+        return res.json({
+            success: true,
+            count: suggestions.length,
+            data: suggestions
+        });
+    } catch (error) {
+        console.error("Suggested groups error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to calculate suggested shared trips" });
+    }
+});
+
+/**
  * GET /api/transport/shared-trips
  * List all active shared transport pools
  */
 router.get("/shared-trips", async (req, res) => {
     try {
         const trips = await SharedTrip.findAll({
-            where: { status: { [Op.in]: ["open", "matched", "confirmed", "in_transit"] } },
+            where: { status: { [Op.in]: ["open", "matched", "confirmed", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit"] } },
             include: [{ model: Vehicle }, { model: TransportRequest, as: "Bookings" }],
             order: [["tripDate", "ASC"]]
         });
@@ -965,6 +1093,26 @@ router.post("/shared-trips/group", requireRole("transporter", "admin"), async (r
 
         const vehicle = await Vehicle.findByPk(vehicleId);
         if (!vehicle) return res.status(404).json({ success: false, message: "Vehicle not found." });
+        if (req.user.role !== "admin" && Number(vehicle.userId) !== Number(req.user.id)) {
+            return res.status(403).json({ success: false, message: "You can only assign vehicles from your own registered fleet." });
+        }
+        if (vehicle.isAvailable === false || vehicle.status === "busy") {
+            return res.status(400).json({ success: false, message: `Vehicle ${vehicle.registrationNumber} is marked unavailable or busy.` });
+        }
+
+        // Check if vehicle is already committed to an active trip
+        const conflictingTrip = await TransportRequest.findOne({
+            where: {
+                vehicleId: vehicle.id,
+                status: { [Op.in]: ["accepted", "driver_assigned", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit"] }
+            }
+        });
+        if (conflictingTrip) {
+            return res.status(409).json({
+                success: false,
+                message: `Vehicle ${vehicle.registrationNumber} is already committed to an active trip (Booking #${conflictingTrip.bookingId || conflictingTrip.id}).`
+            });
+        }
 
         const bookings = await TransportRequest.findAll({
             where: { id: { [Op.in]: bookingIds } }
@@ -974,13 +1122,47 @@ router.post("/shared-trips/group", requireRole("transporter", "admin"), async (r
             return res.status(404).json({ success: false, message: "One or more bookings could not be found." });
         }
 
+        // Validate booking statuses and check duplicate assignment
+        for (const b of bookings) {
+            if (b.sharedTripId) {
+                return res.status(409).json({
+                    success: false,
+                    message: `Booking #${b.bookingId || b.id} is already assigned to another shared trip.`
+                });
+            }
+            if (["in_transit", "delivered", "completed", "cancelled", "rejected"].includes(b.status)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Booking #${b.bookingId || b.id} has invalid status '${b.status}' for pooling.`
+                });
+            }
+        }
+
         // Validate cargo capacity
         const totalWeightKg = bookings.reduce((sum, b) => sum + (b.weightKg || 0), 0);
         if (totalWeightKg > vehicle.capacityKg) {
             return res.status(400).json({
                 success: false,
-                message: `Combined cargo (${totalWeightKg} kg) exceeds vehicle capacity of ${vehicle.capacityKg} kg.`
+                message: `Combined cargo (${totalWeightKg} kg) exceeds vehicle usable payload capacity of ${vehicle.capacityKg} kg.`
             });
+        }
+
+        // Validate route corridor compatibility
+        for (let i = 0; i < bookings.length; i++) {
+            for (let j = i + 1; j < bookings.length; j++) {
+                if (!areRoutesCompatible(bookings[i].pickupLocation, bookings[i].destinationMarket, bookings[j].pickupLocation, bookings[j].destinationMarket)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Incompatible destinations/corridor: Cannot pool ${bookings[i].pickupLocation} ➔ ${bookings[i].destinationMarket} with ${bookings[j].pickupLocation} ➔ ${bookings[j].destinationMarket}.`
+                    });
+                }
+                if (!areDatesCompatible(bookings[i].pickupDate, bookings[j].pickupDate, 1)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Incompatible pickup dates: ${bookings[i].pickupDate} and ${bookings[j].pickupDate} exceed acceptable 1-day time window.`
+                    });
+                }
+            }
         }
 
         // Validate crop compatibility
@@ -989,48 +1171,68 @@ router.post("/shared-trips/group", requireRole("transporter", "admin"), async (r
                 if (!areCropsCompatibleForSharedTransport(bookings[i].cropName, bookings[j].cropName)) {
                     return res.status(400).json({
                         success: false,
-                        message: `Incompatible crops: Cannot pool ${bookings[i].cropName} with ${bookings[j].cropName}.`
+                        message: `Incompatible produce loads: Cannot pool ${bookings[i].cropName} with ${bookings[j].cropName}.`
                     });
                 }
             }
         }
 
         // Calculate proportional fare split
-        const totalFare = Math.round((vehicle.ratePerKm || 25) * 165);
+        const destLower = String(bookings[0].destinationMarket || '').toLowerCase();
+        let baseDistanceKm = 145;
+        if (destLower.includes('mumbai') || destLower.includes('vashi')) baseDistanceKm = 165;
+        else if (destLower.includes('nagpur')) baseDistanceKm = 480;
+        else if (destLower.includes('nashik')) baseDistanceKm = 180;
+        else if (destLower.includes('pune')) baseDistanceKm = 60;
+        else if (destLower.includes('kolhapur')) baseDistanceKm = 230;
+
+        const totalFare = Math.round((vehicle.ratePerKm || 25) * baseDistanceKm);
         const tripCode = `TRIP-${new Date().getFullYear()}${Math.floor(1000 + Math.random() * 9000)}`;
 
-        const sharedTrip = await SharedTrip.create({
-            tripCode,
-            transporterId: req.user.id,
-            vehicleId: vehicle.id,
-            pickupLocation: bookings[0].pickupLocation,
-            destinationMarket: bookings[0].destinationMarket,
-            tripDate: tripDate || bookings[0].pickupDate,
-            totalCapacityKg: vehicle.capacityKg,
-            bookedWeightKg: totalWeightKg,
-            remainingCapacityKg: vehicle.capacityKg - totalWeightKg,
-            totalFare,
-            compatibleCategory: bookings[0].cropCategory || "general",
-            status: "confirmed"
+        const allocations = calculateSharedFareAllocation({
+            totalVehicleFare: totalFare,
+            farmers: bookings.map((b) => ({ id: b.id, weightKg: Number(b.weightKg) }))
         });
 
-        // Update each booking with sharedTripId, assigned vehicle, and proportional cost
-        for (const b of bookings) {
-            const share = Math.round(totalFare * (b.weightKg / totalWeightKg));
-            await b.update({
-                sharedTripId: sharedTrip.id,
-                vehicleId: vehicle.id,
+        // Use database transaction for atomic trip creation
+        const sharedTrip = await sequelize.transaction(async (t) => {
+            const trip = await SharedTrip.create({
+                tripCode,
                 transporterId: req.user.id,
-                driverName: vehicle.driverName,
-                driverPhone: vehicle.driverPhone,
-                vehicleType: vehicle.vehicleType,
-                vehicleNumber: vehicle.registrationNumber,
-                estimatedSharedCost: share,
-                bookingType: "shared",
-                sharingFarmersCount: bookings.length,
+                vehicleId: vehicle.id,
+                pickupLocation: bookings[0].pickupLocation,
+                destinationMarket: bookings[0].destinationMarket,
+                tripDate: tripDate || bookings[0].pickupDate,
+                totalCapacityKg: vehicle.capacityKg,
+                bookedWeightKg: totalWeightKg,
+                remainingCapacityKg: Math.max(0, vehicle.capacityKg - totalWeightKg),
+                totalFare,
+                compatibleCategory: bookings[0].cropCategory || "general",
                 status: "confirmed"
-            });
-        }
+            }, { transaction: t });
+
+            await vehicle.update({ isAvailable: false, status: "busy" }, { transaction: t });
+
+            for (const b of bookings) {
+                const alloc = allocations.find((a) => a.id === b.id);
+                const share = alloc ? alloc.sharedCost : Math.round(totalFare * (b.weightKg / totalWeightKg));
+                await b.update({
+                    sharedTripId: trip.id,
+                    vehicleId: vehicle.id,
+                    transporterId: req.user.id,
+                    driverName: vehicle.driverName,
+                    driverPhone: vehicle.driverPhone,
+                    vehicleType: vehicle.vehicleType,
+                    vehicleNumber: vehicle.registrationNumber,
+                    estimatedSharedCost: share,
+                    bookingType: "shared",
+                    sharingFarmersCount: bookings.length,
+                    status: "confirmed"
+                }, { transaction: t });
+            }
+
+            return trip;
+        });
 
         return res.status(201).json({
             success: true,
@@ -1130,8 +1332,12 @@ router.get("/active-trip", requireRole("transporter"), async (req, res) => {
         const activeTrip = await TransportRequest.findOne({
             where: {
                 ...transporterWhere,
-                status: { [Op.in]: ["accepted", "driver_assigned", "in_transit"] }
+                status: { [Op.in]: ["accepted", "driver_assigned", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit", "arrived_destination"] }
             },
+            include: [
+                { model: Vehicle, required: false },
+                { model: SharedTrip, required: false, include: [{ model: TransportRequest, as: "Bookings", required: false }] }
+            ],
             order: [["updatedAt", "DESC"]]
         });
         return res.json({
@@ -1148,46 +1354,299 @@ router.get("/active-trip", requireRole("transporter"), async (req, res) => {
 router.get("/transporter-stats", requireRole("transporter"), async (req, res) => {
     try {
         const transporterWhere = await getTransporterWhereCondition(req.user);
+        const todayStr = new Date().toISOString().slice(0, 10);
+
         const completedTrips = await TransportRequest.findAll({
             where: {
                 ...transporterWhere,
-                status: { [Op.in]: ["delivered", "completed"] }
+                status: { [Op.in]: ["delivered", "delivery_confirmed", "completed"] }
             }
         });
         const activeTrips = await TransportRequest.findAll({
             where: {
                 ...transporterWhere,
-                status: { [Op.in]: ["accepted", "driver_assigned", "in_transit"] }
+                status: { [Op.in]: ["accepted", "driver_assigned", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit", "arrived_destination"] }
             }
+        });
+
+        const newEligibleRequestsCount = await TransportRequest.count({
+            where: {
+                status: { [Op.in]: ["open", "pending"] },
+                [Op.or]: [{ transporterId: null }, { transporterId: req.user.id }]
+            }
+        });
+
+        const tripsAwaitingAssignmentCount = await TransportRequest.count({
+            where: {
+                transporterId: req.user.id,
+                status: { [Op.in]: ["accepted", "confirmed"] },
+                vehicleId: null
+            }
+        });
+
+        const todayPickupsCount = await TransportRequest.count({
+            where: {
+                transporterId: req.user.id,
+                pickupDate: todayStr,
+                status: { [Op.notIn]: ["delivered", "delivery_confirmed", "completed", "cancelled", "rejected"] }
+            }
+        });
+
+        const myVehicles = await Vehicle.findAll({
+            where: { userId: req.user.id }
         });
 
         const totalTripsCompleted = completedTrips.length;
         const activeTripsCount = activeTrips.length;
-        const totalCargoDeliveredKg = completedTrips.reduce((acc, r) => acc + (r.weightKg || 0), 0);
-        const totalEarnings = completedTrips.reduce((acc, r) => acc + (r.estimatedSharedCost || 0), 0);
+        const totalCargoDeliveredKg = completedTrips.reduce((acc, r) => acc + (r.deliveredQuantity || r.weightKg || 0), 0);
+        const totalEarnings = completedTrips.reduce((acc, r) => acc + (r.finalCost || r.estimatedSharedCost || 0), 0);
+
+        // Strict financial separation (Phase 3 & 13)
+        const confirmedFreightEarnings = completedTrips
+            .filter((r) => r.paymentStatus === "paid")
+            .reduce((acc, r) => acc + (r.finalCost || r.estimatedSharedCost || 0), 0);
+        const completedTripTotals = totalEarnings;
+        const pendingFreightEarnings = activeTrips
+            .reduce((acc, r) => acc + (r.finalCost || r.estimatedSharedCost || 0), 0);
+        const escrowLockedEarnings = activeTrips
+            .filter((r) => r.paymentStatus === "in_escrow" || (r.escrowAmount && r.escrowAmount > 0))
+            .reduce((acc, r) => acc + (r.escrowAmount || r.estimatedSharedCost || 0), 0);
 
         const transporterId = req.user.id;
         const transporterProfile = await TransporterProfile.findOne({ where: { userId: transporterId } });
+
+        const registeredVehiclesCount = myVehicles.length;
+        const availableVehiclesCount = myVehicles.filter((v) => v.isAvailable !== false && v.status !== "busy").length;
 
         return res.json({
             success: true,
             data: {
                 totalTripsCompleted,
+                deliveriesCompletedCount: totalTripsCompleted,
                 activeTripsCount,
+                newEligibleRequestsCount,
+                tripsAwaitingAssignmentCount,
+                todayPickupsCount,
+                registeredVehiclesCount,
+                availableVehiclesCount,
                 totalCargoDeliveredKg,
                 totalEarnings,
-                vehicleType: transporterProfile?.vehicleType || "Mahindra Bolero Maxi Truck",
-                vehicleNumber: transporterProfile?.vehicleNumber || "MH-12-RN-4921",
-                capacityKg: transporterProfile?.capacityKg || 2200,
+                confirmedFreightEarnings,
+                completedTripTotals,
+                pendingFreightEarnings,
+                escrowLockedEarnings,
+                vehicleType: transporterProfile?.vehicleType || (myVehicles[0]?.vehicleType || "Mahindra Bolero Maxi Truck"),
+                vehicleNumber: transporterProfile?.vehicleNumber || (myVehicles[0]?.registrationNumber || "MH-12-RN-4921"),
+                capacityKg: transporterProfile?.capacityKg || (myVehicles[0]?.capacityKg || 2200),
                 rating: Number(transporterProfile?.rating || 4.8),
                 totalRatings: Number(transporterProfile?.totalRatings || 1),
-                isAvailable: activeTripsCount === 0,
+                isAvailable: availableVehiclesCount > 0 || (activeTripsCount === 0),
                 activeTrip: activeTrips[0] || null
             }
         });
     } catch (error) {
         console.error("Transporter stats error:", error.message);
         return res.status(500).json({ success: false, message: "Failed to load transporter stats" });
+    }
+});
+
+/**
+ * GET /api/transport/trip-history
+ * Transporter audit trail of completed and cancelled trips with filters
+ */
+router.get("/trip-history", requireRole("transporter", "admin"), async (req, res) => {
+    try {
+        await ensureTransportSchema();
+        const { startDate, endDate, status, vehicleId, destination } = req.query;
+        const where = {
+            transporterId: req.user.id
+        };
+
+        if (status && status !== "all") {
+            where.status = status;
+        } else {
+            where.status = { [Op.in]: ["delivered", "delivery_confirmed", "completed", "cancelled"] };
+        }
+
+        if (vehicleId && vehicleId !== "all") {
+            where.vehicleId = Number(vehicleId);
+        }
+
+        if (destination) {
+            where.destinationMarket = { [Op.like]: `%${destination.trim()}%` };
+        }
+
+        if (startDate && endDate) {
+            where.pickupDate = { [Op.between]: [startDate, endDate] };
+        } else if (startDate) {
+            where.pickupDate = { [Op.gte]: startDate };
+        } else if (endDate) {
+            where.pickupDate = { [Op.lte]: endDate };
+        }
+
+        const trips = await TransportRequest.findAll({
+            where,
+            include: [
+                { model: Vehicle, required: false },
+                { model: SharedTrip, required: false, include: [{ model: TransportRequest, as: "Bookings", required: false }] }
+            ],
+            order: [["updatedAt", "DESC"]],
+            limit: 200
+        });
+
+        const completedTrips = trips.filter((t) => ["delivered", "delivery_confirmed", "completed"].includes(t.status));
+        const cancelledTrips = trips.filter((t) => t.status === "cancelled");
+        const confirmedFreight = completedTrips
+            .filter((t) => t.paymentStatus === "paid")
+            .reduce((sum, t) => sum + (t.finalCost || t.estimatedSharedCost || 0), 0);
+        const pendingSettlement = completedTrips
+            .filter((t) => t.paymentStatus !== "paid")
+            .reduce((sum, t) => sum + (t.finalCost || t.estimatedSharedCost || 0), 0);
+        const totalCargoDeliveredKg = completedTrips.reduce((sum, t) => sum + (t.deliveredQuantity || t.weightKg || 0), 0);
+
+        return res.json({
+            success: true,
+            count: trips.length,
+            summary: {
+                completedCount: completedTrips.length,
+                cancelledCount: cancelledTrips.length,
+                confirmedFreight,
+                pendingSettlement,
+                totalCargoDeliveredKg
+            },
+            data: trips
+        });
+    } catch (error) {
+        console.error("Trip history error:", error.message);
+        return res.status(500).json({ success: false, message: "Failed to load trip history" });
+    }
+});
+
+/**
+ * PUT /api/transport/requests/:id/pickup
+ * PUT /api/transport/bookings/:id/pickup
+ * Transporter records actual consignment pickup time, quantity loaded, and notes
+ */
+router.put(["/requests/:id/pickup", "/bookings/:id/pickup"], requireRole("transporter", "admin"), async (req, res) => {
+    try {
+        await ensureTransportSchema();
+        const booking = await TransportRequest.findByPk(req.params.id);
+        if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
+
+        if (req.user.role !== "admin" && Number(booking.transporterId) !== Number(req.user.id)) {
+            return res.status(403).json({ success: false, message: "Not your trip." });
+        }
+
+        const allowedStates = ["accepted", "driver_assigned", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "confirmed"];
+        if (!allowedStates.includes(booking.status)) {
+            return res.status(400).json({ success: false, message: `Cannot confirm pickup from current status '${booking.status}'.` });
+        }
+
+        const actualPickupTime = req.body.actualPickupTime ? new Date(req.body.actualPickupTime) : new Date();
+        const loadedQuantity = req.body.loadedQuantity !== undefined ? Number(req.body.loadedQuantity) : booking.weightKg;
+        const pickupNotes = req.body.pickupNotes ? String(req.body.pickupNotes).trim() : (req.body.notes ? String(req.body.notes).trim() : null);
+
+        let history = [];
+        try { history = JSON.parse(booking.statusHistory || "[]"); } catch (_) {}
+        history.push({
+            from: booking.status,
+            to: "pickup_confirmed",
+            timestamp: new Date().toISOString(),
+            userId: req.user.id,
+            notes: pickupNotes
+        });
+
+        await booking.update({
+            status: "pickup_confirmed",
+            actualPickupTime,
+            loadedQuantity,
+            pickupNotes,
+            statusHistory: JSON.stringify(history)
+        });
+
+        return res.json({
+            success: true,
+            data: booking,
+            message: `Pickup confirmed for ${booking.farmerName} (${loadedQuantity} kg ${booking.cropName}).`
+        });
+    } catch (error) {
+        console.error("Pickup confirmation error:", error.message);
+        return res.status(500).json({ success: false, message: "Failed to record pickup confirmation" });
+    }
+});
+
+/**
+ * PUT /api/transport/requests/:id/delivery
+ * PUT /api/transport/bookings/:id/delivery
+ * Transporter records actual arrival at destination and delivery confirmation
+ */
+router.put(["/requests/:id/delivery", "/bookings/:id/delivery"], requireRole("transporter", "admin"), async (req, res) => {
+    try {
+        await ensureTransportSchema();
+        const booking = await TransportRequest.findByPk(req.params.id);
+        if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
+
+        if (req.user.role !== "admin" && Number(booking.transporterId) !== Number(req.user.id)) {
+            return res.status(403).json({ success: false, message: "Not your trip." });
+        }
+
+        const allowedStates = ["in_transit", "arrived_destination", "pickup_confirmed", "delivered"];
+        if (!allowedStates.includes(booking.status)) {
+            return res.status(400).json({ success: false, message: `Cannot confirm delivery from current status '${booking.status}'. Must be in transit or arrived.` });
+        }
+
+        const actualDeliveryTime = req.body.actualDeliveryTime ? new Date(req.body.actualDeliveryTime) : new Date();
+        const deliveredQuantity = req.body.deliveredQuantity !== undefined ? Number(req.body.deliveredQuantity) : (booking.loadedQuantity || booking.weightKg);
+        const deliveryNotes = req.body.deliveryNotes ? String(req.body.deliveryNotes).trim() : (req.body.notes ? String(req.body.notes).trim() : null);
+
+        let history = [];
+        try { history = JSON.parse(booking.statusHistory || "[]"); } catch (_) {}
+        history.push({
+            from: booking.status,
+            to: "delivered",
+            timestamp: new Date().toISOString(),
+            userId: req.user.id,
+            notes: deliveryNotes
+        });
+
+        await booking.update({
+            status: "delivered",
+            actualDeliveryTime,
+            deliveredQuantity,
+            deliveryNotes,
+            statusHistory: JSON.stringify(history)
+        });
+
+        // If part of a shared trip, check if all sibling consignments are delivered
+        if (booking.sharedTripId) {
+            const undelivered = await TransportRequest.count({
+                where: {
+                    sharedTripId: booking.sharedTripId,
+                    status: { [Op.notIn]: ["delivered", "delivery_confirmed", "completed", "cancelled"] }
+                }
+            });
+            if (undelivered === 0) {
+                await SharedTrip.update({ status: "delivered" }, { where: { id: booking.sharedTripId } });
+                await TransporterProfile.update({ isAvailable: true }, { where: { userId: booking.transporterId } }).catch(() => {});
+                if (booking.vehicleId) {
+                    await Vehicle.update({ isAvailable: true, status: "available" }, { where: { id: booking.vehicleId } }).catch(() => {});
+                }
+            }
+        } else {
+            await TransporterProfile.update({ isAvailable: true }, { where: { userId: booking.transporterId } }).catch(() => {});
+            if (booking.vehicleId) {
+                await Vehicle.update({ isAvailable: true, status: "available" }, { where: { id: booking.vehicleId } }).catch(() => {});
+            }
+        }
+
+        return res.json({
+            success: true,
+            data: booking,
+            message: `Delivery recorded at ${booking.destinationMarket} for ${booking.farmerName} (${deliveredQuantity} kg).`
+        });
+    } catch (error) {
+        console.error("Delivery confirmation error:", error.message);
+        return res.status(500).json({ success: false, message: "Failed to record delivery confirmation" });
     }
 });
 
@@ -1307,10 +1766,14 @@ router.put("/requests/:id/progress", requireRole("transporter"), async (req, res
         const nextStatus = req.body.nextStatus || req.body.status;
         const current = request.status;
         const validTransitions = {
-            accepted: ["in_transit"],
-            driver_assigned: ["in_transit"],
-            in_transit: ["delivered", "completed"],
-            delivered: ["completed"]
+            accepted: ["vehicle_assigned", "driver_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit", "cancelled", "rejected"],
+            driver_assigned: ["vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit", "cancelled"],
+            vehicle_assigned: ["awaiting_pickup", "pickup_confirmed", "in_transit", "cancelled"],
+            awaiting_pickup: ["pickup_confirmed", "in_transit", "delayed", "cancelled"],
+            pickup_confirmed: ["in_transit", "delayed", "cancelled"],
+            in_transit: ["arrived_destination", "delivered", "delivery_confirmed", "completed", "delayed"],
+            arrived_destination: ["delivered", "delivery_confirmed", "completed"],
+            delivered: ["completed", "delivery_confirmed"]
         };
 
         if (!nextStatus || !validTransitions[current] || !validTransitions[current].includes(nextStatus)) {
