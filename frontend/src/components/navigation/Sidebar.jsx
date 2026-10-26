@@ -32,11 +32,11 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
   const { user, isAuthenticated, logout } = useAuth();
   const { isDark } = useTheme();
 
-  const displayName = user?.name || 'Prashant Warule';
   const isMandi = user?.role === 'mandi';
   const isAdmin = user?.role === 'admin';
   const isTransporter = user?.role === 'transporter';
   const isFpo = user?.role === 'fpo_leader' || user?.role === 'fpo';
+  const displayName = user?.name || (isAdmin ? 'Admin' : isMandi ? 'Mandi Official' : isTransporter ? 'Transporter' : isFpo ? 'FPO Leader' : 'Farmer');
 
   const roleName =
     isAdmin

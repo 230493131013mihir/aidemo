@@ -44,6 +44,60 @@ const STANDARD_CROPS = [
   'Groundnut', 'Mustard', 'Other'
 ];
 
+export function normalizeRole(r) {
+  if (!r) return 'farmer';
+  const s = String(r).toLowerCase().trim();
+  if (s === 'farmer') return 'farmer';
+  if (s === 'transporter' || s === 'driver') return 'transporter';
+  if (s === 'mandi' || s === 'apmc') return 'mandi';
+  if (s === 'fpo_leader' || s === 'fpo' || s === 'fpo leader') return 'fpo_leader';
+  if (s === 'admin' || s === 'administrator') return 'admin';
+  return 'farmer';
+}
+
+export function getDashboardRouteForRole(normalizedRole) {
+  switch (normalizedRole) {
+    case 'admin':
+      return '/admin';
+    case 'fpo_leader':
+      return '/fpo';
+    case 'transporter':
+      return '/transport';
+    case 'mandi':
+      return '/dashboard'; // Dedicated Mandi Portal
+    case 'farmer':
+    default:
+      return '/dashboard'; // Dedicated Farmer Analytics & Harvest Portal
+  }
+}
+
+export function isPathAllowedForRole(pathname, normalizedRole) {
+  if (!pathname || pathname === '/' || pathname === '/login' || pathname === '/register') return false;
+  
+  const SHARED_PATHS = ['/markets', '/prices', '/weather', '/chat', '/assistant', '/profile', '/schemes', '/farmer/schemes'];
+  if (SHARED_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))) return true;
+
+  if (normalizedRole === 'admin') return true;
+
+  if (normalizedRole === 'farmer') {
+    return pathname === '/dashboard' || pathname.startsWith('/harvest') || pathname.startsWith('/simulator');
+  }
+
+  if (normalizedRole === 'transporter') {
+    return pathname === '/transport' || pathname === '/dashboard';
+  }
+
+  if (normalizedRole === 'mandi') {
+    return pathname === '/dashboard';
+  }
+
+  if (normalizedRole === 'fpo_leader') {
+    return pathname.startsWith('/fpo') || pathname === '/dashboard';
+  }
+
+  return false;
+}
+
 export default function AuthPage({ mode = 'login' }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -159,6 +213,7 @@ export default function AuthPage({ mode = 'login' }) {
   }
 
   async function handleVerifyOtp() {
+    if (loading) return;
     setError('');
     const cleanPhone = otpPhone.replace(/\D/g, '').slice(-10);
     if (!otpCode || otpCode.trim().length < 4) {
@@ -179,20 +234,16 @@ export default function AuthPage({ mode = 'login' }) {
         agristackId: otpAgristackId.trim()
       });
 
+      const actualRole = normalizeRole(loggedUser?.role);
+
       showToast({
         type: 'celebrate',
         title: '🌾 Verification Complete!',
-        message: `Welcome, ${loggedUser?.name || 'Farmer'}! Logging into HarvestMitra...`,
+        message: `Welcome, ${loggedUser?.name || 'User'}! Logging into HarvestMitra...`,
         duration: 2500
       });
 
-      const userRole = loggedUser?.role || role;
-      if (userRole === 'admin') navigate('/admin');
-      else if (userRole === 'transporter') navigate('/transport');
-      else if (userRole === 'fpo_leader' || userRole === 'fpo') navigate('/fpo');
-      else if (userRole === 'mandi') navigate('/dashboard');
-      else navigate('/dashboard');
-
+      navigate(getDashboardRouteForRole(actualRole), { replace: true });
     } catch (err) {
       setError(err.message || 'Verification failed. Please check your code.');
       showToast({ type: 'error', title: 'Verification Error', message: err.message });
@@ -202,6 +253,7 @@ export default function AuthPage({ mode = 'login' }) {
   }
 
   async function handleWhatsAppQuickLogin() {
+    if (loading) return;
     setError('');
     const cleanPhone = otpPhone.replace(/\D/g, '').slice(-10);
     if (!cleanPhone || cleanPhone.length !== 10) {
@@ -222,20 +274,16 @@ export default function AuthPage({ mode = 'login' }) {
         agristackId: otpAgristackId.trim()
       });
 
+      const actualRole = normalizeRole(loggedUser?.role);
+
       showToast({
         type: 'celebrate',
         title: '🟢 1-Click WhatsApp Verified!',
-        message: `Welcome, ${loggedUser?.name || 'Farmer'}! Verified via WhatsApp handshake.`,
+        message: `Welcome, ${loggedUser?.name || 'User'}! Verified via WhatsApp handshake.`,
         duration: 2500
       });
 
-      const userRole = loggedUser?.role || role;
-      if (userRole === 'admin') navigate('/admin');
-      else if (userRole === 'transporter') navigate('/transport');
-      else if (userRole === 'fpo_leader' || userRole === 'fpo') navigate('/fpo');
-      else if (userRole === 'mandi') navigate('/dashboard');
-      else navigate('/dashboard');
-
+      navigate(getDashboardRouteForRole(actualRole), { replace: true });
     } catch (err) {
       setError(err.message || 'WhatsApp authentication failed.');
       showToast({ type: 'error', title: 'WhatsApp Error', message: err.message });
@@ -416,7 +464,8 @@ export default function AuthPage({ mode = 'login' }) {
   }
 
   async function submit(event) {
-    event.preventDefault();
+    if (event && event.preventDefault) event.preventDefault();
+    if (loading) return;
     setError('');
     setSuccess('');
 
@@ -484,33 +533,24 @@ export default function AuthPage({ mode = 'login' }) {
           facilities: form.facilities
         });
 
+        const registeredRole = normalizeRole(payload.role || role);
         const msg = payload.message || 'Account registered successfully! Entering your dashboard...';
         setSuccess(msg);
 
         showToast({
           type: 'celebrate',
           title: '🙏 Registration Complete!',
-          message: `Welcome, ${form.name.trim()}! Your ${role === 'mandi' ? 'Mandi Official' : role === 'transporter' ? 'Transporter' : 'Farmer'} profile is active. Opening dashboard...`,
+          message: `Welcome, ${form.name.trim()}! Your profile is active. Opening dashboard...`,
           duration: 3000,
         });
 
-        // Role-based redirect after registration
-        if (role === 'admin') {
-          navigate('/admin');
-        } else if (role === 'transporter') {
-          navigate('/transport');
-        } else if (role === 'fpo_leader' || role === 'fpo') {
-          navigate('/fpo');
-        } else if (role === 'mandi') {
-          navigate('/dashboard');
-        } else {
-          navigate('/dashboard');
-        }
+        navigate(getDashboardRouteForRole(registeredRole), { replace: true });
       } else {
         // INSTANT LOGIN REDIRECT (Requirement 5: No delay, no countdown, immediate redirect)
         const loggedUser = await login(form.email.trim(), form.password);
+        const actualRole = normalizeRole(loggedUser?.role);
 
-        if (role === 'admin' && loggedUser?.role !== 'admin') {
+        if (role === 'admin' && actualRole !== 'admin') {
           throw new Error('Access denied: Account is not an APMC administrator.');
         }
 
@@ -522,23 +562,18 @@ export default function AuthPage({ mode = 'login' }) {
         });
 
         const fromPath = location.state?.from?.pathname;
-        if (fromPath && fromPath !== '/' && fromPath !== '/login') {
-          navigate(fromPath, { replace: true });
+        if (fromPath && isPathAllowedForRole(fromPath, actualRole)) {
+          // If a farmer previously navigated to /transport, default them to farmer dashboard
+          if (actualRole === 'farmer' && fromPath === '/transport') {
+            navigate('/dashboard', { replace: true });
+          } else {
+            navigate(fromPath, { replace: true });
+          }
           return;
         }
 
-        const userRole = loggedUser?.role || role;
-        if (userRole === 'admin') {
-          navigate('/admin');
-        } else if (userRole === 'transporter') {
-          navigate('/transport');
-        } else if (userRole === 'fpo_leader' || userRole === 'fpo') {
-          navigate('/fpo');
-        } else if (userRole === 'mandi') {
-          navigate('/dashboard');
-        } else {
-          navigate('/dashboard');
-        }
+        // Direct strictly to role-specific dashboard based on verified backend role
+        navigate(getDashboardRouteForRole(actualRole), { replace: true });
       }
     } catch (err) {
       setError(err.message || 'Authentication failed. Please verify your credentials.');
@@ -554,17 +589,8 @@ export default function AuthPage({ mode = 'login' }) {
 
   function handleModalProceed() {
     setModalState((prev) => ({ ...prev, isOpen: false }));
-    if (role === 'admin') {
-      navigate('/admin');
-    } else if (role === 'transporter') {
-      navigate('/transport');
-    } else if (role === 'fpo_leader' || role === 'fpo') {
-      navigate('/fpo');
-    } else if (role === 'mandi') {
-      navigate('/dashboard');
-    } else {
-      navigate('/dashboard');
-    }
+    const modalRole = normalizeRole(modalState.data?.role || role);
+    navigate(getDashboardRouteForRole(modalRole), { replace: true });
   }
 
   return (
