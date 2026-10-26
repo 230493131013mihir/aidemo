@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import CropDoctorModal from '../features/CropDoctorModal';
 
 function speakAloud(text) {
@@ -29,6 +30,7 @@ export default function KisanFloatingBar() {
   const location = useLocation();
   const { showToast } = useToast();
   const { isAuthenticated } = useAuth();
+  const { t } = useLanguage?.() || { t: (_, d) => d };
 
   const [expanded, setExpanded] = useState(false);
   const [doctorModalOpen, setDoctorModalOpen] = useState(false);
@@ -180,7 +182,7 @@ export default function KisanFloatingBar() {
         >
           <Bot className="w-5 h-5 animate-pulse" />
           <span className="text-xs font-black tracking-wide hidden sm:inline">
-            {expanded ? 'Close' : 'Kisan Voice & AI'}
+            {expanded ? t('common.close', 'Close') : t('kisanVoice.launcher', 'Kisan Voice & AI')}
           </span>
           {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
         </button>
