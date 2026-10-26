@@ -404,7 +404,7 @@ const login = async (req, res) => {
         }
 
         // If user is not found, check if this is the standard demo, mandi, or admin account needing initialization
-        if (!user && (identifier === "admin@harvestmitra.local" || identifier === "demo@harvestmitra.local" || identifier === "mandi@harvestmitra.local")) {
+        if (!user && (identifier === "admin@harvestmitra.local" || identifier === "demo@harvestmitra.local" || identifier === "mandi@harvestmitra.local" || identifier.startsWith("prashant") || identifier.startsWith("admin"))) {
             try {
                 const seed = require("../seed");
                 if (typeof seed === "function") await seed();

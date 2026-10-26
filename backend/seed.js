@@ -128,6 +128,23 @@ async function seed() {
         defaults: { userId: adminUser.id, displayName: adminUser.name }
     });
 
+    // Seed College Evaluation Admin Account (Prashant)
+    const evalDemoPassword = await bcrypt.hash("123456", 10);
+    const [prashantUser] = await User.findOrCreate({
+        where: { email: "prashant@harvestmitra.local" },
+        defaults: {
+            name: "Prashant",
+            email: "prashant@harvestmitra.local",
+            phone: "9822100004",
+            password: evalDemoPassword,
+            role: "admin"
+        }
+    });
+    await AdminUser.findOrCreate({
+        where: { userId: prashantUser.id },
+        defaults: { userId: prashantUser.id, displayName: "Prashant (Admin)" }
+    });
+
     const cropsToSeed = [
         { nameEn: "Tomato", nameGu: "ટામેટા", nameHi: "टमाटर", category: "vegetable", shelfLifeDays: 5 },
         { nameEn: "Onion", nameGu: "ડુંગળી", nameHi: "प्याज", category: "vegetable", shelfLifeDays: 30 },
