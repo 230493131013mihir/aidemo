@@ -12,7 +12,6 @@ import {
   UserPlus,
   Shield,
   Building2,
-  Sparkles,
   Layers,
   Scale,
   ArrowLeft,
@@ -25,8 +24,7 @@ import {
   Award,
   RefreshCw,
   Send,
-  ShieldCheck,
-  Store
+  ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -49,7 +47,7 @@ const STANDARD_CROPS = [
 export default function AuthPage({ mode = 'login' }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, register, demoLogin, sendOtp, loginWithOtp, loginWithWhatsApp } = useAuth();
+  const { login, register, sendOtp, loginWithOtp, loginWithWhatsApp } = useAuth();
   const { showToast } = useToast();
   const isRegister = mode === 'register';
 
@@ -59,7 +57,7 @@ export default function AuthPage({ mode = 'login' }) {
   // Authentication Mode: 'otp' (Farmer-First Passwordless) vs 'password' (Admin & Standard)
   const [authMethod, setAuthMethod] = useState(isRegister ? 'password' : 'otp');
   const [otpStep, setOtpStep] = useState('phone'); // 'phone' | 'verify'
-  const [otpPhone, setOtpPhone] = useState('9822012345');
+  const [otpPhone, setOtpPhone] = useState('');
   const [otpName, setOtpName] = useState('');
   const [otpAgristackId, setOtpAgristackId] = useState('');
   const [otpCode, setOtpCode] = useState('');
@@ -246,45 +244,7 @@ export default function AuthPage({ mode = 'login' }) {
     }
   }
 
-  async function handleQuickDemoFarmerLogin() {
-    setError('');
-    setLoading(true);
-    try {
-      await demoLogin('farmer');
-      showToast({
-        type: 'celebrate',
-        title: '🌾 Instant Farmer Access!',
-        message: 'Welcome Mihir Jadav! Logged in as Demo Farmer with 4.5 acres in Pune.',
-        duration: 2500
-      });
-      navigate('/dashboard');
-    } catch (err) {
-      setError(err.message || 'Demo login failed');
-      showToast({ type: 'error', title: 'Demo Login Error', message: err.message });
-    } finally {
-      setLoading(false);
-    }
-  }
 
-  async function handleQuickDemoMandiLogin() {
-    setError('');
-    setLoading(true);
-    try {
-      await demoLogin('mandi');
-      showToast({
-        type: 'celebrate',
-        title: '🏪 APMC Mandi Access Granted!',
-        message: 'Welcome Sayali Kulkarni! Logged in as Mandi Official for Pune APMC.',
-        duration: 2500
-      });
-      navigate('/dashboard');
-    } catch (err) {
-      setError(err.message || 'Mandi demo login failed');
-      showToast({ type: 'error', title: 'Demo Login Error', message: err.message });
-    } finally {
-      setLoading(false);
-    }
-  }
 
   function updateField(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -598,6 +558,8 @@ export default function AuthPage({ mode = 'login' }) {
       navigate('/admin');
     } else if (role === 'transporter') {
       navigate('/transport');
+    } else if (role === 'fpo_leader' || role === 'fpo') {
+      navigate('/fpo');
     } else if (role === 'mandi') {
       navigate('/dashboard');
     } else {
@@ -754,15 +716,6 @@ export default function AuthPage({ mode = 'login' }) {
               onClick={() => {
                 setRole('farmer');
                 setError('');
-                setOtpPhone('9822012345');
-                setOtpName('Mihir Jadav');
-                setForm(prev => ({
-                  ...prev,
-                  email: 'demo@harvestmitra.local',
-                  password: 'Demo@12345',
-                  name: 'Mihir Jadav',
-                  phone: '9822012345'
-                }));
               }}
               className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 role === 'farmer'
@@ -795,15 +748,6 @@ export default function AuthPage({ mode = 'login' }) {
               onClick={() => {
                 setRole('transporter');
                 setError('');
-                setOtpPhone('9845012345');
-                setOtpName('Varun Patil');
-                setForm(prev => ({
-                  ...prev,
-                  email: 'transporter@harvestmitra.local',
-                  password: 'Transporter@12345',
-                  name: 'Varun Patil',
-                  phone: '9845012345'
-                }));
               }}
               className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 role === 'transporter'
@@ -820,18 +764,6 @@ export default function AuthPage({ mode = 'login' }) {
               onClick={() => {
                 setRole('mandi');
                 setError('');
-                setOtpPhone('9822481920');
-                setOtpName('Sayali Kulkarni');
-                setForm(prev => ({
-                  ...prev,
-                  email: 'mandi@harvestmitra.local',
-                  password: 'Demo@12345',
-                  name: 'Sayali Kulkarni',
-                  phone: '9822481920',
-                  mandiName: 'Pune APMC (Gultekdi Wholesale Mandi)',
-                  licenseNumber: 'MH-APMC-PUN-2024-8841',
-                  district: 'Pune'
-                }));
               }}
               className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 role === 'mandi'
@@ -1008,19 +940,10 @@ export default function AuthPage({ mode = 'login' }) {
                   {/* PM-KISAN / Agristack ID (Optional) */}
                   {(role === 'farmer' || role === 'fpo_leader') && (
                     <label className="block space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-1">
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>PM-KISAN / Agristack ID (Optional)</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setOtpAgristackId('PMK-MH-98201')}
-                          className="text-[10px] text-emerald-700 font-bold hover:underline cursor-pointer"
-                        >
-                          ⚡ Auto-fill PMK-MH-98201
-                        </button>
-                      </div>
+                      <span className="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>PM-KISAN / Agristack ID (Optional)</span>
+                      </span>
                       <input
                         type="text"
                         placeholder="e.g. PMK-MH-98201 or AGRI-IND-4921"
@@ -1057,59 +980,7 @@ export default function AuthPage({ mode = 'login' }) {
                     </button>
                   </div>
 
-                  {/* Quick Demo Pre-fill & 1-Click Instant Login */}
-                  <div className="pt-2 space-y-2 border-t border-slate-200">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        id="quick-demo-farmer-btn"
-                        onClick={handleQuickDemoFarmerLogin}
-                        disabled={loading}
-                        className="w-full py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                        <span>🌾 Demo Farmer (Mihir)</span>
-                      </button>
 
-                      <button
-                        type="button"
-                        id="quick-demo-mandi-btn"
-                        onClick={handleQuickDemoMandiLogin}
-                        disabled={loading}
-                        className="w-full py-2.5 px-3 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-300 text-orange-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                      >
-                        <Store className="w-3.5 h-3.5 text-orange-600" />
-                        <span>🏪 Demo Mandi (Pune APMC)</span>
-                      </button>
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-center gap-3 pt-1 text-center">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOtpPhone('9822012345');
-                          setOtpName('Ramesh Patil');
-                          setOtpAgristackId('PMK-MH-98201');
-                          setRole('farmer');
-                        }}
-                        className="text-[11px] text-slate-500 hover:text-primary font-semibold underline cursor-pointer"
-                      >
-                        ⚡ Fill Farmer (+91 9822012345)
-                      </button>
-                      <span className="text-slate-300">•</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOtpPhone('9822481920');
-                          setOtpName('Sayali Kulkarni');
-                          setRole('mandi');
-                        }}
-                        className="text-[11px] text-orange-600 hover:underline font-semibold cursor-pointer"
-                      >
-                        ⚡ Fill Mandi Officer (+91 9822481920)
-                      </button>
-                    </div>
-                  </div>
                 </div>
               ) : (
                 /* OTP Verification Step */
@@ -1128,19 +999,12 @@ export default function AuthPage({ mode = 'login' }) {
                     </button>
                   </div>
 
-                  {/* Dev OTP Helper Badge */}
+                  {/* Verification Code Sent Confirmation */}
                   {devOtp && (
-                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs flex items-center justify-between">
-                      <span className="text-[11px] text-amber-900 font-semibold">
-                        Demo Code: <span className="font-mono font-bold text-amber-950">{devOtp}</span>
+                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs flex items-center justify-between">
+                      <span className="text-[11px] text-emerald-900 font-semibold">
+                        Verification Code: <span className="font-mono font-bold text-emerald-950">{devOtp}</span>
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setOtpCode(devOtp)}
-                        className="px-2 py-0.5 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold cursor-pointer"
-                      >
-                        Auto-Fill
-                      </button>
                     </div>
                   )}
 
@@ -1191,27 +1055,8 @@ export default function AuthPage({ mode = 'login' }) {
               {/* Registration Specific Fields */}
               {isRegister && (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between pb-1">
+                  <div className="pb-1">
                     <span className="text-xs font-bold text-text">Account Information</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const unique = Math.floor(1000 + Math.random() * 9000);
-                        updateField('name', 'Ramesh Patil');
-                        updateField('phone', `982200${unique}`);
-                        updateField('email', `farmer_${unique}@harvestmitra.local`);
-                        updateField('password', 'Farmer@123');
-                        updateField('district', 'Pune');
-                        updateField('village', 'Haveli');
-                        updateField('farmSizeAcres', '4.5');
-                        updateField('currentHarvestKg', '500');
-                        setError('');
-                      }}
-                      className="text-[11px] text-emerald-700 font-bold hover:underline cursor-pointer flex items-center gap-1"
-                    >
-                      <Sparkles className="w-3 h-3 text-amber-500" />
-                      <span>⚡ Auto-Fill Sample Details</span>
-                    </button>
                   </div>
                   <label className="block space-y-1">
                     <span className="text-xs font-semibold text-muted uppercase tracking-wider">
@@ -1702,56 +1547,7 @@ export default function AuthPage({ mode = 'login' }) {
                 </div>
               )}
 
-              {/* 1-Click Presentation Demo Credentials Helpers */}
-              {!isRegister && (
-                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border border-emerald-200 text-xs flex items-center justify-between gap-3 shadow-xs">
-                  <div className="min-w-0">
-                    <p className="font-bold text-slate-900 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>
-                        {role === 'admin'
-                          ? 'APMC Master Admin Demo'
-                          : role === 'transporter'
-                          ? 'Verified Transporter Fleet Demo'
-                          : role === 'mandi'
-                          ? 'APMC Mandi Secretary Demo'
-                          : 'Maharashtra Farmer Demo'}
-                      </span>
-                    </p>
-                    <p className="text-[11px] text-slate-600 font-mono mt-0.5 truncate">
-                      {role === 'admin'
-                        ? 'admin@harvestmitra.local • Admin@12345'
-                        : role === 'transporter'
-                        ? 'transporter@harvestmitra.local • Transporter@12345'
-                        : role === 'mandi'
-                        ? 'mandi@harvestmitra.local • Demo@12345'
-                        : 'demo@harvestmitra.local • Demo@12345'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (role === 'admin') {
-                        updateField('email', 'admin@harvestmitra.local');
-                        updateField('password', 'Admin@12345');
-                      } else if (role === 'transporter') {
-                        updateField('email', 'transporter@harvestmitra.local');
-                        updateField('password', 'Transporter@12345');
-                      } else if (role === 'mandi') {
-                        updateField('email', 'mandi@harvestmitra.local');
-                        updateField('password', 'Demo@12345');
-                      } else {
-                        updateField('email', 'demo@harvestmitra.local');
-                        updateField('password', 'Demo@12345');
-                      }
-                      setError('');
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-hover active:scale-95 text-white font-bold text-xs shadow-xs transition-all shrink-0 cursor-pointer flex items-center gap-1"
-                  >
-                    <span>⚡ Quick Fill</span>
-                  </button>
-                </div>
-              )}
+
 
               {/* Email / Identifier Field */}
               <label className="block space-y-1">
