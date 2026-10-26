@@ -5,8 +5,34 @@ require("dotenv").config();
 
 const dialect = process.env.DB_DIALECT || (process.env.DB_PASSWORD ? "mysql" : "sqlite");
 
-let sequelize;
-if (dialect === "sqlite") {
+const dbUrl = process.env.DATABASE_URL || process.env.MYSQL_URL;
+const isCloudHost = process.env.DB_HOST && (
+    process.env.DB_HOST.includes("aivencloud.com") ||
+    process.env.DB_HOST.includes("render.com") ||
+    process.env.DB_HOST.includes("aws") ||
+    process.env.DB_SSL === "true" ||
+    process.env.DB_SSL === "REQUIRED"
+);
+
+const dialectOptions = isCloudHost ? {
+    ssl: {
+        require: true,
+        rejectUnauthorized: false
+    }
+} : {};
+
+if (dbUrl) {
+    sequelize = new Sequelize(dbUrl, {
+        dialect: "mysql",
+        logging: false,
+        dialectOptions: dbUrl.includes("ssl-mode=REQUIRED") || dbUrl.includes("aiven") || process.env.DB_SSL === "true" ? {
+            ssl: {
+                require: true,
+                rejectUnauthorized: false
+            }
+        } : dialectOptions
+    });
+} else if (dialect === "sqlite") {
     const storagePath = process.env.DB_STORAGE || path.resolve(__dirname, "../harvestmitra.sqlite");
     sequelize = new Sequelize({
         dialect: "sqlite",
@@ -22,7 +48,8 @@ if (dialect === "sqlite") {
             host: process.env.DB_HOST || "localhost",
             port: process.env.DB_PORT || 3306,
             dialect: "mysql",
-            logging: false
+            logging: false,
+            dialectOptions
         }
     );
 }

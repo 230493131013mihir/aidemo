@@ -8,7 +8,11 @@ const DEMO_LOCATIONS = {
     mumbai: { name: "Mumbai", state: "Maharashtra", latitude: 19.076, longitude: 72.8777 },
     kolhapur: { name: "Kolhapur", state: "Maharashtra", latitude: 16.7050, longitude: 74.2433 },
     solapur: { name: "Solapur", state: "Maharashtra", latitude: 17.6599, longitude: 75.9064 },
-    ahmednagar: { name: "Ahmednagar", state: "Maharashtra", latitude: 19.0948, longitude: 74.7480 }
+    ahmednagar: { name: "Ahmednagar", state: "Maharashtra", latitude: 19.0948, longitude: 74.7480 },
+    nagpur: { name: "Nagpur", state: "Maharashtra", latitude: 21.1458, longitude: 79.0882 },
+    amravati: { name: "Amravati", state: "Maharashtra", latitude: 20.9374, longitude: 77.7796 },
+    sangli: { name: "Sangli", state: "Maharashtra", latitude: 16.8524, longitude: 74.5815 },
+    satara: { name: "Satara", state: "Maharashtra", latitude: 17.6805, longitude: 74.0183 }
 };
 
 function getWeatherCodeLabel(code) {
@@ -278,6 +282,126 @@ const DEMO_DISTRICT_WEATHER = {
       { day: 'Today', temp: 29, rainProbability: 40, condition: 'Passing Clouds' },
       { day: 'Tomorrow', temp: 29, rainProbability: 35, condition: 'Partly Cloudy' },
       { day: 'Day After', temp: 30, rainProbability: 20, condition: 'Clear' }
+    ]
+  },
+  mumbai: {
+    district: 'Mumbai',
+    state: 'Maharashtra',
+    temperature: 31,
+    humidity: 75,
+    rainProbability: 35,
+    rainfallMm: 1.0,
+    windSpeedKmh: 16,
+    condition: 'Partly Cloudy',
+    forecast: [
+      { day: 'Today', temp: 31, rainProbability: 35, condition: 'Partly Cloudy' },
+      { day: 'Tomorrow', temp: 31, rainProbability: 30, condition: 'Clear Sky' },
+      { day: 'Day After', temp: 32, rainProbability: 25, condition: 'Sunny' }
+    ]
+  },
+  kolhapur: {
+    district: 'Kolhapur',
+    state: 'Maharashtra',
+    temperature: 28,
+    humidity: 70,
+    rainProbability: 45,
+    rainfallMm: 3.0,
+    windSpeedKmh: 12,
+    condition: 'Scattered Clouds',
+    forecast: [
+      { day: 'Today', temp: 28, rainProbability: 45, condition: 'Scattered Clouds' },
+      { day: 'Tomorrow', temp: 28, rainProbability: 40, condition: 'Partly Cloudy' },
+      { day: 'Day After', temp: 29, rainProbability: 30, condition: 'Clear' }
+    ]
+  },
+  nagpur: {
+    district: 'Nagpur',
+    state: 'Maharashtra',
+    temperature: 33,
+    humidity: 50,
+    rainProbability: 20,
+    rainfallMm: 0,
+    windSpeedKmh: 10,
+    condition: 'Clear Sky',
+    forecast: [
+      { day: 'Today', temp: 33, rainProbability: 20, condition: 'Clear Sky' },
+      { day: 'Tomorrow', temp: 34, rainProbability: 20, condition: 'Sunny' },
+      { day: 'Day After', temp: 34, rainProbability: 15, condition: 'Sunny' }
+    ]
+  },
+  amravati: {
+    district: 'Amravati',
+    state: 'Maharashtra',
+    temperature: 32,
+    humidity: 52,
+    rainProbability: 25,
+    rainfallMm: 0,
+    windSpeedKmh: 11,
+    condition: 'Clear Sky',
+    forecast: [
+      { day: 'Today', temp: 32, rainProbability: 25, condition: 'Clear Sky' },
+      { day: 'Tomorrow', temp: 33, rainProbability: 20, condition: 'Sunny' },
+      { day: 'Day After', temp: 33, rainProbability: 20, condition: 'Clear' }
+    ]
+  },
+  solapur: {
+    district: 'Solapur',
+    state: 'Maharashtra',
+    temperature: 34,
+    humidity: 45,
+    rainProbability: 15,
+    rainfallMm: 0,
+    windSpeedKmh: 13,
+    condition: 'Sunny',
+    forecast: [
+      { day: 'Today', temp: 34, rainProbability: 15, condition: 'Sunny' },
+      { day: 'Tomorrow', temp: 35, rainProbability: 15, condition: 'Clear Sky' },
+      { day: 'Day After', temp: 35, rainProbability: 10, condition: 'Sunny' }
+    ]
+  },
+  ahmednagar: {
+    district: 'Ahmednagar',
+    state: 'Maharashtra',
+    temperature: 30,
+    humidity: 58,
+    rainProbability: 30,
+    rainfallMm: 0.5,
+    windSpeedKmh: 12,
+    condition: 'Partly Cloudy',
+    forecast: [
+      { day: 'Today', temp: 30, rainProbability: 30, condition: 'Partly Cloudy' },
+      { day: 'Tomorrow', temp: 30, rainProbability: 25, condition: 'Clear' },
+      { day: 'Day After', temp: 31, rainProbability: 20, condition: 'Sunny' }
+    ]
+  },
+  sangli: {
+    district: 'Sangli',
+    state: 'Maharashtra',
+    temperature: 29,
+    humidity: 65,
+    rainProbability: 35,
+    rainfallMm: 1.5,
+    windSpeedKmh: 12,
+    condition: 'Passing Clouds',
+    forecast: [
+      { day: 'Today', temp: 29, rainProbability: 35, condition: 'Passing Clouds' },
+      { day: 'Tomorrow', temp: 29, rainProbability: 30, condition: 'Partly Cloudy' },
+      { day: 'Day After', temp: 30, rainProbability: 20, condition: 'Clear' }
+    ]
+  },
+  satara: {
+    district: 'Satara',
+    state: 'Maharashtra',
+    temperature: 27,
+    humidity: 68,
+    rainProbability: 40,
+    rainfallMm: 2.0,
+    windSpeedKmh: 14,
+    condition: 'Partly Cloudy',
+    forecast: [
+      { day: 'Today', temp: 27, rainProbability: 40, condition: 'Partly Cloudy' },
+      { day: 'Tomorrow', temp: 27, rainProbability: 35, condition: 'Passing Clouds' },
+      { day: 'Day After', temp: 28, rainProbability: 25, condition: 'Clear' }
     ]
   }
 };

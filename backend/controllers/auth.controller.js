@@ -1277,21 +1277,19 @@ const verifyOtp = async (req, res) => {
                 user.setDataValue("MandiProfile", profile);
             }
         } else {
-            // Existing user - honor explicitly requested role switch
-            if (role === "mandi" || cleanPhone === "9822481920") {
-                if (user.role !== "mandi") {
-                    user.role = "mandi";
-                    await user.save();
+            // Existing user - preserve genuine database role (never overwrite role from phone or frontend tab)
+            if (user.role === "mandi") {
+                if (!user.MandiProfile) {
+                    const profile = await ensureMandiProfile(user.id, {
+                        mandiName: "Pune APMC (Gultekdi Wholesale Mandi)",
+                        licenseNumber: "MH-APMC-PUN-2024-8841",
+                        district: district || "Pune",
+                        state: "Maharashtra",
+                        phone: cleanPhone
+                    });
+                    user.MandiProfile = profile;
+                    user.setDataValue("MandiProfile", profile);
                 }
-                const profile = await ensureMandiProfile(user.id, {
-                    mandiName: "Pune APMC (Gultekdi Wholesale Mandi)",
-                    licenseNumber: "MH-APMC-PUN-2024-8841",
-                    district: district || "Pune",
-                    state: "Maharashtra",
-                    phone: cleanPhone
-                });
-                user.MandiProfile = profile;
-                user.setDataValue("MandiProfile", profile);
             } else if (user.role === "farmer" || user.role === "fpo_leader") {
                 if (!user.FarmerProfile) {
                     const prof = await ensureFarmerProfile(user.id, { district, state, roleSubtype: user.role });

@@ -48,8 +48,9 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
   const isAdmin = user?.role === 'admin';
   const isTransporter = user?.role === 'transporter';
   const isMandi = user?.role === 'mandi';
-  const userName = user?.name || (isMandi ? 'Sayali Kulkarni' : isTransporter ? 'Transporter' : 'Farmer');
-  const userRole = isAdmin ? 'Admin' : isMandi ? 'Mandi Official' : isTransporter ? 'Transporter' : 'Farmer';
+  const isFpo = user?.role === 'fpo_leader' || user?.role === 'fpo';
+  const userName = user?.name || (isAdmin ? 'Admin' : isMandi ? 'Mandi Official' : isTransporter ? 'Transporter' : isFpo ? 'FPO Leader' : 'Farmer');
+  const userRole = isAdmin ? 'Admin' : isMandi ? 'Mandi Official' : isTransporter ? 'Transporter' : isFpo ? 'FPO Leader' : 'Farmer';
 
   // Farmer procurement booking notification badge
   const [unreadBookings, setUnreadBookings] = useState(0);
