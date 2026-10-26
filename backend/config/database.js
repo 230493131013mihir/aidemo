@@ -21,6 +21,8 @@ const dialectOptions = isCloudHost ? {
     }
 } : {};
 
+let sequelize;
+
 if (dbUrl) {
     sequelize = new Sequelize(dbUrl, {
         dialect: "mysql",

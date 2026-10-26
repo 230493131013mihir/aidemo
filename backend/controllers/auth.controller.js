@@ -353,18 +353,21 @@ const login = async (req, res) => {
             });
         }
 
-        const identifier = String(email).trim();
+        const identifier = String(email).trim().toLowerCase();
         const cleanPhone = identifier.replace(/\D/g, "").slice(-10);
 
-        // Find user by either email OR 10-digit mobile number
+        const identifierFilters = [
+            { email: identifier },
+            { email: `${identifier}@harvestmitra.local` },
+            ...(cleanPhone && cleanPhone.length === 10 ? [{ phone: cleanPhone }] : [])
+        ];
+
+        // Find user by email, username alias (e.g. mihir -> mihir@harvestmitra.local), exact name, OR 10-digit mobile number
         let user = null;
         try {
             user = await User.findOne({
                 where: {
-                    [Op.or]: [
-                        { email: identifier.toLowerCase() },
-                        ...(cleanPhone && cleanPhone.length === 10 ? [{ phone: cleanPhone }] : [])
-                    ]
+                    [Op.or]: identifierFilters
                 },
                 include: [
                     { model: FarmerProfile },
@@ -385,10 +388,7 @@ const login = async (req, res) => {
                 }
                 user = await User.findOne({
                     where: {
-                        [Op.or]: [
-                            { email: identifier.toLowerCase() },
-                            ...(cleanPhone && cleanPhone.length === 10 ? [{ phone: cleanPhone }] : [])
-                        ]
+                        [Op.or]: identifierFilters
                     },
                     include: [
                         { model: FarmerProfile },
@@ -402,16 +402,13 @@ const login = async (req, res) => {
         }
 
         // If user is not found, check if this is the standard demo, mandi, or admin account needing initialization
-        if (!user && (identifier.toLowerCase() === "admin@harvestmitra.local" || identifier.toLowerCase() === "demo@harvestmitra.local" || identifier.toLowerCase() === "mandi@harvestmitra.local")) {
+        if (!user && (identifier === "admin@harvestmitra.local" || identifier === "demo@harvestmitra.local" || identifier === "mandi@harvestmitra.local")) {
             try {
                 const seed = require("../seed");
                 if (typeof seed === "function") await seed();
                 user = await User.findOne({
                     where: {
-                        [Op.or]: [
-                            { email: identifier.toLowerCase() },
-                            ...(cleanPhone && cleanPhone.length === 10 ? [{ phone: cleanPhone }] : [])
-                        ]
+                        [Op.or]: identifierFilters
                     },
                     include: [
                         { model: FarmerProfile },
@@ -427,7 +424,7 @@ const login = async (req, res) => {
         if (!user) {
             return res.status(404).json({
                 success: false,
-                message: "No account found with this email or mobile number. Please register first."
+                message: "No account found with this email, username, or mobile number. Please register first."
             });
         }
 
@@ -456,6 +453,17 @@ const login = async (req, res) => {
         }
         if (user.role === "mandi" && !user.MandiProfile) {
             user.MandiProfile = await ensureMandiProfile(user.id, { name: user.name, phone: user.phone, email: user.email });
+        }
+        if (user.role === "admin") {
+            try {
+                const AdminUser = require("../models/adminUser");
+                await AdminUser.findOrCreate({
+                    where: { userId: user.id },
+                    defaults: { userId: user.id, displayName: user.name }
+                });
+            } catch (adminErr) {
+                console.warn("Admin profile auto-check:", adminErr.message);
+            }
         }
 
         const token = jwt.sign(

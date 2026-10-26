@@ -869,6 +869,96 @@ export default function AuthPage({ mode = 'login' }) {
             </div>
           )}
 
+          {/* College Evaluation Demo Accounts Quick-Select */}
+          {!isRegister && (
+            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/90 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-700 flex items-center gap-1.5 text-[11px]">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  College Evaluation Demo Accounts
+                </span>
+                <span className="text-[10px] text-muted">Click to auto-fill</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole('farmer');
+                    setAuthMethod('password');
+                    updateField('email', 'mihir');
+                    updateField('password', '123456');
+                    setError('');
+                  }}
+                  className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                    role === 'farmer' && form.email === 'mihir'
+                      ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-bold shadow-xs'
+                      : 'bg-white border-slate-200 hover:border-emerald-300 text-slate-700'
+                  }`}
+                >
+                  <div className="text-[10px] text-emerald-700 font-semibold">🌾 Farmer</div>
+                  <div className="font-mono text-xs font-bold text-slate-900 truncate">mihir</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole('transporter');
+                    setAuthMethod('password');
+                    updateField('email', 'varun');
+                    updateField('password', '123456');
+                    setError('');
+                  }}
+                  className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                    role === 'transporter' && form.email === 'varun'
+                      ? 'bg-blue-50 border-blue-400 text-blue-900 font-bold shadow-xs'
+                      : 'bg-white border-slate-200 hover:border-blue-300 text-slate-700'
+                  }`}
+                >
+                  <div className="text-[10px] text-blue-700 font-semibold">🚚 Transporter</div>
+                  <div className="font-mono text-xs font-bold text-slate-900 truncate">varun</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole('mandi');
+                    setAuthMethod('password');
+                    updateField('email', 'sayali');
+                    updateField('password', '123456');
+                    setError('');
+                  }}
+                  className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                    role === 'mandi' && form.email === 'sayali'
+                      ? 'bg-purple-50 border-purple-400 text-purple-900 font-bold shadow-xs'
+                      : 'bg-white border-slate-200 hover:border-purple-300 text-slate-700'
+                  }`}
+                >
+                  <div className="text-[10px] text-purple-700 font-semibold">🏪 Mandi</div>
+                  <div className="font-mono text-xs font-bold text-slate-900 truncate">sayali</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole('admin');
+                    setAuthMethod('password');
+                    updateField('email', 'prashant');
+                    updateField('password', '123456');
+                    setError('');
+                  }}
+                  className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                    role === 'admin' && form.email === 'prashant'
+                      ? 'bg-amber-50 border-amber-400 text-amber-900 font-bold shadow-xs'
+                      : 'bg-white border-slate-200 hover:border-amber-300 text-slate-700'
+                  }`}
+                >
+                  <div className="text-[10px] text-amber-700 font-semibold">🛡️ Admin</div>
+                  <div className="font-mono text-xs font-bold text-slate-900 truncate">prashant</div>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Success Notification */}
           {success && (
             <div className="p-3.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-900 text-xs flex items-start gap-2 shadow-2xs">
@@ -1581,20 +1671,24 @@ export default function AuthPage({ mode = 'login' }) {
                   {isRegister
                     ? 'Email Address *'
                     : role === 'admin'
-                    ? 'APMC Admin Email *'
+                    ? 'APMC Admin Username or Email *'
                     : role === 'mandi'
-                    ? 'APMC Mandi Email or Mobile *'
-                    : 'Email Address or 10-Digit Mobile Number *'}
+                    ? 'APMC Mandi Username, Email or Mobile *'
+                    : 'Username, Email or 10-Digit Mobile *'}
                 </span>
                 <input
-                  type={isRegister || role === 'admin' ? 'email' : 'text'}
+                  type={isRegister ? 'email' : 'text'}
                   required
                   placeholder={
                     isRegister
                       ? 'official@example.com'
                       : role === 'admin'
-                      ? 'admin@harvestmitra.local'
-                      : 'e.g. farmer@example.com or 9822012345'
+                      ? 'e.g. prashant or admin@harvestmitra.local'
+                      : role === 'mandi'
+                      ? 'e.g. sayali or 9822100003'
+                      : role === 'transporter'
+                      ? 'e.g. varun or 9822100002'
+                      : 'e.g. mihir or 9822100001'
                   }
                   value={form.email}
                   onChange={(e) => updateField('email', e.target.value)}
