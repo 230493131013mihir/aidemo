@@ -33,8 +33,17 @@ app.get('/', (req, res) => {
   });
 });
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'HarvestMitra AI Backend' });
+app.get('/api/health', async (req, res) => {
+  let dbStatus = 'connected';
+  let dialect = 'unknown';
+  try {
+    const sequelize = require('./config/database');
+    dialect = sequelize.getDialect();
+    await sequelize.authenticate();
+  } catch (err) {
+    dbStatus = 'degraded: ' + err.message;
+  }
+  res.json({ status: 'ok', service: 'HarvestMitra AI Backend', db: dbStatus, dialect });
 });
 
 // Mounted API Routes
