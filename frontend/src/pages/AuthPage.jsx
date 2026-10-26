@@ -24,7 +24,8 @@ import {
   Award,
   RefreshCw,
   Send,
-  ShieldCheck
+  ShieldCheck,
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
