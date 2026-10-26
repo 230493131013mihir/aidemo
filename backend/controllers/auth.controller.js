@@ -354,11 +354,13 @@ const login = async (req, res) => {
         }
 
         const identifier = String(email).trim().toLowerCase();
+        const localPart = identifier.split('@')[0];
         const cleanPhone = identifier.replace(/\D/g, "").slice(-10);
 
         const identifierFilters = [
             { email: identifier },
             { email: `${identifier}@harvestmitra.local` },
+            { email: `${localPart}@harvestmitra.local` },
             ...(cleanPhone && cleanPhone.length === 10 ? [{ phone: cleanPhone }] : [])
         ];
 
