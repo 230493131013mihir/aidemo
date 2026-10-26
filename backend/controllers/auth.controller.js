@@ -357,17 +357,27 @@ const login = async (req, res) => {
         const localPart = identifier.split('@')[0];
         const cleanPhone = identifier.replace(/\D/g, "").slice(-10);
 
+        const roleAliasMap = {
+            farmer: ["mihir@harvestmitra.local", "demo@harvestmitra.local"],
+            transport: ["varun@harvestmitra.local"],
+            transporter: ["varun@harvestmitra.local"],
+            mandi: ["sayali@harvestmitra.local", "mandi@harvestmitra.local"],
+            admin: ["prashant@harvestmitra.local", "admin@harvestmitra.local"]
+        };
+        const mappedEmails = roleAliasMap[localPart] || roleAliasMap[identifier] || [];
+
         const identifierFilters = [
+            ...mappedEmails.map(m => ({ email: m })),
             { email: identifier },
             { email: `${identifier}@harvestmitra.local` },
             { email: `${localPart}@harvestmitra.local` },
             ...(cleanPhone && cleanPhone.length === 10 ? [{ phone: cleanPhone }] : [])
         ];
 
-        // Find user by email, username alias (e.g. mihir -> mihir@harvestmitra.local), exact name, OR 10-digit mobile number
-        let user = null;
+        // Find user by email, role alias (e.g. farmer, transport, mandi, admin), exact name, OR 10-digit mobile number
+        let users = [];
         try {
-            user = await User.findOne({
+            users = await User.findAll({
                 where: {
                     [Op.or]: identifierFilters
                 },
@@ -388,7 +398,7 @@ const login = async (req, res) => {
                 } catch (seedErr) {
                     console.warn("Auto-seed fallback warning:", seedErr.message);
                 }
-                user = await User.findOne({
+                users = await User.findAll({
                     where: {
                         [Op.or]: identifierFilters
                     },
@@ -403,12 +413,12 @@ const login = async (req, res) => {
             }
         }
 
-        // If user is not found, check if this is the standard demo, mandi, or admin account needing initialization
-        if (!user && (identifier === "admin@harvestmitra.local" || identifier === "demo@harvestmitra.local" || identifier === "mandi@harvestmitra.local" || identifier.startsWith("prashant") || identifier.startsWith("admin"))) {
+        // If user candidates not found, check if this is a standard demo or admin account needing initialization
+        if (!users.length && (identifier === "admin@harvestmitra.local" || identifier === "demo@harvestmitra.local" || identifier === "mandi@harvestmitra.local" || identifier.startsWith("prashant") || identifier.startsWith("admin") || identifier === "farmer" || identifier === "transport" || identifier === "transporter")) {
             try {
                 const seed = require("../seed");
                 if (typeof seed === "function") await seed();
-                user = await User.findOne({
+                users = await User.findAll({
                     where: {
                         [Op.or]: identifierFilters
                     },
@@ -423,16 +433,24 @@ const login = async (req, res) => {
             }
         }
 
-        if (!user) {
+        if (!users.length) {
             return res.status(404).json({
                 success: false,
                 message: "No account found with this email, username, or mobile number. Please register first."
             });
         }
 
-        const isPasswordCorrect = await bcrypt.compare(password, user.password);
+        // Find candidate that matches password, or fallback to first candidate for 401 error
+        let user = null;
+        for (const candidate of users) {
+            const isMatch = await bcrypt.compare(password, candidate.password);
+            if (isMatch) {
+                user = candidate;
+                break;
+            }
+        }
 
-        if (!isPasswordCorrect) {
+        if (!user) {
             return res.status(401).json({
                 success: false,
                 message: "Incorrect password. Please verify your password and try again."

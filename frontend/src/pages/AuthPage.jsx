@@ -886,18 +886,18 @@ export default function AuthPage({ mode = 'login' }) {
                   onClick={() => {
                     setRole('farmer');
                     setAuthMethod('password');
-                    updateField('email', 'mihir');
+                    updateField('email', 'farmer');
                     updateField('password', '123456');
                     setError('');
                   }}
                   className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
-                    role === 'farmer' && form.email === 'mihir'
+                    role === 'farmer' && (form.email === 'farmer' || form.email === 'mihir')
                       ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-bold shadow-xs'
                       : 'bg-white border-slate-200 hover:border-emerald-300 text-slate-700'
                   }`}
                 >
                   <div className="text-[10px] text-emerald-700 font-semibold">🌾 Farmer</div>
-                  <div className="font-mono text-xs font-bold text-slate-900 truncate">mihir</div>
+                  <div className="font-mono text-xs font-bold text-slate-900 truncate">farmer</div>
                 </button>
 
                 <button
@@ -905,18 +905,18 @@ export default function AuthPage({ mode = 'login' }) {
                   onClick={() => {
                     setRole('transporter');
                     setAuthMethod('password');
-                    updateField('email', 'varun');
+                    updateField('email', 'transport');
                     updateField('password', '123456');
                     setError('');
                   }}
                   className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
-                    role === 'transporter' && form.email === 'varun'
+                    role === 'transporter' && (form.email === 'transport' || form.email === 'transporter' || form.email === 'varun')
                       ? 'bg-blue-50 border-blue-400 text-blue-900 font-bold shadow-xs'
                       : 'bg-white border-slate-200 hover:border-blue-300 text-slate-700'
                   }`}
                 >
-                  <div className="text-[10px] text-blue-700 font-semibold">🚚 Transporter</div>
-                  <div className="font-mono text-xs font-bold text-slate-900 truncate">varun</div>
+                  <div className="text-[10px] text-blue-700 font-semibold">🚚 Transport</div>
+                  <div className="font-mono text-xs font-bold text-slate-900 truncate">transport</div>
                 </button>
 
                 <button
@@ -924,18 +924,18 @@ export default function AuthPage({ mode = 'login' }) {
                   onClick={() => {
                     setRole('mandi');
                     setAuthMethod('password');
-                    updateField('email', 'sayali');
+                    updateField('email', 'mandi');
                     updateField('password', '123456');
                     setError('');
                   }}
                   className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
-                    role === 'mandi' && form.email === 'sayali'
+                    role === 'mandi' && (form.email === 'mandi' || form.email === 'sayali')
                       ? 'bg-purple-50 border-purple-400 text-purple-900 font-bold shadow-xs'
                       : 'bg-white border-slate-200 hover:border-purple-300 text-slate-700'
                   }`}
                 >
                   <div className="text-[10px] text-purple-700 font-semibold">🏪 Mandi</div>
-                  <div className="font-mono text-xs font-bold text-slate-900 truncate">sayali</div>
+                  <div className="font-mono text-xs font-bold text-slate-900 truncate">mandi</div>
                 </button>
 
                 <button
@@ -943,18 +943,18 @@ export default function AuthPage({ mode = 'login' }) {
                   onClick={() => {
                     setRole('admin');
                     setAuthMethod('password');
-                    updateField('email', 'prashant');
+                    updateField('email', 'admin');
                     updateField('password', '123456');
                     setError('');
                   }}
                   className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
-                    role === 'admin' && form.email === 'prashant'
+                    role === 'admin' && (form.email === 'admin' || form.email === 'prashant')
                       ? 'bg-amber-50 border-amber-400 text-amber-900 font-bold shadow-xs'
                       : 'bg-white border-slate-200 hover:border-amber-300 text-slate-700'
                   }`}
                 >
                   <div className="text-[10px] text-amber-700 font-semibold">🛡️ Admin</div>
-                  <div className="font-mono text-xs font-bold text-slate-900 truncate">prashant</div>
+                  <div className="font-mono text-xs font-bold text-slate-900 truncate">admin</div>
                 </button>
               </div>
             </div>
@@ -1684,12 +1684,12 @@ export default function AuthPage({ mode = 'login' }) {
                     isRegister
                       ? 'official@example.com'
                       : role === 'admin'
-                      ? 'e.g. prashant or admin@harvestmitra.local'
+                      ? 'e.g. admin or prashant'
                       : role === 'mandi'
-                      ? 'e.g. sayali or 9822100003'
+                      ? 'e.g. mandi or sayali'
                       : role === 'transporter'
-                      ? 'e.g. varun or 9822100002'
-                      : 'e.g. mihir or 9822100001'
+                      ? 'e.g. transport or varun'
+                      : 'e.g. farmer or mihir'
                   }
                   value={form.email}
                   onChange={(e) => updateField('email', e.target.value)}
