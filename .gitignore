@@ -47,3 +47,8 @@ scripts/create_mihir_prs.js
 scripts/merge_all_prs.js
 backups/
 scratch/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class

@@ -165,6 +165,45 @@ try {
   assert.strictEqual(directRes.rainChance, 15);
   console.log('  ✅ [PASS] Direct Open-Meteo client fallback accurately transforms raw Open-Meteo payload.');
 
+  // 7. Verify HTTP 404 Fallback for Pune District Dropdown Selection (ISSUE 2 Verification)
+  console.log('\n7. Auditing HTTP 404 Fallback for Pune (District Dropdown Selection):');
+  global.fetch = async (url) => {
+    if (url.includes('/api/weather')) {
+      return { ok: false, status: 404 };
+    }
+    if (url.includes('api.open-meteo.com/v1/forecast')) {
+      return {
+        ok: true,
+        json: async () => ({
+          current: {
+            temperature_2m: 32.0,
+            apparent_temperature: 30.0,
+            relative_humidity_2m: 26,
+            precipitation: 0.0,
+            wind_speed_10m: 15.0,
+            weather_code: 0,
+            is_day: 1
+          },
+          daily: {
+            precipitation_probability_max: [0, 5, 0],
+            temperature_2m_max: [32, 33, 33],
+            time: ['2026-10-26', '2026-10-27', '2026-10-28']
+          }
+        })
+      };
+    }
+    return { ok: false, status: 500 };
+  };
+
+  const puneWeatherRes = await fetchWeather('Pune', 'Maharashtra');
+  assert.strictEqual(puneWeatherRes.success, true);
+  assert.strictEqual(puneWeatherRes.weather.temperature, 32);
+  assert.strictEqual(puneWeatherRes.weather.rainProbability, 0);
+  assert.strictEqual(puneWeatherRes.advisory.level, 'CLEAR_ADVISORY');
+  assert.strictEqual(puneWeatherRes.advisory.isAdvisoryActive, false);
+  assert.ok(puneWeatherRes.weather.forecast.length >= 3);
+  console.log('  ✅ [PASS] HTTP 404 on backend successfully resolves Pune coordinates and loads real Open-Meteo telemetry.');
+
 } finally {
   global.fetch = originalFetch;
 }

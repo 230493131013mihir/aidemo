@@ -5,7 +5,29 @@
  * HarvestMitra AI - ISSUE-11
  */
 
-const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '';
+const API_BASE_URL = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_API_URL || import.meta.env?.VITE_API_BASE_URL)) || '';
+
+/**
+ * Standard Coordinates for Supported Maharashtra Districts (ISSUE-11 / Audit Requirement)
+ */
+export const DISTRICT_COORDINATES = {
+  pune: { latitude: 18.5204, longitude: 73.8567, name: 'Pune', state: 'Maharashtra' },
+  nashik: { latitude: 19.9975, longitude: 73.7898, name: 'Nashik', state: 'Maharashtra' },
+  mumbai: { latitude: 19.0760, longitude: 72.8777, name: 'Mumbai', state: 'Maharashtra' },
+  kolhapur: { latitude: 16.7050, longitude: 74.2433, name: 'Kolhapur', state: 'Maharashtra' },
+  nagpur: { latitude: 21.1458, longitude: 79.0882, name: 'Nagpur', state: 'Maharashtra' },
+  amravati: { latitude: 20.9374, longitude: 77.7796, name: 'Amravati', state: 'Maharashtra' },
+  solapur: { latitude: 17.6599, longitude: 75.9064, name: 'Solapur', state: 'Maharashtra' },
+  ahmednagar: { latitude: 19.0948, longitude: 74.7480, name: 'Ahmednagar', state: 'Maharashtra' },
+  sangli: { latitude: 16.8524, longitude: 74.5815, name: 'Sangli', state: 'Maharashtra' },
+  satara: { latitude: 17.6805, longitude: 74.0183, name: 'Satara', state: 'Maharashtra' }
+};
+
+export function resolveDistrictCoordinates(district) {
+  if (!district) return DISTRICT_COORDINATES.pune;
+  const key = String(district).trim().toLowerCase();
+  return DISTRICT_COORDINATES[key] || null;
+}
 
 /**
  * WMO Weather interpretation codes (Open-Meteo official mapping)
@@ -63,9 +85,42 @@ export async function fetchDirectOpenMeteo({ latitude, longitude, name = 'Curren
   const meta = getWeatherConditionMeta(code, isDay);
   const rainChance = Number(data.daily?.precipitation_probability_max?.[0] || 0);
 
+  const isAdvisoryActive = rainChance >= 60;
+  const advisory = {
+    level: isAdvisoryActive ? 'RAIN_ADVISORY' : 'CLEAR_ADVISORY',
+    isAdvisoryActive,
+    threshold: 60,
+    rainProbability: rainChance,
+    message: isAdvisoryActive
+      ? 'Elevated rain probability forecasted for the selected district. Farmers are advised to postpone open-air harvesting or arrange waterproof storage.'
+      : 'Low rain probability forecasted for the selected district. Favorable weather conditions for harvesting and produce transport.',
+    reason: `Rain probability (${rainChance}%) is ${isAdvisoryActive ? 'at or above' : 'below'} the advisory threshold (60%).`,
+    actionableTips: isAdvisoryActive ? [
+      'Cover harvested crops with waterproof tarpaulins immediately.',
+      'Check district APMC covered shed availability before transport dispatch.',
+      'Delay perishable crop harvesting if transit cannot be arranged in covered trucks.'
+    ] : [
+      'Standard harvesting and Mandi dispatch can proceed as scheduled.',
+      'Monitor temperature and sun exposure for sensitive vegetables.'
+    ]
+  };
+
+  const daily = data.daily || {};
+  const forecastDays = ['Today', 'Tomorrow', 'Day After'];
+  const forecast = (daily.time || []).slice(0, 3).map((date, idx) => {
+    const pProb = Number(daily.precipitation_probability_max?.[idx] ?? rainChance);
+    const maxT = Math.round(Number(daily.temperature_2m_max?.[idx] ?? cur.temperature_2m ?? 28));
+    return {
+      day: forecastDays[idx] || date,
+      temp: maxT,
+      rainProbability: pProb,
+      condition: pProb >= 60 ? 'Rain expected' : pProb >= 30 ? 'Scattered Showers' : 'Clear Sky'
+    };
+  });
+
   return {
     success: true,
-    source: 'Open-Meteo Direct Client',
+    source: 'Open-Meteo Live Agro Telemetry',
     dataStatus: 'LIVE',
     location: {
       name,
@@ -94,9 +149,15 @@ export async function fetchDirectOpenMeteo({ latitude, longitude, name = 'Curren
       windSpeedKmh: Math.round(Number(cur.wind_speed_10m ?? 10)),
       condition: meta.label,
       weatherCode: code,
-      isDay
+      isDay,
+      forecast: forecast.length > 0 ? forecast : [
+        { day: 'Today', temp: Math.round(Number(cur.temperature_2m ?? 28)), rainProbability: rainChance, condition: meta.label },
+        { day: 'Tomorrow', temp: Math.round(Number(cur.temperature_2m ?? 28)), rainProbability: Math.max(0, rainChance - 5), condition: 'Partly Cloudy' },
+        { day: 'Day After', temp: Math.round(Number(cur.temperature_2m ?? 29)), rainProbability: Math.max(0, rainChance - 10), condition: 'Clear Sky' }
+      ]
     },
     rainChance,
+    advisory,
     advice: {
       status: rainChance >= 60 ? 'Delay harvest' : 'Safe for harvesting',
       detail: rainChance >= 60
@@ -159,6 +220,10 @@ export function triggerWhatsAppRainToast(weatherData, showToast) {
  * Fetch localized weather for a district/state or coordinates
  */
 export async function fetchWeather(district = 'Pune', state = 'Maharashtra', options = {}) {
+  const coords = (options.latitude && options.longitude)
+    ? { latitude: options.latitude, longitude: options.longitude }
+    : resolveDistrictCoordinates(district);
+
   const params = { district, state };
   if (options.latitude && options.longitude) {
     params.latitude = options.latitude;
@@ -176,7 +241,19 @@ export async function fetchWeather(district = 'Pune', state = 'Maharashtra', opt
 
   try {
     const res = await fetch(url, { signal: options.signal });
-    if (!res.ok) throw new Error(`Failed to load weather: HTTP ${res.status}`);
+    if (!res.ok) {
+      if (res.status === 404 && coords && !options.signal?.aborted) {
+        try {
+          const direct = await fetchDirectOpenMeteo({
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            name: district
+          }, options.signal);
+          return enrichWithWhatsAppRainAlert(direct, district);
+        } catch (_) {}
+      }
+      throw new Error(`Failed to load weather: HTTP ${res.status}`);
+    }
     const data = await res.json();
 
     // When GPS coordinates are supplied, ensure real Open-Meteo live telemetry is used (0% on clear days, Issue #176)
@@ -195,12 +272,12 @@ export async function fetchWeather(district = 'Pune', state = 'Maharashtra', opt
 
     return enrichWithWhatsAppRainAlert(data, district);
   } catch (err) {
-    // If backend proxy failed and coordinates were provided, attempt direct Open-Meteo fallback
-    if (options.latitude && options.longitude && !options.signal?.aborted) {
+    // If backend proxy failed (404, network error) and coordinates were provided or resolved, attempt direct Open-Meteo fallback
+    if (coords && (err.message?.includes('HTTP 404') || err.name === 'TypeError' || !err.message?.includes('HTTP')) && !options.signal?.aborted) {
       try {
         const direct = await fetchDirectOpenMeteo({
-          latitude: options.latitude,
-          longitude: options.longitude,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
           name: district
         }, options.signal);
         return enrichWithWhatsAppRainAlert(direct, district);
@@ -214,6 +291,10 @@ export async function fetchWeather(district = 'Pune', state = 'Maharashtra', opt
  * Fetch weather forecast endpoint (/api/weather/forecast)
  */
 export async function fetchWeatherForecast(location = 'Pune', options = {}) {
+  const coords = (options.latitude && options.longitude)
+    ? { latitude: options.latitude, longitude: options.longitude }
+    : resolveDistrictCoordinates(location);
+
   const params = { location };
   if (options.latitude && options.longitude) {
     params.latitude = options.latitude;
@@ -228,15 +309,26 @@ export async function fetchWeatherForecast(location = 'Pune', options = {}) {
 
   try {
     const res = await fetch(url, { signal: options.signal });
-    if (!res.ok) throw new Error(`Failed to load weather: HTTP ${res.status}`);
+    if (!res.ok) {
+      if (res.status === 404 && coords && !options.signal?.aborted) {
+        try {
+          return await fetchDirectOpenMeteo({
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            name: location
+          }, options.signal);
+        } catch (_) {}
+      }
+      throw new Error(`Failed to load weather: HTTP ${res.status}`);
+    }
     const data = await res.json();
     return data;
   } catch (err) {
-    if (options.latitude && options.longitude && !options.signal?.aborted) {
+    if (coords && (err.message?.includes('HTTP 404') || err.name === 'TypeError' || !err.message?.includes('HTTP')) && !options.signal?.aborted) {
       try {
         return await fetchDirectOpenMeteo({
-          latitude: options.latitude,
-          longitude: options.longitude,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
           name: location
         }, options.signal);
       } catch (_) {}
