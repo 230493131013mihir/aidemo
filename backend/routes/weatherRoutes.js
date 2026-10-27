@@ -15,6 +15,7 @@ const {
 router.get('/', handleGetWeather);
 router.get('/forecast', handleGetWeatherForecast);
 router.get('/alerts', handleGetRainAlerts);
+router.get('/:district', handleGetWeather);
 
 module.exports = router;
 

@@ -1,5 +1,6 @@
 const schemeService = require("../services/schemeService");
 const { Scheme, SavedScheme, SchemeChecklist, FarmerProfile } = require("../models");
+const { recordAudit } = require("../services/auditService");
 const jwt = require("jsonwebtoken");
 
 /**
@@ -235,6 +236,13 @@ async function handleAdminCreateScheme(req, res) {
       eligibilityRules: typeof payload.eligibilityRules === "object" ? JSON.stringify(payload.eligibilityRules) : payload.eligibilityRules
     });
 
+    await recordAudit(req, {
+      action: "SCHEME_CREATE",
+      targetType: "scheme",
+      targetId: created.id,
+      details: { identifier: created.identifier, name: created.nameEn, category: created.category }
+    });
+
     return res.status(201).json({
       success: true,
       message: "Scheme created successfully.",
@@ -267,6 +275,13 @@ async function handleAdminUpdateScheme(req, res) {
 
     await scheme.update(payload);
 
+    await recordAudit(req, {
+      action: "SCHEME_UPDATE",
+      targetType: "scheme",
+      targetId: scheme.id,
+      details: { identifier: scheme.identifier, name: scheme.nameEn }
+    });
+
     return res.status(200).json({
       success: true,
       message: "Scheme updated successfully.",
@@ -287,8 +302,16 @@ async function handleAdminToggleStatus(req, res) {
       return res.status(404).json({ success: false, message: "Scheme not found." });
     }
 
+    const oldStatus = scheme.status;
     scheme.status = status || (scheme.status === "active" ? "inactive" : "active");
     await scheme.save();
+
+    await recordAudit(req, {
+      action: "SCHEME_STATUS_TOGGLE",
+      targetType: "scheme",
+      targetId: scheme.id,
+      details: { identifier: scheme.identifier, name: scheme.nameEn, statusChange: `${oldStatus} -> ${scheme.status}` }
+    });
 
     return res.status(200).json({
       success: true,

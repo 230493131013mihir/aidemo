@@ -9,7 +9,8 @@ import { Mic, MicOff, Send, Loader2, AlertCircle, X } from 'lucide-react';
 import {
   isSpeechRecognitionSupported,
   startRecognition,
-  stopRecognition
+  stopRecognition,
+  SUPPORTED_LANGUAGES
 } from '../../services/speechService';
 
 export const LOCALIZED_LABELS = {
@@ -62,6 +63,9 @@ export default function ChatInput({
   const [voiceNotice, setVoiceNotice] = useState(null);
   const textareaRef = useRef(null);
   const recognitionRef = useRef(null);
+  const initialTextRef = useRef('');
+  const latestInterimRef = useRef('');
+  const latestFinalRef = useRef('');
 
   const labels = LOCALIZED_LABELS[selectedLanguage] || LOCALIZED_LABELS.en;
   const isSttSupported = isSpeechRecognitionSupported();
@@ -101,20 +105,26 @@ export default function ChatInput({
   const startVoiceInput = () => {
     setVoiceNotice(null);
     setInterimText('');
+    initialTextRef.current = inputText;
+    latestInterimRef.current = '';
+    latestFinalRef.current = '';
 
     const controller = startRecognition({
       language: selectedLanguage,
+      continuous: true,
+      silenceTimeoutMs: 2500,
       onStart: () => {
         setIsListening(true);
       },
       onInterimResult: (interim) => {
+        latestInterimRef.current = interim;
         setInterimText(interim);
       },
       onFinalResult: (final) => {
-        setInputText((prev) => {
-          const trimmed = prev.trim();
-          return trimmed ? `${trimmed} ${final}` : final;
-        });
+        latestFinalRef.current = final;
+        latestInterimRef.current = '';
+        const base = initialTextRef.current.trim() ? `${initialTextRef.current.trim()} ` : '';
+        setInputText(base + final.trim());
         setInterimText('');
       },
       onError: (err) => {
@@ -122,9 +132,21 @@ export default function ChatInput({
         setInterimText('');
         setVoiceNotice(err.message);
       },
-      onEnd: ({ hasResults }) => {
+      onEnd: ({ hasResults, finalTranscript }) => {
         setIsListening(false);
         setInterimText('');
+        const text = (finalTranscript || latestFinalRef.current || latestInterimRef.current || '').trim();
+        if (text) {
+          const base = initialTextRef.current.trim() ? `${initialTextRef.current.trim()} ` : '';
+          const fullMessage = (base + text).trim();
+          if (fullMessage) {
+            onSendMessage(fullMessage, true);
+            setInputText('');
+            initialTextRef.current = '';
+            latestFinalRef.current = '';
+            latestInterimRef.current = '';
+          }
+        }
       }
     });
 
@@ -137,7 +159,19 @@ export default function ChatInput({
     }
     stopRecognition();
     setIsListening(false);
+    const text = (latestFinalRef.current || latestInterimRef.current || inputText).trim();
     setInterimText('');
+    if (text) {
+      const base = initialTextRef.current.trim() ? `${initialTextRef.current.trim()} ` : '';
+      const fullMessage = (base + text).trim();
+      if (fullMessage) {
+        onSendMessage(fullMessage, true);
+        setInputText('');
+        initialTextRef.current = '';
+        latestFinalRef.current = '';
+        latestInterimRef.current = '';
+      }
+    }
   };
 
   const handleSend = () => {
@@ -199,8 +233,11 @@ export default function ChatInput({
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
             <span className="font-semibold">{labels.listening}</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+              🎙️ {SUPPORTED_LANGUAGES[selectedLanguage]?.nativeName || 'मराठी'} ({SUPPORTED_LANGUAGES[selectedLanguage]?.speechRecognition || 'mr-IN'})
+            </span>
             {interimText && (
-              <span className="italic text-gray-600 truncate max-w-[200px] sm:max-w-[320px]">
+              <span className="italic text-gray-600 truncate max-w-[160px] sm:max-w-[280px]">
                 "{interimText}"
               </span>
             )}
@@ -224,7 +261,7 @@ export default function ChatInput({
           value={inputText}
           onChange={handleTextChange}
           onKeyDown={handleKeyDown}
-          placeholder={labels.placeholder}
+          placeholder={isListening ? (interimText ? `🎙️ "${interimText}"` : labels.listening) : labels.placeholder}
           aria-label="Type your message"
           className="flex-1 bg-transparent px-2.5 py-1.5 text-sm sm:text-base text-gray-800 placeholder-gray-400 resize-none focus:outline-none max-h-28 overflow-y-auto leading-relaxed"
           style={{ minHeight: '38px' }}

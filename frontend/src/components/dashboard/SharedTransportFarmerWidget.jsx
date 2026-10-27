@@ -313,14 +313,15 @@ export default function SharedTransportFarmerWidget({
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         setAvailableVehicles(data.data);
-        // Automatically select the best matching truck tailored for the selected crop
-        if (data.data.length > 0 && !isOtherVehicleSelected) {
+        if (data.data.length > 0) {
           const matchingVehicle =
             data.data.find((v) => v.isRecommended && v.canAccommodateCargo) ||
             data.data.find((v) => v.isCropSuitable && v.canAccommodateCargo) ||
             data.data.find((v) => v.canAccommodateCargo) ||
             data.data[0];
           setSelectedVehicle(matchingVehicle);
+        } else {
+          setSelectedVehicle(null);
         }
       }
     } catch (err) {
@@ -1196,15 +1197,15 @@ export default function SharedTransportFarmerWidget({
             ) : availableVehicles.length === 0 ? (
               <div className="p-6 rounded-2xl bg-amber-50 border border-amber-200 text-center space-y-2">
                 <AlertCircle className="w-6 h-6 text-amber-600 mx-auto" />
-                <h4 className="text-sm font-bold text-amber-900">No Vehicles Directly Available for {totalWeightKg} kg</h4>
+                <h4 className="text-sm font-bold text-amber-900">No eligible transporter vehicles are currently available.</h4>
                 <p className="text-xs text-amber-800">
-                  Try reducing quantity, adjusting pickup date, or switching from shared to solo carrier.
+                  Try adjusting quantity, pickup date, or destination corridor.
                 </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {availableVehicles.map((vehicle) => {
-                  const isSelected = !isOtherVehicleSelected && selectedVehicle?.id === vehicle.id;
+                  const isSelected = selectedVehicle?.id === vehicle.id;
                   const estimatedFare = isSharedPooling ? vehicle.estimatedSharedFare : vehicle.estimatedSoloFare;
                   const savings = vehicle.estimatedSoloFare - vehicle.estimatedSharedFare;
 
@@ -1213,7 +1214,6 @@ export default function SharedTransportFarmerWidget({
                       key={vehicle.id}
                       onClick={() => {
                         setSelectedVehicle(vehicle);
-                        setIsOtherVehicleSelected(false);
                       }}
                       className={`p-4 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between space-y-3 ${
                         isSelected
@@ -1299,126 +1299,6 @@ export default function SharedTransportFarmerWidget({
                     </div>
                   );
                 })}
-
-                {/* NEW 'Other' Transport Truck / Custom Fleet Option Card */}
-                <div
-                  onClick={() => {
-                    setIsOtherVehicleSelected(true);
-                    const customType = customVehicleType.trim() || 'Custom Specialized Transport Truck';
-                    const customVeh = {
-                      id: 'custom-vehicle-other',
-                      vehicleType: customType,
-                      registrationNumber: 'CUSTOM-FLEET',
-                      capacityKg: Math.max(3000, totalWeightKg * 2),
-                      remainingCapacityKg: Math.max(3000, totalWeightKg * 2),
-                      driverName: 'Assigned Transporter on Dispatch',
-                      baseLocation: pickupLocation || 'Maharashtra APMC Corridor',
-                      ratePerKm: 28,
-                      estimatedSoloFare: Math.round(Math.max(1200, totalWeightKg * 3.2)),
-                      estimatedSharedFare: Math.round(Math.max(650, totalWeightKg * 1.7)),
-                      cropSuitabilityReason: `Custom specialized transport tailored for ${selectedCrop}`,
-                      isCropSuitable: true,
-                      isRecommended: true
-                    };
-                    setSelectedVehicle(customVeh);
-                  }}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between space-y-3 ${
-                    isOtherVehicleSelected
-                      ? 'border-primary bg-emerald-50/70 shadow-md ring-2 ring-primary/20'
-                      : 'border-dashed border-emerald-300 bg-emerald-50/30 hover:border-emerald-400 hover:bg-emerald-50/60 shadow-2xs'
-                  }`}
-                >
-                  {isOtherVehicleSelected && (
-                    <div className="absolute -top-2.5 right-4 px-2 py-0.5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center gap-1 shadow-xs">
-                      <Check className="w-3 h-3" /> Selected Vehicle
-                    </div>
-                  )}
-
-                  <div className="space-y-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="text-sm font-black text-slate-900 leading-snug flex items-center gap-1.5">
-                        <span>🚛 Other Transport Truck</span>
-                      </h4>
-                      <span className="text-[10px] font-mono font-bold bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded border border-teal-300">
-                        ➕ Other Option
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-bold text-teal-900 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md inline-block">
-                      Custom carrier: Flatbed, Tractor-Trolley, 14-Wheeler, or Custom Dispatch
-                    </span>
-
-                    {/* Custom Truck Type Input */}
-                    {isOtherVehicleSelected && (
-                      <div className="pt-2 space-y-1" onClick={(e) => e.stopPropagation()}>
-                        <label className="text-[10.5px] font-bold text-slate-700 block">
-                          Specify Truck Type / Trailer:
-                        </label>
-                        <input
-                          type="text"
-                          value={customVehicleType}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setCustomVehicleType(val);
-                            setSelectedVehicle((prev) => ({
-                              ...prev,
-                              vehicleType: val.trim() || 'Custom Specialized Transport Truck'
-                            }));
-                          }}
-                          placeholder="e.g. Tractor Trolley, 14-Wheeler Flatbed, Eicher 19-ft, Open Body Carrier..."
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold outline-none focus:border-primary shadow-2xs"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Specs Matrix */}
-                  <div className="grid grid-cols-2 gap-1.5 text-[11px] bg-white p-2.5 rounded-xl border border-slate-200/90">
-                    <div>
-                      <span className="text-muted block text-[10px]">Capacity:</span>
-                      <span className="font-bold text-slate-900 font-mono">
-                        On-Demand Flexible
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted block text-[10px]">Space:</span>
-                      <span className="font-bold text-emerald-700 font-mono">
-                        Guaranteed for {totalWeightKg} kg
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted block text-[10px]">Driver:</span>
-                      <span className="font-semibold text-slate-800 block truncate">
-                        Assigned Transporter
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted block text-[10px]">Corridor:</span>
-                      <span className="font-semibold text-slate-800 block truncate">
-                        {pickupLocation || 'Local Farm'} ➔ {destination}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Pricing Details */}
-                  <div className="pt-2 border-t border-slate-200/80 flex items-baseline justify-between">
-                    <div>
-                      <span className="text-[10px] text-muted block">
-                        {isSharedPooling ? 'Estimated Shared Fare:' : 'Solo Truck Fare:'}
-                      </span>
-                      <span className="text-base font-black text-slate-900">
-                        {formatINR(isSharedPooling ? Math.round(Math.max(650, totalWeightKg * 1.7)) : Math.round(Math.max(1200, totalWeightKg * 3.2)))}
-                      </span>
-                    </div>
-                    {isSharedPooling && (
-                      <div className="text-right">
-                        <span className="text-[10px] text-emerald-700 font-bold block">
-                          ~50% Pool Savings
-                        </span>
-                        <span className="text-[9px] text-muted font-mono">Specialized Transit</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
               </div>
             )}
           </div>

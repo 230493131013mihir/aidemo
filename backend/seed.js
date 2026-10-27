@@ -1,7 +1,7 @@
 require("dotenv").config();
 const bcrypt = require("bcryptjs");
 const sequelize = require("./config/database");
-const { User, AdminUser, Crop, Market, MarketPrice } = require("./models");
+const { User, AdminUser, Crop, Market, MarketPrice, FarmerProfile, MandiProfile, TransporterProfile, Vehicle } = require("./models");
 
 const transportRoutes = require("./routes/transport.routes");
 
@@ -14,7 +14,7 @@ async function seed() {
 
     const demoPassword = await bcrypt.hash(process.env.DEMO_PASSWORD || "Demo@12345", 10);
     const adminPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || "Admin@12345", 10);
-    const { FarmerProfile, MandiProfile } = require("./models");
+
 
     const [demoUser] = await User.findOrCreate({
         where: { email: "demo@harvestmitra.local" },
@@ -126,6 +126,129 @@ async function seed() {
     await AdminUser.findOrCreate({
         where: { userId: adminUser.id },
         defaults: { userId: adminUser.id, displayName: adminUser.name }
+    });
+
+    // Seed College Evaluation Accounts (Password: 123456)
+    const evalDemoPassword = await bcrypt.hash("123456", 10);
+
+    // 1. Mihir (Farmer)
+    const [mihirUser] = await User.findOrCreate({
+        where: { email: "mihir@harvestmitra.local" },
+        defaults: {
+            name: "Mihir Jadav",
+            email: "mihir@harvestmitra.local",
+            phone: "9822100001",
+            password: evalDemoPassword,
+            role: "farmer"
+        }
+    });
+    await FarmerProfile.findOrCreate({
+        where: { userId: mihirUser.id },
+        defaults: {
+            userId: mihirUser.id,
+            district: "Pune",
+            state: "Maharashtra",
+            village: "Haveli",
+            farmSizeAcres: 5.0,
+            mainCrop: "Tomato, Onion, Wheat",
+            productQuantities: JSON.stringify({ Tomato: 800, Onion: 600, Wheat: 400 }),
+            currentHarvestKg: 1800,
+            preferredLanguage: "mr",
+            isGovtVerified: true,
+            govtVerifiedLandAcres: 5.0,
+            surveyNumber: "108/3B",
+            aadhaarLinked: true,
+            dbtAccountLinked: true
+        }
+    });
+
+    // 2. Varun (Transporter)
+
+    const [varunUser] = await User.findOrCreate({
+        where: { email: "varun@harvestmitra.local" },
+        defaults: {
+            name: "Varun Patil",
+            email: "varun@harvestmitra.local",
+            phone: "9822100002",
+            password: evalDemoPassword,
+            role: "transporter"
+        }
+    });
+    await TransporterProfile.findOrCreate({
+        where: { userId: varunUser.id },
+        defaults: {
+            userId: varunUser.id,
+            driverName: "Varun Patil",
+            phone: "9822100002",
+            vehicleType: "Tata 407 Agri LCV",
+            vehicleNumber: "MH-12-TR-7890",
+            capacityKg: 3000,
+            baseMandi: "Pune APMC",
+            ratePerKm: 26,
+            isAvailable: true
+        }
+    });
+    if (Vehicle) {
+        await Vehicle.findOrCreate({
+            where: { registrationNumber: "MH-12-TR-7890" },
+            defaults: {
+                userId: varunUser.id,
+                registrationNumber: "MH-12-TR-7890",
+                vehicleType: "Tata 407 Agri LCV",
+                driverName: "Varun Patil",
+                driverPhone: "9822100002",
+                capacityKg: 3000,
+                capacityUnit: "kg",
+                supportedCrops: "Tomato, Onion, Potato, Grains, Vegetables",
+                specialHandling: "Ventilated Produce Cargo",
+                baseLocation: "Pune, Maharashtra",
+                supportedRoutes: "Pune to Mumbai, Pune to Nashik, Pune to Kolhapur",
+                ratePerKm: 26,
+                isAvailable: true
+            }
+        }).catch(e => console.warn("Vehicle seed notice:", e.message));
+    }
+
+    // 3. Sayali (Mandi)
+    const [sayaliUser] = await User.findOrCreate({
+        where: { email: "sayali@harvestmitra.local" },
+        defaults: {
+            name: "Sayali Kulkarni (APMC Mandi Official)",
+            email: "sayali@harvestmitra.local",
+            phone: "9822100003",
+            password: evalDemoPassword,
+            role: "mandi"
+        }
+    });
+    await MandiProfile.findOrCreate({
+        where: { userId: sayaliUser.id },
+        defaults: {
+            userId: sayaliUser.id,
+            mandiName: "Pune APMC (Gultekdi Wholesale Mandi)",
+            licenseNumber: "MH-APMC-PUN-2024-8841",
+            district: "Pune",
+            state: "Maharashtra",
+            operatingDays: "Mon - Sat (06:00 AM - 08:00 PM)",
+            contactPhone: "9822100003",
+            contactEmail: "sayali@harvestmitra.local",
+            facilities: "Weighbridge, Cold Storage (500 MT), Electronic Auction Hall, Direct DBT Settlement"
+        }
+    });
+
+    // 4. Prashant (Admin)
+    const [prashantUser] = await User.findOrCreate({
+        where: { email: "prashant@harvestmitra.local" },
+        defaults: {
+            name: "Prashant (Admin)",
+            email: "prashant@harvestmitra.local",
+            phone: "9822100004",
+            password: evalDemoPassword,
+            role: "admin"
+        }
+    });
+    await AdminUser.findOrCreate({
+        where: { userId: prashantUser.id },
+        defaults: { userId: prashantUser.id, displayName: "Prashant (Admin)" }
     });
 
     const cropsToSeed = [
@@ -308,7 +431,7 @@ async function seed() {
         }
     });
 
-    const { Vehicle, TransporterProfile } = require("./models");
+
 
     await TransporterProfile.findOrCreate({
         where: { userId: transporterUser.id },

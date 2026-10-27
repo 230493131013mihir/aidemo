@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { useLanguage } from '../../context/LanguageContext';
 import apiClient from '../../services/apiClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
@@ -37,6 +38,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000
 export default function MandiDashboard() {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage?.() || { t: (_, d) => d };
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'overview';
 
@@ -358,11 +360,11 @@ export default function MandiDashboard() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 uppercase tracking-wider">
                 <Building2 className="w-3.5 h-3.5" />
-                Dedicated APMC Mandi Portal
+                {t('mandi.portalBadge', 'Dedicated APMC Mandi Portal')}
               </span>
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                License: {licenseNumber}
+                {t('mandi.license', 'License')}: {licenseNumber}
               </span>
             </div>
 
@@ -372,7 +374,7 @@ export default function MandiDashboard() {
               </h1>
               <p className="text-emerald-200/90 text-sm sm:text-base mt-1 flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>{district} District APMC Market Yard • {state}</span>
+                <span>{district} {t('mandi.marketYard', 'District APMC Market Yard')} • {state}</span>
               </p>
             </div>
 
@@ -381,7 +383,7 @@ export default function MandiDashboard() {
               <div className="flex items-start gap-2 text-slate-200 bg-white/5 backdrop-blur-xs p-2.5 rounded-xl border border-white/10">
                 <Clock className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
                 <div>
-                  <span className="text-slate-400 block text-[11px] font-semibold uppercase">Operating Schedule</span>
+                  <span className="text-slate-400 block text-[11px] font-semibold uppercase">{t('mandi.operatingSchedule', 'Operating Schedule')}</span>
                   <span className="font-bold text-white">{operatingDays}</span>
                 </div>
               </div>
@@ -389,7 +391,7 @@ export default function MandiDashboard() {
               <div className="flex items-start gap-2 text-slate-200 bg-white/5 backdrop-blur-xs p-2.5 rounded-xl border border-white/10">
                 <Store className="w-4 h-4 text-teal-300 shrink-0 mt-0.5" />
                 <div>
-                  <span className="text-slate-400 block text-[11px] font-semibold uppercase">Yard Facilities</span>
+                  <span className="text-slate-400 block text-[11px] font-semibold uppercase">{t('mandi.yardFacilities', 'Yard Facilities')}</span>
                   <span className="font-medium text-slate-100 line-clamp-1">{facilities}</span>
                 </div>
               </div>
@@ -406,10 +408,10 @@ export default function MandiDashboard() {
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm shadow-lg transition-all active:scale-95 disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh Arrivals</span>
+              <span>{t('mandi.refreshArrivals', 'Refresh Arrivals')}</span>
             </button>
             <div className="text-right text-xs text-emerald-300 font-medium hidden sm:block">
-              <span>Auto-synced with APMC Live Gate Pass</span>
+              <span>{t('mandi.gatePassSync', 'Auto-synced with APMC Live Gate Pass')}</span>
             </div>
           </div>
         </div>
@@ -427,7 +429,7 @@ export default function MandiDashboard() {
           }`}
         >
           <Building2 className="w-4 h-4" />
-          <span>Dashboard Overview</span>
+          <span>{t('mandi.overviewTab', 'Dashboard Overview')}</span>
         </button>
 
         <button
@@ -441,7 +443,7 @@ export default function MandiDashboard() {
           }`}
         >
           <Sprout className="w-4 h-4" />
-          <span>Incoming Crop Listings</span>
+          <span>{t('mandi.listingsTab', 'Incoming Crop Listings')}</span>
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
             activeTab === 'listings' ? 'bg-white/20 text-white' : 'bg-secondary text-muted'
           }`}>
@@ -460,7 +462,7 @@ export default function MandiDashboard() {
           }`}
         >
           <Scale className="w-4 h-4" />
-          <span>Procurement & Bookings</span>
+          <span>{t('mandi.bookingsTab', 'Procurement & Bookings')}</span>
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
             activeTab === 'bookings' ? 'bg-white/20 text-white' : 'bg-secondary text-muted'
           }`}>
@@ -479,7 +481,7 @@ export default function MandiDashboard() {
           }`}
         >
           <Store className="w-4 h-4" />
-          <span>Mandi Profile & Facilities</span>
+          <span>{t('mandi.profileTab', 'Mandi Profile & Facilities')}</span>
         </button>
       </div>
 
@@ -490,14 +492,14 @@ export default function MandiDashboard() {
           <div className="card-harvest p-5 rounded-2xl bg-surface border border-border shadow-sm flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-xs font-bold uppercase tracking-wider text-muted">
-                Today's District Arrivals
+                {t('mandi.districtArrivals', "Today's District Arrivals")}
               </p>
               <h3 className="text-2xl sm:text-3xl font-extrabold text-text">
-                {totalArrivalsTonnes} <span className="text-base font-bold text-primary">tonnes</span>
+                {totalArrivalsTonnes} <span className="text-base font-bold text-primary">{t('common.tonnes', 'tonnes')}</span>
               </h3>
               <p className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
                 <TrendingUp className="w-3.5 h-3.5" />
-                <span>+14.2% vs last week's gate volume</span>
+                <span>{t('mandi.gateVolumeTrend', "+14.2% vs last week's gate volume")}</span>
               </p>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-600 flex items-center justify-center shrink-0">
@@ -509,14 +511,14 @@ export default function MandiDashboard() {
           <div className="card-harvest p-5 rounded-2xl bg-surface border border-border shadow-sm flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-xs font-bold uppercase tracking-wider text-muted">
-                Active Registered Farmers
+                {t('mandi.activeFarmers', 'Active Registered Farmers')}
               </p>
               <h3 className="text-2xl sm:text-3xl font-extrabold text-text">
-                {activeFarmersCount} <span className="text-base font-bold text-teal-600">Producers</span>
+                {activeFarmersCount} <span className="text-base font-bold text-teal-600">{t('mandi.producers', 'Producers')}</span>
               </h3>
               <p className="text-[11px] text-teal-600 font-semibold flex items-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Agristack & 7/12 land verified in {district}</span>
+                <span>{district} {t('mandi.agristackVerified', 'मधील ॲग्रीस्टॅक आणि ७/१२ जमिनीची पडताळणी पूर्ण')}</span>
               </p>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 text-teal-600 flex items-center justify-center shrink-0">
@@ -528,14 +530,14 @@ export default function MandiDashboard() {
           <div className="card-harvest p-5 rounded-2xl bg-surface border border-border shadow-sm flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-xs font-bold uppercase tracking-wider text-muted">
-                Benchmark Rates Recorded
+                {t('mandi.benchmarkRates', 'Benchmark Rates Recorded')}
               </p>
               <h3 className="text-2xl sm:text-3xl font-extrabold text-text">
-                {benchmarkRatesCount} <span className="text-base font-bold text-amber-600">Crops</span>
+                {benchmarkRatesCount} <span className="text-base font-bold text-amber-600">{t('mandi.crops', 'Crops')}</span>
               </h3>
               <p className="text-[11px] text-amber-600 font-semibold flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Live e-NAM & APMC Gultekdi sync</span>
+                <span>{t('mandi.enamSync', 'Live e-NAM & APMC Gultekdi sync')}</span>
               </p>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-600 flex items-center justify-center shrink-0">
@@ -553,10 +555,10 @@ export default function MandiDashboard() {
             <div>
               <h2 className="text-lg sm:text-xl font-extrabold text-text flex items-center gap-2">
                 <Sprout className="w-5 h-5 text-primary" />
-                Incoming District Farmer Crop Listings
+                {t('mandi.incomingListingsTitle', 'Incoming District Farmer Crop Listings')}
               </h2>
               <p className="text-xs sm:text-sm text-muted">
-                Live harvest readiness, lots and prices submitted by verified farmers in {district} district.
+                {district} {t('mandi.incomingListingsSubtitle', 'जिल्ह्यातील पडताळणी झालेल्या शेतकऱ्यांनी सादर केलेली पीक स्थिती, लॉट्स आणि अपेक्षित दर.')}
               </p>
             </div>
 
@@ -567,7 +569,7 @@ export default function MandiDashboard() {
                 <input
                   type="text"
                   id="search-farmers-input"
-                  placeholder="Search farmer, village, crop..."
+                  placeholder={t('mandi.searchPlaceholder', 'Search farmer, village, crop...')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full sm:w-60 pl-9 pr-3 py-2 text-xs rounded-xl bg-background border border-border text-text placeholder-muted focus:outline-hidden focus:ring-2 focus:ring-primary font-medium"
@@ -587,7 +589,7 @@ export default function MandiDashboard() {
                         : 'bg-secondary text-muted hover:text-text hover:bg-secondary/80'
                     }`}
                   >
-                    {c === 'all' ? 'All Crops' : c}
+                    {c === 'all' ? t('mandi.allCrops', 'All Crops') : c}
                   </button>
                 ))}
               </div>
@@ -598,13 +600,13 @@ export default function MandiDashboard() {
           {loading ? (
             <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
               <RefreshCw className="w-8 h-8 text-primary animate-spin" />
-              <p className="text-sm font-semibold text-muted">Loading live district arrivals feed...</p>
+              <p className="text-sm font-semibold text-muted">{t('mandi.loadingArrivals', 'Loading live district arrivals feed...')}</p>
             </div>
           ) : filteredFarmers.length === 0 ? (
             <div className="py-12 text-center space-y-2 border border-dashed border-border rounded-2xl p-6">
               <AlertCircle className="w-8 h-8 text-muted mx-auto" />
-              <h4 className="text-sm font-bold text-text">No farmer arrivals match your filter</h4>
-              <p className="text-xs text-muted">Try clearing the search query or selecting 'All Crops'.</p>
+              <h4 className="text-sm font-bold text-text">{t('mandi.noArrivalsMatch', 'No farmer arrivals match your filter')}</h4>
+              <p className="text-xs text-muted">{t('mandi.clearFilterHelp', "Try clearing the search query or selecting 'All Crops'.")}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -632,19 +634,19 @@ export default function MandiDashboard() {
                               title="Govt Agristack Verified Farmer"
                               className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-100 dark:bg-emerald-900/50 dark:text-emerald-300 px-1.5 py-0.2 rounded"
                             >
-                              Agristack Verified
+                              {t('mandi.agristackVerifiedBadge', 'Agristack Verified')}
                             </span>
                           </div>
                           <p className="text-xs text-muted font-medium flex items-center gap-1 mt-0.5">
                             <MapPin className="w-3.5 h-3.5 text-primary" />
-                            <span>Village: <strong>{farmer.village || 'Haveli'}</strong>, {farmer.district || district}</span>
+                            <span>{t('mandi.village', 'Village')}: <strong>{farmer.village || 'Haveli'}</strong>, {farmer.district || district}</span>
                           </p>
                         </div>
                       </div>
 
                       <div className="text-right shrink-0">
                         <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-surface border border-border text-text block">
-                          {farmer.farmSizeAcres || 3.5} Acres
+                          {farmer.farmSizeAcres || 3.5} {t('common.acres', 'Acres')}
                         </span>
                         {farmer.phone && (
                           <span className="text-[10px] text-muted font-mono block mt-1">
@@ -657,7 +659,7 @@ export default function MandiDashboard() {
                     {/* Ready Harvest Quantities */}
                     <div className="space-y-2 pt-2 border-t border-border/70">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-muted block">
-                        Ready Harvest Lots & Expected Rates:
+                        {t('mandi.availableHarvestLots', 'Ready Harvest Lots & Expected Rates:')}
                       </span>
                       <div className="flex flex-wrap gap-2">
                         {crops.map((c, i) => (
@@ -672,7 +674,7 @@ export default function MandiDashboard() {
                             <span className="text-[10px] text-muted font-medium">({(c.quantityKg / 100).toFixed(1)} Qtl)</span>
                             {c.expectedPrice && (
                               <span className="text-[10px] font-extrabold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
-                                Exp: ₹{c.expectedPrice}/kg
+                                {t('mandi.expectedRate', 'Exp')}: ₹{c.expectedPrice}/kg
                               </span>
                             )}
                           </div>
@@ -683,7 +685,7 @@ export default function MandiDashboard() {
                     {/* Action Button: Issue APMC Procurement Request */}
                     <div className="pt-2 flex items-center justify-between border-t border-border/70">
                       <span className="text-xs text-muted font-semibold">
-                        Total Produce Lot: <strong className="text-text">{totalKg.toLocaleString('en-IN')} kg</strong>
+                        {t('mandi.totalProduceLot', 'Total Produce Lot')}: <strong className="text-text">{totalKg.toLocaleString('en-IN')} kg</strong>
                       </span>
 
                       <button
@@ -693,7 +695,7 @@ export default function MandiDashboard() {
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-emerald-600 text-white font-bold text-xs shadow-sm transition-all active:scale-95 group cursor-pointer"
                       >
                         <PlusCircle className="w-4 h-4 transition-transform group-hover:rotate-90" />
-                        <span>Issue APMC Procurement Request</span>
+                        <span>{t('mandi.issueDirectBooking', 'Issue APMC Procurement Request')}</span>
                       </button>
                     </div>
                   </div>
@@ -711,20 +713,20 @@ export default function MandiDashboard() {
             <div>
               <h3 className="font-extrabold text-base sm:text-lg text-text flex items-center gap-2">
                 <Scale className="w-5 h-5 text-primary" />
-                APMC Mandi Procurement Offers & Gate Passes
+                {t('mandi.procurementTitle', 'APMC Mandi Procurement Offers & Gate Passes')}
               </h3>
               <p className="text-xs text-muted">
-                Track direct purchase inquiries dispatched to farmers, confirmation decisions, and gate inward slips.
+                {t('mandi.procurementSubtitle', 'Track direct purchase inquiries dispatched to farmers, confirmation decisions, and gate inward slips.')}
               </p>
             </div>
 
             {/* Filter Pills */}
             <div className="flex items-center gap-1.5 overflow-x-auto">
               {[
-                { id: 'all', label: 'All Requests', count: recentBookings.length },
-                { id: 'pending', label: 'Pending Response', count: recentBookings.filter(b => b.status === 'pending').length },
-                { id: 'accepted', label: 'Confirmed Bookings', count: recentBookings.filter(b => b.status === 'accepted').length },
-                { id: 'declined', label: 'Declined', count: recentBookings.filter(b => b.status === 'declined').length }
+                { id: 'all', label: t('mandi.allRequests', 'All Requests'), count: recentBookings.length },
+                { id: 'pending', label: t('mandi.pendingResponse', 'Pending Response'), count: recentBookings.filter(b => b.status === 'pending').length },
+                { id: 'accepted', label: t('mandi.confirmedBookings', 'Confirmed Bookings'), count: recentBookings.filter(b => b.status === 'accepted').length },
+                { id: 'declined', label: t('mandi.declined', 'Declined'), count: recentBookings.filter(b => b.status === 'declined').length }
               ].map(f => (
                 <button
                   key={f.id}
@@ -745,9 +747,9 @@ export default function MandiDashboard() {
           {recentBookings.length === 0 ? (
             <div className="py-10 text-center space-y-2 border border-dashed border-border rounded-2xl p-6">
               <Store className="w-8 h-8 text-muted mx-auto" />
-              <h4 className="text-sm font-bold text-text">No Procurement Requests Issued Yet</h4>
+              <h4 className="text-sm font-bold text-text">{t('mandi.noBookingsYet', 'No Procurement Requests Issued Yet')}</h4>
               <p className="text-xs text-muted max-w-md mx-auto">
-                Use the <strong>"Issue APMC Procurement Request"</strong> button on any incoming farmer crop lot above to send an official purchase inquiry.
+                {t('mandi.noBookingsDesc', "Use the 'Issue APMC Procurement Request' button on any incoming farmer crop lot above to send an official purchase inquiry.")}
               </p>
             </div>
           ) : (
@@ -776,7 +778,7 @@ export default function MandiDashboard() {
                       <div className="space-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-extrabold text-sm text-text">
-                            Producer: {req.receiverName}
+                            {t('mandi.targetProducer', 'Producer')}: {req.receiverName}
                           </span>
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
                             isAccepted 
@@ -785,15 +787,15 @@ export default function MandiDashboard() {
                               ? 'bg-red-100 text-red-900 border-red-300 dark:bg-red-900 dark:text-red-200'
                               : 'bg-amber-100 text-amber-950 border-amber-300 dark:bg-amber-900 dark:text-amber-200'
                           }`}>
-                            {isAccepted ? '✅ Confirmed by Farmer' : isDeclined ? 'Declined' : '⏳ Pending Farmer Review'}
+                            {isAccepted ? `✅ ${t('mandi.confirmedByFarmer', 'Confirmed by Farmer')}` : isDeclined ? t('mandi.declined', 'Declined') : `⏳ ${t('mandi.pendingFarmerReview', 'Pending Farmer Review')}`}
                           </span>
                           <span className="text-[11px] text-muted">
-                            {req.createdAt ? new Date(req.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Live'}
+                            {req.createdAt ? new Date(req.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : t('common.live', 'Live')}
                           </span>
                         </div>
 
                         <p className="text-xs text-muted">
-                          Crop: <strong className="text-text">{req.cropName}</strong> • Lot Quantity: <strong className="text-text">{qty.toLocaleString('en-IN')} kg</strong> ({(qty / 100).toFixed(1)} Qtl) • Offered Rate: <strong className="text-emerald-700 dark:text-emerald-400">₹{rate}/kg</strong> • Gross Payout: <strong className="text-text font-bold">₹{totalVal.toLocaleString('en-IN')}</strong>
+                          {t('mandi.targetCrop', 'Crop')}: <strong className="text-text">{req.cropName}</strong> • {t('mandi.requestedQty', 'Quantity')}: <strong className="text-text">{qty.toLocaleString('en-IN')} kg</strong> ({(qty / 100).toFixed(1)} Qtl) • {t('mandi.offeredRate', 'Offered Rate')}: <strong className="text-emerald-700 dark:text-emerald-400">₹{rate}/kg</strong> • {t('mandi.totalProduceLot', 'Gross Payout')}: <strong className="text-text font-bold">₹{totalVal.toLocaleString('en-IN')}</strong>
                         </p>
 
                         {req.message && (
@@ -811,7 +813,7 @@ export default function MandiDashboard() {
                             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
                           >
                             <FileText className="w-3.5 h-3.5" />
-                            <span>View APMC Gate Pass</span>
+                            <span>{t('mandi.viewGatePass', 'View APMC Gate Pass')}</span>
                           </button>
                         )}
                       </div>
@@ -830,44 +832,44 @@ export default function MandiDashboard() {
             <div>
               <h3 className="font-extrabold text-base sm:text-lg text-text flex items-center gap-2">
                 <Store className="w-5 h-5 text-primary" />
-                Mandi Market Authority & Facility Verification
+                {t('mandi.marketAuthorityTitle', 'Mandi Market Authority & Facility Verification')}
               </h3>
               <p className="text-xs text-muted">
-                Official regulatory credentials under Maharashtra Agricultural Produce Marketing (Development and Regulation) Act.
+                {t('mandi.marketAuthoritySubtitle', 'Official regulatory credentials under Maharashtra Agricultural Produce Marketing (Development and Regulation) Act.')}
               </p>
             </div>
             <Link
               to="/profile"
               className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
             >
-              <span>Edit Mandi Details</span>
+              <span>{t('mandi.editMandiDetails', 'Edit Mandi Details')}</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
             <div className="p-4 rounded-2xl bg-secondary/30 border border-border space-y-1">
-              <span className="text-muted block uppercase font-bold text-[10px]">APMC License</span>
+              <span className="text-muted block uppercase font-bold text-[10px]">{t('mandi.apmcLicense', 'APMC License')}</span>
               <span className="font-black text-sm text-text font-mono">{licenseNumber}</span>
-              <span className="text-emerald-600 font-semibold block text-[11px]">Active • Maharashtra MSAMB</span>
+              <span className="text-emerald-600 font-semibold block text-[11px]">{t('mandi.activeMsmb', 'Active • Maharashtra MSAMB')}</span>
             </div>
 
             <div className="p-4 rounded-2xl bg-secondary/30 border border-border space-y-1">
-              <span className="text-muted block uppercase font-bold text-[10px]">Market Jurisdiction</span>
+              <span className="text-muted block uppercase font-bold text-[10px]">{t('mandi.marketJurisdiction', 'Market Jurisdiction')}</span>
               <span className="font-black text-sm text-text">{district} District APMC</span>
-              <span className="text-muted block text-[11px]">Primary Wholesale Yard</span>
+              <span className="text-muted block text-[11px]">{t('mandi.primaryWholesaleYard', 'Primary Wholesale Yard')}</span>
             </div>
 
             <div className="p-4 rounded-2xl bg-secondary/30 border border-border space-y-1">
-              <span className="text-muted block uppercase font-bold text-[10px]">Operating Schedule</span>
+              <span className="text-muted block uppercase font-bold text-[10px]">{t('mandi.operatingSchedule', 'Operating Schedule')}</span>
               <span className="font-black text-sm text-text">{operatingDays}</span>
               <span className="text-teal-600 font-semibold block text-[11px]">Weighbridge open 06:00 AM</span>
             </div>
 
             <div className="p-4 rounded-2xl bg-secondary/30 border border-border space-y-1">
-              <span className="text-muted block uppercase font-bold text-[10px]">DBT Payout Clearance</span>
-              <span className="font-black text-sm text-text">Direct Farmer Bank Account</span>
-              <span className="text-emerald-600 font-semibold block text-[11px]">Zero Middlemen Commission</span>
+              <span className="text-muted block uppercase font-bold text-[10px]">{t('mandi.dbtClearance', 'DBT Payout Clearance')}</span>
+              <span className="font-black text-sm text-text">{t('mandi.dbtClearance', 'Direct Farmer Bank Account')}</span>
+              <span className="text-emerald-600 font-semibold block text-[11px]">{t('mandi.zeroCommission', 'Zero Middlemen Commission')}</span>
             </div>
           </div>
         </div>
@@ -889,10 +891,10 @@ export default function MandiDashboard() {
                 </div>
                 <div>
                   <h3 className="text-base font-extrabold text-text">
-                    APMC Procurement Booking Request
+                    {t('mandi.modalTitle', 'APMC Procurement Booking Request')}
                   </h3>
                   <p className="text-xs text-muted">
-                    Issue direct purchase inquiry from {mandiName}
+                    {t('mandi.modalSubtitle', 'Issue direct purchase inquiry from')} {mandiName}
                   </p>
                 </div>
               </div>
@@ -908,12 +910,12 @@ export default function MandiDashboard() {
             {/* Target Farmer Card */}
             <div className="p-3.5 rounded-2xl bg-secondary/50 border border-border flex items-center justify-between text-xs">
               <div>
-                <span className="text-muted block text-[10px] uppercase font-bold">Target Producer</span>
+                <span className="text-muted block text-[10px] uppercase font-bold">{t('mandi.targetProducer', 'Target Producer')}</span>
                 <span className="font-extrabold text-sm text-text">{selectedFarmer.name}</span>
                 <span className="text-muted block">{selectedFarmer.village}, {selectedFarmer.district}</span>
               </div>
               <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/20">
-                Direct APMC Gate Inward
+                {t('mandi.directGateInward', 'Direct APMC Gate Inward')}
               </span>
             </div>
 
@@ -922,7 +924,7 @@ export default function MandiDashboard() {
               {/* Crop Selection */}
               <div>
                 <label className="block text-xs font-bold text-text mb-1 uppercase tracking-wider">
-                  Target Crop
+                  {t('mandi.targetCrop', 'Target Crop')}
                 </label>
                 <select
                   id="procure-crop-select"
@@ -932,7 +934,7 @@ export default function MandiDashboard() {
                 >
                   {getFarmerCrops(selectedFarmer).map((c) => (
                     <option key={c.crop} value={c.crop}>
-                      {c.crop} (Farmer has {c.quantityKg.toLocaleString('en-IN')} kg ready)
+                      {c.crop} ({c.quantityKg.toLocaleString('en-IN')} kg)
                     </option>
                   ))}
                 </select>
@@ -942,7 +944,7 @@ export default function MandiDashboard() {
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-bold text-text uppercase tracking-wider">
-                    Requested Quantity (kg)
+                    {t('mandi.requestedQty', 'Requested Quantity (kg)')}
                   </label>
                   <span className="text-[11px] text-muted">
                     1 Quintal = 100 kg
@@ -965,7 +967,7 @@ export default function MandiDashboard() {
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-bold text-text uppercase tracking-wider">
-                    Offered Rate (₹ / kg)
+                    {t('mandi.offeredRate', 'Offered Rate (₹ / kg)')}
                   </label>
                   <span className="text-[11px] text-emerald-600 font-semibold">
                     Competitive APMC Rate
@@ -990,7 +992,7 @@ export default function MandiDashboard() {
               {/* Procurement Notes / Special Instructions */}
               <div>
                 <label className="block text-xs font-bold text-text mb-1 uppercase tracking-wider">
-                  Procurement Notes & Delivery Instructions (Optional)
+                  {t('mandi.mandiNotes', 'Procurement Notes & Delivery Instructions (Optional)')}
                 </label>
                 <input
                   type="text"
@@ -1005,14 +1007,14 @@ export default function MandiDashboard() {
               {/* Live Calculation Preview Banner */}
               <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-transparent border border-emerald-500/20 flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-muted block">Est. Gross Payout to Farmer</span>
+                  <span className="text-[10px] uppercase font-bold text-muted block">{t('mandi.totalProduceLot', 'Est. Gross Payout to Farmer')}</span>
                   <span className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400">
                     ₹ {calculatedTotalValue}
                   </span>
                 </div>
                 <div className="text-right text-[11px] text-muted font-medium">
-                  <span>Direct Bank DBT</span>
-                  <span className="block text-[10px] text-primary font-bold">No Middlemen Cut</span>
+                  <span>{t('mandi.dbtClearance', 'Direct Bank DBT')}</span>
+                  <span className="block text-[10px] text-primary font-bold">{t('mandi.zeroCommission', 'No Middlemen Cut')}</span>
                 </div>
               </div>
 
@@ -1023,7 +1025,7 @@ export default function MandiDashboard() {
                   onClick={() => setProcurementModalOpen(false)}
                   className="px-4 py-2.5 rounded-xl border border-border text-xs font-bold text-muted hover:text-text hover:bg-secondary transition-colors cursor-pointer"
                 >
-                  Cancel
+                  {t('mandi.cancel', 'Cancel')}
                 </button>
 
                 <button
@@ -1037,7 +1039,7 @@ export default function MandiDashboard() {
                   ) : (
                     <Send className="w-4 h-4" />
                   )}
-                  <span>{submitting ? 'Dispatching...' : 'Dispatch Procurement Request'}</span>
+                  <span>{submitting ? t('mandi.dispatching', 'Dispatching...') : t('mandi.dispatchRequest', 'Dispatch Procurement Request')}</span>
                 </button>
               </div>
             </form>

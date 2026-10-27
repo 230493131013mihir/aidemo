@@ -14,9 +14,17 @@ import {
   LogOut,
   UserPlus,
   Landmark,
+  Layers,
+  Car,
+  Navigation,
+  Bell,
+  IndianRupee,
   X,
   Sprout,
-  Scale
+  Scale,
+  Users,
+  Store,
+  ClipboardList
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -28,28 +36,44 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
   const { user, isAuthenticated, logout } = useAuth();
   const { isDark } = useTheme();
 
-  const displayName = user?.name || 'Prashant Warule';
   const isMandi = user?.role === 'mandi';
   const isAdmin = user?.role === 'admin';
   const isTransporter = user?.role === 'transporter';
+  const isFpo = user?.role === 'fpo_leader' || user?.role === 'fpo';
+  const displayName = user?.name || (isAdmin ? 'Admin' : isMandi ? 'Mandi Official' : isTransporter ? 'Transporter' : isFpo ? 'FPO Leader' : 'Farmer');
 
   const roleName =
     isAdmin
       ? 'Administrator'
       : isMandi
       ? 'APMC Mandi Official'
-      : user?.role === 'transporter'
-      ? 'Transporter / Driver'
-      : 'Farmer / Producer';
+      : isTransporter
+      ? 'Transporter'
+      : isFpo
+      ? 'FPO Leader'
+      : 'Farmer';
+
+  const userRoleSubtitle =
+    isAdmin
+      ? t('roles.adminSubtitle', 'APMC Regulatory Officer')
+      : isMandi
+      ? t('roles.mandiSubtitle', 'APMC Mandi Official')
+      : isTransporter
+      ? t('roles.transporterSubtitle', 'Transporter / Driver')
+      : isFpo
+      ? t('roles.fpoSubtitle', 'FPO Leader / Aggregator')
+      : t('roles.farmerSubtitle', 'Farmer / Producer');
 
   const rolePillText =
     isAdmin
-      ? 'Admin'
+      ? t('roles.admin', 'Admin')
       : isMandi
-      ? 'Mandi Official'
-      : user?.role === 'transporter'
-      ? 'Transporter'
-      : 'Farmer';
+      ? t('roles.mandi', 'Mandi Official')
+      : isTransporter
+      ? t('roles.transporter', 'Transporter')
+      : isFpo
+      ? t('roles.fpo', 'FPO Leader')
+      : t('roles.farmer', 'Farmer');
 
   const profileLabel = t('nav.profile', 'My Profile');
 
@@ -57,30 +81,48 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
   const navigationItems = React.useMemo(() => {
     if (isAdmin) {
       return [
-        { to: '/admin', label: 'Admin Control Center', icon: Shield, badge: 'Gov' },
+        { to: '/admin', label: t('nav.adminControlCenter', 'Admin Control Center'), icon: Shield, badge: 'Gov' },
         { to: '/markets', label: t('nav.markets', 'Mandi Prices'), icon: TrendingUp },
         { to: '/schemes', label: t('nav.schemes', 'Govt Schemes'), icon: Landmark, badge: 'New' },
         { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
       ];
     }
 
+    if (isFpo) {
+      return [
+        { to: '/fpo/dashboard', label: t('nav.fpoDashboard', 'FPO Dashboard'), icon: LayoutDashboard },
+        { to: '/fpo/members', label: t('nav.memberRoster', 'Member Roster'), icon: Users, badge: 'Team' },
+        { to: '/fpo/crops', label: t('nav.cropAvailability', 'Crop Availability'), icon: Sprout },
+        { to: '/fpo/aggregation', label: t('nav.collectiveLots', 'Collective Lots'), icon: Layers, badge: 'Pool' },
+        { to: '/fpo/procurement', label: t('nav.bulkProcurement', 'Bulk Mandi Offers'), icon: Store },
+        { to: '/fpo/transport', label: t('nav.transportDispatch', 'Transport Dispatch'), icon: Truck },
+        { to: '/fpo/orders', label: t('nav.ordersHistory', 'Orders & History'), icon: ClipboardList },
+        { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
+      ];
+    }
+
     if (isMandi) {
       return [
-        { to: '/dashboard', label: 'Mandi Dashboard', icon: LayoutDashboard },
-        { to: '/dashboard?tab=listings', label: 'Incoming Crop Listings', icon: Sprout },
-        { to: '/dashboard?tab=bookings', label: 'Procurement & Bookings', icon: Scale },
-        { to: '/markets', label: 'Live APMC Rates', icon: TrendingUp },
+        { to: '/dashboard', label: t('nav.mandiDashboard', 'Mandi Dashboard'), icon: LayoutDashboard },
+        { to: '/dashboard?tab=listings', label: t('nav.incomingListings', 'Incoming Crop Listings'), icon: Sprout },
+        { to: '/dashboard?tab=bookings', label: t('nav.procurementBookings', 'Procurement & Bookings'), icon: Scale },
+        { to: '/markets', label: t('nav.liveApmcRates', 'Live APMC Rates'), icon: TrendingUp },
         { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
       ];
     }
 
     if (isTransporter) {
       return [
-        { to: '/dashboard', label: 'Logistics Dashboard', icon: LayoutDashboard },
-        { to: '/transport', label: 'Cargo Trips & Gate Pass', icon: Truck },
-        { to: '/weather', label: 'Route Weather Alerts', icon: CloudSunRain },
-        { to: '/markets', label: t('nav.markets', 'Mandi Prices'), icon: TrendingUp },
-        { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
+        { to: '/dashboard', label: t('nav.logisticsDashboard', 'Logistics Dashboard'), icon: LayoutDashboard },
+        { to: '/transport?tab=requests', label: t('nav.incomingRequests', 'Incoming Requests'), icon: Truck },
+        { to: '/transport?tab=shared', label: t('nav.sharedTrips', 'Shared Trips & Groups'), icon: Layers, badge: 'Pool' },
+        { to: '/transport?tab=active', label: t('nav.activeTrips', 'My Active Trips'), icon: Navigation },
+        { to: '/transport?tab=gatepass', label: t('nav.cargoGatePass', 'Cargo Trips & Gate Pass'), icon: Shield },
+        { to: '/transport?tab=fleet', label: t('nav.fleetManagement', 'Fleet & Vehicle Management'), icon: Car },
+        { to: '/weather', label: t('nav.routeWeather', 'Route Weather Alerts'), icon: CloudSunRain },
+        { to: '/transport?tab=notifications', label: t('nav.notifications', 'Messages & Notifications'), icon: Bell },
+        { to: '/transport?tab=history', label: t('nav.tripHistory', 'Trip History & Earnings'), icon: IndianRupee },
+        { to: '/chat', label: t('nav.mitraLogistics', 'Mitra Logistics Assistant'), icon: Bot, badge: 'AI' },
       ];
     }
 
@@ -101,7 +143,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
       { to: '/weather', label: t('nav.weather', 'Weather Alerts'), icon: CloudSunRain },
       { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' },
     ];
-  }, [isAdmin, isTransporter, isMandi, t]);
+  }, [isAdmin, isTransporter, isMandi, isFpo, t]);
 
   const handleLinkClick = () => {
     if (onClose) {
@@ -152,7 +194,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
         {/* Main Vertical Navigation */}
         <div className="space-y-1">
           <div className="px-3 text-[11px] font-extrabold uppercase tracking-wider text-muted">
-            Main Menu
+            {t('nav.mainMenu', 'Main Menu')}
           </div>
           <nav className="space-y-1 pt-0.5" aria-label="Sidebar main navigation">
             {navigationItems.map((item) => {
@@ -192,7 +234,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
         {/* Account & Profile Section */}
         <div className="space-y-1 pt-1.5 border-t border-border/80">
           <div className="px-3 text-[11px] font-extrabold uppercase tracking-wider text-muted">
-            Account Settings
+            {t('nav.accountSettings', 'Account Settings')}
           </div>
           <nav className="space-y-1 pt-0.5" aria-label="Sidebar account navigation">
             {/* Dark/Light Mode Toggle */}
@@ -228,7 +270,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <LogOut className="w-4 h-4 shrink-0" />
-                  <span className="truncate">Sign Out</span>
+                  <span className="truncate">{t('nav.signOut', 'Sign Out')}</span>
                 </div>
               </button>
             ) : (
@@ -240,7 +282,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <User className="w-4 h-4 shrink-0" />
-                    <span className="truncate">Farmer Login</span>
+                    <span className="truncate">{t('nav.farmerLogin', 'Farmer Login')}</span>
                   </div>
                   <ChevronRight className="w-3.5 h-3.5 opacity-40" />
                 </NavLink>
@@ -251,7 +293,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <UserPlus className="w-4 h-4 shrink-0" />
-                    <span className="truncate">Create Account</span>
+                    <span className="truncate">{t('nav.createAccount', 'Create Account')}</span>
                   </div>
                   <ChevronRight className="w-3.5 h-3.5 opacity-40" />
                 </NavLink>

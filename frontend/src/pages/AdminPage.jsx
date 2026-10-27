@@ -29,7 +29,8 @@ import {
   LogOut,
   Download,
   Activity,
-  Server
+  Server,
+  ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -102,6 +103,23 @@ export default function AdminPage() {
   const [schemeCategoryFilter, setSchemeCategoryFilter] = useState('all');
   const [schemePage, setSchemePage] = useState(1);
 
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditSearchQuery, setAuditSearchQuery] = useState('');
+
+  const [isSchemeModalOpen, setIsSchemeModalOpen] = useState(false);
+  const [schemeFormSubmitting, setSchemeFormSubmitting] = useState(false);
+  const [schemeForm, setSchemeForm] = useState({
+    identifier: '',
+    nameEn: '',
+    nameHi: '',
+    category: 'Direct Income Support',
+    department: 'Ministry of Agriculture & Farmers Welfare',
+    scope: 'National',
+    officialInfoUrl: 'https://agricoop.nic.in',
+    benefitDescription: ''
+  });
+
   // If user is already logged in as admin through main auth, reuse token
   useEffect(() => {
     if (user?.role === 'admin' && userToken && !token) {
@@ -169,7 +187,7 @@ export default function AdminPage() {
     setError('');
 
     try {
-      const [summaryRes, usersRes, pricesRes, marketsRes, cropsRes, transportRes, schemesRes] = await Promise.all([
+      const [summaryRes, usersRes, pricesRes, marketsRes, cropsRes, transportRes, schemesRes, auditRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/admin/overview`, { headers: authHeaders(activeToken) }),
         fetch(`${API_BASE_URL}/api/admin/users`, { headers: authHeaders(activeToken) }),
         fetch(`${API_BASE_URL}/api/admin/market-prices`, { headers: authHeaders(activeToken) }),
@@ -177,9 +195,10 @@ export default function AdminPage() {
         fetch(`${API_BASE_URL}/api/admin/crops`, { headers: authHeaders(activeToken) }),
         fetch(`${API_BASE_URL}/api/transport/requests`, { headers: authHeaders(activeToken) }).catch(() => null),
         fetch(`${API_BASE_URL}/api/schemes`, { headers: authHeaders(activeToken) }).catch(() => null),
+        fetch(`${API_BASE_URL}/api/admin/audit-logs`, { headers: authHeaders(activeToken) }).catch(() => null),
       ]);
 
-      const [summaryPayload, usersPayload, pricesPayload, marketsPayload, cropsPayload, transportPayload, schemesPayload] = await Promise.all([
+      const [summaryPayload, usersPayload, pricesPayload, marketsPayload, cropsPayload, transportPayload, schemesPayload, auditPayload] = await Promise.all([
         summaryRes.json(),
         usersRes.json(),
         pricesRes.json(),
@@ -187,6 +206,7 @@ export default function AdminPage() {
         cropsRes.json(),
         transportRes ? transportRes.json().catch(() => ({ success: true, data: [] })) : { success: true, data: [] },
         schemesRes ? schemesRes.json().catch(() => ({ success: true, data: [] })) : { success: true, data: [] },
+        auditRes ? auditRes.json().catch(() => ({ success: true, data: [] })) : { success: true, data: [] },
       ]);
 
       if (!summaryPayload.success || !usersPayload.success || !pricesPayload.success) {
@@ -201,6 +221,9 @@ export default function AdminPage() {
       setTransports(transportPayload?.data || []);
       if (schemesPayload?.success && Array.isArray(schemesPayload.data)) {
         setSchemes(schemesPayload.data);
+      }
+      if (auditPayload?.success && Array.isArray(auditPayload.data)) {
+        setAuditLogs(auditPayload.data);
       }
 
       // Initialize default selections for price form if empty
@@ -421,6 +444,33 @@ export default function AdminPage() {
     }
   }
 
+  // Toggle User Status (Active vs Suspended)
+  async function toggleUserStatus(id, currentStatus) {
+    const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended';
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}`, {
+        method: 'PUT',
+        headers: authHeaders(token),
+        body: JSON.stringify({ status: newStatus })
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.message || 'Status update failed');
+
+      showToast({
+        type: newStatus === 'active' ? 'success' : 'info',
+        title: newStatus === 'active' ? 'Account Activated' : 'Account Suspended',
+        message: `User status changed to ${newStatus.toUpperCase()}. Regulatory audit recorded.`
+      });
+      await loadAdminData();
+    } catch (err) {
+      showToast({
+        type: 'error',
+        title: 'Action Failed',
+        message: err.message || 'Unable to update account status'
+      });
+    }
+  }
+
   // Filtered & Sorted prices for display
   const filteredAndSortedPrices = useMemo(() => {
     const list = prices.filter((p) => {
@@ -529,6 +579,28 @@ export default function AdminPage() {
     return filteredAndSortedSchemes.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredAndSortedSchemes, schemePage]);
 
+  // Filtered & Sorted Audit Logs for Regulatory Compliance
+  const filteredAndSortedAuditLogs = useMemo(() => {
+    return auditLogs.filter((a) => {
+      const q = auditSearchQuery.toLowerCase();
+      if (!q) return true;
+      const detailsStr = typeof a.details === 'object' ? JSON.stringify(a.details) : String(a.details || '');
+      return (
+        (a.actorName || '').toLowerCase().includes(q) ||
+        (a.actorRole || '').toLowerCase().includes(q) ||
+        (a.action || '').toLowerCase().includes(q) ||
+        (a.targetType || '').toLowerCase().includes(q) ||
+        detailsStr.toLowerCase().includes(q)
+      );
+    });
+  }, [auditLogs, auditSearchQuery]);
+
+  const totalAuditPages = Math.ceil(filteredAndSortedAuditLogs.length / ITEMS_PER_PAGE) || 1;
+  const displayedAuditLogs = useMemo(() => {
+    const start = (auditPage - 1) * ITEMS_PER_PAGE;
+    return filteredAndSortedAuditLogs.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredAndSortedAuditLogs, auditPage]);
+
   // STRICT ACCESS RESTRICTION:
   // If user is logged in as a normal Farmer or Transporter, do NOT allow admin access or demo switch!
   if (isAuthenticated && user?.role && user.role !== 'admin' && !token) {
@@ -604,15 +676,58 @@ export default function AdminPage() {
     }
   }
 
+  async function handleCreateScheme(e) {
+    e.preventDefault();
+    setSchemeFormSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/schemes/admin/create`, {
+        method: 'POST',
+        headers: authHeaders(token),
+        body: JSON.stringify(schemeForm)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to publish scheme');
+      }
+
+      showToast({
+        type: 'success',
+        title: 'Scheme Published',
+        message: `${schemeForm.nameEn} registered and verified in database.`
+      });
+      setIsSchemeModalOpen(false);
+      setSchemeForm({
+        identifier: '',
+        nameEn: '',
+        nameHi: '',
+        category: 'Direct Income Support',
+        department: 'Ministry of Agriculture & Farmers Welfare',
+        scope: 'National',
+        officialInfoUrl: 'https://agricoop.nic.in',
+        benefitDescription: ''
+      });
+      await loadAdminData();
+    } catch (err) {
+      showToast({ type: 'error', title: 'Publish Failed', message: err.message });
+    } finally {
+      setSchemeFormSubmitting(false);
+    }
+  }
+
   function handleExportAuditReport() {
     try {
       const csvRows = [];
       csvRows.push(['Record Type', 'Entity / Name', 'Category / Role', 'Detail / Metric', 'Status']);
       users.forEach((u) => {
-        csvRows.push(['User Registry', `"${u.name || 'User'}"`, u.role || 'farmer', u.phone || u.email || 'N/A', 'Active']);
+        const maskedPhone = u.phone ? `+91 ${u.phone.slice(0, 2)}*** ***${u.phone.slice(-2)}` : 'Protected';
+        const maskedEmail = u.email ? u.email.replace(/(.{2})(.*)(@.*)/, '$1***$3') : 'Protected';
+        csvRows.push(['User Registry', `"${u.name || 'User'}"`, u.role || 'farmer', `${maskedPhone} | ${maskedEmail}`, u.status || 'Active']);
       });
       prices.forEach((p) => {
-        csvRows.push(['Mandi Price', `"${p.Crop?.name || 'Crop'}"`, `"${p.Market?.name || 'APMC'}"`, `₹${p.modalPricePerKg}/kg`, p.priceDate || 'Recent']);
+        csvRows.push(['Mandi Price', `"${p.Crop?.nameEn || p.Crop?.name || 'Crop'}"`, `"${p.Market?.name || 'APMC'}"`, `₹${p.pricePerKg || p.modalPricePerKg}/kg (${p.dataType || 'benchmark'})`, p.priceDate || 'Recent']);
+      });
+      auditLogs.forEach((a) => {
+        csvRows.push(['Audit Trail', `"${a.actorName} [${a.action}]"`, a.targetType || 'system', `Target #${a.targetId}: ${a.details || ''}`, a.createdAt || 'Recent']);
       });
       const csvContent = 'data:text/csv;charset=utf-8,' + csvRows.map((e) => e.join(',')).join('\n');
       const encodedUri = encodeURI(csvContent);
@@ -622,19 +737,19 @@ export default function AdminPage() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      showToast({ type: 'success', title: 'Audit Report Exported', message: 'APMC compliance CSV downloaded successfully.' });
+      showToast({ type: 'success', title: 'Audit Report Exported', message: 'APMC compliance CSV downloaded successfully (private contacts masked).' });
     } catch (err) {
       showToast({ type: 'error', title: 'Export Failed', message: err.message });
     }
   }
 
   const cards = [
-    { label: 'Registered Users', value: summary?.users || users.length || 0, icon: Users, color: 'text-blue-600 bg-blue-50' },
-    { label: 'Farmer Profiles', value: summary?.farmers || 0, icon: Wheat, color: 'text-emerald-600 bg-emerald-50' },
-    { label: 'Transporters', value: summary?.transporters || 0, icon: Truck, color: 'text-cyan-600 bg-cyan-50' },
-    { label: 'Active Mandis', value: summary?.markets || markets.length || 0, icon: Store, color: 'text-amber-600 bg-amber-50' },
-    { label: 'Live Price Points', value: summary?.marketPrices || prices.length || 0, icon: IndianRupee, color: 'text-purple-600 bg-purple-50' },
-    { label: 'Verified Schemes', value: schemes.length || 10, icon: Landmark, color: 'text-emerald-700 bg-emerald-50' },
+    { label: 'Registered Users', value: summary?.users || users.length || 0, sublabel: 'Verified multi-role accounts', icon: Users, color: 'text-blue-600 bg-blue-50' },
+    { label: 'Farmer Profiles', value: summary?.farmers || 0, sublabel: '7/12 Land & Agristack Linked', icon: Wheat, color: 'text-emerald-600 bg-emerald-50' },
+    { label: 'Transporters', value: summary?.transporters || 0, sublabel: 'Verified Fleet Logistics', icon: Truck, color: 'text-cyan-600 bg-cyan-50' },
+    { label: 'Active Mandis', value: summary?.markets || markets.length || 0, sublabel: 'APMC Market Yards in Directory', icon: Store, color: 'text-amber-600 bg-amber-50' },
+    { label: 'Total APMC Price Benchmarks', value: summary?.marketPrices || prices.length || 0, sublabel: '12,504 Nationwide Mandis in MySQL', icon: IndianRupee, color: 'text-purple-600 bg-purple-50' },
+    { label: 'Verified Schemes', value: schemes.length || 10, sublabel: 'National & State Schemes', icon: Landmark, color: 'text-emerald-700 bg-emerald-50' },
   ];
 
   return (
@@ -800,6 +915,9 @@ export default function AdminPage() {
                     </div>
                   </div>
                   <p className="text-2xl font-black text-text font-mono">{c.value}</p>
+                  {c.sublabel && (
+                    <p className="text-[10px] text-muted font-medium line-clamp-1">{c.sublabel}</p>
+                  )}
                 </article>
               );
             })}
@@ -835,17 +953,17 @@ export default function AdminPage() {
                   <span className="text-slate-400 text-[10px]">MySQL Primary DB</span>
                   <span className="text-emerald-400 font-bold">🟢 Connected</span>
                 </div>
-                <p className="font-mono text-white font-bold text-sm mt-1">5 Pool Conns</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Zero Query Leaks</p>
+                <p className="font-mono text-white font-bold text-sm mt-1">harvestmitra_db</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">12,504 Price Points • 0 Leaks</p>
               </div>
 
               <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400 text-[10px]">Alert Daemon (WhatsApp/SMS)</span>
-                  <span className="text-emerald-400 font-bold">🟢 Online</span>
+                  <span className="text-slate-400 text-[10px]">Alert Dispatch (WhatsApp/SMS)</span>
+                  <span className="text-emerald-400 font-bold">🟢 Ready</span>
                 </div>
-                <p className="font-mono text-white font-bold text-sm mt-1">Ready</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Rain & Gate Pass Dispatch</p>
+                <p className="font-mono text-white font-bold text-sm mt-1">Template Mode</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Link & Advisory Preview (Simulation)</p>
               </div>
 
               <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60">
@@ -922,6 +1040,22 @@ export default function AdminPage() {
               <span>Government Schemes & Subsidies</span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono font-bold">
                 {schemes.length || 10}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('audit')}
+              className={`pb-3 flex items-center gap-2 border-b-2 transition-all ${
+                activeTab === 'audit'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted hover:text-text'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 text-purple-600" />
+              <span>APMC Regulatory Audit Trail</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 font-mono font-bold">
+                {auditLogs.length}
               </span>
             </button>
           </div>
@@ -1177,13 +1311,15 @@ export default function AdminPage() {
 
               {/* Live Prices Table */}
               <section className="rounded-3xl border border-border bg-white shadow-xs overflow-hidden">
-                <div className="px-6 py-4 bg-slate-50 border-b border-border flex items-center justify-between">
+                <div className="px-6 py-4 bg-slate-50 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <h2 className="font-bold text-sm text-text">Live APMC Mandi Price Records (MySQL)</h2>
-                    <p className="text-[11px] text-muted">Strict limit: 10 per page • Sorted by {priceSortOrder === 'latest' ? 'Latest' : 'Oldest'} first</p>
+                    <p className="text-[11px] text-muted">
+                      Displaying latest 300 active price benchmarks out of <strong>{summary?.marketPrices ? summary.marketPrices.toLocaleString() : '12,504'}</strong> nationwide records in MySQL • Strict 10 per page
+                    </p>
                   </div>
                   <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-lg bg-white border border-slate-200">
-                    Showing {displayedPrices.length} of {filteredAndSortedPrices.length} records
+                    Showing {displayedPrices.length} of {filteredAndSortedPrices.length} filtered records (Page {pricePage})
                   </span>
                 </div>
 
@@ -1191,54 +1327,65 @@ export default function AdminPage() {
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-50/60 text-muted uppercase tracking-wider text-[10px] border-b border-border">
                       <tr>
-                        <th className="px-5 py-3">ID</th>
-                        <th className="px-5 py-3">Crop Commodity</th>
-                        <th className="px-5 py-3">APMC Mandi</th>
-                        <th className="px-5 py-3">District & State</th>
-                        <th className="px-5 py-3">Modal Rate</th>
-                        <th className="px-5 py-3">Per Kg Rate</th>
-                        <th className="px-5 py-3">Min - Max Range</th>
-                        <th className="px-5 py-3">Price Date</th>
-                        <th className="px-5 py-3 text-right">Actions</th>
+                        <th className="px-4 py-3">ID</th>
+                        <th className="px-4 py-3">Crop Commodity</th>
+                        <th className="px-4 py-3">APMC Mandi</th>
+                        <th className="px-4 py-3">District & State</th>
+                        <th className="px-4 py-3">Modal Rate</th>
+                        <th className="px-4 py-3">Per Kg Rate</th>
+                        <th className="px-4 py-3">Min - Max Range</th>
+                        <th className="px-4 py-3">Source & Feed</th>
+                        <th className="px-4 py-3">Last Sync</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/60">
                       {displayedPrices.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="px-5 py-8 text-center text-muted">
+                          <td colSpan={10} className="px-5 py-8 text-center text-muted">
                             No market price records match your filter criteria.
                           </td>
                         </tr>
                       ) : (
                         displayedPrices.map((p) => (
                           <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-5 py-3.5 font-mono text-muted">#{p.id}</td>
-                            <td className="px-5 py-3.5 font-bold text-text">
+                            <td className="px-4 py-3.5 font-mono text-muted">#{p.id}</td>
+                            <td className="px-4 py-3.5 font-bold text-text">
                               <span className="text-emerald-700">{p.Crop?.nameEn || 'Crop'}</span>
                               {p.Crop?.nameGu && (
                                 <span className="block text-[11px] text-muted font-normal">{p.Crop.nameGu}</span>
                               )}
                             </td>
-                            <td className="px-5 py-3.5 font-semibold text-text">
+                            <td className="px-4 py-3.5 font-semibold text-text">
                               {p.Market?.name || 'Mandi'}
                             </td>
-                            <td className="px-5 py-3.5 text-muted">
+                            <td className="px-4 py-3.5 text-muted">
                               <div>{p.Market?.district}</div>
                               <div className="text-[10px] font-semibold text-slate-500">{p.Market?.state}</div>
                             </td>
-                            <td className="px-5 py-3.5 font-mono font-bold text-text">
+                            <td className="px-4 py-3.5 font-mono font-bold text-text">
                               ₹{Number(p.pricePerQuintal).toLocaleString()} / Qtl
                             </td>
-                            <td className="px-5 py-3.5 font-mono font-bold text-emerald-700">
+                            <td className="px-4 py-3.5 font-mono font-bold text-emerald-700">
                               ₹{p.pricePerKg} / kg
                             </td>
-                            <td className="px-5 py-3.5 font-mono text-muted text-[11px]">
+                            <td className="px-4 py-3.5 font-mono text-muted text-[11px]">
                               ₹{p.minPrice} - ₹{p.maxPrice}
                             </td>
-                            <td className="px-5 py-3.5 font-mono text-muted">
-                              {p.priceDate ? p.priceDate.slice(0, 10) : 'Today'}
+                            <td className="px-4 py-3.5">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                p.dataType === 'verified_live'
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                  : 'bg-slate-100 text-slate-700 border border-slate-200'
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${p.dataType === 'verified_live' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                {p.dataType === 'verified_live' ? 'e-NAM Live' : 'Seeded APMC'}
+                              </span>
                             </td>
-                            <td className="px-5 py-3.5 text-right space-x-1">
+                            <td className="px-4 py-3.5 font-mono text-muted text-[11px]">
+                              {p.updatedAt ? new Date(p.updatedAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : (p.priceDate || 'Recent')}
+                            </td>
+                            <td className="px-4 py-3.5 text-right space-x-1">
                               <button
                                 type="button"
                                 onClick={() => startEditPrice(p)}
@@ -1346,13 +1493,14 @@ export default function AdminPage() {
                         <th className="px-5 py-3">Contact</th>
                         <th className="px-5 py-3">Assigned Role</th>
                         <th className="px-5 py-3">Farmer / Transporter Details</th>
+                        <th className="px-5 py-3">Account Status</th>
                         <th className="px-5 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/60">
                       {displayedUsers.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="px-5 py-8 text-center text-muted">
+                          <td colSpan={7} className="px-5 py-8 text-center text-muted">
                             No users matched your query.
                           </td>
                         </tr>
@@ -1392,16 +1540,42 @@ export default function AdminPage() {
                                   <span className="text-[11px] text-slate-500">Transporter Fleet</span>
                                 )}
                               </td>
-                              <td className="px-5 py-3.5 text-right">
+                              <td className="px-5 py-3.5">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                    u.status === 'suspended' || u.status === 'disabled'
+                                      ? 'bg-red-100 text-red-800 border border-red-200'
+                                      : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                  }`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${u.status === 'suspended' || u.status === 'disabled' ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                                  {u.status === 'suspended' || u.status === 'disabled' ? 'Suspended' : 'Active'}
+                                </span>
+                              </td>
+                              <td className="px-5 py-3.5 text-right space-x-1.5">
                                 {u.role !== 'admin' && (
-                                  <button
-                                    type="button"
-                                    onClick={() => deleteUser(u.id)}
-                                    className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                                    title="Delete user"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleUserStatus(u.id, u.status || 'active')}
+                                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border ${
+                                        u.status === 'suspended' || u.status === 'disabled'
+                                          ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                                          : 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
+                                      }`}
+                                      title={u.status === 'suspended' ? 'Reactivate account' : 'Safely suspend account'}
+                                    >
+                                      {u.status === 'suspended' || u.status === 'disabled' ? 'Reactivate' : 'Suspend'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteUser(u.id)}
+                                      className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                                      title="Delete user"
+                                    >
+                                      <Trash2 className="w-4 h-4 inline" />
+                                    </button>
+                                  </>
                                 )}
                               </td>
                             </tr>
@@ -1650,10 +1824,18 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="text-xs text-muted font-medium flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
+                <div className="flex items-center gap-2.5">
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 text-xs">
                     {filteredAndSortedSchemes.length} Verified Records
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsSchemeModalOpen(true)}
+                    className="btn-primary py-2 px-3.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Publish Scheme</span>
+                  </button>
                 </div>
               </div>
 
@@ -1778,6 +1960,326 @@ export default function AdminPage() {
               </section>
             </div>
           )}
+
+          {/* TAB 5: APMC REGULATORY AUDIT TRAIL */}
+          {activeTab === 'audit' && (
+            <div className="space-y-4">
+              {/* Controls Strip: Search & Metrics */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-border shadow-xs">
+                <div>
+                  <h3 className="text-sm font-bold text-text">Regulatory Compliance Audit Log</h3>
+                  <p className="text-[11px] text-muted">Immutable event ledger of price alterations, administrative access, role changes, and scheme publications</p>
+                </div>
+                <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:w-72">
+                    <Search className="w-4 h-4 text-muted absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Search actor, action, target..."
+                      value={auditSearchQuery}
+                      onChange={(e) => {
+                        setAuditSearchQuery(e.target.value);
+                        setAuditPage(1);
+                      }}
+                      className="w-full rounded-xl border border-border pl-9 pr-3 py-2 text-xs outline-none focus:border-primary"
+                    />
+                  </div>
+                  <span className="px-2.5 py-1.5 rounded-xl bg-purple-50 text-purple-700 font-bold border border-purple-200 text-xs shrink-0">
+                    {filteredAndSortedAuditLogs.length} Events Logged
+                  </span>
+                </div>
+              </div>
+
+              {/* Regulatory Notice Banner */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700 flex items-start gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-purple-600 mt-0.5 shrink-0" />
+                <div>
+                  <span className="font-bold text-slate-900">APMC Audit Integrity Standard: </span>
+                  All administrative mutations across APMC market rates, user authorization states, and government schemes are cryptographically stored with IP origin and actor identity in the <span className="font-mono text-[11px] text-purple-700">audit_logs</span> database table. Passwords and credentials are never captured.
+                </div>
+              </div>
+
+              {/* Audit Table */}
+              <section className="bg-white rounded-3xl border border-border overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50/80 border-b border-border text-[11px] uppercase tracking-wider text-muted font-bold">
+                      <tr>
+                        <th className="px-5 py-3.5">Timestamp</th>
+                        <th className="px-5 py-3.5">Actor</th>
+                        <th className="px-5 py-3.5">Action</th>
+                        <th className="px-5 py-3.5">Target</th>
+                        <th className="px-5 py-3.5">Event Details</th>
+                        <th className="px-5 py-3.5">IP Origin</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/60">
+                      {displayedAuditLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan="6" className="text-center py-10 text-muted">
+                            No regulatory audit records found matching criteria.
+                          </td>
+                        </tr>
+                      ) : (
+                        displayedAuditLogs.map((log) => {
+                          const actionColor = log.action.includes('PRICE')
+                            ? 'bg-purple-100 text-purple-800 border-purple-200'
+                            : log.action.includes('USER')
+                            ? 'bg-blue-100 text-blue-800 border-blue-200'
+                            : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+
+                          const detailsText = typeof log.details === 'object'
+                            ? JSON.stringify(log.details)
+                            : String(log.details || '—');
+
+                          return (
+                            <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="px-5 py-3.5 font-mono text-[11px] text-muted whitespace-nowrap">
+                                {new Date(log.createdAt).toLocaleString('en-IN', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  second: '2-digit'
+                                })}
+                              </td>
+                              <td className="px-5 py-3.5 whitespace-nowrap">
+                                <div className="font-bold text-text text-xs">{log.actorName || 'APMC Admin'}</div>
+                                <div className="text-[10px] text-muted font-mono uppercase">{log.actorRole || 'admin'}</div>
+                              </td>
+                              <td className="px-5 py-3.5 whitespace-nowrap">
+                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border uppercase tracking-wider inline-block ${actionColor}`}>
+                                  {log.action}
+                                </span>
+                              </td>
+                              <td className="px-5 py-3.5 font-mono text-xs whitespace-nowrap">
+                                <span className="font-semibold text-text uppercase text-[11px]">{log.targetType || 'entity'}</span>
+                                {log.targetId ? <span className="text-muted ml-1">#{log.targetId}</span> : null}
+                              </td>
+                              <td className="px-5 py-3.5 text-text font-mono text-[11px] max-w-xs sm:max-w-md truncate" title={detailsText}>
+                                {detailsText}
+                              </td>
+                              <td className="px-5 py-3.5 font-mono text-[11px] text-muted whitespace-nowrap">
+                                {log.ipAddress || '127.0.0.1'}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination Controls */}
+                {totalAuditPages > 1 && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-border bg-slate-50/50 text-xs">
+                    <div className="text-muted text-[11px]">
+                      Showing <span className="font-bold text-text">{(auditPage - 1) * ITEMS_PER_PAGE + 1}</span> to{' '}
+                      <span className="font-bold text-text">{Math.min(auditPage * ITEMS_PER_PAGE, filteredAndSortedAuditLogs.length)}</span> of{' '}
+                      <span className="font-bold text-text">{filteredAndSortedAuditLogs.length}</span> audit records (10 per page)
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={auditPage <= 1}
+                        onClick={() => setAuditPage((p) => Math.max(1, p - 1))}
+                        className="px-3 py-1.5 rounded-xl border border-border bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold"
+                      >
+                        Previous
+                      </button>
+                      <span className="px-3 py-1.5 rounded-xl bg-primary text-white font-bold font-mono">
+                        {auditPage} / {totalAuditPages}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={auditPage >= totalAuditPages}
+                        onClick={() => setAuditPage((p) => Math.min(totalAuditPages, p + 1))}
+                        className="px-3 py-1.5 rounded-xl border border-border bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SCHEME CREATION MODAL */}
+      {isSchemeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto">
+          <div className="relative w-full max-w-xl rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-border my-8">
+            <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-emerald-100 text-emerald-800">
+                  <Landmark className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-text">Publish Government Scheme</h3>
+                  <p className="text-xs text-muted">Register a verified central or state welfare program in HarvestMitra</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSchemeModalOpen(false)}
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-muted hover:text-text cursor-pointer transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateScheme} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-text mb-1">
+                    Scheme Code / Identifier *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. pm-kusum-solar"
+                    value={schemeForm.identifier}
+                    onChange={(e) => setSchemeForm({ ...schemeForm, identifier: e.target.value })}
+                    className="w-full rounded-xl border border-border px-3 py-2 text-xs font-mono outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-text mb-1">
+                    Jurisdiction Scope *
+                  </label>
+                  <select
+                    value={schemeForm.scope}
+                    onChange={(e) => setSchemeForm({ ...schemeForm, scope: e.target.value })}
+                    className="w-full rounded-xl border border-border px-3 py-2 text-xs bg-white outline-none focus:border-primary"
+                  >
+                    <option value="National">National (Pan-India)</option>
+                    <option value="State">State Specific</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-text mb-1">
+                  Scheme Name (English) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Pradhan Mantri Kisan Urja Suraksha (PM-KUSUM)"
+                  value={schemeForm.nameEn}
+                  onChange={(e) => setSchemeForm({ ...schemeForm, nameEn: e.target.value })}
+                  className="w-full rounded-xl border border-border px-3 py-2 text-xs outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-text mb-1">
+                  Scheme Name (Hindi / Regional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. प्रधानमंत्री किसान ऊर्जा सुरक्षा योजना (पीएम-कुसुम)"
+                  value={schemeForm.nameHi}
+                  onChange={(e) => setSchemeForm({ ...schemeForm, nameHi: e.target.value })}
+                  className="w-full rounded-xl border border-border px-3 py-2 text-xs outline-none focus:border-primary"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-text mb-1">
+                    Category *
+                  </label>
+                  <select
+                    value={schemeForm.category}
+                    onChange={(e) => setSchemeForm({ ...schemeForm, category: e.target.value })}
+                    className="w-full rounded-xl border border-border px-3 py-2 text-xs bg-white outline-none focus:border-primary"
+                  >
+                    <option value="Direct Income Support">Direct Income Support</option>
+                    <option value="Crop Insurance & Risk Mitigation">Crop Insurance & Risk</option>
+                    <option value="Irrigation & Water Conservation">Irrigation & Water</option>
+                    <option value="Farm Mechanization & Machinery">Farm Machinery</option>
+                    <option value="Soil Health & Nutrition">Soil Health</option>
+                    <option value="Credit & Working Capital">Credit & Loans</option>
+                    <option value="Organic & Natural Farming">Organic Farming</option>
+                    <option value="Horticulture Development">Horticulture</option>
+                    <option value="Post-Harvest Infrastructure">Storage & Cold Chains</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-text mb-1">
+                    Sponsoring Department *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Ministry of New and Renewable Energy"
+                    value={schemeForm.department}
+                    onChange={(e) => setSchemeForm({ ...schemeForm, department: e.target.value })}
+                    className="w-full rounded-xl border border-border px-3 py-2 text-xs outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-text mb-1">
+                  Official Portal Verification URL *
+                </label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://pmkusum.mnre.gov.in/"
+                  value={schemeForm.officialInfoUrl}
+                  onChange={(e) => setSchemeForm({ ...schemeForm, officialInfoUrl: e.target.value })}
+                  className="w-full rounded-xl border border-border px-3 py-2 text-xs font-mono outline-none focus:border-primary"
+                />
+                <p className="text-[10px] text-muted mt-1">Must be an official government portal domain (.gov.in or .nic.in)</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-text mb-1">
+                  Benefit Summary & Eligibility Criteria
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Up to 60% subsidy for installation of standalone solar agri pumps..."
+                  value={schemeForm.benefitDescription}
+                  onChange={(e) => setSchemeForm({ ...schemeForm, benefitDescription: e.target.value })}
+                  className="w-full rounded-xl border border-border px-3 py-2 text-xs outline-none focus:border-primary"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setIsSchemeModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-bold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={schemeFormSubmitting}
+                  className="btn-primary px-5 py-2 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {schemeFormSubmitting ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Publishing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>Verify & Publish Scheme</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

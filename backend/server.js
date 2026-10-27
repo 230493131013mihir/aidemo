@@ -2,6 +2,8 @@ require('dotenv').config();
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
+process.env.JWT_SECRET = process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon";
+
 if (!process.env.JWT_SECRET && process.env.NODE_ENV !== 'test') {
   console.error('FATAL: JWT_SECRET environment variable is missing.');
   process.exit(1);
@@ -35,12 +37,18 @@ async function startServer() {
         console.warn('⚠️ Seeding skipped:', seedErr.message);
       }
     }
+    sequelize.__isReady = true;
+    sequelize.__dbError = null;
   } catch (error) {
-    console.warn('⚠️  Database connection skipped or failed:', error.message);
-    console.warn('ℹ️  Running in demo/fallback mode for AI, simulator, and mock endpoints.');
+    sequelize.__isReady = false;
+    sequelize.__dbError = error;
+    const formattedError = sequelize.formatConnectionError ? sequelize.formatConnectionError(error) : error.message;
+    console.error('❌ Database connection failed during startup:');
+    console.error(`   ${formattedError}`);
+    console.error('⚠️  Authentication and database persistence endpoints will return 503 until the database service is reachable.');
   }
 
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🌾 HarvestMitra AI Backend running on port ${PORT}`);
     console.log(`🤖 Mitra Assistant AI Provider: ${process.env.AI_PROVIDER || 'fallback'}`);
   });

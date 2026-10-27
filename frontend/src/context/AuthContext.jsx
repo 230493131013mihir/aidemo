@@ -8,16 +8,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000
 const TOKEN_KEY = 'harvestmitra_token';
 const USER_KEY = 'harvestmitra_user';
 
-// Clean up legacy persistent localStorage tokens so user is not automatically logged in across browser restarts
-if (typeof window !== 'undefined') {
-  try {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    localStorage.removeItem('harvestmitra_admin_token');
-  } catch {
-    // Storage access safety
-  }
-}
+// Session storage keys for HarvestMitra AI
 
 export const GUEST_USER = {
   id: 'guest',
@@ -132,20 +123,15 @@ export function AuthProvider({ children }) {
     setUser(newUser);
     try {
       if (typeof sessionStorage !== 'undefined') {
-        if (newToken) {
-          sessionStorage.setItem(TOKEN_KEY, newToken);
-        }
-        if (newUser) {
-          sessionStorage.setItem(USER_KEY, JSON.stringify(newUser));
-        }
+        if (newToken) sessionStorage.setItem(TOKEN_KEY, newToken);
+        if (newUser) sessionStorage.setItem(USER_KEY, JSON.stringify(newUser));
       }
-      // Ensure localStorage has no lingering persistent credentials
       if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
+        if (newToken) localStorage.setItem(TOKEN_KEY, newToken);
+        if (newUser) localStorage.setItem(USER_KEY, JSON.stringify(newUser));
       }
     } catch (e) {
-      console.warn('SessionStorage write error:', e);
+      console.warn('Storage write error:', e);
     }
   }
 

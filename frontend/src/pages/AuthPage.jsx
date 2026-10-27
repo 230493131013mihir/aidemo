@@ -12,7 +12,6 @@ import {
   UserPlus,
   Shield,
   Building2,
-  Sparkles,
   Layers,
   Scale,
   ArrowLeft,
@@ -26,6 +25,7 @@ import {
   RefreshCw,
   Send,
   ShieldCheck,
+  Sparkles,
   Store
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -46,10 +46,64 @@ const STANDARD_CROPS = [
   'Groundnut', 'Mustard', 'Other'
 ];
 
+export function normalizeRole(r) {
+  if (!r) return 'farmer';
+  const s = String(r).toLowerCase().trim();
+  if (s === 'farmer') return 'farmer';
+  if (s === 'transporter' || s === 'driver') return 'transporter';
+  if (s === 'mandi' || s === 'apmc') return 'mandi';
+  if (s === 'fpo_leader' || s === 'fpo' || s === 'fpo leader') return 'fpo_leader';
+  if (s === 'admin' || s === 'administrator') return 'admin';
+  return 'farmer';
+}
+
+export function getDashboardRouteForRole(normalizedRole) {
+  switch (normalizedRole) {
+    case 'admin':
+      return '/admin';
+    case 'fpo_leader':
+      return '/fpo';
+    case 'transporter':
+      return '/transport';
+    case 'mandi':
+      return '/dashboard'; // Dedicated Mandi Portal
+    case 'farmer':
+    default:
+      return '/dashboard'; // Dedicated Farmer Analytics & Harvest Portal
+  }
+}
+
+export function isPathAllowedForRole(pathname, normalizedRole) {
+  if (!pathname || pathname === '/' || pathname === '/login' || pathname === '/register') return false;
+  
+  const SHARED_PATHS = ['/markets', '/prices', '/weather', '/chat', '/assistant', '/profile', '/schemes', '/farmer/schemes'];
+  if (SHARED_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))) return true;
+
+  if (normalizedRole === 'admin') return true;
+
+  if (normalizedRole === 'farmer') {
+    return pathname === '/dashboard' || pathname.startsWith('/harvest') || pathname.startsWith('/simulator');
+  }
+
+  if (normalizedRole === 'transporter') {
+    return pathname === '/transport' || pathname === '/dashboard';
+  }
+
+  if (normalizedRole === 'mandi') {
+    return pathname === '/dashboard';
+  }
+
+  if (normalizedRole === 'fpo_leader') {
+    return pathname.startsWith('/fpo') || pathname === '/dashboard';
+  }
+
+  return false;
+}
+
 export default function AuthPage({ mode = 'login' }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, register, demoLogin, sendOtp, loginWithOtp, loginWithWhatsApp } = useAuth();
+  const { login, register, sendOtp, loginWithOtp, loginWithWhatsApp } = useAuth();
   const { showToast } = useToast();
   const isRegister = mode === 'register';
 
@@ -59,7 +113,7 @@ export default function AuthPage({ mode = 'login' }) {
   // Authentication Mode: 'otp' (Farmer-First Passwordless) vs 'password' (Admin & Standard)
   const [authMethod, setAuthMethod] = useState(isRegister ? 'password' : 'otp');
   const [otpStep, setOtpStep] = useState('phone'); // 'phone' | 'verify'
-  const [otpPhone, setOtpPhone] = useState('9822012345');
+  const [otpPhone, setOtpPhone] = useState('');
   const [otpName, setOtpName] = useState('');
   const [otpAgristackId, setOtpAgristackId] = useState('');
   const [otpCode, setOtpCode] = useState('');
@@ -161,6 +215,7 @@ export default function AuthPage({ mode = 'login' }) {
   }
 
   async function handleVerifyOtp() {
+    if (loading) return;
     setError('');
     const cleanPhone = otpPhone.replace(/\D/g, '').slice(-10);
     if (!otpCode || otpCode.trim().length < 4) {
@@ -181,19 +236,16 @@ export default function AuthPage({ mode = 'login' }) {
         agristackId: otpAgristackId.trim()
       });
 
+      const actualRole = normalizeRole(loggedUser?.role);
+
       showToast({
         type: 'celebrate',
         title: '🌾 Verification Complete!',
-        message: `Welcome, ${loggedUser?.name || 'Farmer'}! Logging into HarvestMitra...`,
+        message: `Welcome, ${loggedUser?.name || 'User'}! Logging into HarvestMitra...`,
         duration: 2500
       });
 
-      const userRole = loggedUser?.role || role;
-      if (userRole === 'admin') navigate('/admin');
-      else if (userRole === 'transporter') navigate('/transport');
-      else if (userRole === 'mandi') navigate('/dashboard');
-      else navigate('/dashboard');
-
+      navigate(getDashboardRouteForRole(actualRole), { replace: true });
     } catch (err) {
       setError(err.message || 'Verification failed. Please check your code.');
       showToast({ type: 'error', title: 'Verification Error', message: err.message });
@@ -203,6 +255,7 @@ export default function AuthPage({ mode = 'login' }) {
   }
 
   async function handleWhatsAppQuickLogin() {
+    if (loading) return;
     setError('');
     const cleanPhone = otpPhone.replace(/\D/g, '').slice(-10);
     if (!cleanPhone || cleanPhone.length !== 10) {
@@ -223,19 +276,16 @@ export default function AuthPage({ mode = 'login' }) {
         agristackId: otpAgristackId.trim()
       });
 
+      const actualRole = normalizeRole(loggedUser?.role);
+
       showToast({
         type: 'celebrate',
         title: '🟢 1-Click WhatsApp Verified!',
-        message: `Welcome, ${loggedUser?.name || 'Farmer'}! Verified via WhatsApp handshake.`,
+        message: `Welcome, ${loggedUser?.name || 'User'}! Verified via WhatsApp handshake.`,
         duration: 2500
       });
 
-      const userRole = loggedUser?.role || role;
-      if (userRole === 'admin') navigate('/admin');
-      else if (userRole === 'transporter') navigate('/transport');
-      else if (userRole === 'mandi') navigate('/dashboard');
-      else navigate('/dashboard');
-
+      navigate(getDashboardRouteForRole(actualRole), { replace: true });
     } catch (err) {
       setError(err.message || 'WhatsApp authentication failed.');
       showToast({ type: 'error', title: 'WhatsApp Error', message: err.message });
@@ -244,45 +294,7 @@ export default function AuthPage({ mode = 'login' }) {
     }
   }
 
-  async function handleQuickDemoFarmerLogin() {
-    setError('');
-    setLoading(true);
-    try {
-      await demoLogin('farmer');
-      showToast({
-        type: 'celebrate',
-        title: '🌾 Instant Farmer Access!',
-        message: 'Welcome Mihir Jadav! Logged in as Demo Farmer with 4.5 acres in Pune.',
-        duration: 2500
-      });
-      navigate('/dashboard');
-    } catch (err) {
-      setError(err.message || 'Demo login failed');
-      showToast({ type: 'error', title: 'Demo Login Error', message: err.message });
-    } finally {
-      setLoading(false);
-    }
-  }
 
-  async function handleQuickDemoMandiLogin() {
-    setError('');
-    setLoading(true);
-    try {
-      await demoLogin('mandi');
-      showToast({
-        type: 'celebrate',
-        title: '🏪 APMC Mandi Access Granted!',
-        message: 'Welcome Sayali Kulkarni! Logged in as Mandi Official for Pune APMC.',
-        duration: 2500
-      });
-      navigate('/dashboard');
-    } catch (err) {
-      setError(err.message || 'Mandi demo login failed');
-      showToast({ type: 'error', title: 'Demo Login Error', message: err.message });
-    } finally {
-      setLoading(false);
-    }
-  }
 
   function updateField(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -376,10 +388,6 @@ export default function AuthPage({ mode = 'login' }) {
   }
 
   function validateRegister() {
-    if (role === 'admin') {
-      return 'APMC Regulatory Officer clearance accounts are provisioned directly. Please login with your official credentials.';
-    }
-
     if (!form.name.trim() || form.name.trim().length < 2) {
       return 'Please enter your full name (minimum 2 characters).';
     }
@@ -454,7 +462,8 @@ export default function AuthPage({ mode = 'login' }) {
   }
 
   async function submit(event) {
-    event.preventDefault();
+    if (event && event.preventDefault) event.preventDefault();
+    if (loading) return;
     setError('');
     setSuccess('');
 
@@ -522,31 +531,24 @@ export default function AuthPage({ mode = 'login' }) {
           facilities: form.facilities
         });
 
+        const registeredRole = normalizeRole(payload.role || role);
         const msg = payload.message || 'Account registered successfully! Entering your dashboard...';
         setSuccess(msg);
 
         showToast({
           type: 'celebrate',
           title: '🙏 Registration Complete!',
-          message: `Welcome, ${form.name.trim()}! Your ${role === 'mandi' ? 'Mandi Official' : role === 'transporter' ? 'Transporter' : 'Farmer'} profile is active. Opening dashboard...`,
+message: `Welcome, ${form.name.trim()}! Your profile is active. Opening dashboard...`,
           duration: 3000,
         });
 
-        // Role-based redirect after registration
-        if (role === 'admin') {
-          navigate('/admin');
-        } else if (role === 'transporter') {
-          navigate('/transport');
-        } else if (role === 'mandi') {
-          navigate('/dashboard');
-        } else {
-          navigate('/dashboard');
-        }
+        navigate(getDashboardRouteForRole(registeredRole), { replace: true });
       } else {
         // INSTANT LOGIN REDIRECT (Requirement 5: No delay, no countdown, immediate redirect)
         const loggedUser = await login(form.email.trim(), form.password);
+        const actualRole = normalizeRole(loggedUser?.role);
 
-        if (role === 'admin' && loggedUser?.role !== 'admin') {
+        if (role === 'admin' && actualRole !== 'admin') {
           throw new Error('Access denied: Account is not an APMC administrator.');
         }
 
@@ -558,28 +560,48 @@ export default function AuthPage({ mode = 'login' }) {
         });
 
         const fromPath = location.state?.from?.pathname;
-        if (fromPath && fromPath !== '/' && fromPath !== '/login') {
-          navigate(fromPath, { replace: true });
+        if (fromPath && isPathAllowedForRole(fromPath, actualRole)) {
+          // If a farmer previously navigated to /transport, default them to farmer dashboard
+          if (actualRole === 'farmer' && fromPath === '/transport') {
+            navigate('/dashboard', { replace: true });
+          } else {
+            navigate(fromPath, { replace: true });
+          }
           return;
         }
 
-        const userRole = loggedUser?.role || role;
-        if (userRole === 'admin') {
-          navigate('/admin');
-        } else if (userRole === 'transporter') {
-          navigate('/transport');
-        } else if (userRole === 'mandi') {
-          navigate('/dashboard');
-        } else {
-          navigate('/dashboard');
-        }
+        // Direct strictly to role-specific dashboard based on verified backend role
+        navigate(getDashboardRouteForRole(actualRole), { replace: true });
       }
     } catch (err) {
-      setError(err.message || 'Authentication failed. Please verify your credentials.');
+      const errMsg = err.message || (isRegister ? 'Registration failed. Please check your details.' : 'Authentication failed. Please verify your credentials.');
+      const isDbError = errMsg.includes('ENOTFOUND') ||
+                        errMsg.includes('ECONNREFUSED') ||
+                        errMsg.includes('ETIMEDOUT') ||
+                        errMsg.includes('DATABASE_CONNECTION_ERROR') ||
+                        errMsg.toLowerCase().includes('database host') ||
+                        errMsg.toLowerCase().includes('database service') ||
+                        errMsg.toLowerCase().includes('database error');
+      const isConflict = errMsg.includes('already registered') || errMsg.includes('already exists');
+      const isValidation = errMsg.includes('Please provide') || errMsg.includes('Please enter') || errMsg.includes('must be');
+
+      let errorTitle = 'Authentication Error';
+      if (isDbError) {
+        errorTitle = 'Database Connection Error';
+      } else if (isConflict) {
+        errorTitle = 'Account Already Exists';
+      } else if (isValidation) {
+        errorTitle = 'Validation Error';
+      } else if (isRegister) {
+        errorTitle = 'Registration Error';
+      }
+
+      setError(errMsg);
       showToast({
         type: 'error',
-        title: 'Authentication Error',
-        message: err.message || 'Unable to authenticate. Please check your credentials.',
+        title: errorTitle,
+        message: errMsg,
+        duration: isDbError ? 8000 : 4000,
       });
     } finally {
       setLoading(false);
@@ -588,15 +610,8 @@ export default function AuthPage({ mode = 'login' }) {
 
   function handleModalProceed() {
     setModalState((prev) => ({ ...prev, isOpen: false }));
-    if (role === 'admin') {
-      navigate('/admin');
-    } else if (role === 'transporter') {
-      navigate('/transport');
-    } else if (role === 'mandi') {
-      navigate('/dashboard');
-    } else {
-      navigate('/dashboard');
-    }
+    const modalRole = normalizeRole(modalState.data?.role || role);
+    navigate(getDashboardRouteForRole(modalRole), { replace: true });
   }
 
   return (
@@ -677,7 +692,7 @@ export default function AuthPage({ mode = 'login' }) {
                   : role === 'transporter'
                   ? 'Register as Transporter / Driver'
                   : role === 'admin'
-                  ? 'APMC Regulatory Clearance'
+                  ? 'Register APMC Administrator'
                   : 'Register Farmer Land & Produce'
                 : role === 'admin'
                 ? 'APMC Regulatory Officer Login'
@@ -699,7 +714,7 @@ export default function AuthPage({ mode = 'login' }) {
                   : role === 'fpo_leader'
                   ? 'Aggregate member farmers, pool transport freight, and negotiate direct mandi deals.'
                   : role === 'admin'
-                  ? 'Administrative clearance portal for certified Maharashtra APMC regulators.'
+                  ? 'Administrative registration portal for certified Maharashtra APMC regulators.'
                   : 'Join HarvestMitra for real-time Maharashtra mandi rates, harvest intelligence, and shared transport.'
                 : role === 'admin'
                 ? 'Authorized access for Maharashtra APMC regulators, market controllers, and system supervisors.'
@@ -748,15 +763,6 @@ export default function AuthPage({ mode = 'login' }) {
               onClick={() => {
                 setRole('farmer');
                 setError('');
-                setOtpPhone('9822012345');
-                setOtpName('Mihir Jadav');
-                setForm(prev => ({
-                  ...prev,
-                  email: 'demo@harvestmitra.local',
-                  password: 'Demo@12345',
-                  name: 'Mihir Jadav',
-                  phone: '9822012345'
-                }));
               }}
               className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 role === 'farmer'
@@ -789,15 +795,6 @@ export default function AuthPage({ mode = 'login' }) {
               onClick={() => {
                 setRole('transporter');
                 setError('');
-                setOtpPhone('9845012345');
-                setOtpName('Varun Patil');
-                setForm(prev => ({
-                  ...prev,
-                  email: 'transporter@harvestmitra.local',
-                  password: 'Transporter@12345',
-                  name: 'Varun Patil',
-                  phone: '9845012345'
-                }));
               }}
               className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 role === 'transporter'
@@ -814,18 +811,6 @@ export default function AuthPage({ mode = 'login' }) {
               onClick={() => {
                 setRole('mandi');
                 setError('');
-                setOtpPhone('9822481920');
-                setOtpName('Sayali Kulkarni');
-                setForm(prev => ({
-                  ...prev,
-                  email: 'mandi@harvestmitra.local',
-                  password: 'Demo@12345',
-                  name: 'Sayali Kulkarni',
-                  phone: '9822481920',
-                  mandiName: 'Pune APMC (Gultekdi Wholesale Mandi)',
-                  licenseNumber: 'MH-APMC-PUN-2024-8841',
-                  district: 'Pune'
-                }));
               }}
               className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 role === 'mandi'
@@ -905,6 +890,100 @@ export default function AuthPage({ mode = 'login' }) {
             </div>
           )}
 
+          {/* College Evaluation Demo Accounts Quick-Select */}
+          {!isRegister && (
+            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/90 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-700 flex items-center gap-1.5 text-[11px]">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  College Evaluation Demo Accounts
+                </span>
+                <span className="text-[10px] text-muted">Click to auto-fill</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                <button
+                  type="button"
+                  id="demo-account-mihir-btn"
+                  onClick={() => {
+                    setRole('farmer');
+                    setAuthMethod('password');
+                    updateField('email', 'mihir');
+                    updateField('password', '123456');
+                    setError('');
+                  }}
+                  className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                    role === 'farmer' && (form.email === 'farmer' || form.email === 'mihir')
+                      ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-bold shadow-xs'
+                      : 'bg-white border-slate-200 hover:border-emerald-300 text-slate-700'
+                  }`}
+                >
+                  <div className="text-[10px] text-emerald-700 font-semibold">🌾 Farmer</div>
+                  <div className="font-mono text-xs font-bold text-slate-900 truncate">mihir</div>
+                </button>
+
+                <button
+                  type="button"
+                  id="demo-account-varun-btn"
+                  onClick={() => {
+                    setRole('transporter');
+                    setAuthMethod('password');
+                    updateField('email', 'varun');
+                    updateField('password', '123456');
+                    setError('');
+                  }}
+                  className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                    role === 'transporter' && (form.email === 'transport' || form.email === 'transporter' || form.email === 'varun')
+                      ? 'bg-blue-50 border-blue-400 text-blue-900 font-bold shadow-xs'
+                      : 'bg-white border-slate-200 hover:border-blue-300 text-slate-700'
+                  }`}
+                >
+                  <div className="text-[10px] text-blue-700 font-semibold">🚚 Transporter</div>
+                  <div className="font-mono text-xs font-bold text-slate-900 truncate">varun</div>
+                </button>
+
+                <button
+                  type="button"
+                  id="demo-account-sayali-btn"
+                  onClick={() => {
+                    setRole('mandi');
+                    setAuthMethod('password');
+                    updateField('email', 'sayali');
+                    updateField('password', '123456');
+                    setError('');
+                  }}
+                  className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                    role === 'mandi' && (form.email === 'mandi' || form.email === 'sayali')
+                      ? 'bg-purple-50 border-purple-400 text-purple-900 font-bold shadow-xs'
+                      : 'bg-white border-slate-200 hover:border-purple-300 text-slate-700'
+                  }`}
+                >
+                  <div className="text-[10px] text-purple-700 font-semibold">🏪 Mandi</div>
+                  <div className="font-mono text-xs font-bold text-slate-900 truncate">sayali</div>
+                </button>
+
+                <button
+                  type="button"
+                  id="demo-account-prashant-btn"
+                  onClick={() => {
+                    setRole('admin');
+                    setAuthMethod('password');
+                    updateField('email', 'prashant');
+                    updateField('password', '123456');
+                    setError('');
+                  }}
+                  className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                    role === 'admin' && (form.email === 'admin' || form.email === 'prashant')
+                      ? 'bg-amber-50 border-amber-400 text-amber-900 font-bold shadow-xs'
+                      : 'bg-white border-slate-200 hover:border-amber-300 text-slate-700'
+                  }`}
+                >
+                  <div className="text-[10px] text-amber-700 font-semibold">🛡️ Admin</div>
+                  <div className="font-mono text-xs font-bold text-slate-900 truncate">prashant</div>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Success Notification */}
           {success && (
             <div className="p-3.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-900 text-xs flex items-start gap-2 shadow-2xs">
@@ -921,22 +1000,8 @@ export default function AuthPage({ mode = 'login' }) {
             </div>
           )}
 
-          {/* Admin Register Notice */}
-          {isRegister && role === 'admin' ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 text-center space-y-3">
-              <Shield className="w-10 h-10 text-amber-600 mx-auto" />
-              <h3 className="text-sm font-bold text-amber-950">Administrative Clearance</h3>
-              <p className="text-xs text-amber-800 leading-relaxed">
-                APMC Administrator accounts are systematically provisioned by the Maharashtra State Agricultural Marketing Board (MSAMB).
-              </p>
-              <Link
-                to="/login"
-                className="btn-primary inline-flex items-center gap-2 py-2 px-5 rounded-xl text-xs font-bold"
-              >
-                <span>Proceed to Admin Login</span>
-              </Link>
-            </div>
-          ) : !isRegister && authMethod === 'otp' && role !== 'admin' ? (
+          {/* Authentication UI */}
+          {!isRegister && authMethod === 'otp' && role !== 'admin' ? (
             /* ============================================================ */
             /* FARMER-FIRST OTP & 1-CLICK WHATSAPP AUTHENTICATION UI         */
             /* ============================================================ */
@@ -1002,19 +1067,10 @@ export default function AuthPage({ mode = 'login' }) {
                   {/* PM-KISAN / Agristack ID (Optional) */}
                   {(role === 'farmer' || role === 'fpo_leader') && (
                     <label className="block space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-1">
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>PM-KISAN / Agristack ID (Optional)</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setOtpAgristackId('PMK-MH-98201')}
-                          className="text-[10px] text-emerald-700 font-bold hover:underline cursor-pointer"
-                        >
-                          ⚡ Auto-fill PMK-MH-98201
-                        </button>
-                      </div>
+                      <span className="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>PM-KISAN / Agristack ID (Optional)</span>
+                      </span>
                       <input
                         type="text"
                         placeholder="e.g. PMK-MH-98201 or AGRI-IND-4921"
@@ -1051,59 +1107,7 @@ export default function AuthPage({ mode = 'login' }) {
                     </button>
                   </div>
 
-                  {/* Quick Demo Pre-fill & 1-Click Instant Login */}
-                  <div className="pt-2 space-y-2 border-t border-slate-200">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        id="quick-demo-farmer-btn"
-                        onClick={handleQuickDemoFarmerLogin}
-                        disabled={loading}
-                        className="w-full py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                        <span>🌾 Demo Farmer (Mihir)</span>
-                      </button>
 
-                      <button
-                        type="button"
-                        id="quick-demo-mandi-btn"
-                        onClick={handleQuickDemoMandiLogin}
-                        disabled={loading}
-                        className="w-full py-2.5 px-3 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-300 text-orange-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                      >
-                        <Store className="w-3.5 h-3.5 text-orange-600" />
-                        <span>🏪 Demo Mandi (Pune APMC)</span>
-                      </button>
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-center gap-3 pt-1 text-center">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOtpPhone('9822012345');
-                          setOtpName('Ramesh Patil');
-                          setOtpAgristackId('PMK-MH-98201');
-                          setRole('farmer');
-                        }}
-                        className="text-[11px] text-slate-500 hover:text-primary font-semibold underline cursor-pointer"
-                      >
-                        ⚡ Fill Farmer (+91 9822012345)
-                      </button>
-                      <span className="text-slate-300">•</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOtpPhone('9822481920');
-                          setOtpName('Sayali Kulkarni');
-                          setRole('mandi');
-                        }}
-                        className="text-[11px] text-orange-600 hover:underline font-semibold cursor-pointer"
-                      >
-                        ⚡ Fill Mandi Officer (+91 9822481920)
-                      </button>
-                    </div>
-                  </div>
                 </div>
               ) : (
                 /* OTP Verification Step */
@@ -1122,19 +1126,12 @@ export default function AuthPage({ mode = 'login' }) {
                     </button>
                   </div>
 
-                  {/* Dev OTP Helper Badge */}
+                  {/* Verification Code Sent Confirmation */}
                   {devOtp && (
-                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs flex items-center justify-between">
-                      <span className="text-[11px] text-amber-900 font-semibold">
-                        Demo Code: <span className="font-mono font-bold text-amber-950">{devOtp}</span>
+                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs flex items-center justify-between">
+                      <span className="text-[11px] text-emerald-900 font-semibold">
+                        Verification Code: <span className="font-mono font-bold text-emerald-950">{devOtp}</span>
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setOtpCode(devOtp)}
-                        className="px-2 py-0.5 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold cursor-pointer"
-                      >
-                        Auto-Fill
-                      </button>
                     </div>
                   )}
 
@@ -1185,16 +1182,16 @@ export default function AuthPage({ mode = 'login' }) {
               {/* Registration Specific Fields */}
               {isRegister && (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between pb-1">
+                  <div className="pb-1">
                     <span className="text-xs font-bold text-text">Account Information</span>
                     <button
                       type="button"
                       onClick={() => {
                         const unique = Math.floor(1000 + Math.random() * 9000);
-                        updateField('name', 'Ramesh Patil');
+                        updateField('name', role === 'admin' ? 'Dr. Rajesh Shinde' : 'Ramesh Patil');
                         updateField('phone', `982200${unique}`);
-                        updateField('email', `farmer_${unique}@harvestmitra.local`);
-                        updateField('password', 'Farmer@123');
+                        updateField('email', role === 'admin' ? `admin_${unique}@harvestmitra.local` : `farmer_${unique}@harvestmitra.local`);
+                        updateField('password', role === 'admin' ? 'Admin@123' : 'Farmer@123');
                         updateField('district', 'Pune');
                         updateField('village', 'Haveli');
                         updateField('farmSizeAcres', '4.5');
@@ -1209,7 +1206,9 @@ export default function AuthPage({ mode = 'login' }) {
                   </div>
                   <label className="block space-y-1">
                     <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                      {role === 'mandi'
+                      {role === 'admin'
+                        ? 'Administrator Full Name *'
+                        : role === 'mandi'
                         ? 'Official In-Charge Name *'
                         : role === 'transporter'
                         ? 'Driver / Transporter Full Name *'
@@ -1221,7 +1220,9 @@ export default function AuthPage({ mode = 'login' }) {
                       type="text"
                       required
                       placeholder={
-                        role === 'mandi'
+                        role === 'admin'
+                          ? 'e.g. Dr. Rajesh Shinde (Director)'
+                          : role === 'mandi'
                           ? 'e.g. Ramesh Patil (APMC Secretary)'
                           : role === 'transporter'
                           ? 'e.g. Suresh Pawar'
@@ -1696,56 +1697,7 @@ export default function AuthPage({ mode = 'login' }) {
                 </div>
               )}
 
-              {/* 1-Click Presentation Demo Credentials Helpers */}
-              {!isRegister && (
-                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border border-emerald-200 text-xs flex items-center justify-between gap-3 shadow-xs">
-                  <div className="min-w-0">
-                    <p className="font-bold text-slate-900 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>
-                        {role === 'admin'
-                          ? 'APMC Master Admin Demo'
-                          : role === 'transporter'
-                          ? 'Verified Transporter Fleet Demo'
-                          : role === 'mandi'
-                          ? 'APMC Mandi Secretary Demo'
-                          : 'Maharashtra Farmer Demo'}
-                      </span>
-                    </p>
-                    <p className="text-[11px] text-slate-600 font-mono mt-0.5 truncate">
-                      {role === 'admin'
-                        ? 'admin@harvestmitra.local • Admin@12345'
-                        : role === 'transporter'
-                        ? 'transporter@harvestmitra.local • Transporter@12345'
-                        : role === 'mandi'
-                        ? 'mandi@harvestmitra.local • Demo@12345'
-                        : 'demo@harvestmitra.local • Demo@12345'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (role === 'admin') {
-                        updateField('email', 'admin@harvestmitra.local');
-                        updateField('password', 'Admin@12345');
-                      } else if (role === 'transporter') {
-                        updateField('email', 'transporter@harvestmitra.local');
-                        updateField('password', 'Transporter@12345');
-                      } else if (role === 'mandi') {
-                        updateField('email', 'mandi@harvestmitra.local');
-                        updateField('password', 'Demo@12345');
-                      } else {
-                        updateField('email', 'demo@harvestmitra.local');
-                        updateField('password', 'Demo@12345');
-                      }
-                      setError('');
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-hover active:scale-95 text-white font-bold text-xs shadow-xs transition-all shrink-0 cursor-pointer flex items-center gap-1"
-                  >
-                    <span>⚡ Quick Fill</span>
-                  </button>
-                </div>
-              )}
+
 
               {/* Email / Identifier Field */}
               <label className="block space-y-1">
@@ -1753,20 +1705,24 @@ export default function AuthPage({ mode = 'login' }) {
                   {isRegister
                     ? 'Email Address *'
                     : role === 'admin'
-                    ? 'APMC Admin Email *'
+                    ? 'APMC Admin Username or Email *'
                     : role === 'mandi'
-                    ? 'APMC Mandi Email or Mobile *'
-                    : 'Email Address or 10-Digit Mobile Number *'}
+                    ? 'APMC Mandi Username, Email or Mobile *'
+                    : 'Username, Email or 10-Digit Mobile *'}
                 </span>
                 <input
-                  type={isRegister || role === 'admin' ? 'email' : 'text'}
+                  type={isRegister ? 'email' : 'text'}
                   required
                   placeholder={
                     isRegister
                       ? 'official@example.com'
                       : role === 'admin'
-                      ? 'admin@harvestmitra.local'
-                      : 'e.g. farmer@example.com or 9822012345'
+                      ? 'e.g. admin or prashant'
+                      : role === 'mandi'
+                      ? 'e.g. mandi or sayali'
+                      : role === 'transporter'
+                      ? 'e.g. transport or varun'
+                      : 'e.g. farmer or mihir'
                   }
                   value={form.email}
                   onChange={(e) => updateField('email', e.target.value)}
@@ -1810,7 +1766,9 @@ export default function AuthPage({ mode = 'login' }) {
                   {loading
                     ? 'Connecting to Live MySQL...'
                     : isRegister
-                    ? role === 'mandi'
+                    ? role === 'admin'
+                      ? 'Register APMC Administrator'
+                      : role === 'mandi'
                       ? 'Register APMC Mandi'
                       : role === 'transporter'
                       ? 'Register Transporter Fleet'

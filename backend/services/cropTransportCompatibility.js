@@ -277,6 +277,147 @@ function calculateSharedFareAllocation({ totalVehicleFare, farmers = [] }) {
     });
 }
 
+/**
+ * Proactively groups compatible pending/open farmer requests into recommended pools of 2-4 farmers
+ * @param {Array} bookings - Array of eligible TransportRequest objects or plain JS objects
+ * @param {Object} [options] - Optional transporter constraints (e.g. maxVehicleCapacityKg, ratePerKm)
+ * @returns {Array} List of suggested group cards
+ */
+function suggestSharedTripGroups(bookings = [], options = {}) {
+    if (!Array.isArray(bookings) || bookings.length === 0) return [];
+
+    const defaultMaxCapacity = Number(options.maxVehicleCapacityKg) || 2200;
+    const ratePerKm = Number(options.ratePerKm) || 25;
+
+    // Filter to eligible requests: open/pending, not cancelled, positive weight, not already in shared trip
+    const poolable = bookings.filter((b) => {
+        const status = String(b.status || '').toLowerCase();
+        const isEligibleStatus = ['open', 'pending', 'confirmed'].includes(status);
+        const hasNoSharedTrip = !b.sharedTripId;
+        const hasWeight = Number(b.weightKg) > 0;
+        return isEligibleStatus && hasNoSharedTrip && hasWeight;
+    });
+
+    const usedIds = new Set();
+    const suggestions = [];
+
+    for (let i = 0; i < poolable.length; i++) {
+        const seed = poolable[i];
+        if (usedIds.has(seed.id)) continue;
+
+        const cluster = [seed];
+        let currentWeight = Number(seed.weightKg);
+
+        for (let j = 0; j < poolable.length; j++) {
+            if (i === j) continue;
+            const candidate = poolable[j];
+            if (usedIds.has(candidate.id)) continue;
+            if (cluster.some((m) => m.id === candidate.id)) continue;
+
+            // Target group size: approximately 3-4 farmers (max 4)
+            if (cluster.length >= 4) break;
+
+            const candidateWeight = Number(candidate.weightKg);
+            if (currentWeight + candidateWeight > defaultMaxCapacity) continue;
+
+            // Route corridor compatibility
+            const routeOk = areRoutesCompatible(
+                seed.pickupLocation,
+                seed.destinationMarket,
+                candidate.pickupLocation,
+                candidate.destinationMarket
+            );
+            if (!routeOk) continue;
+
+            // Date window compatibility (within 1 day)
+            const dateOk = areDatesCompatible(seed.pickupDate, candidate.pickupDate, 1);
+            if (!dateOk) continue;
+
+            // Crop compatibility with all existing cluster members
+            const allCropsCompatible = cluster.every((member) =>
+                areCropsCompatibleForSharedTransport(member.cropName, candidate.cropName)
+            );
+            if (!allCropsCompatible) continue;
+
+            // Candidate is compatible, add to cluster
+            cluster.push(candidate);
+            currentWeight += candidateWeight;
+        }
+
+        // If at least 2 compatible farmers found, form a suggested group
+        if (cluster.length >= 2) {
+            cluster.forEach((m) => usedIds.add(m.id));
+
+            // Estimate base distance from destination
+            const destLower = String(seed.destinationMarket || '').toLowerCase();
+            let baseDistanceKm = 145;
+            if (destLower.includes('mumbai') || destLower.includes('vashi')) baseDistanceKm = 165;
+            else if (destLower.includes('nagpur')) baseDistanceKm = 480;
+            else if (destLower.includes('nashik')) baseDistanceKm = 180;
+            else if (destLower.includes('pune')) baseDistanceKm = 60;
+            else if (destLower.includes('kolhapur')) baseDistanceKm = 230;
+
+            const totalVehicleFare = Math.max(1200, Math.round(baseDistanceKm * ratePerKm));
+            const fareAllocations = calculateSharedFareAllocation({
+                totalVehicleFare,
+                farmers: cluster.map((c) => ({
+                    id: c.id,
+                    farmerName: c.farmerName,
+                    farmerPhone: c.farmerPhone,
+                    cropName: c.cropName,
+                    weightKg: Number(c.weightKg),
+                    pickupLocation: c.pickupLocation,
+                    destinationMarket: c.destinationMarket,
+                    pickupDate: c.pickupDate,
+                    vehicleCapacityKg: defaultMaxCapacity
+                }))
+            });
+
+            const uniqueCrops = Array.from(new Set(cluster.map((c) => c.cropName)));
+            const pickupLocations = Array.from(new Set(cluster.map((c) => c.pickupLocation)));
+            const routeSummary = `${pickupLocations.join(' & ')} ➔ ${seed.destinationMarket}`;
+
+            suggestions.push({
+                id: `SUGG-HM-${seed.id}-${cluster.length}`,
+                routeSummary,
+                farmersCount: cluster.length,
+                cropTypes: uniqueCrops,
+                totalQuantityKg: currentWeight,
+                pickupSchedule: cluster.map((c, idx) => ({
+                    order: idx + 1,
+                    farmerName: c.farmerName,
+                    pickupLocation: c.pickupLocation,
+                    pickupDate: c.pickupDate,
+                    cropName: c.cropName,
+                    weightKg: Number(c.weightKg)
+                })),
+                destination: seed.destinationMarket,
+                requiredCapacityKg: currentWeight,
+                availableCapacityKg: defaultMaxCapacity,
+                remainingCapacityKg: Math.max(0, defaultMaxCapacity - currentWeight),
+                estimatedTotalFare: totalVehicleFare,
+                fareAllocations,
+                groupStatus: 'Awaiting transporter confirmation',
+                bookingIds: cluster.map((c) => c.id),
+                consignments: cluster.map((c) => ({
+                    id: c.id,
+                    bookingId: c.bookingId || `BK-${c.id}`,
+                    farmerName: c.farmerName,
+                    farmerPhone: c.farmerPhone,
+                    cropName: c.cropName,
+                    weightKg: Number(c.weightKg),
+                    pickupLocation: c.pickupLocation,
+                    destinationMarket: c.destinationMarket,
+                    pickupDate: c.pickupDate,
+                    allocatedFare: fareAllocations.find((f) => f.id === c.id)?.sharedCost || c.estimatedSharedCost
+                }))
+            });
+        }
+    }
+
+    return suggestions;
+}
+
 module.exports = {
     UNIT_TO_KG,
     convertToKg,
@@ -286,5 +427,6 @@ module.exports = {
     areCropsCompatibleForSharedTransport,
     areRoutesCompatible,
     areDatesCompatible,
-    calculateSharedFareAllocation
+    calculateSharedFareAllocation,
+    suggestSharedTripGroups
 };

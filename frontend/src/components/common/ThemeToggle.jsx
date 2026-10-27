@@ -1,6 +1,7 @@
 import React from 'react';
 import { Sun, Moon } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 /**
  * ThemeToggle - High-contrast dark/light mode switch.
@@ -9,6 +10,7 @@ import { useTheme } from '../../context/ThemeContext';
  */
 export default function ThemeToggle({ variant = 'pill', className = '' }) {
   const { isDark, toggleTheme } = useTheme();
+  const { t } = useLanguage?.() || { t: (_, d) => d };
 
   if (variant === 'sidebar') {
     return (
@@ -29,7 +31,7 @@ export default function ThemeToggle({ variant = 'pill', className = '' }) {
           ) : (
             <Sun className="w-4 h-4 shrink-0 text-amber-500" aria-hidden="true" />
           )}
-          <span className="truncate">{isDark ? 'Dark Mode' : 'Light Mode'}</span>
+          <span className="truncate">{isDark ? t('theme.darkMode', 'Dark Mode') : t('theme.lightMode', 'Light Mode')}</span>
         </div>
         {/* Mini toggle indicator */}
         <div className={`relative w-9 h-5 rounded-full transition-colors duration-300 ${isDark ? 'bg-emerald-600' : 'bg-slate-300'}`}>

@@ -53,6 +53,9 @@ export default function TextToSpeechButton({ text, className = '', id = 'tts-but
     utterance.onerror = () => setIsSpeaking(false);
 
     try {
+      if (typeof window.speechSynthesis.resume === 'function') {
+        window.speechSynthesis.resume();
+      }
       window.speechSynthesis.speak(utterance);
     } catch (_) {
       setIsSpeaking(false);
