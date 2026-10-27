@@ -21,6 +21,7 @@ import {
   Building2
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 const API_BASE_URL = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_API_URL || import.meta.env?.VITE_API_BASE_URL)) || '';
 
@@ -39,6 +40,7 @@ export default function RegisteredCropsManager({
   state = 'Maharashtra'
 }) {
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -261,14 +263,14 @@ export default function RegisteredCropsManager({
               <Sprout className="w-4 h-4" />
             </span>
             <h2 id="registered-crops-heading" className="text-lg sm:text-xl font-bold text-text flex items-center gap-2">
-              <span>My Registered Crops</span>
+              <span>{t('registeredCrops.title', 'My Registered Crops')}</span>
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-extrabold border border-emerald-200">
-                {crops.length} Crop{crops.length === 1 ? '' : 's'}
+                {crops.length} {crops.length === 1 ? t('registeredCrops.cropCount', 'Crop').replace('{count}', '') : t('registeredCrops.cropsCount', 'Crops').replace('{count}', '')}
               </span>
             </h2>
           </div>
           <p className="text-xs text-muted mt-0.5">
-            Crop-specific harvest quantities, live APMC Mandi rates & dynamically calculated estimated gross realization
+            {t('registeredCrops.subtitle', 'Crop-specific harvest quantities, live APMC Mandi rates & dynamically calculated estimated gross realization')}
           </p>
         </div>
 
@@ -279,10 +281,10 @@ export default function RegisteredCropsManager({
               onClick={onRefresh}
               disabled={loading}
               className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
-              title="Refresh crop market data"
+              title={t('registeredCrops.refreshRates', 'Refresh Rates')}
             >
               <RefreshCw className={`w-3.5 h-3.5 text-slate-600 ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh Rates</span>
+              <span className="hidden sm:inline">{t('registeredCrops.refreshRates', 'Refresh Rates')}</span>
             </button>
           )}
 
@@ -293,7 +295,7 @@ export default function RegisteredCropsManager({
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Crop</span>
+            <span>{t('registeredCrops.addCrop', 'Add Crop')}</span>
           </button>
         </div>
       </div>
@@ -306,9 +308,9 @@ export default function RegisteredCropsManager({
             <Sprout className="w-7 h-7" />
           </div>
           <div className="max-w-md mx-auto space-y-1">
-            <h3 className="text-base font-bold text-slate-900">No crops registered yet</h3>
+            <h3 className="text-base font-bold text-slate-900">{t('registeredCrops.noCropsTitle', 'No crops registered yet')}</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Register the commodities you cultivate to unlock dynamic APMC market rates, harvest planning, and projected revenues.
+              {t('registeredCrops.noCropsDesc', 'Register the commodities you cultivate to unlock dynamic APMC market rates, harvest planning, and projected revenues.')}
             </p>
           </div>
           <button
@@ -317,7 +319,7 @@ export default function RegisteredCropsManager({
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Register Your First Crop</span>
+            <span>{t('registeredCrops.registerFirstCrop', 'Register Your First Crop')}</span>
           </button>
         </div>
       ) : (
@@ -327,11 +329,11 @@ export default function RegisteredCropsManager({
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="py-3 px-4">Crop Name</th>
-                  <th className="py-3 px-4">Harvest Quantity</th>
-                  <th className="py-3 px-4">Live APMC Market Price</th>
-                  <th className="py-3 px-4">Estimated Gross Revenue</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3 px-4">{t('registeredCrops.tableCropName', 'Crop Name')}</th>
+                  <th className="py-3 px-4">{t('registeredCrops.tableHarvestQty', 'Harvest Quantity')}</th>
+                  <th className="py-3 px-4">{t('registeredCrops.tableLivePrice', 'Live APMC Market Price')}</th>
+                  <th className="py-3 px-4">{t('registeredCrops.tableEstimatedRevenue', 'Estimated Gross Revenue')}</th>
+                  <th className="py-3 px-4 text-right">{t('registeredCrops.tableActions', 'Actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -339,7 +341,7 @@ export default function RegisteredCropsManager({
                   const hasPrice = item.marketPricePerKg !== null && item.marketPricePerKg > 0;
                   const formattedRev = item.estimatedRevenue !== null
                     ? `₹${item.estimatedRevenue.toLocaleString('en-IN')}`
-                    : 'Revenue unavailable';
+                    : t('registeredCrops.revenueUnavailable', 'Revenue unavailable');
 
                   return (
                     <tr key={item.cropName} className="hover:bg-slate-50/60 transition-colors">
@@ -494,8 +496,8 @@ export default function RegisteredCropsManager({
                   <Sprout className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="text-sm font-black text-white">Add Crop to Farm Portfolio</h3>
-                  <p className="text-[10px] text-emerald-200">Register crop & individual harvest quantity</p>
+                  <h3 className="text-sm font-black text-white">{t('registeredCrops.modalAddTitle', 'Add Crop to Farm Portfolio')}</h3>
+                  <p className="text-[10px] text-emerald-200">{t('registeredCrops.modalAddSubtitle', 'Register crop & individual harvest quantity')}</p>
                 </div>
               </div>
 
@@ -513,7 +515,7 @@ export default function RegisteredCropsManager({
               {/* Crop Selection */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Select Crop Name *
+                  {t('registeredCrops.cropCommodity', 'Crop Commodity *')}
                 </label>
                 
                 <div className="grid grid-cols-2 gap-2">
@@ -538,7 +540,7 @@ export default function RegisteredCropsManager({
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
-                    Custom Crop
+                    {t('registeredCrops.customCropOption', '+ Custom / Other Crop')}
                   </button>
                 </div>
 
@@ -556,7 +558,7 @@ export default function RegisteredCropsManager({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Dragonfruit, Ginger, Custard Apple"
+                    placeholder={t('registeredCrops.cropNamePlaceholder', 'e.g. Green Chilli, Garlic, Pomegranate')}
                     value={customCropName}
                     onChange={(e) => setCustomCropName(e.target.value)}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-emerald-600"
@@ -567,7 +569,7 @@ export default function RegisteredCropsManager({
               {/* Harvest Quantity & Unit */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Harvest Quantity *
+                  {t('registeredCrops.harvestReadyQty', 'Harvest Ready Quantity *')}
                 </label>
 
                 <div className="flex gap-2">
@@ -632,7 +634,7 @@ export default function RegisteredCropsManager({
                   onClick={() => setIsAddModalOpen(false)}
                   className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
                 >
-                  Cancel
+                  {t('registeredCrops.cancel', 'Cancel')}
                 </button>
 
                 <button
@@ -643,12 +645,12 @@ export default function RegisteredCropsManager({
                   {actionLoading ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Saving...</span>
+                      <span>{t('registeredCrops.savingCrop', 'Saving Crop...')}</span>
                     </>
                   ) : (
                     <>
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Register Crop</span>
+                      <span>{t('registeredCrops.saveCrop', 'Save Crop to Portfolio')}</span>
                     </>
                   )}
                 </button>
@@ -671,7 +673,7 @@ export default function RegisteredCropsManager({
                   <Scale className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="text-sm font-black text-white">Edit Harvest Quantity</h3>
+                  <h3 className="text-sm font-black text-white">{t('registeredCrops.modalEditTitle', 'Update Harvest Quantity')}</h3>
                   <p className="text-[10px] text-slate-300">{editingCrop.cropName}</p>
                 </div>
               </div>
@@ -689,7 +691,7 @@ export default function RegisteredCropsManager({
             <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Updated Harvest Quantity *
+                  {t('registeredCrops.harvestReadyQty', 'Harvest Ready Quantity *')}
                 </label>
 
                 <div className="flex gap-2">
@@ -748,7 +750,7 @@ export default function RegisteredCropsManager({
                   onClick={() => setEditingCrop(null)}
                   className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
                 >
-                  Cancel
+                  {t('registeredCrops.cancel', 'Cancel')}
                 </button>
 
                 <button
@@ -759,12 +761,12 @@ export default function RegisteredCropsManager({
                   {actionLoading ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Updating...</span>
+                      <span>{t('registeredCrops.updatingQty', 'Updating...')}</span>
                     </>
                   ) : (
                     <>
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Update Quantity</span>
+                      <span>{t('registeredCrops.updateHarvestQty', 'Update Quantity')}</span>
                     </>
                   )}
                 </button>
@@ -785,9 +787,9 @@ export default function RegisteredCropsManager({
             </div>
 
             <div className="text-center space-y-1">
-              <h3 className="text-base font-bold text-slate-900">Remove {deletingCropName}?</h3>
+              <h3 className="text-base font-bold text-slate-900">{t('registeredCrops.modalDeleteTitle', 'Confirm Crop Removal')}</h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Are you sure you want to remove <strong>{deletingCropName}</strong> from your farm crops? This will recalculate your total harvest and estimated revenues.
+                {t('registeredCrops.modalDeleteDesc', 'Are you sure you want to remove {cropName} from your registered crops?').replace('{cropName}', deletingCropName)}
               </p>
             </div>
 
@@ -797,7 +799,7 @@ export default function RegisteredCropsManager({
                 onClick={() => setDeletingCropName(null)}
                 className="flex-1 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                Cancel
+                {t('registeredCrops.cancel', 'Cancel')}
               </button>
 
               <button
@@ -806,7 +808,7 @@ export default function RegisteredCropsManager({
                 disabled={actionLoading}
                 className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                {actionLoading ? 'Removing...' : 'Yes, Remove'}
+                {actionLoading ? t('registeredCrops.deletingCrop', 'Removing...') : t('registeredCrops.deleteCrop', 'Remove Crop')}
               </button>
             </div>
           </div>

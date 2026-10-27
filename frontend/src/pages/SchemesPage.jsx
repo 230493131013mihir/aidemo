@@ -34,16 +34,16 @@ import VoiceSearchButton from '../components/common/VoiceSearchButton';
 import PrintableReportModal from '../components/common/PrintableReportModal';
 
 const CATEGORIES = [
-  { id: 'all', label: 'All Schemes' },
-  { id: 'income_support', label: 'Income Support' },
-  { id: 'crop_insurance', label: 'Crop Insurance' },
-  { id: 'irrigation_water', label: 'Drip & Irrigation' },
-  { id: 'machinery_equipment', label: 'Farm Machinery' },
-  { id: 'fertilizer_soil', label: 'Soil Health' },
-  { id: 'credit_interest', label: 'KCC Loans' },
-  { id: 'organic_farming', label: 'Organic Farming' },
-  { id: 'horticulture', label: 'Horticulture' },
-  { id: 'storage_logistics', label: 'Storage & Cold Chain' },
+  { id: 'all', label: 'All Schemes', key: 'schemes.catAll' },
+  { id: 'income_support', label: 'Income Support', key: 'schemes.catIncome' },
+  { id: 'crop_insurance', label: 'Crop Insurance', key: 'schemes.catInsurance' },
+  { id: 'irrigation_water', label: 'Drip & Irrigation', key: 'schemes.catIrrigation' },
+  { id: 'machinery_equipment', label: 'Farm Machinery', key: 'schemes.catMachinery' },
+  { id: 'fertilizer_soil', label: 'Soil Health', key: 'schemes.catSoil' },
+  { id: 'credit_interest', label: 'KCC Loans', key: 'schemes.catCredit' },
+  { id: 'organic_farming', label: 'Organic Farming', key: 'schemes.catOrganic' },
+  { id: 'horticulture', label: 'Horticulture', key: 'schemes.catHorticulture' },
+  { id: 'storage_logistics', label: 'Storage & Cold Chain', key: 'schemes.catStorage' },
 ];
 
 export default function SchemesPage() {
@@ -250,21 +250,21 @@ export default function SchemesPage() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
               <Landmark className="w-3.5 h-3.5 text-amber-300" />
-              <span>Kisan Sahayata Module</span>
+              <span>{t('schemes.heroBadge', 'Kisan Sahayata Module')}</span>
             </span>
 
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/10 text-white/90 text-[11px] font-semibold backdrop-blur-md">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>100% Verified Official Portals Only</span>
+              <span>{language === 'mr' ? '१००% अधिकृत शासकीय पोर्टल' : '100% Verified Official Portals Only'}</span>
             </span>
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
-            Government Scheme Finder for Farmers
+            {t('schemes.heroTitle', 'Government Scheme Finder for Farmers')}
           </h1>
 
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
-            Discover verified Maharashtra (MahaDBT / PoCRA) and Central agricultural assistance schemes. Check deterministic eligibility, track your required document checklist, and connect directly to official government portals.
+            {t('schemes.heroSubtitle', 'Discover verified Maharashtra (MahaDBT / PoCRA) and Central agricultural assistance schemes. Check deterministic eligibility, track your required document checklist, and connect directly to official government portals.')}
           </p>
 
           <div className="pt-2 flex flex-wrap items-center gap-3">
@@ -274,7 +274,7 @@ export default function SchemesPage() {
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-black text-slate-950 bg-gradient-to-r from-amber-300 via-emerald-300 to-emerald-200 hover:scale-105 shadow-lg shadow-emerald-900/40 transition-all cursor-pointer"
             >
               <Sparkles className="w-4 h-4 text-emerald-950" />
-              <span>Personalized Farm Scheme Matcher</span>
+              <span>{t('schemes.matcherBtn', 'Personalized Farm Scheme Matcher')}</span>
             </button>
 
             {isAuthenticated && (
@@ -288,7 +288,7 @@ export default function SchemesPage() {
                 }`}
               >
                 <Bookmark className="w-3.5 h-3.5" />
-                <span>Saved Schemes ({savedSchemes.length})</span>
+                <span>{t('schemes.savedSchemes', 'Saved Schemes')} ({savedSchemes.length})</span>
               </button>
             )}
 
@@ -300,7 +300,7 @@ export default function SchemesPage() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold text-white bg-white/10 hover:bg-white/20 border border-white/20 shadow-md backdrop-blur-md transition-all cursor-pointer"
             >
               <Printer className="w-4 h-4 text-emerald-400" />
-              <span>🖨️ Print Farm Report</span>
+              <span>{t('schemes.printReportBtn', '🖨️ Print Farm Report')}</span>
             </button>
           </div>
         </div>
@@ -316,24 +316,28 @@ export default function SchemesPage() {
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                  National Agristack & PM-KISAN Digital Integration
+                  {t('schemes.agristackBadge', 'National Agristack & PM-KISAN Digital Integration')}
                 </span>
                 {farmerProfile?.isGovtVerified && (
                   <span className="text-[11px] font-bold text-teal-800 bg-teal-100/90 px-2.5 py-0.5 rounded-full border border-teal-300 flex items-center gap-1">
                     <CheckCircle className="w-3 h-3 text-teal-600" />
-                    <span>Active Land Title Verified</span>
+                    <span>{t('schemes.landTitleVerified', 'Active Land Title Verified')}</span>
                   </span>
                 )}
               </div>
               <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
                 {farmerProfile?.isGovtVerified
-                  ? `Verified Agristack Account: ${farmerProfile?.agristackId || 'PMK-MH-98201'}`
-                  : 'Link Your PM-KISAN / Agristack ID for Paperwork-Free DBT'}
+                  ? (t('schemes.verifiedAccount', 'Verified Agristack Account: {id}').replace('{id}', farmerProfile?.agristackId || 'PMK-MH-98201'))
+                  : t('schemes.linkPrompt', 'Link Your PM-KISAN / Agristack ID for Paperwork-Free DBT')}
               </h2>
               <p className="text-xs text-slate-600 leading-relaxed max-w-2xl">
                 {farmerProfile?.isGovtVerified
-                  ? `7/12 Land Record: Survey #${farmerProfile?.surveyNumber || '142/2A'} (${farmerProfile?.govtVerifiedLandAcres || farmerProfile?.farmSizeAcres || '3.5'} Acres in ${farmerProfile?.district || 'Pune'}, Maharashtra). Aadhaar-seeded DBT active.`
-                  : 'Skip physical visits and document uploads. Instantly verify your landholding and auto-match with 100% precision.'}
+                  ? (language === 'mr' 
+                      ? `७/१२ जमीन नोंदणी: सर्व्हे क्र. #${farmerProfile?.surveyNumber || '142/2A'} (${farmerProfile?.govtVerifiedLandAcres || farmerProfile?.farmSizeAcres || '3.5'} एकर, ${farmerProfile?.district || 'पुणे'}, महाराष्ट्र). आधार लिंक डीबीटी सक्रिय.`
+                      : `7/12 Land Record: Survey #${farmerProfile?.surveyNumber || '142/2A'} (${farmerProfile?.govtVerifiedLandAcres || farmerProfile?.farmSizeAcres || '3.5'} Acres in ${farmerProfile?.district || 'Pune'}, Maharashtra). Aadhaar-seeded DBT active.`)
+                  : (language === 'mr'
+                      ? 'कागदपत्रे अपलोड न करता थेट शासकीय अनुदानासाठी ७/१२ व आधार संलग्नित खाते जोडा.'
+                      : 'Skip physical visits and document uploads. Instantly verify your landholding and auto-match with 100% precision.')}
               </p>
             </div>
           </div>
@@ -347,7 +351,7 @@ export default function SchemesPage() {
                 className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${linkingAgristack ? 'animate-spin' : ''}`} />
-                <span>Refresh Fast-Track Subsidies</span>
+                <span>{t('schemes.refreshSubsidies', 'Refresh Fast-Track Subsidies')}</span>
               </button>
             ) : (
               <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -365,7 +369,7 @@ export default function SchemesPage() {
                   className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                  <span>{linkingAgristack ? 'Verifying...' : '⚡ Verify & Link'}</span>
+                  <span>{linkingAgristack ? t('schemes.verifying', 'Verifying...') : t('schemes.verifyAndLink', '⚡ Verify & Link')}</span>
                 </button>
               </div>
             )}
@@ -402,7 +406,7 @@ export default function SchemesPage() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && loadSchemes(search)}
-                placeholder="Search schemes by name, department, or keyword (e.g. PM-KISAN, Drip, Tractor)..."
+                placeholder={t('schemes.searchPlaceholder', 'Search schemes by name, department, or keyword (e.g. PM-KISAN, Drip, Tractor)...')}
                 className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-300 bg-slate-50/50 text-xs sm:text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
@@ -423,7 +427,7 @@ export default function SchemesPage() {
               className="w-full py-2.5 px-3.5 rounded-2xl border border-slate-300 bg-slate-50/50 text-xs sm:text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="Maharashtra">Maharashtra (महाराष्ट्र शासन कृषी योजना)</option>
-              <option value="all">Applicability: Maharashtra & Central Schemes</option>
+              <option value="all">{language === 'mr' ? 'सर्व राज्ये व केंद्र शासन योजना' : 'Applicability: Maharashtra & Central Schemes'}</option>
             </select>
           </div>
 
@@ -432,10 +436,10 @@ export default function SchemesPage() {
             <button
               type="button"
               onClick={loadSchemes}
-              className="w-full py-2.5 px-4 rounded-2xl bg-primary hover:bg-primary-dark text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm shadow-primary/20 transition-all"
+              className="w-full py-2.5 px-4 rounded-2xl bg-primary hover:bg-primary-dark text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm shadow-primary/20 transition-all cursor-pointer"
             >
               <Search className="w-3.5 h-3.5" />
-              <span>Search</span>
+              <span>{language === 'mr' ? 'शोधा' : 'Search'}</span>
             </button>
           </div>
         </div>
@@ -449,13 +453,13 @@ export default function SchemesPage() {
                 key={cat.id}
                 type="button"
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
                   isSelected
                     ? 'bg-primary text-white border-primary shadow-xs'
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
-                {cat.label}
+                {cat.key ? t(cat.key, cat.label) : cat.label}
               </button>
             );
           })}

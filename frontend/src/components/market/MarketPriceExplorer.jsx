@@ -81,7 +81,9 @@ const I18N = {
     compareBtn: 'Compare Mandis',
     simulatorBtn: 'Use in Simulator',
     contactMandiBtn: 'Connect with APMC Trader',
-    trendBtn: '7-Day Price Trends',
+    trendBtn: '📈 7-Day Trends',
+    forecastBtn: '🔮 14-Day Forecast',
+    todayLive: 'Live Today',
     loading: 'Loading live APMC prices...',
     emptyTitle: 'No Mandi Prices Found',
     emptyDesc: 'Try adjusting your crop or district filters to view available rates.',
@@ -105,15 +107,17 @@ const I18N = {
     unitKg: '₹ / किलो',
     unitQuintal: '₹ / क्विंटल',
     statusAll: 'सर्व स्रोत',
-    statusLive: 'सत्यापित बाजार समिती',
-    statusDemo: 'डेटाबेस दर',
+    statusLive: 'सत्यापित बाजार दर',
+    statusDemo: 'नमुना डेटाबेस दर',
     lastUpdated: 'अपडेट:',
     minMax: 'किमान / कमाल:',
     modalRate: 'सरासरी दर:',
     compareBtn: 'बाजार भाव तुलना',
     simulatorBtn: 'सिम्युलेटरमध्ये वापरा',
-    contactMandiBtn: 'Connect with APMC Trader',
-    trendBtn: '७-दिवसीय भाव कल (SMA3 vs SMA7)',
+    contactMandiBtn: 'बाजार समिती प्रतिनिधीशी संपर्क',
+    trendBtn: '📈 ७-दिवसीय कल',
+    forecastBtn: '🔮 १४-दिवसीय अंदाज',
+    todayLive: 'थेट आजचे अपडेट',
     loading: 'थेट बाजार भाव लोड होत आहेत...',
     emptyTitle: 'कोणतेही बाजार भाव आढळले नाहीत',
     emptyDesc: 'उपलब्ध दर पाहण्यासाठी पीक किंवा जिल्ह्याचे फिल्टर बदला.',
@@ -137,15 +141,17 @@ const I18N = {
     unitKg: '₹ / किलो',
     unitQuintal: '₹ / क्विंटल',
     statusAll: 'सभी स्रोत',
-    statusLive: 'सत्यापित मंडी',
-    statusDemo: 'डेटाबेस दर',
+    statusLive: 'सत्यापित मंडी भाव',
+    statusDemo: 'नमूना मंडी दर',
     lastUpdated: 'अपडेट:',
     minMax: 'न्यूनतम / अधिकतम:',
     modalRate: 'मॉडल भाव:',
     compareBtn: 'मंडियों की तुलना करें',
     simulatorBtn: 'सिम्युलेटर में उपयोग करें',
-    contactMandiBtn: 'Connect with APMC Trader',
-    trendBtn: '7-दिवसीय मूल्य रुझान (SMA3 vs SMA7)',
+    contactMandiBtn: 'मंडी व्यापारी से संपर्क करें',
+    trendBtn: '📈 7-दिवसीय रुझान',
+    forecastBtn: '🔮 14-दिवसीय पूर्वानुमान',
+    todayLive: 'आज का लाइव अपडेट',
     loading: 'मंडी भाव लोड हो रहे हैं...',
     emptyTitle: 'कोई मंडी भाव नहीं मिला',
     emptyDesc: 'उपलब्ध दरें देखने के लिए फसल या जिले का फ़िल्टर बदलें।',
@@ -1503,8 +1509,8 @@ export default function MarketPriceExplorer({
                                 : 'bg-amber-50 text-amber-800 border-amber-300'
                             }`}>
                               {(item.dataType === 'verified_live' || item.data_type === 'verified_live')
-                                ? 'Verified Rates'
-                                : 'DEMO / Sample Data'}
+                                ? (t.statusLive || 'Verified Rates')
+                                : (t.statusDemo || 'Sample Data')}
                             </span>
                             <button
                               type="button"
@@ -1553,7 +1559,7 @@ export default function MarketPriceExplorer({
                             title="Open Recharts 7-day Moving Average Trend Chart"
                           >
                             <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>📈 7-Day Trends</span>
+                            <span>{t.trendBtn || '📈 7-Day Trends'}</span>
                           </button>
                           <button
                             type="button"
@@ -1566,7 +1572,7 @@ export default function MarketPriceExplorer({
                             title="Open 14-Day Price Prediction Model"
                           >
                             <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                            <span>🔮 14-Day Forecast</span>
+                            <span>{t.forecastBtn || '🔮 14-Day Forecast'}</span>
                           </button>
                         </div>
                       </div>
@@ -1576,7 +1582,7 @@ export default function MarketPriceExplorer({
                         <div className="flex items-center justify-between text-[11px] text-gray-400">
                           <div className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            <span>{t.lastUpdated} Live Today</span>
+                            <span>{t.lastUpdated} {t.todayLive || 'Live Today'}</span>
                           </div>
 
                           {onSelectMarketForSimulator && (

@@ -14,11 +14,15 @@ const SavedScheme = require("./savedScheme");
 const SchemeChecklist = require("./schemeChecklist");
 const Vehicle = require("./vehicle");
 const SharedTrip = require("./sharedTrip");
+const SaleRecord = require("./saleRecord");
 const AuditLog = require("./auditLog");
 const FpoMembership = require("./fpoMembership");
 const CropAggregation = require("./cropAggregation");
 const AggregationItem = require("./aggregationItem");
 const FpoProcurementOffer = require("./fpoProcurementOffer");
+
+User.hasMany(SaleRecord, { foreignKey: "userId", onDelete: "CASCADE" });
+SaleRecord.belongsTo(User, { foreignKey: "userId" });
 
 User.hasOne(FarmerProfile, { foreignKey: "userId", onDelete: "CASCADE" });
 FarmerProfile.belongsTo(User, { foreignKey: "userId" });
@@ -118,6 +122,7 @@ module.exports = {
   SchemeChecklist,
   Vehicle,
   SharedTrip,
+  SaleRecord,
   AuditLog,
   FpoMembership,
   CropAggregation,

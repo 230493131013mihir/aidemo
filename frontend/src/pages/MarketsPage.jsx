@@ -21,7 +21,7 @@ export default function MarketsPage() {
         <div>
           <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary uppercase tracking-wider mb-1">
             <TrendingUp className="w-4 h-4" aria-hidden="true" />
-            <span>Mandi Price Intelligence</span>
+            <span>{t('markets.badge', 'Mandi Price Intelligence')}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-text">
             {t('markets.title', 'Maharashtra APMC Mandi Rates')}
