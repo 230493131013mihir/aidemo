@@ -262,10 +262,10 @@ export default function KisanAIAssistant({
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const item = event.results[i];
         const transcript = item[0]?.transcript || '';
-        const confidence = item[0]?.confidence || 0.8;
+        const confidence = typeof item[0]?.confidence === 'number' ? item[0].confidence : 0.8;
 
-        // Apply sensitivity filter
-        if (confidence < sensitivityConfig.minConfidence && item.isFinal) {
+        // Only discard if transcript is empty noise
+        if (confidence > 0 && confidence < (sensitivityConfig.minConfidence * 0.4) && item.isFinal && !transcript.trim()) {
           continue;
         }
 

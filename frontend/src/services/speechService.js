@@ -75,6 +75,8 @@ let activeRecognition = null;
  */
 export function startRecognition({
   language = 'en',
+  continuous = true,
+  silenceTimeoutMs = 2500,
   onStart,
   onInterimResult,
   onFinalResult,
@@ -97,21 +99,35 @@ export function startRecognition({
 
   const langConfig = SUPPORTED_LANGUAGES[language] || SUPPORTED_LANGUAGES.en;
   recognition.lang = langConfig.speechRecognition;
-  recognition.continuous = false;
+  recognition.continuous = continuous;
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
 
   let recognizedFinal = '';
   let hasReceivedResults = false;
+  let silenceTimer = null;
+
+  const resetSilenceTimer = () => {
+    if (silenceTimer) clearTimeout(silenceTimer);
+    if (silenceTimeoutMs > 0 && continuous) {
+      silenceTimer = setTimeout(() => {
+        try {
+          recognition.stop();
+        } catch (_) {}
+      }, silenceTimeoutMs);
+    }
+  };
 
   recognition.onstart = () => {
     activeRecognition = recognition;
     hasReceivedResults = false;
     onStart?.();
+    resetSilenceTimer();
   };
 
   recognition.onresult = (event) => {
     hasReceivedResults = true;
+    resetSilenceTimer();
     let interim = '';
 
     for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -133,6 +149,7 @@ export function startRecognition({
   };
 
   recognition.onerror = (event) => {
+    if (silenceTimer) clearTimeout(silenceTimer);
     let friendlyMessage = 'An error occurred during voice recognition. Please try again.';
 
     switch (event.error) {
@@ -164,6 +181,7 @@ export function startRecognition({
   };
 
   recognition.onend = () => {
+    if (silenceTimer) clearTimeout(silenceTimer);
     activeRecognition = null;
     onEnd?.({ hasResults: hasReceivedResults, finalTranscript: recognizedFinal });
   };
