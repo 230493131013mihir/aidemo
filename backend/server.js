@@ -37,9 +37,15 @@ async function startServer() {
         console.warn('⚠️ Seeding skipped:', seedErr.message);
       }
     }
+    sequelize.__isReady = true;
+    sequelize.__dbError = null;
   } catch (error) {
-    console.warn('⚠️  Database connection skipped or failed:', error.message);
-    console.warn('ℹ️  Running in demo/fallback mode for AI, simulator, and mock endpoints.');
+    sequelize.__isReady = false;
+    sequelize.__dbError = error;
+    const formattedError = sequelize.formatConnectionError ? sequelize.formatConnectionError(error) : error.message;
+    console.error('❌ Database connection failed during startup:');
+    console.error(`   ${formattedError}`);
+    console.error('⚠️  Authentication and database persistence endpoints will return 503 until the database service is reachable.');
   }
 
   const server = app.listen(PORT, '0.0.0.0', () => {

@@ -388,10 +388,6 @@ export default function AuthPage({ mode = 'login' }) {
   }
 
   function validateRegister() {
-    if (role === 'admin') {
-      return 'APMC Regulatory Officer clearance accounts are provisioned directly. Please login with your official credentials.';
-    }
-
     if (!form.name.trim() || form.name.trim().length < 2) {
       return 'Please enter your full name (minimum 2 characters).';
     }
@@ -542,7 +538,7 @@ export default function AuthPage({ mode = 'login' }) {
         showToast({
           type: 'celebrate',
           title: '🙏 Registration Complete!',
-          message: `Welcome, ${form.name.trim()}! Your profile is active. Opening dashboard...`,
+message: `Welcome, ${form.name.trim()}! Your profile is active. Opening dashboard...`,
           duration: 3000,
         });
 
@@ -578,11 +574,34 @@ export default function AuthPage({ mode = 'login' }) {
         navigate(getDashboardRouteForRole(actualRole), { replace: true });
       }
     } catch (err) {
-      setError(err.message || 'Authentication failed. Please verify your credentials.');
+      const errMsg = err.message || (isRegister ? 'Registration failed. Please check your details.' : 'Authentication failed. Please verify your credentials.');
+      const isDbError = errMsg.includes('ENOTFOUND') ||
+                        errMsg.includes('ECONNREFUSED') ||
+                        errMsg.includes('ETIMEDOUT') ||
+                        errMsg.includes('DATABASE_CONNECTION_ERROR') ||
+                        errMsg.toLowerCase().includes('database host') ||
+                        errMsg.toLowerCase().includes('database service') ||
+                        errMsg.toLowerCase().includes('database error');
+      const isConflict = errMsg.includes('already registered') || errMsg.includes('already exists');
+      const isValidation = errMsg.includes('Please provide') || errMsg.includes('Please enter') || errMsg.includes('must be');
+
+      let errorTitle = 'Authentication Error';
+      if (isDbError) {
+        errorTitle = 'Database Connection Error';
+      } else if (isConflict) {
+        errorTitle = 'Account Already Exists';
+      } else if (isValidation) {
+        errorTitle = 'Validation Error';
+      } else if (isRegister) {
+        errorTitle = 'Registration Error';
+      }
+
+      setError(errMsg);
       showToast({
         type: 'error',
-        title: 'Authentication Error',
-        message: err.message || 'Unable to authenticate. Please check your credentials.',
+        title: errorTitle,
+        message: errMsg,
+        duration: isDbError ? 8000 : 4000,
       });
     } finally {
       setLoading(false);
@@ -673,7 +692,7 @@ export default function AuthPage({ mode = 'login' }) {
                   : role === 'transporter'
                   ? 'Register as Transporter / Driver'
                   : role === 'admin'
-                  ? 'APMC Regulatory Clearance'
+                  ? 'Register APMC Administrator'
                   : 'Register Farmer Land & Produce'
                 : role === 'admin'
                 ? 'APMC Regulatory Officer Login'
@@ -695,7 +714,7 @@ export default function AuthPage({ mode = 'login' }) {
                   : role === 'fpo_leader'
                   ? 'Aggregate member farmers, pool transport freight, and negotiate direct mandi deals.'
                   : role === 'admin'
-                  ? 'Administrative clearance portal for certified Maharashtra APMC regulators.'
+                  ? 'Administrative registration portal for certified Maharashtra APMC regulators.'
                   : 'Join HarvestMitra for real-time Maharashtra mandi rates, harvest intelligence, and shared transport.'
                 : role === 'admin'
                 ? 'Authorized access for Maharashtra APMC regulators, market controllers, and system supervisors.'
@@ -981,22 +1000,8 @@ export default function AuthPage({ mode = 'login' }) {
             </div>
           )}
 
-          {/* Admin Register Notice */}
-          {isRegister && role === 'admin' ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 text-center space-y-3">
-              <Shield className="w-10 h-10 text-amber-600 mx-auto" />
-              <h3 className="text-sm font-bold text-amber-950">Administrative Clearance</h3>
-              <p className="text-xs text-amber-800 leading-relaxed">
-                APMC Administrator accounts are systematically provisioned by the Maharashtra State Agricultural Marketing Board (MSAMB).
-              </p>
-              <Link
-                to="/login"
-                className="btn-primary inline-flex items-center gap-2 py-2 px-5 rounded-xl text-xs font-bold"
-              >
-                <span>Proceed to Admin Login</span>
-              </Link>
-            </div>
-          ) : !isRegister && authMethod === 'otp' && role !== 'admin' ? (
+          {/* Authentication UI */}
+          {!isRegister && authMethod === 'otp' && role !== 'admin' ? (
             /* ============================================================ */
             /* FARMER-FIRST OTP & 1-CLICK WHATSAPP AUTHENTICATION UI         */
             /* ============================================================ */
@@ -1179,10 +1184,31 @@ export default function AuthPage({ mode = 'login' }) {
                 <div className="space-y-3">
                   <div className="pb-1">
                     <span className="text-xs font-bold text-text">Account Information</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const unique = Math.floor(1000 + Math.random() * 9000);
+                        updateField('name', role === 'admin' ? 'Dr. Rajesh Shinde' : 'Ramesh Patil');
+                        updateField('phone', `982200${unique}`);
+                        updateField('email', role === 'admin' ? `admin_${unique}@harvestmitra.local` : `farmer_${unique}@harvestmitra.local`);
+                        updateField('password', role === 'admin' ? 'Admin@123' : 'Farmer@123');
+                        updateField('district', 'Pune');
+                        updateField('village', 'Haveli');
+                        updateField('farmSizeAcres', '4.5');
+                        updateField('currentHarvestKg', '500');
+                        setError('');
+                      }}
+                      className="text-[11px] text-emerald-700 font-bold hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <span>⚡ Auto-Fill Sample Details</span>
+                    </button>
                   </div>
                   <label className="block space-y-1">
                     <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                      {role === 'mandi'
+                      {role === 'admin'
+                        ? 'Administrator Full Name *'
+                        : role === 'mandi'
                         ? 'Official In-Charge Name *'
                         : role === 'transporter'
                         ? 'Driver / Transporter Full Name *'
@@ -1194,7 +1220,9 @@ export default function AuthPage({ mode = 'login' }) {
                       type="text"
                       required
                       placeholder={
-                        role === 'mandi'
+                        role === 'admin'
+                          ? 'e.g. Dr. Rajesh Shinde (Director)'
+                          : role === 'mandi'
                           ? 'e.g. Ramesh Patil (APMC Secretary)'
                           : role === 'transporter'
                           ? 'e.g. Suresh Pawar'
@@ -1738,7 +1766,9 @@ export default function AuthPage({ mode = 'login' }) {
                   {loading
                     ? 'Connecting to Live MySQL...'
                     : isRegister
-                    ? role === 'mandi'
+                    ? role === 'admin'
+                      ? 'Register APMC Administrator'
+                      : role === 'mandi'
                       ? 'Register APMC Mandi'
                       : role === 'transporter'
                       ? 'Register Transporter Fleet'

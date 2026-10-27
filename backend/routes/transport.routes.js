@@ -247,31 +247,60 @@ router.get("/vehicles", async (req, res) => {
 
         const effectiveKg = weightKg ? Number(weightKg) : (quantity ? convertToKg(quantity, quantityUnit) : 0);
 
-        // Fetch real vehicles from Vehicle table
+        // Fetch real vehicles genuinely registered by Transporters
         const vehicles = await Vehicle.findAll({
-            where: { isAvailable: true, status: "available" },
+            where: {
+                isAvailable: true,
+                status: "available",
+                ...(req.user?.id ? { userId: { [Op.ne]: req.user.id } } : {})
+            },
+            include: [
+                {
+                    model: User,
+                    attributes: ["id", "name", "email", "phone", "role"],
+                    include: [
+                        {
+                            model: TransporterProfile,
+                            attributes: ["driverName", "phone", "baseMandi", "rating", "totalRatings"]
+                        }
+                    ]
+                }
+            ],
             order: [["capacityKg", "ASC"]]
         });
+
+        // Filter out vehicles that do not belong to a transporter or admin account
+        const transporterVehicles = vehicles.filter(v => v.User && (v.User.role === "transporter" || v.User.role === "admin"));
 
         // If specific crop requested, get its handling profile
         const cropProfile = crop ? getCropProfile(crop) : null;
 
         // Augment each vehicle with live booking usage, crop suitability, and rates
-        const augmented = await Promise.all(vehicles.map(async (v) => {
+        const augmented = await Promise.all(transporterVehicles.map(async (v) => {
             const vehicleData = v.toJSON();
 
-            // Calculate active bookings on this vehicle for the given date
-            const tripDate = date || new Date().toISOString().slice(0, 10);
+            // Calculate active ongoing bookings and assignments for this vehicle
             const activeBookings = await TransportRequest.findAll({
                 where: {
                     vehicleId: v.id,
-                    pickupDate: tripDate,
                     status: { [Op.in]: ["confirmed", "accepted", "driver_assigned", "in_transit"] }
                 }
             });
 
             const bookedWeightKg = activeBookings.reduce((sum, b) => sum + (b.weightKg || 0), 0);
             const remainingCapacityKg = Math.max(0, v.capacityKg - bookedWeightKg);
+            const isCurrentlyInTransit = activeBookings.some(b => ["in_transit", "driver_assigned"].includes(b.status));
+
+            // Check route compatibility if destination is provided
+            let isRouteEligible = true;
+            if (destination && destination.trim() && destination.toLowerCase() !== "all") {
+                const destNorm = destination.trim().toLowerCase();
+                const destKeywords = destNorm.split(/\s+/).filter(w => w.length > 2 && !["apmc", "market", "yard", "wholesale"].includes(w));
+                const routesStr = String(v.supportedRoutes || "").toLowerCase();
+                const baseLocStr = String(v.baseLocation || "").toLowerCase();
+                const matchesKeyword = destKeywords.some(kw => routesStr.includes(kw) || baseLocStr.includes(kw));
+                isRouteEligible = matchesKeyword || routesStr.includes(destNorm) || destNorm.includes(routesStr) || baseLocStr.includes(destNorm);
+            }
 
             // Crop suitability & smart matching score
             let isCropSuitable = true;
@@ -331,7 +360,7 @@ router.get("/vehicles", async (req, res) => {
                 }
             }
 
-            // Estimate base distance
+            // Estimate base distance & fare from real vehicle ratePerKm
             const destStr = String(destination || "Vashi APMC").toLowerCase();
             let distanceKm = 100;
             if (destStr.includes("mumbai") || destStr.includes("vashi")) distanceKm = 165;
@@ -340,13 +369,19 @@ router.get("/vehicles", async (req, res) => {
             else if (destStr.includes("solapur")) distanceKm = 240;
 
             const ratePerKm = v.ratePerKm || 22;
-            const estimatedSoloFare = Math.round(distanceKm * ratePerKm);
-            const estimatedSharedFare = Math.round(estimatedSoloFare * 0.52);
+            const estimatedSoloFare = Math.max(400, Math.round(distanceKm * ratePerKm));
+            const cargoWeight = effectiveKg > 0 ? effectiveKg : Math.min(500, v.capacityKg);
+            const sharedProportion = Math.max(0.35, Math.min(0.9, cargoWeight / v.capacityKg));
+            const estimatedSharedFare = Math.max(250, Math.round(estimatedSoloFare * sharedProportion));
 
             return {
                 ...vehicleData,
+                transporterId: v.userId,
+                transporterName: v.User?.name || v.driverName,
                 bookedWeightKg,
                 remainingCapacityKg,
+                isCurrentlyInTransit,
+                isRouteEligible,
                 isCropSuitable,
                 isRecommended,
                 cropMatchScore,
@@ -354,16 +389,17 @@ router.get("/vehicles", async (req, res) => {
                 estimatedSoloFare,
                 estimatedSharedFare,
                 estimatedDurationMinutes: distanceKm > 100 ? 210 : 90,
-                canAccommodateCargo: effectiveKg > 0 ? (remainingCapacityKg >= effectiveKg) : true,
+                canAccommodateCargo: effectiveKg > 0 ? (remainingCapacityKg >= effectiveKg) : (remainingCapacityKg > 0),
                 hasActiveSharedPool: activeBookings.length > 0,
                 activeBookingsCount: activeBookings.length
             };
         }));
 
-        // Apply filters
-        let result = augmented;
+        // Apply filters: must not be in transit, must have remaining capacity, must be route eligible
+        let result = augmented.filter(v => !v.isCurrentlyInTransit && v.remainingCapacityKg > 0 && v.isRouteEligible);
+
         if (effectiveKg > 0) {
-            result = result.filter(v => v.canAccommodateCargo);
+            result = result.filter(v => v.remainingCapacityKg >= effectiveKg);
         }
         if (vehicleType && vehicleType !== "any") {
             result = result.filter(v => v.vehicleType.toLowerCase().includes(vehicleType.toLowerCase()));
@@ -380,7 +416,7 @@ router.get("/vehicles", async (req, res) => {
             return (a.capacityKg || 0) - (b.capacityKg || 0);
         });
 
-        return res.json({ success: true, count: result.length, data: result });
+        return res.json({ success: true, count: result.length, data: result, vehicles: result });
     } catch (error) {
         console.error("Vehicle inventory error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to load vehicle availability" });
@@ -426,16 +462,23 @@ router.post("/vehicles", requireRole("transporter", "admin"), async (req, res) =
             return res.status(409).json({ success: false, message: `Vehicle with registration ${regNumClean} is already registered.` });
         }
 
+        const cropsString = Array.isArray(supportedCrops)
+            ? supportedCrops.join(", ")
+            : (supportedCrops || "Tomato, Onion, Potato, Vegetables");
+        const routesString = Array.isArray(supportedRoutes)
+            ? supportedRoutes.join(", ")
+            : (supportedRoutes || "Pune to Mumbai Vashi APMC");
+
         const vehicle = await Vehicle.create({
             userId: req.user.id,
             registrationNumber: regNumClean,
             vehicleType: String(vehicleType).trim(),
             capacityKg: rawCapacity,
             capacityUnit: capacityUnit || "kg",
-            supportedCrops: supportedCrops || "Tomato, Onion, Potato, Vegetables",
+            supportedCrops: cropsString,
             specialHandling: specialHandling || "Ventilated",
             baseLocation: baseLocation || "Pune, Maharashtra",
-            supportedRoutes: supportedRoutes || "Pune to Mumbai Vashi APMC",
+            supportedRoutes: routesString,
             availableDate: availableDate || null,
             ratePerKm: Number(ratePerKm) || 25,
             driverName: String(driverName).trim(),
@@ -788,11 +831,30 @@ router.get("/incoming-requests", requireRole("transporter", "admin"), async (req
 
         const requests = await TransportRequest.findAll({
             where,
+            include: [{ model: User, attributes: ["id", "name", "email", "role"] }],
             order: [["createdAt", "DESC"]],
             limit: 100
         });
 
-        const sanitized = requests.map(r => {
+        // Filter out test-runner generated records from live view
+        const isLiveView = process.env.INCLUDE_TEST_DATA !== "true" && req.query.includeTest !== "true";
+        const filteredRequests = isLiveView
+            ? requests.filter(r => {
+                const email = String(r.User?.email || "").toLowerCase();
+                const name = String(r.User?.name || r.farmerName || "").toLowerCase();
+                const bookingId = String(r.bookingId || "");
+                const isTestAccount = email.endsWith(".test") ||
+                                      email.includes("_sec@") ||
+                                      email.includes("@test.local") ||
+                                      name === "farmer a" ||
+                                      name === "farmer b" ||
+                                      name === "escrow test farmer" ||
+                                      name.includes("nashik agro fpo leader");
+                return !isTestAccount;
+            })
+            : requests;
+
+        const sanitized = filteredRequests.map(r => {
             const data = r.toJSON ? r.toJSON() : { ...r };
             if (req.user.role !== "admin" && Number(data.transporterId) !== Number(req.user.id)) {
                 data.farmerPhone = null;
@@ -953,9 +1015,14 @@ router.put("/bookings/:id/status", requireRole("transporter", "admin"), async (r
         const booking = await TransportRequest.findByPk(req.params.id);
         if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
 
-        if (req.user.role !== "admin" && Number(booking.transporterId) !== Number(req.user.id)) {
-            return res.status(403).json({ success: false, message: "Not your trip." });
+        if (req.user.role !== "admin") {
+            if (booking.transporterId && Number(booking.transporterId) !== Number(req.user.id)) {
+                return res.status(403).json({ success: false, message: "Not your trip." });
+            }
         }
+
+        const nextStatus = req.body.status || req.body.nextStatus;
+        const current = booking.status;
 
         const validTransitions = {
             open: ["driver_assigned", "accepted", "vehicle_assigned", "cancelled", "rejected"],
@@ -980,9 +1047,26 @@ router.put("/bookings/:id/status", requireRole("transporter", "admin"), async (r
             });
         }
 
+        let history = [];
+        try {
+            history = booking.statusHistory ? JSON.parse(booking.statusHistory) : [];
+            if (!Array.isArray(history)) history = [];
+        } catch (_) {
+            history = [];
+        }
+        history.push({
+            from: current,
+            to: nextStatus,
+            timestamp: new Date().toISOString(),
+            userId: req.user.id,
+            notes: req.body.notes || null
+        });
+
         await booking.update({
             status: nextStatus,
-            ...(nextStatus === "in_transit" ? { tripStartTime: new Date() } : {})
+            statusHistory: JSON.stringify(history),
+            ...(nextStatus === "in_transit" ? { tripStartTime: new Date() } : {}),
+            ...(!booking.transporterId ? { transporterId: req.user.id } : {})
         });
 
         if (["delivered", "completed", "cancelled"].includes(nextStatus)) {

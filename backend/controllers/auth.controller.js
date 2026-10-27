@@ -1,7 +1,8 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { User, FarmerProfile, TransporterProfile, MandiProfile, ContactRequest } = require("../models");
+const { User, FarmerProfile, TransporterProfile, MandiProfile, ContactRequest, Vehicle, AdminUser } = require("../models");
 const { Op } = require("sequelize");
+const sequelize = require("../config/database");
 
 const otpService = require("../services/otpService");
 const agristackService = require("../services/agristackService");
@@ -29,6 +30,12 @@ function formatUserResponse(userInstance) {
         const mpJson = mp.toJSON ? mp.toJSON() : mp;
         data.MandiProfile = mpJson;
         data.mandiProfile = mpJson;
+    }
+    const au = data.AdminUser || data.adminUser || userInstance.AdminUser || userInstance.adminUser || (userInstance.getDataValue && userInstance.getDataValue("AdminUser")) || userInstance.dataValues?.AdminUser;
+    if (au) {
+        const auJson = au.toJSON ? au.toJSON() : au;
+        data.AdminUser = auJson;
+        data.adminUser = auJson;
     }
 
     return data;
@@ -204,6 +211,19 @@ async function ensureMandiProfile(userId, defaults = {}) {
 // REGISTER
 // =========================
 const register = async (req, res) => {
+    // 0. Verify Database Connection before running queries
+    try {
+        await sequelize.authenticate();
+    } catch (dbErr) {
+        console.error("Database connection check failed before registration:", dbErr.message);
+        const userFriendly = sequelize.formatConnectionError ? sequelize.formatConnectionError(dbErr) : dbErr.message;
+        return res.status(503).json({
+            success: false,
+            errorType: "DATABASE_CONNECTION_ERROR",
+            message: userFriendly
+        });
+    }
+
     try {
         const {
             name,
@@ -224,6 +244,7 @@ const register = async (req, res) => {
             // Transporter fields
             vehicleType,
             vehicleNumber,
+            registrationNumber,
             capacityKg,
             baseMandi,
             ratePerKm,
@@ -267,6 +288,39 @@ const register = async (req, res) => {
             });
         }
 
+        // Transporter specific field validation
+        if (role === "transporter") {
+            if (capacityKg !== undefined && capacityKg !== null && capacityKg !== "") {
+                const parsedCap = Number(capacityKg);
+                if (Number.isNaN(parsedCap) || parsedCap <= 0) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Vehicle payload capacity must be a positive number in kg."
+                    });
+                }
+            }
+            if (ratePerKm !== undefined && ratePerKm !== null && ratePerKm !== "") {
+                const parsedRate = Number(ratePerKm);
+                if (Number.isNaN(parsedRate) || parsedRate <= 0) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Rate per km must be a positive number."
+                    });
+                }
+            }
+
+            const cleanVehNum = String(vehicleNumber || registrationNumber || "").trim().toUpperCase();
+            if (cleanVehNum) {
+                const existingVeh = await Vehicle.findOne({ where: { registrationNumber: cleanVehNum } });
+                if (existingVeh) {
+                    return res.status(409).json({
+                        success: false,
+                        message: `Vehicle with registration number ${cleanVehNum} is already registered.`
+                    });
+                }
+            }
+        }
+
         const normalizedEmail = email.trim().toLowerCase();
 
         // 5. Check if Email Already Exists
@@ -296,9 +350,9 @@ const register = async (req, res) => {
         // 7. Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const assignedRole = role === "transporter" ? "transporter" : role === "mandi" ? "mandi" : role === "fpo_leader" ? "fpo_leader" : "farmer";
+        const assignedRole = role === "admin" ? "admin" : role === "transporter" ? "transporter" : role === "mandi" ? "mandi" : role === "fpo_leader" ? "fpo_leader" : "farmer";
 
-        // 8. Create user in MySQL
+        // 8. Create user in database
         const user = await User.create({
             name: name.trim(),
             email: normalizedEmail,
@@ -310,19 +364,53 @@ const register = async (req, res) => {
         let profile = null;
         let transporterProfile = null;
         let mandiProfile = null;
+        let adminProfile = null;
+        let initialVehicle = null;
 
-        if (assignedRole === "transporter") {
+        if (assignedRole === "admin") {
+            adminProfile = await AdminUser.create({
+                userId: user.id,
+                displayName: name.trim()
+            });
+        } else if (assignedRole === "transporter") {
+            const rawCap = Number(capacityKg);
+            const parsedCapacity = !Number.isNaN(rawCap) && rawCap > 0 ? rawCap : 2500;
+            const rawRate = Number(ratePerKm);
+            const parsedRate = !Number.isNaN(rawRate) && rawRate > 0 ? rawRate : 28;
+            const finalVehType = vehicleType && vehicleType.trim() ? vehicleType.trim() : "Mahindra Bolero Maxi Truck";
+            const finalVehNum = String(vehicleNumber || registrationNumber || "").trim().toUpperCase() || `MH-12-TR-${Math.floor(1000 + Math.random() * 9000)}`;
+            const finalBaseMandi = baseMandi && baseMandi.trim() ? baseMandi.trim() : `${district.trim()} APMC`;
+
             transporterProfile = await TransporterProfile.create({
                 userId: user.id,
                 driverName: name.trim(),
                 phone: cleanPhone,
-                vehicleType: vehicleType ? vehicleType.trim() : "Tata 407 Agri LCV",
-                vehicleNumber: vehicleNumber ? vehicleNumber.trim().toUpperCase() : `MH-12-TR-${Math.floor(1000 + Math.random() * 9000)}`,
-                capacityKg: capacityKg && !Number.isNaN(Number(capacityKg)) ? Number(capacityKg) : 2500,
-                baseMandi: baseMandi ? baseMandi.trim() : `${district.trim()} APMC`,
-                ratePerKm: ratePerKm && !Number.isNaN(Number(ratePerKm)) ? Number(ratePerKm) : 28,
+                vehicleType: finalVehType,
+                vehicleNumber: finalVehNum,
+                capacityKg: parsedCapacity,
+                baseMandi: finalBaseMandi,
+                ratePerKm: parsedRate,
                 isAvailable: true
             });
+
+            // Ensure initial fleet vehicle record is created and linked
+            try {
+                initialVehicle = await Vehicle.create({
+                    userId: user.id,
+                    registrationNumber: finalVehNum,
+                    vehicleType: finalVehType,
+                    capacityKg: parsedCapacity,
+                    capacityUnit: "kg",
+                    baseLocation: finalBaseMandi,
+                    ratePerKm: parsedRate,
+                    driverName: name.trim(),
+                    driverPhone: cleanPhone,
+                    isAvailable: true,
+                    status: "available"
+                });
+            } catch (vErr) {
+                console.warn("Initial Vehicle creation warning:", vErr.message);
+            }
         } else if (assignedRole === "mandi") {
             mandiProfile = await MandiProfile.create({
                 userId: user.id,
@@ -394,7 +482,7 @@ const register = async (req, res) => {
             });
         }
 
-        const roleTitle = assignedRole === "transporter" ? "Transporter" : assignedRole === "mandi" ? "Mandi Official" : assignedRole === "fpo_leader" ? "FPO Leader" : "Farmer";
+        const roleTitle = assignedRole === "admin" ? "APMC Administrator" : assignedRole === "transporter" ? "Transporter" : assignedRole === "mandi" ? "Mandi Official" : assignedRole === "fpo_leader" ? "FPO Leader" : "Farmer";
 
         // Generate JWT token for seamless auto-login on registration
         const token = jwt.sign(
@@ -417,12 +505,38 @@ const register = async (req, res) => {
                 role: user.role,
                 FarmerProfile: profile,
                 TransporterProfile: transporterProfile,
-                MandiProfile: mandiProfile
+                MandiProfile: mandiProfile,
+                AdminUser: adminProfile,
+                Vehicles: initialVehicle ? [initialVehicle] : []
             }
         });
 
     } catch (error) {
-        console.error("Register error:", error.message || error);
+console.error("Register error:", error.message || error);
+        const isDbConnError = error.name === "SequelizeConnectionError" ||
+            error.name === "SequelizeHostNotFoundError" ||
+            error.name === "SequelizeConnectionRefusedError" ||
+            error.name === "SequelizeConnectionTimedOutError" ||
+            (error.message && (
+                error.message.includes("ENOTFOUND") ||
+                error.message.includes("ECONNREFUSED") ||
+                error.message.includes("ETIMEDOUT")
+            ));
+        if (isDbConnError) {
+            const userFriendly = sequelize.formatConnectionError ? sequelize.formatConnectionError(error) : error.message;
+            return res.status(503).json({
+                success: false,
+                errorType: "DATABASE_CONNECTION_ERROR",
+                message: userFriendly
+            });
+        }
+        if (error.name === "SequelizeUniqueConstraintError") {
+            const field = error.errors?.[0]?.path || "field";
+            return res.status(409).json({
+                success: false,
+                message: `An account or record with this ${field} is already registered.`
+            });
+        }
         let msg = error.message || "Server error during registration";
         if (msg.includes("ENOTFOUND")) {
             msg = `Database service unreachable (${msg}). Please verify that your cloud database (Aiven) is Powered ON.`;
@@ -438,6 +552,19 @@ const register = async (req, res) => {
 // LOGIN
 // =========================
 const login = async (req, res) => {
+    // 0. Verify Database Connection before attempting login
+    try {
+        await sequelize.authenticate();
+    } catch (dbErr) {
+        console.error("Database connection failure before login:", dbErr.message);
+        const userFriendly = sequelize.formatConnectionError ? sequelize.formatConnectionError(dbErr) : dbErr.message;
+        return res.status(503).json({
+            success: false,
+            errorType: "DATABASE_CONNECTION_ERROR",
+            message: userFriendly
+        });
+    }
+
     try {
         const { email, password } = req.body;
 
@@ -482,7 +609,8 @@ const login = async (req, res) => {
                 include: [
                     { model: FarmerProfile },
                     { model: TransporterProfile },
-                    { model: MandiProfile }
+                    { model: MandiProfile },
+                    { model: AdminUser }
                 ]
             });
         } catch (dbError) {
@@ -491,7 +619,7 @@ const login = async (req, res) => {
             try {
                 const sequelize = require("../config/database");
                 await sequelize.sync();
-                const seed = require("../seed");
+const seed = require("../seed");
                 if (typeof seed === "function") await seed();
                 users = await User.findAll({
                     where: {
@@ -500,7 +628,8 @@ const login = async (req, res) => {
                     include: [
                         { model: FarmerProfile },
                         { model: TransporterProfile },
-                        { model: MandiProfile }
+                        { model: MandiProfile },
+                        { model: AdminUser }
                     ]
                 });
             } catch (seedErr) {
@@ -577,7 +706,7 @@ const login = async (req, res) => {
             });
         }
 
-        // Ensure profile exists based on role safely
+// Ensure profile exists based on role safely
         try {
             if (user.role === "farmer" && !user.FarmerProfile) {
                 user.FarmerProfile = await ensureFarmerProfile(user.id);
@@ -614,8 +743,7 @@ const login = async (req, res) => {
 
     } catch (error) {
         console.error("Login error:", error);
-
-        // Immediate fallback for evaluation accounts even on unexpected exception
+// Immediate fallback for evaluation accounts even on unexpected exception
         const fallbackId = String(req.body?.email || "").trim().toLowerCase();
         const local = fallbackId.split("@")[0];
         const pwd = String(req.body?.password || "");
@@ -635,6 +763,23 @@ const login = async (req, res) => {
             });
         }
 
+        const isDbConnError = error.name === "SequelizeConnectionError" ||
+            error.name === "SequelizeHostNotFoundError" ||
+            error.name === "SequelizeConnectionRefusedError" ||
+            error.name === "SequelizeConnectionTimedOutError" ||
+            (error.message && (
+                error.message.includes("ENOTFOUND") ||
+                error.message.includes("ECONNREFUSED") ||
+                error.message.includes("ETIMEDOUT")
+            ));
+        if (isDbConnError) {
+            const userFriendly = sequelize.formatConnectionError ? sequelize.formatConnectionError(error) : error.message;
+            return res.status(503).json({
+                success: false,
+                errorType: "DATABASE_CONNECTION_ERROR",
+                message: userFriendly
+            });
+        }
         return res.status(500).json({
             success: false,
             message: "Server error during login"
@@ -652,7 +797,8 @@ const getMe = async (req, res) => {
             include: [
                 { model: FarmerProfile },
                 { model: TransporterProfile },
-                { model: MandiProfile }
+                { model: MandiProfile },
+                { model: AdminUser }
             ]
         });
 
@@ -712,7 +858,7 @@ const demoLogin = async (req, res) => {
 
         let user = await User.findOne({
             where: { email: targetEmail },
-            include: [{ model: FarmerProfile }, { model: TransporterProfile }, { model: MandiProfile }]
+            include: [{ model: FarmerProfile }, { model: TransporterProfile }, { model: MandiProfile }, { model: AdminUser }]
         });
 
         // If not found, run seed to create verified demo accounts
@@ -722,7 +868,7 @@ const demoLogin = async (req, res) => {
                 if (typeof seed === "function") await seed();
                 user = await User.findOne({
                     where: { email: targetEmail },
-                    include: [{ model: FarmerProfile }, { model: TransporterProfile }, { model: MandiProfile }]
+                    include: [{ model: FarmerProfile }, { model: TransporterProfile }, { model: MandiProfile }, { model: AdminUser }]
                 });
             } catch (seedErr) {
                 console.warn("Auto seed on demoLogin:", seedErr.message);
