@@ -30,6 +30,15 @@ async function migrateIdentity() {
             }
 
             try {
+                const [userCols] = await sequelize.query("PRAGMA table_info(users)");
+                const existingUserCols = userCols.map(r => r.name);
+                if (!existingUserCols.includes("status")) {
+                    await sequelize.query("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active'");
+                    console.log("✅ [SQLite] Added column: status to users");
+                }
+            } catch (_) {}
+
+            try {
                 const [mandiCols] = await sequelize.query("PRAGMA table_info(mandi_profiles)");
                 const existingMandiCols = mandiCols.map(r => r.name);
                 if (!existingMandiCols.includes("operating_days")) {
@@ -40,6 +49,13 @@ async function migrateIdentity() {
                 // Table might not exist yet before sync
             }
         } else {
+            try {
+                const [uCols] = await sequelize.query("DESCRIBE users");
+                const existingUCols = uCols.map(c => c.Field);
+                if (!existingUCols.includes("status")) {
+                    await sequelize.query("ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'active'");
+                }
+            } catch (_) {}
             // MySQL
             const [cols] = await sequelize.query("DESCRIBE farmer_profiles");
             const existingCols = cols.map(c => c.Field);
