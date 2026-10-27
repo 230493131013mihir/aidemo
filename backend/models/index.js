@@ -14,6 +14,10 @@ const SavedScheme = require("./savedScheme");
 const SchemeChecklist = require("./schemeChecklist");
 const Vehicle = require("./vehicle");
 const SharedTrip = require("./sharedTrip");
+const SaleRecord = require("./saleRecord");
+
+User.hasMany(SaleRecord, { foreignKey: "userId", onDelete: "CASCADE" });
+SaleRecord.belongsTo(User, { foreignKey: "userId" });
 
 User.hasOne(FarmerProfile, { foreignKey: "userId", onDelete: "CASCADE" });
 FarmerProfile.belongsTo(User, { foreignKey: "userId" });
@@ -84,5 +88,6 @@ module.exports = {
   SavedScheme,
   SchemeChecklist,
   Vehicle,
-  SharedTrip
+  SharedTrip,
+  SaleRecord
 };
