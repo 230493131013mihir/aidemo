@@ -148,6 +148,16 @@ async function runTests() {
     }
   }
 
+  // Clean up any lingering membership and aggregations from previous test runs to ensure idempotency
+  await FpoMembership.destroy({ where: { fpoId: fpoUser.id, farmerId: nonMemberFarmer.id } });
+  const existingAggs = await CropAggregation.findAll({ where: { fpoId: fpoUser.id }, attributes: ['id'] });
+  if (existingAggs.length > 0) {
+    const aggIds = existingAggs.map(a => a.id);
+    await FpoProcurementOffer.destroy({ where: { aggregationId: aggIds } });
+    await AggregationItem.destroy({ where: { aggregationId: aggIds } });
+    await CropAggregation.destroy({ where: { id: aggIds } });
+  }
+
   // Auth Tokens
   const fpoToken = jwt.sign({ id: fpoUser.id, email: fpoUser.email, role: fpoUser.role, name: fpoUser.name }, secret, { expiresIn: '1h' });
   const farmerToken = jwt.sign({ id: nonMemberFarmer.id, email: nonMemberFarmer.email, role: nonMemberFarmer.role, name: nonMemberFarmer.name }, secret, { expiresIn: '1h' });

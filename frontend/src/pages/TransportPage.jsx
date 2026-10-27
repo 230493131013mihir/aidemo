@@ -77,7 +77,8 @@ export default function TransportPage() {
   const [error, setError] = useState('');
 
   // Transporter state
-  const [transportersList, setTransportersList] = useState([]);
+  const [vehiclesList, setVehiclesList] = useState([]);
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
   const [openCargoList, setOpenCargoList] = useState([]);
   const [activeTrip, setActiveTrip] = useState(null);
   const [loadingActiveTrip, setLoadingActiveTrip] = useState(false);
@@ -247,64 +248,28 @@ export default function TransportPage() {
     }
   }
 
-  async function loadTransporters() {
+  async function loadVehicles() {
     if (isUserTransporter) return;
+    setLoadingVehicles(true);
     try {
-      const response = await apiClient('/api/transport/transporters');
+      const params = new URLSearchParams();
+      if (cropName) params.append('crop', cropName);
+      if (weight) params.append('weightKg', weight);
+      if (destination) params.append('destination', destination);
+      if (date) params.append('date', date);
+
+      const response = await apiClient(`/api/transport/vehicles?${params.toString()}`);
       const payload = await response.json().catch(() => ({}));
-      if (response.ok && payload.success && Array.isArray(payload.data) && payload.data.length > 0) {
-        setTransportersList(payload.data);
+      if (response.ok && payload.success && Array.isArray(payload.data)) {
+        setVehiclesList(payload.data);
       } else {
-        setTransportersList([
-          {
-            id: 'mock-1',
-            driverName: 'Kishor Jadhav',
-            phone: '+91 98765 43210',
-            vehicleType: 'Tata 407 (Medium Truck)',
-            capacityKg: 2500,
-            currentRoute: 'Nashik ➔ Vashi APMC (Navi Mumbai)',
-            ratePerKm: 14,
-            isAvailable: true,
-            rating: 4.8
-          },
-          {
-            id: 'mock-2',
-            driverName: 'Sanjay Shinde',
-            phone: '+91 91234 56789',
-            vehicleType: 'Mahindra Bolero Maxi Truck',
-            capacityKg: 1500,
-            currentRoute: 'Pune ➔ Vashi APMC (Mumbai)',
-            ratePerKm: 12,
-            isAvailable: true,
-            rating: 4.9
-          }
-        ]);
+        setVehiclesList([]);
       }
     } catch (err) {
-      setTransportersList([
-        {
-          id: 'mock-1',
-          driverName: 'Kishor Jadhav',
-          phone: '+91 98765 43210',
-          vehicleType: 'Tata 407 (Medium Truck)',
-          capacityKg: 2500,
-          currentRoute: 'Nashik ➔ Vashi APMC (Navi Mumbai)',
-          ratePerKm: 14,
-          isAvailable: true,
-          rating: 4.8
-        },
-        {
-          id: 'mock-2',
-          driverName: 'Sanjay Shinde',
-          phone: '+91 91234 56789',
-          vehicleType: 'Mahindra Bolero Maxi Truck',
-          capacityKg: 1500,
-          currentRoute: 'Pune ➔ Vashi APMC (Mumbai)',
-          ratePerKm: 12,
-          isAvailable: true,
-          rating: 4.9
-        }
-      ]);
+      console.warn('Unable to load vehicles:', err.message);
+      setVehiclesList([]);
+    } finally {
+      setLoadingVehicles(false);
     }
   }
 
@@ -339,7 +304,7 @@ export default function TransportPage() {
 
   useEffect(() => {
     loadMyRequests();
-    loadTransporters();
+    loadVehicles();
     loadOpenCargo();
     loadActiveTrip();
 
@@ -348,10 +313,16 @@ export default function TransportPage() {
     const interval = setInterval(() => {
       loadMyRequests();
       loadActiveTrip();
-      loadTransporters();
+      loadVehicles();
     }, 3000);
     return () => clearInterval(interval);
   }, [token]);
+
+  useEffect(() => {
+    if (token && !isUserTransporter) {
+      loadVehicles();
+    }
+  }, [cropName, weight, destination, date]);
 
   // Handle URL query parameter ?showpass=true from header navigation
   useEffect(() => {
@@ -397,51 +368,74 @@ export default function TransportPage() {
     }
   }
 
-  // Show only currently available registered transporters (exclude assigned/busy drivers).
+  // Show only currently available registered fleet vehicles (exclude assigned/busy drivers).
   const allPools = useMemo(() => {
-    return transportersList
-      .filter((tr) => {
-        if (Number(tr.userId) === Number(user?.id)) return false;
-        if (tr.isAvailable === false) return false;
+    return vehiclesList
+      .filter((v) => {
+        if (Number(v.userId) === Number(user?.id)) return false;
+        if (v.isAvailable === false || v.status === 'maintenance' || v.status === 'busy' || v.isCurrentlyInTransit) return false;
+        const remaining = v.remainingCapacityKg !== undefined ? v.remainingCapacityKg : v.capacityKg;
+        if (remaining <= 0) return false;
 
-        // Check if this driver/transporter is already assigned to ANY active booking of this farmer
+        // Check if this vehicle is already assigned to ANY active booking of this farmer
         const isAssignedToActiveTrip = (myRequests || []).some(
           (req) =>
-            ['driver_assigned', 'in_transit', 'accepted', 'confirmed', 'pending', 'open'].includes(req.status) &&
-            (Number(req.transporterId) === Number(tr.userId) ||
-              (req.driverName && tr.driverName && req.driverName.toLowerCase().trim() === tr.driverName.toLowerCase().trim()))
+            ['driver_assigned', 'in_transit', 'accepted', 'confirmed'].includes(req.status) &&
+            ((req.vehicleId && Number(req.vehicleId) === Number(v.id)) ||
+              (req.vehicleNumber && v.registrationNumber && req.vehicleNumber.toUpperCase().trim() === v.registrationNumber.toUpperCase().trim()))
         );
         if (isAssignedToActiveTrip) return false;
 
         return true;
       })
-      .map((tr) => ({
-        id: `live-${tr.id}`,
-        transporterId: tr.userId,
-        driver: tr.driverName || 'Verified Driver',
-        route: tr.baseMandi || tr.currentRoute || 'Pune APMC',
-        date: date,
-        vehicle: tr.vehicleType || 'Commercial Farm Truck',
-        vehicleNumber: tr.vehicleNumber || 'MH-12-RN-4921',
-        capacityKg: tr.capacityKg || 2000,
-        usedKg: 0,
-        cost: (tr.ratePerKm || 20) * 85, // estimated base route cost
-        farmers: 0,
+      .map((v) => ({
+        id: `vehicle-${v.id}`,
+        vehicleId: v.id,
+        transporterId: v.userId,
+        transporterName: v.User?.name || v.transporterName || v.driverName,
+        driver: v.driverName || 'Verified Driver',
+        driverPhone: v.driverPhone || '9876543210',
+        route: v.supportedRoutes || v.baseLocation || 'Maharashtra APMC Corridor',
+        baseLocation: v.baseLocation,
+        date: date || new Date().toISOString().slice(0, 10),
+        vehicle: v.vehicleType || 'Commercial Farm Truck',
+        vehicleNumber: v.registrationNumber,
+        capacityKg: v.capacityKg,
+        remainingCapacityKg: v.remainingCapacityKg !== undefined ? v.remainingCapacityKg : v.capacityKg,
+        usedKg: v.bookedWeightKg || 0,
+        ratePerKm: v.ratePerKm || 22,
+        cost: v.estimatedSoloFare || ((v.ratePerKm || 22) * 85),
+        sharedCost: v.estimatedSharedFare || Math.round((v.ratePerKm || 22) * 45),
+        specialHandling: v.specialHandling,
+        cropMatchScore: v.cropMatchScore,
+        isCropSuitable: v.isCropSuitable,
+        cropSuitabilityReason: v.cropSuitabilityReason,
         isLiveRegistered: true,
       }));
-  }, [transportersList, user?.id, date, myRequests]);
+  }, [vehiclesList, user?.id, date, myRequests]);
 
   // Filter registered vehicles by destination and available capacity.
   const matches = useMemo(() => {
     const dest = (destination || '').trim().toLowerCase();
-    const filtered = allPools.filter((pool) => {
-      const routeStr = (pool.route || '').toLowerCase();
-      const destinationMatch = !dest || routeStr.includes(dest);
-      const capacityMatch = ((pool.capacityKg || 2000) - (pool.usedKg || 0)) >= Number(weight || 0);
-      return destinationMatch && capacityMatch;
-    });
+    const reqWeight = Number(weight || 0);
 
-    return filtered;
+    return allPools.filter((pool) => {
+      // 1. Capacity check: must have enough remaining capacity for requested weight
+      if (reqWeight > 0 && pool.remainingCapacityKg < reqWeight) return false;
+      if (pool.remainingCapacityKg <= 0) return false;
+
+      // 2. Route check: if destination is chosen, vehicle's supported routes or base location must match
+      if (dest && dest !== 'all') {
+        const routeStr = (pool.route || '').toLowerCase();
+        const baseLoc = (pool.baseLocation || '').toLowerCase();
+        const destKeywords = dest.split(/\s+/).filter(w => w.length > 2 && !['apmc', 'market', 'yard', 'wholesale'].includes(w));
+        const matchesKeyword = destKeywords.some(kw => routeStr.includes(kw) || baseLoc.includes(kw));
+        const directMatch = routeStr.includes(dest) || dest.includes(routeStr) || baseLoc.includes(dest);
+        if (!matchesKeyword && !directMatch) return false;
+      }
+
+      return true;
+    });
   }, [destination, weight, allPools]);
 
   // Book dedicated transport request
@@ -501,39 +495,7 @@ export default function TransportPage() {
       return;
     }
 
-    // If user is logged in as transporter but explicitly testing the farmer booking view, auto-use farmer demo mode
-    if (isUserTransporter) {
-      setSubmitting(true);
-      setTimeout(() => {
-        const demoFarmerBooking = {
-          id: `demo-${Date.now()}`,
-          farmerName: farmerName.trim() || 'Ramesh Patel (Farmer)',
-          cropName: cropName.trim(),
-          weightKg: Number(weight || 500),
-          pickupLocation: pickupLocation.trim(),
-          destinationMarket: destination || 'Pune APMC',
-          pickupDate: date || new Date().toISOString().slice(0, 10),
-          status: 'assigned',
-          gatePassCode: `HM-GP-${Math.floor(1000 + Math.random() * 9000)}`,
-          driverName: 'Rajesh Patil (Express Agri Logistics)',
-          driverPhone: '9822012345',
-          vehicleType: 'Mahindra Bolero Maxi Truck',
-          vehicleNumber: 'MH-12-RN-4921',
-          estimatedDurationMinutes: 120,
-          estimatedSharedCost: Math.round(Number(weight || 500) * 1.8),
-          createdAt: new Date().toISOString()
-        };
-        setSelectedGatePass(demoFarmerBooking);
-        setMyRequests((prev) => [demoFarmerBooking, ...prev]);
-        setSubmitting(false);
-        showToast({
-          type: 'celebrate',
-          title: '🚚 Farmer Transport Booked!',
-          message: 'Digital Mandi Gate Pass generated with QR code verification.'
-        });
-      }, 500);
-      return;
-    }
+
 
     if (!farmerName.trim() || !cropName.trim() || !pickupLocation.trim()) {
       const errMsg = 'Please fill in farmer name, crop, and pickup location.';
@@ -595,37 +557,7 @@ export default function TransportPage() {
       return;
     }
 
-    const estimatedCost = Math.round(pool.cost * (Number(weight || 500) / Math.max(pool.capacityKg, 1)));
-
-    if (!token || token === 'guest' || user?.isGuest) {
-      const guestBooking = {
-        id: `guest-${Date.now()}`,
-        farmerName: farmerName.trim() || user?.name || 'Guest Farmer (अतिथी शेतकरी)',
-        cropName: cropName.trim() || 'Produce',
-        weightKg: Number(weight || 500),
-        pickupLocation: pickupLocation.trim() || 'Pune, Maharashtra',
-        destinationMarket: pool.route || destination || 'Pune APMC',
-        pickupDate: pool.date || date || new Date().toISOString().slice(0, 10),
-        status: 'accepted',
-        gatePassCode: `MH-APMC-POOL-${Math.floor(1000 + Math.random() * 9000)}`,
-        driverName: pool.driver || 'Sanjay Shinde (Verified Driver)',
-        driverPhone: '9876543210',
-        vehicleType: pool.vehicle || 'Mahindra Bolero Maxi Truck',
-        vehicleNumber: pool.vehicleNumber || 'MH-12-RN-4921',
-        estimatedDurationMinutes: 120,
-        estimatedSharedCost: estimatedCost,
-        createdAt: new Date().toISOString()
-      };
-      setMyRequests((prev) => [guestBooking, ...prev]);
-      setSelectedGatePass(guestBooking);
-      showToast({
-        type: 'celebrate',
-        title: '🎉 Shared Slot Booked & Confirmed!',
-        message: `Reserved ${pool.vehicle} with ${pool.driver}. Estimated cost: ${formatINR(estimatedCost)}. Gate pass issued.`,
-        duration: 5000,
-      });
-      return;
-    }
+    const estimatedCost = pool.sharedCost || Math.round(pool.cost * (Number(weight || 500) / Math.max(pool.capacityKg, 1)));
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/transport/bookings`, {
@@ -636,15 +568,16 @@ export default function TransportPage() {
         },
         body: JSON.stringify({
           transporterId: pool.transporterId,
-          farmerName: farmerName || user?.name || 'Farmer',
+          vehicleId: pool.vehicleId,
+          farmerName: farmerName.trim() || user?.name || 'Farmer',
           farmerPhone: user?.phone,
-          cropName: cropName || 'Produce',
-          pickupLocation: pickupLocation || 'Pune, Maharashtra',
-          destinationMarket: pool.route,
-          pickupDate: pool.date,
+          cropName: cropName.trim() || 'Produce',
+          pickupLocation: pickupLocation.trim() || 'Pune, Maharashtra',
+          destinationMarket: destination.trim() || pool.route || 'Pune APMC',
+          pickupDate: date || pool.date || new Date().toISOString().slice(0, 10),
           weightKg: Number(weight) || 500,
           vehicleType: pool.vehicle,
-          vehicleNumber: pool.vehicleNumber || 'MH-12-RN-4921',
+          vehicleNumber: pool.vehicleNumber,
           estimatedSharedCost: estimatedCost,
         }),
       });
@@ -655,14 +588,14 @@ export default function TransportPage() {
       showToast({
         type: 'celebrate',
         title: '🎉 Shared Slot Booked & Confirmed!',
-        message: `Reserved ${pool.vehicle} with ${pool.driver}. Estimated cost: ${formatINR(estimatedCost)}. Gate pass issued.`,
+        message: `Reserved ${pool.vehicle} (${pool.vehicleNumber}) with driver ${pool.driver}. Estimated fare: ${formatINR(estimatedCost)}. Gate pass issued.`,
         duration: 5000,
       });
 
       // Auto open gate pass modal
       setSelectedGatePass(payload.data);
       await loadMyRequests();
-      await loadTransporters();
+      await loadVehicles();
     } catch (err) {
       showToast({ type: 'error', title: 'Booking Failed', message: err.message || 'Unable to create transport booking. Please try again.' });
     }
@@ -1328,7 +1261,7 @@ export default function TransportPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-text flex items-center gap-2">
                 <Users className="w-5 h-5 text-primary" />
-                <span>Available Registered Transporters ({matches.length} found)</span>
+                <span>Available Registered Fleet Vehicles ({matches.length} found)</span>
               </h2>
               <span className="text-xs text-muted">Live vehicle availability</span>
             </div>
@@ -1341,12 +1274,12 @@ export default function TransportPage() {
                 <p className="text-xs font-bold text-emerald-950">
                   {['accepted', 'driver_assigned', 'in_transit'].includes(activeFarmerBooking?.status)
                     ? 'Active Driver Assigned & Dispatched'
-                    : 'No Vehicles Currently Available for Selected Route/Capacity'}
+                    : 'No eligible transporter vehicles are currently available.'}
                 </p>
                 <p className="text-[11px] text-emerald-800">
                   {['accepted', 'driver_assigned', 'in_transit'].includes(activeFarmerBooking?.status)
                     ? `Assigned vehicle (${activeFarmerBooking.vehicleNumber || 'Agri Carrier'}) with driver ${activeFarmerBooking.driverName || 'Verified Driver'}. Live tracking is active above.`
-                    : 'Submit the dispatch booking form above to broadcast your produce load to registered transporters.'}
+                    : 'No eligible transporter vehicles are currently available.'}
                 </p>
               </div>
             ) : (
