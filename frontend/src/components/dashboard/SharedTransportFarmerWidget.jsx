@@ -421,6 +421,8 @@ export default function SharedTransportFarmerWidget({
       setConfirmedBooking(json.data);
       setIsGatePassModalOpen(true);
       setPoolToConfirm(null);
+      setSelectedVehicle(null);
+      setActiveTab('my-bookings');
 
       showToast({
         type: 'celebrate',
@@ -519,6 +521,8 @@ export default function SharedTransportFarmerWidget({
 
       setConfirmedBooking(json.data);
       setIsGatePassModalOpen(true);
+      setSelectedVehicle(null);
+      setActiveTab('my-bookings');
 
       showToast({
         type: 'celebrate',
@@ -1216,6 +1220,10 @@ export default function SharedTransportFarmerWidget({
                   const estimatedFare = isSharedPooling ? vehicle.estimatedSharedFare : vehicle.estimatedSoloFare;
                   const savings = vehicle.estimatedSoloFare - vehicle.estimatedSharedFare;
 
+                  const userActiveBooking = myBookings.find(
+                    (b) => Number(b.vehicleId) === Number(vehicle.id) && !['delivered', 'completed', 'cancelled', 'rejected'].includes(b.status)
+                  );
+
                   return (
                     <div
                       key={vehicle.id}
@@ -1223,16 +1231,23 @@ export default function SharedTransportFarmerWidget({
                         setSelectedVehicle(vehicle);
                       }}
                       className={`p-4 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between space-y-3 ${
-                        isSelected
+                        userActiveBooking
+                          ? 'border-emerald-500 bg-emerald-50/60 shadow-xs ring-1 ring-emerald-400'
+                          : isSelected
                           ? 'border-primary bg-emerald-50/50 shadow-md ring-2 ring-primary/20'
                           : 'border-slate-200 bg-white hover:border-slate-300 shadow-2xs'
                       }`}
                     >
-                      {isSelected && (
+                      {userActiveBooking ? (
+                        <div className="absolute -top-2.5 right-4 px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center gap-1 shadow-xs">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-200" />
+                          <span>Booked by You ({userActiveBooking.weightKg} kg)</span>
+                        </div>
+                      ) : isSelected ? (
                         <div className="absolute -top-2.5 right-4 px-2 py-0.5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center gap-1 shadow-xs">
                           <Check className="w-3 h-3" /> {t('farmerTransport.selectedVehicleBadge', 'Selected Vehicle')}
                         </div>
-                      )}
+                      ) : null}
 
                       <div className="space-y-1">
                         <div className="flex items-start justify-between gap-2">
@@ -1614,6 +1629,18 @@ export default function SharedTransportFarmerWidget({
             </div>
           )}
         </div>
+      )}
+
+      {/* Digital Mandi Gate Pass Modal */}
+      {confirmedBooking && (
+        <DigitalGatePassModal
+          isOpen={isGatePassModalOpen}
+          booking={confirmedBooking}
+          onClose={() => {
+            setIsGatePassModalOpen(false);
+            setActiveTab('my-bookings');
+          }}
+        />
       )}
     </div>
   );
