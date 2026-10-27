@@ -128,9 +128,15 @@ export default function ChatInput({
       onEnd: ({ hasResults, finalTranscript }) => {
         setIsListening(false);
         setInterimText('');
-        if (finalTranscript) {
+        const text = (finalTranscript || '').trim();
+        if (text) {
           const base = initialTextRef.current.trim() ? `${initialTextRef.current.trim()} ` : '';
-          setInputText(base + finalTranscript.trim());
+          const fullMessage = (base + text).trim();
+          if (fullMessage) {
+            onSendMessage(fullMessage, true);
+            setInputText('');
+            initialTextRef.current = '';
+          }
         }
       }
     });
@@ -145,6 +151,12 @@ export default function ChatInput({
     stopRecognition();
     setIsListening(false);
     setInterimText('');
+    const textToSend = inputText.trim();
+    if (textToSend) {
+      onSendMessage(textToSend, true);
+      setInputText('');
+      initialTextRef.current = '';
+    }
   };
 
   const handleSend = () => {

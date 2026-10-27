@@ -294,7 +294,11 @@ export default function KisanAIAssistant({
           const wakeResult = evaluateWakeWord(finalSpeech);
           if (wakeResult && wakeResult.query) {
             onSearch?.(wakeResult.query);
-            onSendMessage?.(wakeResult.query);
+            onSendMessage?.(wakeResult.query, true);
+          } else if (assistantState === 'wake_word_triggered' && finalSpeech.trim()) {
+            onSearch?.(finalSpeech.trim());
+            onSendMessage?.(finalSpeech.trim(), true);
+            setAssistantState('listening_continuous');
           }
         }, sensitivityConfig.silenceDelayMs);
       }

@@ -419,6 +419,12 @@ export async function speakMessage(text, language = 'en', callbacks = {}) {
       onEnd?.();
     };
 
+    try {
+      if (typeof window.speechSynthesis.resume === 'function') {
+        window.speechSynthesis.resume();
+      }
+    } catch (_) {}
+
     window.speechSynthesis.speak(utterance);
     return true;
   } catch (err) {

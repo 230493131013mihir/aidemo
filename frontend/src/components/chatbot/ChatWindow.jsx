@@ -100,12 +100,13 @@ export default function ChatWindow({
     }
   });
 
-  // 2. Voice reply toggle: restore from localStorage (default OFF)
+  // 2. Voice reply toggle: restore from localStorage (default ON for voice assistance)
   const [voiceAutoRead, setVoiceAutoRead] = useState(() => {
     try {
-      return localStorage.getItem('mitraVoiceEnabled') === 'true';
+      const stored = localStorage.getItem('mitraVoiceEnabled');
+      return stored !== null ? stored === 'true' : true;
     } catch (_) {
-      return false;
+      return true;
     }
   });
 
@@ -163,7 +164,7 @@ export default function ChatWindow({
     const handleWakeWordEvent = (e) => {
       const { query } = e.detail || {};
       if (query && query.trim()) {
-        handleSendMessage(query);
+        handleSendMessage(query, true);
       }
     };
 
@@ -267,7 +268,7 @@ export default function ChatWindow({
   };
 
   // Send message flow
-  const handleSendMessage = async (textToSend) => {
+  const handleSendMessage = async (textToSend, isVoiceOrigin = false) => {
     if (!textToSend.trim() || isLoading) return;
 
     setApiErrorNotice(null);
@@ -312,8 +313,8 @@ export default function ChatWindow({
 
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // If user enabled voice output, automatically read the reply in selected language
-      if (voiceAutoRead) {
+      // If user enabled voice output OR if spoken via voice, automatically read the reply aloud
+      if (voiceAutoRead || isVoiceOrigin) {
         handleSpeakMessage(assistantMessageId, response.message);
       }
     } catch (err) {
