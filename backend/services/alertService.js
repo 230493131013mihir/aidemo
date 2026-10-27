@@ -352,10 +352,10 @@ class AlertService {
     const pickupLocation = params.pickupLocation || 'Haveli, Pune';
     const destinationMarket = params.destinationMarket || params.destination || 'Mumbai Vashi Mega APMC';
     const pickupDate = params.pickupDate || new Date().toISOString().split('T')[0];
-    const driverName = params.driverName || 'Dnyaneshwar Shinde';
-    const driverPhone = params.driverPhone || '+91 98220 44120';
-    const vehicleNumber = params.vehicleNumber || 'MH-12-RN-4120';
-    const vehicleType = params.vehicleType || 'Tata 407 (Agri Freight)';
+    const driverName = params.driverName || 'Driver Assignment Pending';
+    const driverPhone = params.driverPhone || '';
+    const vehicleNumber = params.vehicleNumber || 'Vehicle Assignment Pending';
+    const vehicleType = params.vehicleType || 'Commercial Freight Carrier';
     const arrivalTimestamp = params.arrivalTimestamp || (params.estimatedDurationMinutes ? `~${params.estimatedDurationMinutes} mins` : '07:30 AM Entry Slot');
     const language = (params.language || 'mr').toLowerCase();
     const qrLink = params.qrLink || `https://harvestmitra.in/gatepass?code=${encodeURIComponent(passId)}`;

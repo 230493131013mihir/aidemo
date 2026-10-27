@@ -4,4 +4,4 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'en', label: 'English', nativeName: 'English' },
 ];
 
-export const DEFAULT_LANGUAGE = 'en';
+export const DEFAULT_LANGUAGE = 'mr';

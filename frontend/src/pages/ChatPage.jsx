@@ -60,22 +60,22 @@ export default function ChatPage() {
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
               <Bot className="w-3.5 h-3.5 text-emerald-400" />
-              <span>{isTransporter ? 'Multilingual Logistics AI Dispatcher' : 'Voice & Multilingual AI Agronomist'}</span>
+              <span>{isTransporter ? t('chat.transporterBadge', 'Multilingual Logistics AI Dispatcher') : t('chat.farmerBadge', 'Voice & Multilingual AI Agronomist')}</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
-              {isTransporter ? 'Mitra Logistics Assistant' : 'Mitra AI Advisory Assistant'}
+              {isTransporter ? t('chat.transporterTitle', 'Mitra Logistics Assistant') : t('chat.title', 'Mitra AI Advisory Assistant')}
             </h1>
             <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
               {isTransporter
-                ? 'Ask about your next pickup point, route corridors, remaining vehicle payload capacity, active trips, and highway weather.'
-                : 'Ask about live APMC mandi prices, rainfall forecast, crop harvest timing, and shared truck pooling in natural language.'}
+                ? t('chat.transporterSubtitle', 'Ask about your next pickup point, route corridors, remaining vehicle payload capacity, active trips, and highway weather.')
+                : t('chat.subtitle', 'Ask about live APMC mandi prices, rainfall forecast, crop harvest timing, and shared truck pooling in natural language.')}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="badge-tag bg-primary/10 text-primary border border-primary/20">
               <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{isTransporter ? 'Logistics Assistant Active' : 'Active & Multilingual'}</span>
+              <span>{isTransporter ? t('chat.transporterActiveStatus', 'Logistics Assistant Active') : t('chat.activeStatus', 'Active & Multilingual')}</span>
             </span>
           </div>
         </div>

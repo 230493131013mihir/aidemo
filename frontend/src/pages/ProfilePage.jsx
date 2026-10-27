@@ -233,12 +233,12 @@ export default function ProfilePage() {
 
           <h1 className="text-2xl sm:text-3xl font-extrabold text-text">
             {userRole === 'admin'
-              ? 'Administrator Profile & System Clearance'
+              ? (t('profileExtra.adminSettingsHeading') || 'Administrator Profile & System Clearance')
               : userRole === 'mandi'
-              ? 'Mandi Official Profile & APMC License'
+              ? (t('profileExtra.mandiSettingsHeading') || 'Mandi Official Profile & APMC License')
               : userRole === 'transporter'
-              ? 'Transporter & Fleet Vehicle Profile'
-              : t('profile.title', 'Farmer Profile Settings')}
+              ? (t('profileExtra.transporterSettingsHeading') || 'Transporter & Fleet Vehicle Profile')
+              : (t('profile.title') || 'Farmer Profile Settings')}
           </h1>
 
           <p className="text-sm text-muted mt-1">
@@ -247,8 +247,8 @@ export default function ProfilePage() {
               : userRole === 'mandi'
               ? 'Manage your APMC mandi details, license, operating schedule, and market facilities.'
               : userRole === 'transporter'
-              ? 'Commercial vehicle specifications, payload limits, base mandi routes, and fare rates.'
-              : 'Manage personal farmer credentials, ready harvest quantity, and APMC market location.'}
+              ? (t('profileExtra.transporterSettingsHeading') || 'Commercial vehicle specifications, payload limits, base mandi routes, and fare rates.')
+              : (t('profileExtra.farmSpecificationsDesc') || 'Manage personal farmer credentials, ready harvest quantity, and APMC market location.')}
           </p>
         </div>
 
@@ -276,7 +276,7 @@ export default function ProfilePage() {
             title="Sign out of HarvestMitra AI"
           >
             <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out</span>
+            <span>{t('auth.signOut') || 'Sign Out'}</span>
           </button>
         </div>
       </div>
@@ -445,8 +445,8 @@ export default function ProfilePage() {
             <div className="card-harvest p-6 space-y-5 bg-white border border-border rounded-3xl shadow-sm">
               <div className="border-b border-border/80 pb-3 flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-text">Driver & Fleet Owner Identity</h2>
-                  <p className="text-xs text-muted">Contact details presented to farmers when you accept cargo trips</p>
+                  <h2 className="text-lg font-bold text-text">{t('profileExtra.driverIdentity') || "Driver & Fleet Owner Identity"}</h2>
+                  <p className="text-xs text-muted">{t('profileExtra.driverIdentityDesc') || "Contact details presented to farmers when you accept cargo trips"}</p>
                 </div>
                 <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
                   Fleet Provider
@@ -456,7 +456,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Driver / Owner Name *
+                    {t('profileExtra.fullName') || "Driver / Owner Name *"}
                   </span>
                   <input
                     type="text"
@@ -470,7 +470,7 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Mobile Number (Shared with Farmers) *
+                    {t('profileExtra.phone') || "Mobile Number (Shared with Farmers) *"}
                   </span>
                   <div className="relative">
                     <Phone className="w-4 h-4 text-muted absolute left-3 top-3.5" />
@@ -488,7 +488,7 @@ export default function ProfilePage() {
 
               <label className="block space-y-1.5">
                 <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                  Registered Account Email
+                  {t('profileExtra.emailReadOnly') || "Registered Account Email"}
                 </span>
                 <input
                   type="email"
@@ -502,16 +502,16 @@ export default function ProfilePage() {
             {/* Vehicle Fleet Specifications */}
             <div className="card-harvest p-6 space-y-5 bg-white border border-border rounded-3xl shadow-sm">
               <div className="border-b border-border/80 pb-3">
-                <h2 className="text-lg font-bold text-text">Vehicle Fleet Specifications</h2>
+                <h2 className="text-lg font-bold text-text">{t('profileExtra.fleetSpecs') || "Vehicle Fleet Specifications"}</h2>
                 <p className="text-xs text-muted">
-                  Used by our matching engine to calculate pooling capacity and route availability
+                  {t('profileExtra.fleetSpecsDesc') || "Used by our matching engine to calculate pooling capacity and route availability"}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Vehicle Model *
+                    {t('profileExtra.vehicleModel') || "Vehicle Model *"}
                   </span>
                   <select
                     value={form.vehicleType}
@@ -529,7 +529,7 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Registration Plate (e.g. GJ-05-BX-4921) *
+                    {t('profileExtra.registrationPlate') || "Registration Plate (e.g. GJ-05-BX-4921) *"}
                   </span>
                   <input
                     type="text"
@@ -545,7 +545,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Max Capacity (kg) *
+                    {t('profileExtra.maxCapacityKg') || "Max Capacity (kg) *"}
                   </span>
                   <input
                     type="number"
@@ -560,7 +560,7 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Operating Base Mandi *
+                    {t('profileExtra.baseMandi') || "Operating Base Mandi *"}
                   </span>
                   <select
                     value={form.baseMandi}
@@ -579,7 +579,7 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Freight Rate (₹ / km) *
+                    {t('profileExtra.freightRatePerKm') || "Freight Rate (₹ / km) *"}
                   </span>
                   <div className="relative">
                     <IndianRupee className="w-4 h-4 text-muted absolute left-3 top-3.5" />
@@ -604,7 +604,7 @@ export default function ProfilePage() {
                 className="btn-primary py-2.5 px-6 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm"
               >
                 <Save className="w-4 h-4" />
-                <span>{saving ? 'Saving...' : 'Update Fleet Profile'}</span>
+                <span>{saving ? (t('profileExtra.savingBtn') || 'Saving...') : (t('profileExtra.updateTransporterBtn') || 'Update Fleet Profile')}</span>
               </button>
             </div>
           </div>
@@ -617,8 +617,8 @@ export default function ProfilePage() {
                   <Truck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-base">Cargo Dispatch Portal</h3>
-                  <p className="text-xs text-blue-200/80">Manage assigned loads and view live transit timers</p>
+                  <h3 className="font-extrabold text-base">{t('profileExtra.cargoDispatchPortal') || "Cargo Dispatch Portal"}</h3>
+                  <p className="text-xs text-blue-200/80">{t('profileExtra.cargoDispatchPortalDesc') || "Manage assigned loads and view live transit timers"}</p>
                 </div>
               </div>
               <div className="pt-2">
@@ -626,7 +626,7 @@ export default function ProfilePage() {
                   to="/transport"
                   className="inline-flex items-center gap-2 py-2.5 px-5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs transition-colors shadow-md"
                 >
-                  <span>Open Logistics Console</span>
+                  <span>{t('profileExtra.openLogisticsConsole') || "Open Logistics Console"}</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </Link>
               </div>
@@ -871,8 +871,8 @@ export default function ProfilePage() {
             <div className="card-harvest p-6 space-y-5 bg-white border border-border rounded-3xl shadow-sm">
               <div className="border-b border-border/80 pb-3 flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-text">Farmer Information</h2>
-                  <p className="text-xs text-muted">Personal identity and verified contact</p>
+                  <h2 className="text-lg font-bold text-text">{t('profileExtra.farmerInfo') || "Farmer Information"}</h2>
+                  <p className="text-xs text-muted">{t('profileExtra.farmerInfoDesc') || "Personal identity and verified contact"}</p>
                 </div>
                 <span className="text-xs text-muted font-mono">ID #{user?.id || 1}</span>
               </div>
@@ -880,7 +880,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Full Name *
+                    {t('profileExtra.fullName') || "Full Name *"}
                   </span>
                   <input
                     type="text"
@@ -894,7 +894,7 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Phone Number
+                    {t('profileExtra.phone') || "Phone Number"}
                   </span>
                   <div className="relative">
                     <Phone className="w-4 h-4 text-muted absolute left-3 top-3.5" />
@@ -911,7 +911,7 @@ export default function ProfilePage() {
 
               <label className="block space-y-1.5">
                 <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                  Account Email (Read-Only)
+                  {t('profileExtra.emailReadOnly') || "Account Email (Read-Only)"}
                 </span>
                 <input
                   type="email"
@@ -925,16 +925,16 @@ export default function ProfilePage() {
             {/* Farm Land & Crop Specifications */}
             <div className="card-harvest p-6 space-y-5 bg-white border border-border rounded-3xl shadow-sm">
               <div className="border-b border-border/80 pb-3">
-                <h2 className="text-lg font-bold text-text">Farm Land & Harvest Specifications</h2>
+                <h2 className="text-lg font-bold text-text">{t('profileExtra.farmSpecifications') || "Farm Land & Harvest Specifications"}</h2>
                 <p className="text-xs text-muted">
-                  Powers your dashboard crop prices, profit calculations, and transport matching
+                  {t('profileExtra.farmSpecificationsDesc') || "Powers your dashboard crop prices, profit calculations, and transport matching"}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    District / જિલ્લો / जिल्हा *
+                    {t('profileExtra.district') || "District / जिल्हा *"}
                   </span>
                   <div className="relative">
                     <MapPin className="w-4 h-4 text-muted absolute left-3 top-3.5" />
@@ -994,7 +994,7 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    State / राज्य * (Fixed)
+                    {t('profileExtra.stateFixed') || "State / राज्य * (Fixed)"}
                   </span>
                   <select
                     value="Maharashtra"
@@ -1012,15 +1012,15 @@ export default function ProfilePage() {
                   <div className="flex items-center gap-2">
                     <Sprout className="w-4 h-4 text-emerald-700" />
                     <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      Crops Cultivated on Your Farm (Select All That Apply) *
+                      {t('profileExtra.cropsCultivated') || "Crops Cultivated on Your Farm (Select All That Apply) *"}
                     </span>
                   </div>
                   <span className="text-xs text-emerald-800 font-bold bg-white px-2.5 py-0.5 rounded-full border border-emerald-300 shadow-2xs">
-                    {form.selectedCrops?.length || 0} Crops Selected
+                    {(t('profileExtra.cropsSelectedCount') || "{count} Crops Selected").replace('{count}', form.selectedCrops?.length || 0)}
                   </span>
                 </div>
                 <p className="text-xs text-slate-600">
-                  Real farms cultivate multiple crops across seasons. Tap to toggle all your current crops:
+                  {t('profileExtra.cropsCultivatedDesc') || "Real farms cultivate multiple crops across seasons. Tap to toggle all your current crops:"}
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1">
                   {[
@@ -1058,7 +1058,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Farm Land (Acres) *
+                    {t('profileExtra.farmLandAcres') || "Farm Land (Acres) *"}
                   </span>
                   <div className="relative">
                     <Layers className="w-4 h-4 text-muted absolute left-3 top-3.5" />
@@ -1077,7 +1077,7 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Ready Harvest Quantity (kg)
+                    {t('profileExtra.readyHarvestKg') || "Ready Harvest Quantity (kg)"}
                   </span>
                   <div className="relative">
                     <Scale className="w-4 h-4 text-muted absolute left-3 top-3.5" />
@@ -1097,7 +1097,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Village / Taluka
+                    {t('profileExtra.villageTaluka') || "Village / Taluka"}
                   </span>
                   <input
                     type="text"
@@ -1110,7 +1110,7 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Preferred Language
+                    {t('profileExtra.preferredLanguage') || "Preferred Language"}
                   </span>
                   <select
                     value={form.preferredLanguage}
@@ -1132,7 +1132,7 @@ export default function ProfilePage() {
                 className="btn-primary py-2.5 px-6 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm"
               >
                 <Save className="w-4 h-4" />
-                <span>{saving ? 'Saving...' : 'Update Farmer Profile'}</span>
+                <span>{saving ? (t('profileExtra.savingBtn') || 'Saving...') : (t('profileExtra.updateFarmerBtn') || 'Update Farmer Profile')}</span>
               </button>
             </div>
           </div>
@@ -1142,26 +1142,26 @@ export default function ProfilePage() {
             <div className="p-6 rounded-3xl bg-emerald-50/60 border border-emerald-200/80 shadow-xs space-y-4">
               <h3 className="font-extrabold text-sm text-emerald-950 flex items-center gap-2">
                 <Sprout className="w-4 h-4 text-primary" />
-                <span>Harvest Snapshot</span>
+                <span>{t('profileExtra.harvestSnapshot') || "Harvest Snapshot"}</span>
               </h3>
 
               <div className="space-y-3 text-xs">
                 <div className="flex justify-between py-1.5 border-b border-emerald-200/50">
-                  <span className="text-slate-600 font-medium">Ready Crop:</span>
+                  <span className="text-slate-600 font-medium">{t('profileExtra.readyCrop') || "Ready Crop:"}</span>
                   <span className="font-bold text-slate-900">{form.mainCrop}</span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-emerald-200/50">
-                  <span className="text-slate-600 font-medium">Harvest Weight:</span>
+                  <span className="text-slate-600 font-medium">{t('profileExtra.harvestWeight') || "Harvest Weight:"}</span>
                   <span className="font-mono font-bold text-emerald-800">
                     {form.currentHarvestKg} kg
                   </span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-emerald-200/50">
-                  <span className="text-slate-600 font-medium">Land Holding:</span>
-                  <span className="font-bold text-slate-900">{form.farmSizeAcres} Acres</span>
+                  <span className="text-slate-600 font-medium">{t('profileExtra.landHolding') || "Land Holding:"}</span>
+                  <span className="font-bold text-slate-900">{form.farmSizeAcres} {t('common.acres') || 'Acres'}</span>
                 </div>
                 <div className="flex justify-between py-1.5">
-                  <span className="text-slate-600 font-medium">Agro-Zone Mandi:</span>
+                  <span className="text-slate-600 font-medium">{t('profileExtra.agroZoneMandi') || "Agro-Zone Mandi:"}</span>
                   <span className="font-bold text-slate-900">{form.district} APMC</span>
                 </div>
               </div>
@@ -1171,7 +1171,7 @@ export default function ProfilePage() {
                   to="/dashboard"
                   className="w-full btn-primary py-2 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2"
                 >
-                  <span>View Dashboard Analytics</span>
+                  <span>{t('profileExtra.viewAnalytics') || "View Dashboard Analytics"}</span>
                 </Link>
               </div>
             </div>

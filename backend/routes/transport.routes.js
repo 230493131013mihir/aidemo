@@ -808,10 +808,10 @@ router.get("/incoming-requests", requireRole("transporter", "admin"), async (req
 });
 
 /**
- * PUT /api/transport/bookings/:id/accept
+ * PUT /api/transport/bookings/:id/accept (or /requests/:id/accept)
  * Transporter accepts booking and assigns vehicle/driver
  */
-router.put("/bookings/:id/accept", requireRole("transporter", "admin"), async (req, res) => {
+router.put(["/bookings/:id/accept", "/requests/:id/accept"], requireRole("transporter", "admin"), async (req, res) => {
     try {
         await ensureTransportSchema();
 
@@ -833,10 +833,10 @@ router.put("/bookings/:id/accept", requireRole("transporter", "admin"), async (r
         }
 
         if (!["open", "pending", "confirmed"].includes(booking.status)) {
-            return res.status(409).json({ success: false, message: `Cannot accept booking in ${booking.status} status.` });
+            return res.status(409).json({ success: false, message: "Already taken or no longer open." });
         }
 
-        // Locate vehicle to assign
+        // Locate vehicle to assign from the transporter's registered fleet
         let vehicle = null;
         if (req.body.vehicleId && req.body.vehicleId !== 'primary' && !isNaN(Number(req.body.vehicleId))) {
             vehicle = await Vehicle.findOne({ where: { id: Number(req.body.vehicleId), userId: req.user.id } });
@@ -855,9 +855,9 @@ router.put("/bookings/:id/accept", requireRole("transporter", "admin"), async (r
         }
 
         const driverName = (vehicle && vehicle.driverName) || req.body.driverName || transporterProfile?.driverName || req.user.name || "Assigned Driver";
-        const driverPhone = (vehicle && vehicle.driverPhone) || req.body.driverPhone || transporterProfile?.phone || req.user.phone || "9876543210";
-        const vehicleType = (vehicle && vehicle.vehicleType) || req.body.vehicleType || transporterProfile?.vehicleType || "Mahindra Bolero Maxi Truck";
-        const vehicleNumber = (vehicle && vehicle.registrationNumber) || req.body.vehicleNumber || transporterProfile?.vehicleNumber || "MH-12-RN-4921";
+        const driverPhone = (vehicle && vehicle.driverPhone) || req.body.driverPhone || transporterProfile?.phone || req.user.phone || null;
+        const vehicleType = (vehicle && vehicle.vehicleType) || req.body.vehicleType || transporterProfile?.vehicleType || "Commercial Freight Vehicle";
+        const vehicleNumber = (vehicle && vehicle.registrationNumber) || req.body.vehicleNumber || transporterProfile?.vehicleNumber || null;
         const vehicleId = vehicle?.id || null;
 
         const [affectedRows] = await TransportRequest.update({
@@ -907,10 +907,10 @@ router.put("/bookings/:id/accept", requireRole("transporter", "admin"), async (r
 });
 
 /**
- * PUT /api/transport/bookings/:id/reject
+ * PUT /api/transport/bookings/:id/reject (or /requests/:id/reject)
  * Transporter rejects a booking request with optional reason
  */
-router.put("/bookings/:id/reject", requireRole("transporter", "admin"), async (req, res) => {
+router.put(["/bookings/:id/reject", "/requests/:id/reject"], requireRole("transporter", "admin"), async (req, res) => {
     try {
         await ensureTransportSchema();
         const booking = await TransportRequest.findByPk(req.params.id);
@@ -944,10 +944,10 @@ router.put("/bookings/:id/reject", requireRole("transporter", "admin"), async (r
 });
 
 /**
- * PUT /api/transport/bookings/:id/status
+ * PUT /api/transport/bookings/:id/status (or /requests/:id/status, /requests/:id/progress)
  * Progress booking status: confirmed -> driver_assigned -> in_transit -> delivered/completed
  */
-router.put("/bookings/:id/status", requireRole("transporter", "admin"), async (req, res) => {
+router.put(["/bookings/:id/status", "/requests/:id/status", "/requests/:id/progress"], requireRole("transporter", "admin"), async (req, res) => {
     try {
         await ensureTransportSchema();
         const booking = await TransportRequest.findByPk(req.params.id);
@@ -956,6 +956,9 @@ router.put("/bookings/:id/status", requireRole("transporter", "admin"), async (r
         if (req.user.role !== "admin" && Number(booking.transporterId) !== Number(req.user.id)) {
             return res.status(403).json({ success: false, message: "Not your trip." });
         }
+
+        const current = booking.status;
+        const nextStatus = req.body.nextStatus || req.body.status;
 
         const validTransitions = {
             open: ["driver_assigned", "accepted", "vehicle_assigned", "cancelled", "rejected"],
@@ -1258,6 +1261,9 @@ router.get("/my-requests", requireRole("farmer", "transporter"), async (req, res
 
         const data = await TransportRequest.findAll({
             where: whereCondition,
+            include: [
+                { model: Vehicle, required: false }
+            ],
             order: [["createdAt", "DESC"]]
         });
         return res.json({ success: true, data });
