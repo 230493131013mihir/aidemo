@@ -104,6 +104,7 @@ export function startRecognition({
   recognition.maxAlternatives = 1;
 
   let recognizedFinal = '';
+  let latestInterim = '';
   let hasReceivedResults = false;
   let silenceTimer = null;
 
@@ -138,6 +139,8 @@ export function startRecognition({
         interim += transcript;
       }
     }
+
+    latestInterim = interim;
 
     if (interim && onInterimResult) {
       onInterimResult(interim);
@@ -183,7 +186,8 @@ export function startRecognition({
   recognition.onend = () => {
     if (silenceTimer) clearTimeout(silenceTimer);
     activeRecognition = null;
-    onEnd?.({ hasResults: hasReceivedResults, finalTranscript: recognizedFinal });
+    const finalTranscript = (recognizedFinal || latestInterim || '').trim();
+    onEnd?.({ hasResults: hasReceivedResults, finalTranscript });
   };
 
   try {

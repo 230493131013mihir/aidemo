@@ -129,6 +129,36 @@ async function handleChatMessage(req, res) {
           };
         }
       } catch (_) {}
+    } else if (!marketData && (detectedIntent === 'market_price' || /\b(rate|price|bhav|भाव|ભાવ|मंडी)\b/i.test(cleanMessage)) && !cropMention) {
+      // General vegetable / mandi rates overview (e.g. "todays rate of like any vegetable", "vegetables rate", "भाजीपाल्याचे भाव")
+      try {
+        const topCrops = ['Tomato', 'Onion', 'Potato', 'Lady Finger'];
+        const allPrices = await marketService.getMarketPrices({});
+        const seen = new Set();
+        const topVegetablePrices = [];
+        for (const p of allPrices) {
+          if (!seen.has(p.crop_name) && topCrops.includes(p.crop_name)) {
+            seen.add(p.crop_name);
+            topVegetablePrices.push({
+              crop: p.crop_name,
+              market: p.market_name,
+              pricePerKg: p.price_per_kg,
+              unit: 'kg'
+            });
+          }
+        }
+        if (topVegetablePrices.length > 0) {
+          marketData = {
+            isGeneralOverview: true,
+            majorPrices: topVegetablePrices,
+            currentMarket: {
+              name: topVegetablePrices[0].market,
+              pricePerKg: topVegetablePrices[0].pricePerKg,
+              unit: 'kg'
+            }
+          };
+        }
+      } catch (_) {}
     }
 
     // Auto-enrich weather data if query asks about weather or weather affects harvest/operations

@@ -64,6 +64,8 @@ export default function ChatInput({
   const textareaRef = useRef(null);
   const recognitionRef = useRef(null);
   const initialTextRef = useRef('');
+  const latestInterimRef = useRef('');
+  const latestFinalRef = useRef('');
 
   const labels = LOCALIZED_LABELS[selectedLanguage] || LOCALIZED_LABELS.en;
   const isSttSupported = isSpeechRecognitionSupported();
@@ -104,6 +106,8 @@ export default function ChatInput({
     setVoiceNotice(null);
     setInterimText('');
     initialTextRef.current = inputText;
+    latestInterimRef.current = '';
+    latestFinalRef.current = '';
 
     const controller = startRecognition({
       language: selectedLanguage,
@@ -113,9 +117,12 @@ export default function ChatInput({
         setIsListening(true);
       },
       onInterimResult: (interim) => {
+        latestInterimRef.current = interim;
         setInterimText(interim);
       },
       onFinalResult: (final) => {
+        latestFinalRef.current = final;
+        latestInterimRef.current = '';
         const base = initialTextRef.current.trim() ? `${initialTextRef.current.trim()} ` : '';
         setInputText(base + final.trim());
         setInterimText('');
@@ -128,7 +135,7 @@ export default function ChatInput({
       onEnd: ({ hasResults, finalTranscript }) => {
         setIsListening(false);
         setInterimText('');
-        const text = (finalTranscript || '').trim();
+        const text = (finalTranscript || latestFinalRef.current || latestInterimRef.current || '').trim();
         if (text) {
           const base = initialTextRef.current.trim() ? `${initialTextRef.current.trim()} ` : '';
           const fullMessage = (base + text).trim();
@@ -136,6 +143,8 @@ export default function ChatInput({
             onSendMessage(fullMessage, true);
             setInputText('');
             initialTextRef.current = '';
+            latestFinalRef.current = '';
+            latestInterimRef.current = '';
           }
         }
       }
@@ -150,12 +159,18 @@ export default function ChatInput({
     }
     stopRecognition();
     setIsListening(false);
+    const text = (latestFinalRef.current || latestInterimRef.current || inputText).trim();
     setInterimText('');
-    const textToSend = inputText.trim();
-    if (textToSend) {
-      onSendMessage(textToSend, true);
-      setInputText('');
-      initialTextRef.current = '';
+    if (text) {
+      const base = initialTextRef.current.trim() ? `${initialTextRef.current.trim()} ` : '';
+      const fullMessage = (base + text).trim();
+      if (fullMessage) {
+        onSendMessage(fullMessage, true);
+        setInputText('');
+        initialTextRef.current = '';
+        latestFinalRef.current = '';
+        latestInterimRef.current = '';
+      }
     }
   };
 
@@ -246,7 +261,7 @@ export default function ChatInput({
           value={inputText}
           onChange={handleTextChange}
           onKeyDown={handleKeyDown}
-          placeholder={labels.placeholder}
+          placeholder={isListening ? (interimText ? `🎙️ "${interimText}"` : labels.listening) : labels.placeholder}
           aria-label="Type your message"
           className="flex-1 bg-transparent px-2.5 py-1.5 text-sm sm:text-base text-gray-800 placeholder-gray-400 resize-none focus:outline-none max-h-28 overflow-y-auto leading-relaxed"
           style={{ minHeight: '38px' }}

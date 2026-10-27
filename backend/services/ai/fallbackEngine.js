@@ -114,8 +114,28 @@ function getLocalizedCropName(name, lang) {
  * Handle market_price intent
  */
 function handleMarketPrice(context, lang) {
+  // Check if this is a general vegetable / mandi rates overview
+  if (context.marketData?.isGeneralOverview && Array.isArray(context.marketData?.majorPrices) && context.marketData.majorPrices.length > 0) {
+    const list = context.marketData.majorPrices;
+    if (lang === 'mr') {
+      const items = list.map(item => `• ${getLocalizedCropName(item.crop, 'mr')}: ₹${item.pricePerKg}/${item.unit} (${item.market})`).join('\n');
+      return `आजचे प्रमुख भाजीपाल्याचे बाजार भाव खालीलप्रमाणे आहेत:\n${items}\n\nअधिक माहितीसाठी आपण Market Explorer पाहू शकता.`;
+    }
+    if (lang === 'hi') {
+      const items = list.map(item => `• ${getLocalizedCropName(item.crop, 'hi')}: ₹${item.pricePerKg}/${item.unit} (${item.market})`).join('\n');
+      return `आज के प्रमुख सब्जियों के मंडी भाव इस प्रकार हैं:\n${items}\n\nअधिक विवरण के लिए आप Market Explorer देख सकते हैं।`;
+    }
+    if (lang === 'gu') {
+      const items = list.map(item => `• ${getLocalizedCropName(item.crop, 'gu')}: ₹${item.pricePerKg}/${item.unit} (${item.market})`).join('\n');
+      return `આજના મુખ્ય શાકભાજીના બજાર ભાવ નીચે મુજબ છે:\n${items}\n\nવધુ વિગતો માટે તમે Market Explorer જોઈ શકો છો.`;
+    }
+    const items = list.map(item => `• ${item.crop}: ₹${item.pricePerKg}/${item.unit} (${item.market})`).join('\n');
+    return `Today's major vegetable market rates are as follows:\n${items}\n\nCheck Market Explorer for more real-time mandi updates.`;
+  }
+
   const market = context.marketData?.currentMarket;
-  const cropName = context.crop?.name || 'crop';
+  const rawCropName = context.crop?.name;
+  const cropName = rawCropName || (lang === 'mr' ? 'पिकाचा' : lang === 'hi' ? 'फसल' : lang === 'gu' ? 'પાક' : 'crop');
 
   if (!market || market.pricePerKg === null || market.pricePerKg === undefined) {
     if (lang === 'mr') {

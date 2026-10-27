@@ -203,7 +203,11 @@ function extractCropMention(text) {
   const priceOfMatch = text.match(/\b(?:rate|price|cost|bhav|market\s*rate)\s+of\s+([a-zA-Z\s]+?)(?:\s+in|\s+at|\s+today|\s+near|\?|$)/i);
   if (priceOfMatch && priceOfMatch[1]) {
     const candidate = priceOfMatch[1].trim();
-    if (candidate.length >= 3 && candidate.length <= 25 && !/\b(today|tomorrow|market|mandi)\b/i.test(candidate)) {
+    if (
+      candidate.length >= 3 &&
+      candidate.length <= 25 &&
+      !/\b(today|tomorrow|market|mandi|vegetable|vegetables|any\s*vegetable|like\s*any\s*vegetable|crop|crops|produce|all|any|food|grain|fruits?)\b/i.test(candidate)
+    ) {
       return candidate.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
     }
   }

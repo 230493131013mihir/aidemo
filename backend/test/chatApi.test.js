@@ -11,6 +11,7 @@ const sequelize = require('../config/database');
 const { User } = require('../models');
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'harvestmitra_super_secret_jwt_token_key_2026_hackathon';
+process.env.AI_PROVIDER = 'fallback';
 const app = require('../app');
 
 function makeRequest({ method = 'GET', path = '/', body = null, headers = {} }) {

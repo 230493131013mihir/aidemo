@@ -48,9 +48,13 @@ function buildContext(params = {}) {
   // 3. Market Data (Distinguishing DEMO vs LIVE data)
   const currentMarket = marketData.currentMarket || marketData.current_market || null;
   const alternativeMarket = marketData.alternativeMarket || marketData.alt_market || null;
+  const isGeneralOverview = Boolean(marketData.isGeneralOverview);
+  const majorPrices = marketData.majorPrices || [];
 
   const marketContext = {
-    available: Boolean(currentMarket || alternativeMarket),
+    available: Boolean(currentMarket || alternativeMarket || majorPrices.length > 0),
+    isGeneralOverview,
+    majorPrices,
     currentMarket: currentMarket ? {
       name: currentMarket.name || currentMarket.market_name || 'Local Mandi',
       pricePerKg: currentMarket.pricePerKg ?? currentMarket.price_per_kg ?? null,
@@ -199,7 +203,13 @@ function formatContextForPrompt(context) {
 
   // Market Data
   lines.push(`\nMARKET DATA:`);
-  if (context.marketData?.available) {
+  if (context.marketData?.isGeneralOverview && context.marketData?.majorPrices?.length > 0) {
+    lines.push(`- Major Vegetable Rates (DEMO / VERIFIED):`);
+    context.marketData.majorPrices.forEach(p => {
+      lines.push(`  * ${p.crop}: ₹${p.pricePerKg}/${p.unit} at ${p.market}`);
+    });
+    lines.push(`  RULE: The farmer asked for vegetable rates in general. Summarize these rates clearly in their language. Do not reject or say prices are missing.`);
+  } else if (context.marketData?.available) {
     if (context.marketData.currentMarket) {
       const m = context.marketData.currentMarket;
       lines.push(`- Current Market: ${m.name}`);
