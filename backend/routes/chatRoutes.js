@@ -11,7 +11,7 @@ const { handleChatMessage, handleChatStatus } = require('../controllers/chatCont
 
 /**
  * Route: POST /api/chat/message
- * Desc: Send a question to Mitra Assistant
+ * Desc: Send a question to Mitra Assistant (supports JWT and guest access via authMiddleware)
  */
 router.post('/message', authMiddleware, handleChatMessage);
 

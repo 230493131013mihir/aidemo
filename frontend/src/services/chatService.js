@@ -4,7 +4,20 @@
  * HarvestMitra AI - ISSUE-10
  */
 
-const API_BASE_URL = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_API_URL || import.meta.env?.VITE_API_BASE_URL)) || '';
+/**
+ * Dynamically resolve the backend API Base URL
+ * 1. Checks Vite environment variables (VITE_API_URL or VITE_API_BASE_URL)
+ * 2. If running on Render (onrender.com domain), defaults to the live Render backend service
+ * 3. Otherwise defaults to empty string to use Vite local reverse proxy
+ */
+export function getApiBaseUrl() {
+  const envUrl = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_API_URL || import.meta.env?.VITE_API_BASE_URL));
+  if (envUrl) return envUrl;
+  if (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')) {
+    return 'https://harvestmitra-backend.onrender.com';
+  }
+  return '';
+}
 
 /**
  * Generate or retrieve persistent anonymous session ID
@@ -67,7 +80,8 @@ export async function sendChatMessage({
   }
 
   // 1. Try primary endpoint via proxy or configured API_BASE_URL
-  const primaryUrl = `${API_BASE_URL}/api/chat/message`;
+  const baseUrl = getApiBaseUrl();
+  const primaryUrl = `${baseUrl}/api/chat/message`;
   try {
     let response = await fetch(primaryUrl, {
       method: 'POST',
@@ -101,11 +115,15 @@ export async function sendChatMessage({
       source_disclaimer: data.source_disclaimer || ''
     };
   } catch (error) {
-    // 2. If relative URL failed (Vite proxy disconnect or network drop), retry directly on 127.0.0.1:5000
-    if (!API_BASE_URL || API_BASE_URL === '') {
+    // 2. Direct fallback failover if proxy disconnect or cross-origin issue occurred
+    const isRender = typeof window !== 'undefined' && window.location.hostname.includes('onrender.com');
+    const directFallbackUrl = isRender
+      ? 'https://harvestmitra-backend.onrender.com/api/chat/message'
+      : 'http://127.0.0.1:5000/api/chat/message';
+
+    if (primaryUrl !== directFallbackUrl) {
       try {
-        const directUrl = 'http://127.0.0.1:5000/api/chat/message';
-        let directResponse = await fetch(directUrl, {
+        let directResponse = await fetch(directFallbackUrl, {
           method: 'POST',
           headers,
           body: JSON.stringify(body)
@@ -114,7 +132,7 @@ export async function sendChatMessage({
         if (directResponse.status === 401) {
           headers['x-guest-mode'] = 'true';
           headers['Authorization'] = 'Bearer guest';
-          directResponse = await fetch(directUrl, {
+          directResponse = await fetch(directFallbackUrl, {
             method: 'POST',
             headers,
             body: JSON.stringify(body)
@@ -146,7 +164,8 @@ export async function sendChatMessage({
  */
 export async function getChatStatus() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/chat/status`);
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}/api/chat/status`);
     if (!response.ok) {
       throw new Error(`Status check failed with HTTP ${response.status}`);
     }
@@ -162,3 +181,4 @@ export async function getChatStatus() {
     };
   }
 }
+

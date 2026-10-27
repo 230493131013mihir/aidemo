@@ -8,8 +8,8 @@ const authMiddleware = async (req, res, next) => {
 
         // Support guest access if requested
         if (!authHeader) {
-            if (process.env.ENABLE_GUEST_MODE === "true") {
-                if (req.headers["x-guest-mode"] === "true" || req.query.guest === "true") {
+            if (process.env.ENABLE_GUEST_MODE !== "false") {
+                if (req.headers["x-guest-mode"] === "true" || req.query?.guest === "true") {
                     req.user = {
                         id: 999999,
                         name: "Guest Farmer",
@@ -40,7 +40,7 @@ const authMiddleware = async (req, res, next) => {
 
         // Support guest token directly
         if (token === "guest" || token === "guest_token") {
-            if (process.env.ENABLE_GUEST_MODE === "true") {
+            if (process.env.ENABLE_GUEST_MODE !== "false") {
                 req.user = {
                     id: 999999,
                     name: "Guest Farmer",
@@ -93,7 +93,7 @@ const authMiddleware = async (req, res, next) => {
         next();
 
     } catch (error) {
-        if (process.env.ENABLE_GUEST_MODE === "true" && (req.headers["x-guest-mode"] === "true" || req.query.guest === "true")) {
+        if (process.env.ENABLE_GUEST_MODE !== "false" && (req.headers && (req.headers["x-guest-mode"] === "true" || req.query?.guest === "true"))) {
             req.user = {
                 id: 999999,
                 name: "Guest User",
@@ -110,4 +110,62 @@ const authMiddleware = async (req, res, next) => {
     }
 };
 
+/**
+ * Optional Authentication Middleware for Public Assistants (Mitra Assistant)
+ * Populates req.user if a valid token is provided; defaults safely to Guest Farmer
+ * without throwing 401 connection barriers for visitors.
+ */
+const optionalAuth = async (req, res, next) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) {
+            req.user = { id: 999999, name: "Guest Farmer", email: "guest@harvestmitra.local", role: "farmer", isGuest: true };
+            return next();
+        }
+
+        const parts = authHeader.split(" ");
+        if (parts.length !== 2 || parts[0] !== "Bearer") {
+            req.user = { id: 999999, name: "Guest Farmer", email: "guest@harvestmitra.local", role: "farmer", isGuest: true };
+            return next();
+        }
+
+        const token = parts[1];
+        if (!token || token === "guest" || token === "guest_token" || token === "null" || token === "undefined") {
+            req.user = { id: 999999, name: "Guest Farmer", email: "guest@harvestmitra.local", role: "farmer", isGuest: true };
+            return next();
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon");
+
+        let dbUser = null;
+        try {
+            dbUser = await User.findByPk(decoded.id, {
+                attributes: ["id", "name", "email", "phone", "role", "district", "preferredLanguage"]
+            });
+        } catch (_) {}
+
+        if (dbUser) {
+            const userData = dbUser.toJSON ? dbUser.toJSON() : dbUser;
+            req.user = { ...decoded, ...userData };
+        } else {
+            req.user = {
+                id: decoded.id || 999999,
+                name: decoded.name || decoded.email?.split("@")[0] || "Farmer",
+                email: decoded.email || "farmer@harvestmitra.local",
+                role: decoded.role || "farmer",
+                ...decoded
+            };
+        }
+        return next();
+    } catch (_) {
+        // Fallback gracefully to guest farmer if token expired or invalid
+        req.user = { id: 999999, name: "Guest Farmer", email: "guest@harvestmitra.local", role: "farmer", isGuest: true };
+        return next();
+    }
+};
+
+authMiddleware.authMiddleware = authMiddleware;
+authMiddleware.optionalAuth = optionalAuth;
+
 module.exports = authMiddleware;
+module.exports.optionalAuth = optionalAuth;
