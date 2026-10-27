@@ -6,10 +6,20 @@ require("dotenv").config();
 const dialect = process.env.DB_DIALECT || (process.env.DB_PASSWORD ? "mysql" : "sqlite");
 
 const dbUrl = process.env.DATABASE_URL || process.env.MYSQL_URL;
-const isCloudHost = process.env.DB_HOST && (
-    process.env.DB_HOST.includes("aivencloud.com") ||
-    process.env.DB_HOST.includes("render.com") ||
-    process.env.DB_HOST.includes("aws") ||
+const isCloudHost = Boolean(
+    (process.env.DB_HOST && (
+        process.env.DB_HOST.includes("aivencloud.com") ||
+        process.env.DB_HOST.includes("render.com") ||
+        process.env.DB_HOST.includes("aws") ||
+        (process.env.DB_HOST !== "localhost" && process.env.DB_HOST !== "127.0.0.1")
+    )) ||
+    (dbUrl && (
+        dbUrl.includes("aivencloud.com") ||
+        dbUrl.includes("render.com") ||
+        dbUrl.includes("ssl-mode") ||
+        dbUrl.includes("ssl=") ||
+        (!dbUrl.includes("localhost") && !dbUrl.includes("127.0.0.1"))
+    )) ||
     process.env.DB_SSL === "true" ||
     process.env.DB_SSL === "REQUIRED"
 );
@@ -27,12 +37,13 @@ if (dbUrl) {
     sequelize = new Sequelize(dbUrl, {
         dialect: "mysql",
         logging: false,
-        dialectOptions: dbUrl.includes("ssl-mode=REQUIRED") || dbUrl.includes("aiven") || process.env.DB_SSL === "true" ? {
-            ssl: {
-                require: true,
-                rejectUnauthorized: false
-            }
-        } : dialectOptions
+        dialectOptions,
+        pool: {
+            max: 5,
+            min: 0,
+            acquire: 30000,
+            idle: 10000
+        }
     });
 } else if (dialect === "sqlite") {
     const storagePath = process.env.DB_STORAGE || path.resolve(__dirname, "../harvestmitra.sqlite");

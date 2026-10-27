@@ -422,10 +422,14 @@ const register = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Register error:", error);
+        console.error("Register error:", error.message || error);
+        let msg = error.message || "Server error during registration";
+        if (msg.includes("ENOTFOUND")) {
+            msg = `Database service unreachable (${msg}). Please verify that your cloud database (Aiven) is Powered ON.`;
+        }
         return res.status(500).json({
             success: false,
-            message: error.message || "Server error during registration"
+            message: msg
         });
     }
 };
