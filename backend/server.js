@@ -42,7 +42,7 @@ async function startServer() {
     console.warn('ℹ️  Running in demo/fallback mode for AI, simulator, and mock endpoints.');
   }
 
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🌾 HarvestMitra AI Backend running on port ${PORT}`);
     console.log(`🤖 Mitra Assistant AI Provider: ${process.env.AI_PROVIDER || 'fallback'}`);
   });

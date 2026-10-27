@@ -4,7 +4,7 @@
  * HarvestMitra AI - ISSUE-10
  */
 
-const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '';
+const API_BASE_URL = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_API_URL || import.meta.env?.VITE_API_BASE_URL)) || '';
 
 /**
  * Generate or retrieve persistent anonymous session ID
@@ -52,30 +52,43 @@ export async function sendChatMessage({
     conversationHistory
   };
 
-  try {
-    const token = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('harvestmitra_token')) ||
-                  (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('token')) ||
-                  (typeof localStorage !== 'undefined' && localStorage.getItem('harvestmitra_token')) ||
-                  (typeof localStorage !== 'undefined' && localStorage.getItem('token'));
-    const headers = {
-      'Content-Type': 'application/json'
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    } else {
-      headers['x-guest-mode'] = 'true';
-      headers['Authorization'] = 'Bearer guest';
-    }
+  const token = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('harvestmitra_token')) ||
+                (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('token')) ||
+                (typeof localStorage !== 'undefined' && localStorage.getItem('harvestmitra_token')) ||
+                (typeof localStorage !== 'undefined' && localStorage.getItem('token'));
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  } else {
+    headers['x-guest-mode'] = 'true';
+    headers['Authorization'] = 'Bearer guest';
+  }
 
-    const response = await fetch(`${API_BASE_URL}/api/chat/message`, {
+  // 1. Try primary endpoint via proxy or configured API_BASE_URL
+  const primaryUrl = `${API_BASE_URL}/api/chat/message`;
+  try {
+    let response = await fetch(primaryUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify(body)
     });
 
+    // If 401 (e.g. stale or expired token), auto-retry once with guest credentials
+    if (response.status === 401 && token) {
+      headers['x-guest-mode'] = 'true';
+      headers['Authorization'] = 'Bearer guest';
+      response = await fetch(primaryUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body)
+      });
+    }
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Server responded with HTTP ${response.status}`);
+      throw new Error(errorData.error || errorData.message || `Server responded with HTTP ${response.status}`);
     }
 
     const data = await response.json();
@@ -88,6 +101,40 @@ export async function sendChatMessage({
       source_disclaimer: data.source_disclaimer || ''
     };
   } catch (error) {
+    // 2. If relative URL failed (Vite proxy disconnect or network drop), retry directly on 127.0.0.1:5000
+    if (!API_BASE_URL || API_BASE_URL === '') {
+      try {
+        const directUrl = 'http://127.0.0.1:5000/api/chat/message';
+        let directResponse = await fetch(directUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body)
+        });
+
+        if (directResponse.status === 401) {
+          headers['x-guest-mode'] = 'true';
+          headers['Authorization'] = 'Bearer guest';
+          directResponse = await fetch(directUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body)
+          });
+        }
+
+        if (directResponse.ok) {
+          const data = await directResponse.json();
+          return {
+            success: true,
+            provider: data.provider || 'gemini',
+            mode: data.mode || 'ai',
+            message: data.message || data.reply || '',
+            metadata: data.metadata || {},
+            source_disclaimer: data.source_disclaimer || ''
+          };
+        }
+      } catch (_) {}
+    }
+
     console.error('[ChatService Error]:', error.message);
     throw error;
   }

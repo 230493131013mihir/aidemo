@@ -93,6 +93,16 @@ const authMiddleware = async (req, res, next) => {
         next();
 
     } catch (error) {
+        if (process.env.ENABLE_GUEST_MODE === "true" && (req.headers["x-guest-mode"] === "true" || req.query.guest === "true")) {
+            req.user = {
+                id: 999999,
+                name: "Guest User",
+                email: "guest@harvestmitra.local",
+                role: "farmer",
+                isGuest: true
+            };
+            return next();
+        }
         return res.status(401).json({
             success: false,
             message: "Invalid or expired token."
