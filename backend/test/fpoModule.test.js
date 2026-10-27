@@ -135,6 +135,7 @@ async function runTests() {
   // Ensure test idempotency: clear prior test memberships and aggregations for test users
   await FpoMembership.destroy({ where: { fpoId: fpoUser.id, farmerId: nonMemberFarmer.id } });
   await FpoProcurementOffer.destroy({ where: { fpoId: fpoUser.id } });
+  await AggregationItem.destroy({ where: {} });
   await CropAggregation.destroy({ where: { fpoId: fpoUser.id } });
 
   // Ensure initial active membership for Farmer 1 and Farmer 2
@@ -151,6 +152,16 @@ async function runTests() {
         joinedAt: new Date()
       });
     }
+  }
+
+  // Clean up any lingering membership and aggregations from previous test runs to ensure idempotency
+  await FpoMembership.destroy({ where: { fpoId: fpoUser.id, farmerId: nonMemberFarmer.id } });
+  const existingAggs = await CropAggregation.findAll({ where: { fpoId: fpoUser.id }, attributes: ['id'] });
+  if (existingAggs.length > 0) {
+    const aggIds = existingAggs.map(a => a.id);
+    await FpoProcurementOffer.destroy({ where: { aggregationId: aggIds } });
+    await AggregationItem.destroy({ where: { aggregationId: aggIds } });
+    await CropAggregation.destroy({ where: { id: aggIds } });
   }
 
   // Auth Tokens

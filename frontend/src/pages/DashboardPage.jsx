@@ -43,6 +43,7 @@ import PrintableReportModal from '../components/common/PrintableReportModal';
 import RegisteredCropsManager from '../components/dashboard/RegisteredCropsManager';
 import SharedTransportFarmerWidget from '../components/dashboard/SharedTransportFarmerWidget';
 import MandiBookingNotificationWidget from '../components/dashboard/MandiBookingNotificationWidget';
+import SaleHistorySection from '../components/farmer/SaleHistorySection';
 import apiClient from '../services/apiClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
@@ -783,6 +784,12 @@ function FarmerDashboard({ user, t }) {
         </h2>
         <PlanningHistoryChart crops={crops} />
       </section>
+
+      {/* 6.2 Farmer Sale History & Realized Profit Report */}
+      <SaleHistorySection 
+        registeredCrops={crops} 
+        userDistrict={farmerDistrict} 
+      />
 
       {/* 6.5 Clearly Visible Crop-Based Shared Transport & Vehicle Booking Section */}
       <section id="farmer-shared-transport-section" aria-labelledby="dashboard-transport-heading">

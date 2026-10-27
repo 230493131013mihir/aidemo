@@ -319,6 +319,16 @@ async function runTransportSecurityTests() {
     console.log("🎉 All 7 Transport Security & RBAC Tests Passed!");
     console.log("======================================================\n");
   } finally {
+    try {
+      await TransportRequest.destroy({
+        where: {
+          cropName: ["Tomato", "Onion", "Wheat"],
+          pickupLocation: ["Baramati, Pune", "Narayangaon, Pune", "Shirur, Pune"]
+        }
+      });
+    } catch (cleanupErr) {
+      console.warn("Transport security test cleanup warning:", cleanupErr.message);
+    }
     await stopServer();
   }
 }

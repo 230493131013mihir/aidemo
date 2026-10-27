@@ -234,6 +234,15 @@ async function runTests() {
     console.log("🎉 ALL FREIGHT ESCROW & DRIVER RATING TESTS PASSED!");
     console.log("======================================================\n");
   } finally {
+    try {
+      await TransportRequest.destroy({
+        where: {
+          farmerName: "Escrow Test Farmer"
+        }
+      });
+    } catch (cleanupErr) {
+      console.warn("Escrow rating test cleanup warning:", cleanupErr.message);
+    }
     await stopServer();
   }
 }
