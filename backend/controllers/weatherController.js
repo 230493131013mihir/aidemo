@@ -9,7 +9,7 @@ const weatherService = require('../services/weatherService');
 async function handleGetWeather(req, res) {
   try {
     const {
-      district = req.query.location || 'Pune',
+      district = req.params?.district || req.query.district || req.query.location || 'Pune',
       state = 'Maharashtra',
       location,
       lat,
@@ -17,7 +17,7 @@ async function handleGetWeather(req, res) {
       lon,
       lng,
       longitude
-    } = req.query;
+    } = { ...req.query, ...req.params };
 
     const resolvedDistrict = String(district || location || 'Pune').trim();
     const resolvedLatitude = latitude || lat;

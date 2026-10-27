@@ -1,59 +1,58 @@
 # HACKATHON DEMO GUIDE & JUDGE SCRIPT: HarvestMitra AI 🎬
 
-Use this guide for a seamless, high-impact hackathon presentation.
+Use this guide for a seamless, high-impact presentation today at 2:00 PM.
 
 ---
 
-## 👨‍🌾 Demo Persona & Preset Scenario
+## 👥 Evaluation Accounts & Credentials (Password: `123456`)
 
-- **Farmer Name**: Ramesh Patel
-- **District / Location**: Surat District, Gujarat
-- **Crop**: Tomatoes (500 kg fresh yield)
-- **Current Situation**: Tomatoes are harvested and ready for sale.
-- **Dilemma**: 
-  - Local Surat APMC Mandi price today: **₹18.50 / kg** (Transport: ₹1,200).
-  - Regional Ahmedabad APMC Mandi price today: **₹23.00 / kg** (Distance 260 km, Transport: ₹2,800).
-  - Can Ramesh pool transport with a nearby farmer heading to Ahmedabad to save money?
+| Role | Name | Username | Email / Role Alias | Password | Default District / APMC |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **🌾 Farmer** | Mihir Jadav | `mihir` | `farmer` / `mihir@harvestmitra.local` | `123456` | Haveli, Pune (4.5 acres) |
+| **🚚 Transporter** | Varun Patil | `varun` | `transport` / `varun@harvestmitra.local` | `123456` | Pune APMC / NH-160 Fleet |
+| **🏪 Mandi Official** | Sayali Kulkarni | `sayali` | `mandi` / `sayali@harvestmitra.local` | `123456` | Pune APMC (Gultekdi Wholesale) |
+| **🛡️ Admin** | Prashant | `prashant` | `admin` / `prashant@harvestmitra.local` | `123456` | Central APMC Directorate |
+
+*Tip: On the `/login` screen, 1-click evaluation buttons auto-fill credentials for all 4 roles instantly.*
 
 ---
 
-## ⏱️ 3-Minute Hackathon Demo Script
+## 👨‍🌾 Core Evaluation Scenario: Maharashtra Horticulture Corridor
+
+- **Farmer Name**: Mihir Jadav
+- **District / Location**: Haveli, Pune District, Maharashtra
+- **Produce**: Fresh Tomatoes (1,200 kg) & Onions (800 kg)
+- **Current Situation**: Tomatoes harvested; local Pune APMC rate is ₹24.50/kg, while Mumbai Vashi Mega APMC is ₹32.00/kg.
+- **Dilemma**: Solo truck to Mumbai costs ₹2,800, which eats the arbitrage gain. Can Mihir pool transport along the Pune–Mumbai Expressway with another consignment to save 50% on freight?
+
+---
+
+## ⏱️ 3.5-Minute Hackathon Presentation Script
 
 ### Step 1: Landing Page & Problem Statement (0:00 - 0:45)
-1. Open application home page: `http://localhost:5173`.
-2. Highlight tagline: *"Smart Decisions. Better Harvests. Stronger Farmers."*
-3. Explain the problem: *"Indian farmers lose up to 40% of their earnings due to transport costs, panic selling, and lack of net revenue comparison tools."*
-4. Click **"Explore Demo"** button to jump directly into pre-populated demo mode as **Ramesh Patel (Surat, Gujarat)** without needing manual registration.
+1. Open application: `http://localhost:5173`.
+2. Pitch: *"Maharashtra horticulture farmers lose up to 40% of their crop value to distress selling at local gates and exorbitant solo freight. HarvestMitra AI solves this with real-time market arbitrage and shared logistics pooling."*
+3. Click **"🌾 Farmer"** on the 1-click evaluation row on `/login` to enter directly as **Mihir Jadav**.
 
-### Step 2: Farmer Dashboard & Weather Alert (0:45 - 1:15)
-1. Show the personalized greeting for **Ramesh Patel** in **Gujarati / English**.
-2. Point out the **Weather Alert**: *"Rain probability 65% in Surat within 48 hours"*—highlighting why rapid decision-support is critical.
-3. Show the quick stats cards for Current Crop (Tomatoes, 500kg) and nearby Mandi rates.
+### Step 2: Farmer Dashboard & Weather Advisory (0:45 - 1:15)
+1. Show the personalized Marathi / English dashboard for **Mihir Jadav**.
+2. Note the **Registered Crops**: Tomato (1,200 kg), Onion (800 kg), Wheat (1,500 kg) with real-time projected gross value.
+3. Open **Weather Alerts** (`/weather`): Live Open-Meteo agro telemetry for Pune showing precipitation chance and actionable advice.
 
-### Step 3: Harvest Decision Simulator (1:15 - 2:00)
-1. Navigate to **Harvest Simulator**.
-2. Pre-filled parameters:
-   - Crop: Tomatoes (500 kg)
-   - Current Market: Surat Mandi (₹18.50/kg)
-   - Alternative Market: Ahmedabad Mandi (₹23.00/kg)
-3. Click **"Run Simulation"**.
-4. Point to the **Comparison Cards**:
-   - **Option 1 (Sell Today)**: Net Revenue = ₹8,050 (Low risk, Surat Mandi at ₹18.50/kg minus ₹1,200 transport)
-   - **Option 2 (Hold 2 Days)**: Net Revenue = ₹9,200 (Risk: Rain damage)
-   - **Option 3 (Ahmedabad Mandi)**: Net Revenue = ₹8,700 (Solo transport cost of ₹2,800 eats most price gains)
-5. Key Takeaway to Judges: *"Ahmedabad's higher price is mostly eaten by transport cost; with shared transport it becomes the best option."*
+### Step 3: Mandi Price Intelligence & 14-Day Forecast (1:15 - 2:00)
+1. Navigate to **Mandi Prices** (`/markets`).
+2. Show the price spread: Pune APMC (₹24.50/kg) vs Mumbai Vashi APMC (₹32.00/kg).
+3. Open **14-Day Forecast Tab**: Demonstrate algorithmic price trajectory with upper/lower 95% confidence bounds.
 
-### Step 4: Shared Transport Matching (2:00 - 2:30)
-1. Click **"Find Shared Transport"** button.
-2. Show matching farmer: **Suresh Chaudhari (Navsari, Gujarat)** heading to Ahmedabad on the same date with 800 kg capacity available.
-3. Click **"Pool Transport"**:
-   - Individual transport cost drops from ₹2,800 to **₹1,400**!
-   - Recalculate Option 3 Net Revenue: Jump from ₹8,700 to **₹10,100**!
+### Step 4: Shared Freight Logistics & Proportional Savings (2:00 - 2:40)
+1. Navigate to **Shared Transport** (`/transport`).
+2. Submit produce booking request (500 kg Tomatoes to Vashi APMC).
+3. Show proportional cost breakdown: Solo fare of ₹2,800 drops to **₹1,400** (50% savings!).
+4. Lock fare in **Freight Escrow**.
 
-### Step 5: Multilingual Voice Mitra Assistant (2:30 - 3:00)
-1. Click the float icon or open **Mitra Assistant Chat**.
-2. Switch language to **Gujarati** (or Hindi).
-3. Click microphone button and speak (or type sample voice transcript):
-   *"મારે 500 કિલો ટામેટાં વેચવા છે, અમદાવાદ જવું કે સુરતમાં વેચવું?"*
-4. Listen to Mitra Assistant explain the net revenue calculation aloud using text-to-speech.
-5. Conclude presentation highlighting offline fallback safety and zero-hallucination math architecture.
+### Step 5: Tri-Party Loop: APMC Procurement, Gate Pass & AI Voice (2:40 - 3:30)
+1. **Mandi Official View**: Switch to **Sayali Kulkarni** (`sayali` / `123456`) to view incoming farmer arrivals and issue procurement bookings.
+2. **Transporter View**: Switch to **Varun Patil** (`varun` / `123456`) to accept cargo, assign truck `MH-12-TR-7890`, and generate the **Digital Mandi Gate Pass with QR Code**.
+3. **Mitra Assistant**: Open chat, switch language to **Marathi** (`मराठी`), and ask: *"पुणे आणि वाशी मार्केटमध्ये टोमॅटोचा भाव काय आहे?"*
+4. Listen to Mitra Assistant answer with factual rates using deterministic safety.
+

@@ -2,6 +2,9 @@ const User = require("../models/user");
 
 const adminMiddleware = async (req, res, next) => {
     try {
+        if (req.user && req.user.role === "admin") {
+            return next();
+        }
         const user = await User.findByPk(req.user.id, {
             attributes: ["id", "role"]
         });

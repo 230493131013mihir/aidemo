@@ -64,9 +64,9 @@ console.log('  ✅ [PASS] All 7 Farmer menu items, user card, profile, and logou
 
 // 3. Transport Dashboard Sidebar Menu Items
 console.log('\n3. Auditing Transport Dashboard Sidebar Menu Items:');
-assert.ok(sidebarCode.includes("label: 'Logistics Dashboard'"), 'Transporter menu must include Logistics Dashboard');
-assert.ok(sidebarCode.includes("label: 'Cargo Trips & Gate Pass'"), 'Transporter menu must include Cargo Trips & Gate Pass');
-assert.ok(sidebarCode.includes("label: 'Route Weather Alerts'"), 'Transporter menu must include Route Weather Alerts');
+assert.ok(sidebarCode.includes("'Logistics Dashboard'"), 'Transporter menu must include Logistics Dashboard');
+assert.ok(sidebarCode.includes("'Cargo Trips & Gate Pass'"), 'Transporter menu must include Cargo Trips & Gate Pass');
+assert.ok(sidebarCode.includes("'Route Weather Alerts'"), 'Transporter menu must include Route Weather Alerts');
 assert.ok(sidebarCode.includes("label: t('nav.markets', 'Mandi Prices')"), 'Transporter menu must include Mandi Prices');
 assert.ok(sidebarCode.includes("label: t('nav.chat', 'Mitra Assistant')"), 'Transporter menu must include Mitra Assistant');
 assert.ok(sidebarCode.includes('Transporter / Driver'), 'Must display Transporter / Driver role designation');

@@ -6,6 +6,8 @@
 
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
 
 // Routes
 const authRoutes = require('./routes/auth.routes');
@@ -33,8 +35,17 @@ app.get('/', (req, res) => {
   });
 });
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'HarvestMitra AI Backend' });
+app.get('/api/health', async (req, res) => {
+  let dbStatus = 'connected';
+  let dialect = 'unknown';
+  try {
+    const sequelize = require('./config/database');
+    dialect = sequelize.getDialect();
+    await sequelize.authenticate();
+  } catch (err) {
+    dbStatus = 'degraded: ' + err.message;
+  }
+  res.json({ status: 'ok', service: 'HarvestMitra AI Backend', db: dbStatus, dialect });
 });
 
 // Mounted API Routes
@@ -54,6 +65,24 @@ app.use('/api/reports', require('./routes/report.routes'));
 app.use('/api/report', require('./routes/report.routes'));
 app.use('/api/alerts', require('./routes/alert.routes'));
 app.use('/api/fpo', require('./routes/fpo.routes'));
+
+// Dedicated API 404 handler: guarantees unmatched /api requests ALWAYS return JSON 404
+app.use('/api', (req, res) => {
+  res.status(404).json({ success: false, error: 'Endpoint not found' });
+});
+
+// Serve frontend static assets if built (for unified Express or single-service deployments)
+const frontendDist = path.join(__dirname, '../frontend/dist');
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  app.use((req, res, next) => {
+    // Only serve index.html for GET requests that accept html
+    if (req.method === 'GET' && req.accepts('html')) {
+      return res.sendFile(path.join(frontendDist, 'index.html'));
+    }
+    next();
+  });
+}
 
 // Central 404 handler
 app.use((req, res) => {

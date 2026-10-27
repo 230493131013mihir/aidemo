@@ -5,8 +5,47 @@ require("dotenv").config();
 
 const dialect = process.env.DB_DIALECT || (process.env.DB_PASSWORD ? "mysql" : "sqlite");
 
+const dbUrl = process.env.DATABASE_URL || process.env.MYSQL_URL;
+const isCloudHost = Boolean(
+    (process.env.DB_HOST && (
+        process.env.DB_HOST.includes("aivencloud.com") ||
+        process.env.DB_HOST.includes("render.com") ||
+        process.env.DB_HOST.includes("aws") ||
+        (process.env.DB_HOST !== "localhost" && process.env.DB_HOST !== "127.0.0.1")
+    )) ||
+    (dbUrl && (
+        dbUrl.includes("aivencloud.com") ||
+        dbUrl.includes("render.com") ||
+        dbUrl.includes("ssl-mode") ||
+        dbUrl.includes("ssl=") ||
+        (!dbUrl.includes("localhost") && !dbUrl.includes("127.0.0.1"))
+    )) ||
+    process.env.DB_SSL === "true" ||
+    process.env.DB_SSL === "REQUIRED"
+);
+
+const dialectOptions = isCloudHost ? {
+    ssl: {
+        require: true,
+        rejectUnauthorized: false
+    }
+} : {};
+
 let sequelize;
-if (dialect === "sqlite") {
+
+if (dbUrl) {
+    sequelize = new Sequelize(dbUrl, {
+        dialect: "mysql",
+        logging: false,
+        dialectOptions,
+        pool: {
+            max: parseInt(process.env.DB_POOL_MAX || "10", 10),
+            min: parseInt(process.env.DB_POOL_MIN || "0", 10),
+            acquire: parseInt(process.env.DB_POOL_ACQUIRE || "30000", 10),
+            idle: parseInt(process.env.DB_POOL_IDLE || "10000", 10)
+        }
+    });
+} else if (dialect === "sqlite") {
     const isTest = process.env.NODE_ENV === "test";
     const defaultStorage = isTest
         ? path.resolve(__dirname, "../harvestmitra_test.sqlite")
@@ -19,7 +58,6 @@ if (dialect === "sqlite") {
     });
 } else {
     const dbHost = process.env.DB_HOST || "localhost";
-    const isCloudHost = dbHost.includes("aivencloud.com") || dbHost.includes("amazonaws.com") || dbHost.includes("azure.com");
     const useSsl = process.env.DB_SSL === "true" || process.env.DB_SSL === "require" || isCloudHost;
 
     sequelize = new Sequelize(
@@ -80,11 +118,7 @@ sequelize.formatConnectionError = function (error) {
     if (origCode === "ER_ACCESS_DENIED_ERROR" || msg.includes("Access denied")) {
         return `Database Authentication Denied: Invalid credentials for database user '${process.env.DB_USER || "root"}'. Please check DB_USER and DB_PASSWORD in backend/.env.`;
     }
-    if (origCode === "ER_BAD_DB_ERROR" || msg.includes("Unknown database")) {
-        return `Database Not Found: Database '${process.env.DB_NAME || "harvestmitra_db"}' does not exist on host '${host}'. Please ensure the database has been created.`;
-    }
-
-    return `Database Error (${origCode || error.name}): ${msg}`;
+    return `Database Error (${origCode || "UNKNOWN"}): ${msg}`;
 };
 
 module.exports = sequelize;

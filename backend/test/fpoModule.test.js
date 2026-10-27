@@ -132,6 +132,12 @@ async function runTests() {
     });
   }
 
+  // Ensure test idempotency: clear prior test memberships and aggregations for test users
+  await FpoMembership.destroy({ where: { fpoId: fpoUser.id, farmerId: nonMemberFarmer.id } });
+  await FpoProcurementOffer.destroy({ where: { fpoId: fpoUser.id } });
+  await AggregationItem.destroy({ where: {} });
+  await CropAggregation.destroy({ where: { fpoId: fpoUser.id } });
+
   // Ensure initial active membership for Farmer 1 and Farmer 2
   for (const f of [memberFarmer1, memberFarmer2]) {
     const existing = await FpoMembership.findOne({ where: { fpoId: fpoUser.id, farmerId: f.id } });
