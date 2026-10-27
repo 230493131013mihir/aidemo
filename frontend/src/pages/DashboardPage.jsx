@@ -46,7 +46,7 @@ import MandiBookingNotificationWidget from '../components/dashboard/MandiBooking
 import SaleHistorySection from '../components/farmer/SaleHistorySection';
 import apiClient from '../services/apiClient';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+import { API_BASE_URL } from '../config/apiConfig';
 
 function AcreageTooltip({ active, payload }) {
   if (active && payload && payload.length) {

@@ -60,7 +60,7 @@ import {
 } from '../../services/marketApiService';
 import VoiceSearchButton from '../common/VoiceSearchButton';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+import { API_BASE_URL } from '../../config/apiConfig';
 
 const I18N = {
   en: {

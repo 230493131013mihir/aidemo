@@ -29,7 +29,7 @@ import { useToast } from '../../context/ToastContext';
 import { useLanguage } from '../../context/LanguageContext';
 import DigitalGatePassModal from '../transport/DigitalGatePassModal';
 
-const API_BASE_URL = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_API_BASE_URL || import.meta.env?.VITE_API_URL)) || '';
+import { API_BASE_URL } from '../../config/apiConfig';
 
 function formatINR(value) {
   return new Intl.NumberFormat('en-IN', {

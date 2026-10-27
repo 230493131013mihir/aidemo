@@ -4,19 +4,10 @@
  * HarvestMitra AI - ISSUE-10
  */
 
-/**
- * Dynamically resolve the backend API Base URL
- * 1. Checks Vite environment variables (VITE_API_URL or VITE_API_BASE_URL)
- * 2. If running on Render (onrender.com domain), defaults to the live Render backend service
- * 3. Otherwise defaults to empty string to use Vite local reverse proxy
- */
+import { API_BASE_URL } from '../config/apiConfig';
+
 export function getApiBaseUrl() {
-  const envUrl = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_API_URL || import.meta.env?.VITE_API_BASE_URL));
-  if (envUrl) return envUrl;
-  if (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')) {
-    return 'https://harvestmitra-backend.onrender.com';
-  }
-  return '';
+  return API_BASE_URL;
 }
 
 /**

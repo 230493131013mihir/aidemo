@@ -37,7 +37,7 @@ import { useToast } from '../context/ToastContext';
 import { getTimeGreeting } from '../utils/greeting';
 import apiClient from '../services/apiClient';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+import { API_BASE_URL } from '../config/apiConfig';
 
 function authHeaders(token) {
   return { 

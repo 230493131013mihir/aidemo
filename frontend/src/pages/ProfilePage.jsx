@@ -23,11 +23,15 @@ import {
   LogOut,
   Store,
   Calendar,
-  Warehouse
+  Warehouse,
+  PlusCircle,
+  RefreshCw,
+  X
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import LanguageSelector from '../components/common/LanguageSelector';
+import apiClient from '../services/apiClient';
 
 export default function ProfilePage() {
   const { t } = useLanguage();
@@ -76,6 +80,96 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Transporter registered fleet state & management
+  const [myFleet, setMyFleet] = useState([]);
+  const [loadingFleet, setLoadingFleet] = useState(false);
+  const [showAddVehicleModal, setShowAddVehicleModal] = useState(false);
+  const [addingVehicle, setAddingVehicle] = useState(false);
+  const [newVehicle, setNewVehicle] = useState({
+    registrationNumber: '',
+    vehicleType: 'Mahindra Bolero Maxi Truck',
+    capacityKg: '2200',
+    baseLocation: 'Pune APMC',
+    ratePerKm: '26',
+    driverName: '',
+    driverPhone: ''
+  });
+
+  async function loadMyFleet() {
+    if (userRole !== 'transporter') return;
+    setLoadingFleet(true);
+    try {
+      const res = await apiClient('/api/transport/vehicles/my-fleet');
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setMyFleet(json.data || []);
+      }
+    } catch (err) {
+      console.warn('Unable to load fleet:', err.message);
+    } finally {
+      setLoadingFleet(false);
+    }
+  }
+
+  useEffect(() => {
+    if (user && userRole === 'transporter') {
+      loadMyFleet();
+      setNewVehicle((prev) => ({
+        ...prev,
+        driverName: user.name || '',
+        driverPhone: user.phone || '',
+        baseLocation: user.TransporterProfile?.baseMandi || 'Pune APMC'
+      }));
+    }
+  }, [user, userRole]);
+
+  async function handleRegisterAdditionalVehicle(e) {
+    e.preventDefault();
+    setAddingVehicle(true);
+    setErrorMsg('');
+    try {
+      const regPlate = newVehicle.registrationNumber.trim().toUpperCase();
+      if (!regPlate) throw new Error('Please enter a vehicle registration plate number.');
+
+      const res = await apiClient('/api/transport/vehicles', {
+        method: 'POST',
+        body: JSON.stringify({
+          registrationNumber: regPlate,
+          vehicleType: newVehicle.vehicleType,
+          capacityKg: Number(newVehicle.capacityKg) || 2200,
+          capacityUnit: 'kg',
+          baseLocation: newVehicle.baseLocation || 'Pune APMC',
+          ratePerKm: Number(newVehicle.ratePerKm) || 26,
+          driverName: newVehicle.driverName?.trim() || user?.name || 'Verified Driver',
+          driverPhone: newVehicle.driverPhone?.trim() || user?.phone || '9876543210',
+          supportedRoutes: `${newVehicle.baseLocation || 'Pune APMC'} to Mumbai Vashi APMC, Pune APMC, Nashik APMC, Kolhapur APMC, Surat APMC`,
+          supportedCrops: 'Tomato, Onion, Potato, Vegetables, Wheat, Grains, Fruits, All Crops'
+        })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message || 'Failed to register fleet vehicle');
+
+      setSuccessMsg(`Vehicle ${regPlate} successfully registered to fleet and saved to database!`);
+      setShowAddVehicleModal(false);
+      setNewVehicle({
+        registrationNumber: '',
+        vehicleType: 'Mahindra Bolero Maxi Truck',
+        capacityKg: '2200',
+        baseLocation: form.baseMandi || 'Pune APMC',
+        ratePerKm: '26',
+        driverName: user?.name || '',
+        driverPhone: user?.phone || ''
+      });
+      await loadMyFleet();
+      setTimeout(() => setSuccessMsg(''), 5000);
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to register vehicle');
+      setTimeout(() => setErrorMsg(''), 5000);
+    } finally {
+      setAddingVehicle(false);
+    }
+  }
 
   // Sync form when user changes
   useEffect(() => {
@@ -150,7 +244,8 @@ export default function ProfilePage() {
           ratePerKm: Number(form.ratePerKm),
           isAvailable: form.isAvailable,
         });
-        setSuccessMsg('Transporter fleet profile and vehicle specs updated in MySQL!');
+        setSuccessMsg('Transporter fleet profile and vehicle specs updated & synchronized to database!');
+        await loadMyFleet();
       } else {
         // Farmer
         const selectedList = form.selectedCrops?.length > 0 
@@ -609,8 +704,225 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Right Column: Transporter Dashboard Link & Quick Card */}
+          {/* Right Column: Registered Fleet Vehicles & Vehicle Registration Portal */}
           <div className="space-y-6">
+            {/* Live Database Fleet Inventory */}
+            <div className="card-harvest p-6 bg-white border border-border rounded-3xl shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-border/80 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                    <Truck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-text">Fleet Vehicles in Database</h3>
+                    <p className="text-[11px] text-muted">{myFleet.length} registered vehicle{myFleet.length === 1 ? '' : 's'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={loadMyFleet}
+                    disabled={loadingFleet}
+                    className="p-1.5 rounded-lg border border-border hover:bg-slate-50 text-muted transition-colors"
+                    title="Refresh Fleet List"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingFleet ? 'animate-spin' : ''}`} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddVehicleModal(true)}
+                    className="btn-primary py-1.5 px-3 rounded-xl text-xs font-bold flex items-center gap-1 shadow-xs"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>Register Vehicle</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Fleet List */}
+              {loadingFleet && myFleet.length === 0 ? (
+                <div className="p-4 text-center text-xs text-muted">Loading fleet records from database...</div>
+              ) : myFleet.length === 0 ? (
+                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 text-center space-y-1">
+                  <p className="text-xs font-bold text-amber-900">No vehicles registered in database</p>
+                  <p className="text-[11px] text-amber-700">
+                    Click "Update Fleet Profile" on the left or use "+ Register Vehicle" above to save your first vehicle to the database.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                  {myFleet.map((v) => (
+                    <div
+                      key={v.id}
+                      className="p-3.5 rounded-2xl border border-border/80 bg-slate-50/50 hover:bg-white hover:border-primary/40 hover:shadow-xs transition-all flex items-start justify-between gap-3 text-xs"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-text text-sm">{v.vehicleType}</span>
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold font-mono">
+                            {v.registrationNumber}
+                          </span>
+                        </div>
+                        <p className="text-muted text-[11px]">
+                          Payload: <span className="font-bold text-text">{Number(v.capacityKg || 0).toLocaleString('en-IN')} kg</span> • Base: <span className="font-semibold text-text">{v.baseLocation || 'APMC'}</span>
+                        </p>
+                        <p className="text-muted text-[11px]">
+                          Freight: <span className="font-bold text-text font-mono">₹{v.ratePerKm || 25}/km</span> • Driver: <span className="text-text font-medium">{v.driverName}</span>
+                        </p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                        v.isAvailable && v.status === 'available'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
+                          : 'bg-amber-50 text-amber-700 border border-amber-300'
+                      }`}>
+                        {v.isAvailable && v.status === 'available' ? 'Available' : 'Busy'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Quick Register Vehicle Modal / Expandable Card */}
+            {showAddVehicleModal && (
+              <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl border border-border shadow-xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="flex items-center justify-between border-b border-border/80 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-5 h-5 text-primary" />
+                      <h3 className="font-bold text-base text-text">Register New Fleet Vehicle</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddVehicleModal(false)}
+                      className="p-1 rounded-lg text-muted hover:text-text hover:bg-slate-100 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleRegisterAdditionalVehicle} className="space-y-3.5">
+                    <label className="block space-y-1">
+                      <span className="text-xs font-semibold text-muted uppercase">Vehicle Model *</span>
+                      <select
+                        value={newVehicle.vehicleType}
+                        onChange={(e) => setNewVehicle((prev) => ({ ...prev, vehicleType: e.target.value }))}
+                        className="w-full rounded-xl border border-border px-3.5 py-2 text-sm font-semibold outline-none focus:border-primary bg-white"
+                      >
+                        <option value="Mahindra Bolero Maxi Truck">Mahindra Bolero Maxi Truck</option>
+                        <option value="Tata 407 LPT">Tata 407 LPT</option>
+                        <option value="Eicher Pro 2049">Eicher Pro 2049</option>
+                        <option value="Tata Ace Gold">Tata Ace Gold (Chota Hathi)</option>
+                        <option value="Ashok Leyland Dost">Ashok Leyland Dost</option>
+                        <option value="Tractor Trolley">Tractor Trolley</option>
+                        <option value="Refrigerated Carrier">Refrigerated Carrier</option>
+                        <option value="Large Goods Truck (10-Wheeler)">Large Goods Truck (10-Wheeler)</option>
+                      </select>
+                    </label>
+
+                    <label className="block space-y-1">
+                      <span className="text-xs font-semibold text-muted uppercase">Registration Plate *</span>
+                      <input
+                        type="text"
+                        required
+                        value={newVehicle.registrationNumber}
+                        onChange={(e) => setNewVehicle((prev) => ({ ...prev, registrationNumber: e.target.value.toUpperCase() }))}
+                        className="w-full rounded-xl border border-border px-3.5 py-2 text-sm font-mono font-bold uppercase outline-none focus:border-primary"
+                        placeholder="MH-12-TR-9000"
+                      />
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block space-y-1">
+                        <span className="text-xs font-semibold text-muted uppercase">Capacity (kg) *</span>
+                        <input
+                          type="number"
+                          required
+                          min="500"
+                          step="100"
+                          value={newVehicle.capacityKg}
+                          onChange={(e) => setNewVehicle((prev) => ({ ...prev, capacityKg: e.target.value }))}
+                          className="w-full rounded-xl border border-border px-3 py-2 text-sm font-mono font-bold outline-none focus:border-primary"
+                        />
+                      </label>
+
+                      <label className="block space-y-1">
+                        <span className="text-xs font-semibold text-muted uppercase">Rate (₹/km) *</span>
+                        <input
+                          type="number"
+                          required
+                          min="10"
+                          step="1"
+                          value={newVehicle.ratePerKm}
+                          onChange={(e) => setNewVehicle((prev) => ({ ...prev, ratePerKm: e.target.value }))}
+                          className="w-full rounded-xl border border-border px-3 py-2 text-sm font-mono font-bold outline-none focus:border-primary"
+                        />
+                      </label>
+                    </div>
+
+                    <label className="block space-y-1">
+                      <span className="text-xs font-semibold text-muted uppercase">Base Mandi / Location *</span>
+                      <select
+                        value={newVehicle.baseLocation}
+                        onChange={(e) => setNewVehicle((prev) => ({ ...prev, baseLocation: e.target.value }))}
+                        className="w-full rounded-xl border border-border px-3.5 py-2 text-sm font-semibold outline-none focus:border-primary bg-white"
+                      >
+                        <option value="Pune APMC">Pune APMC</option>
+                        <option value="Nashik APMC">Nashik APMC</option>
+                        <option value="Surat APMC">Surat APMC</option>
+                        <option value="Ahmedabad APMC">Ahmedabad APMC</option>
+                        <option value="Kolhapur APMC">Kolhapur APMC</option>
+                        <option value="Vashi APMC (Mumbai)">Vashi APMC (Mumbai)</option>
+                      </select>
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block space-y-1">
+                        <span className="text-xs font-semibold text-muted uppercase">Driver Name</span>
+                        <input
+                          type="text"
+                          value={newVehicle.driverName}
+                          onChange={(e) => setNewVehicle((prev) => ({ ...prev, driverName: e.target.value }))}
+                          className="w-full rounded-xl border border-border px-3 py-2 text-sm font-semibold outline-none focus:border-primary"
+                          placeholder={user?.name || 'Driver name'}
+                        />
+                      </label>
+
+                      <label className="block space-y-1">
+                        <span className="text-xs font-semibold text-muted uppercase">Driver Phone</span>
+                        <input
+                          type="tel"
+                          value={newVehicle.driverPhone}
+                          onChange={(e) => setNewVehicle((prev) => ({ ...prev, driverPhone: e.target.value }))}
+                          className="w-full rounded-xl border border-border px-3 py-2 text-sm font-mono font-bold outline-none focus:border-primary"
+                          placeholder="9876543210"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-border/80">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddVehicleModal(false)}
+                        className="px-4 py-2 rounded-xl border border-border text-xs font-bold text-muted hover:bg-slate-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={addingVehicle}
+                        className="btn-primary py-2 px-5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{addingVehicle ? 'Saving to Database...' : 'Save to Database'}</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Cargo Dispatch Portal Link */}
             <div className="card-harvest p-6 bg-gradient-to-br from-blue-900 to-slate-900 text-white rounded-3xl shadow-lg space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-blue-500/20 text-blue-300 flex items-center justify-center">
@@ -618,7 +930,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <h3 className="font-extrabold text-base">{t('profileExtra.cargoDispatchPortal') || "Cargo Dispatch Portal"}</h3>
-                  <p className="text-xs text-blue-200/80">{t('profileExtra.cargoDispatchPortalDesc') || "Manage assigned loads and view live transit timers"}</p>
+                  <p className="text-xs text-blue-200/80">{t('profileExtra.cargoDispatchPortalDesc') || "Manage assigned loads, accept requests & view live telemetry"}</p>
                 </div>
               </div>
               <div className="pt-2">

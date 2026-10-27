@@ -4,7 +4,7 @@
  * Wraps fetch, automatically injects Authorization header, and handles 401 logout/redirect.
  */
 
-const API_BASE_URL = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_API_BASE_URL || import.meta.env?.VITE_API_URL)) || '';
+import { API_BASE_URL } from '../config/apiConfig';
 const TOKEN_KEY = 'harvestmitra_token';
 const USER_KEY = 'harvestmitra_user';
 
