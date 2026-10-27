@@ -25,7 +25,8 @@ import {
   RefreshCw,
   Send,
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  Store
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -883,10 +884,11 @@ export default function AuthPage({ mode = 'login' }) {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                 <button
                   type="button"
+                  id="demo-account-mihir-btn"
                   onClick={() => {
                     setRole('farmer');
                     setAuthMethod('password');
-                    updateField('email', 'farmer');
+                    updateField('email', 'mihir');
                     updateField('password', '123456');
                     setError('');
                   }}
@@ -897,15 +899,16 @@ export default function AuthPage({ mode = 'login' }) {
                   }`}
                 >
                   <div className="text-[10px] text-emerald-700 font-semibold">🌾 Farmer</div>
-                  <div className="font-mono text-xs font-bold text-slate-900 truncate">farmer</div>
+                  <div className="font-mono text-xs font-bold text-slate-900 truncate">mihir</div>
                 </button>
 
                 <button
                   type="button"
+                  id="demo-account-varun-btn"
                   onClick={() => {
                     setRole('transporter');
                     setAuthMethod('password');
-                    updateField('email', 'transport');
+                    updateField('email', 'varun');
                     updateField('password', '123456');
                     setError('');
                   }}
@@ -915,16 +918,17 @@ export default function AuthPage({ mode = 'login' }) {
                       : 'bg-white border-slate-200 hover:border-blue-300 text-slate-700'
                   }`}
                 >
-                  <div className="text-[10px] text-blue-700 font-semibold">🚚 Transport</div>
-                  <div className="font-mono text-xs font-bold text-slate-900 truncate">transport</div>
+                  <div className="text-[10px] text-blue-700 font-semibold">🚚 Transporter</div>
+                  <div className="font-mono text-xs font-bold text-slate-900 truncate">varun</div>
                 </button>
 
                 <button
                   type="button"
+                  id="demo-account-sayali-btn"
                   onClick={() => {
                     setRole('mandi');
                     setAuthMethod('password');
-                    updateField('email', 'mandi');
+                    updateField('email', 'sayali');
                     updateField('password', '123456');
                     setError('');
                   }}
@@ -935,15 +939,16 @@ export default function AuthPage({ mode = 'login' }) {
                   }`}
                 >
                   <div className="text-[10px] text-purple-700 font-semibold">🏪 Mandi</div>
-                  <div className="font-mono text-xs font-bold text-slate-900 truncate">mandi</div>
+                  <div className="font-mono text-xs font-bold text-slate-900 truncate">sayali</div>
                 </button>
 
                 <button
                   type="button"
+                  id="demo-account-prashant-btn"
                   onClick={() => {
                     setRole('admin');
                     setAuthMethod('password');
-                    updateField('email', 'admin');
+                    updateField('email', 'prashant');
                     updateField('password', '123456');
                     setError('');
                   }}
@@ -954,7 +959,7 @@ export default function AuthPage({ mode = 'login' }) {
                   }`}
                 >
                   <div className="text-[10px] text-amber-700 font-semibold">🛡️ Admin</div>
-                  <div className="font-mono text-xs font-bold text-slate-900 truncate">admin</div>
+                  <div className="font-mono text-xs font-bold text-slate-900 truncate">prashant</div>
                 </button>
               </div>
             </div>

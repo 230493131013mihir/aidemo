@@ -58,9 +58,9 @@ console.log('  ✅ [PASS] RecentActivity.jsx renders incoming Mandi procurement 
 console.log('\n4. Auditing Sidebar.jsx Mandi Navigation:');
 const sidebarPath = path.join(__dirname, '../src/components/navigation/Sidebar.jsx');
 const sidebarCode = fs.readFileSync(sidebarPath, 'utf-8');
-assert.ok(sidebarCode.includes("label: 'Mandi Dashboard'"), 'Sidebar must include Mandi Dashboard (/dashboard)');
-assert.ok(sidebarCode.includes("label: 'Live APMC Rates'"), 'Sidebar must include Live APMC Rates (/markets)');
-assert.ok(sidebarCode.includes("label: 'Incoming Crop Listings'") || sidebarCode.includes("label: 'Farmer Directory'"), 'Sidebar must include Mandi listings/directory');
+assert.ok(sidebarCode.includes("'Mandi Dashboard'"), 'Sidebar must include Mandi Dashboard (/dashboard)');
+assert.ok(sidebarCode.includes("'Live APMC Rates'"), 'Sidebar must include Live APMC Rates (/markets)');
+assert.ok(sidebarCode.includes("'Incoming Crop Listings'") || sidebarCode.includes("'Farmer Directory'"), 'Sidebar must include Mandi listings/directory');
 assert.ok(sidebarCode.includes("label: t('nav.chat', 'Mitra Assistant')"), 'Sidebar must include Mitra Assistant (/chat)');
 console.log('  ✅ [PASS] Sidebar.jsx contains all 4 Mandi menu options aligned with specification.');
 

@@ -1,7 +1,7 @@
 require("dotenv").config();
 const bcrypt = require("bcryptjs");
 const sequelize = require("./config/database");
-const { User, AdminUser, Crop, Market, MarketPrice } = require("./models");
+const { User, AdminUser, Crop, Market, MarketPrice, FarmerProfile, MandiProfile, TransporterProfile, Vehicle } = require("./models");
 
 const transportRoutes = require("./routes/transport.routes");
 
@@ -14,7 +14,7 @@ async function seed() {
 
     const demoPassword = await bcrypt.hash(process.env.DEMO_PASSWORD || "Demo@12345", 10);
     const adminPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || "Admin@12345", 10);
-    const { FarmerProfile, MandiProfile } = require("./models");
+
 
     const [demoUser] = await User.findOrCreate({
         where: { email: "demo@harvestmitra.local" },
@@ -163,7 +163,7 @@ async function seed() {
     });
 
     // 2. Varun (Transporter)
-    const { TransporterProfile, Vehicle } = require("./models");
+
     const [varunUser] = await User.findOrCreate({
         where: { email: "varun@harvestmitra.local" },
         defaults: {
@@ -431,7 +431,7 @@ async function seed() {
         }
     });
 
-    const { Vehicle, TransporterProfile } = require("./models");
+
 
     await TransporterProfile.findOrCreate({
         where: { userId: transporterUser.id },
