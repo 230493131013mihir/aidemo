@@ -36,7 +36,7 @@ import SharedTransportFarmerWidget from '../components/dashboard/SharedTransport
 import TransporterDashboard from '../components/dashboard/TransporterDashboard';
 import apiClient from '../services/apiClient';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+const API_BASE_URL = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_API_BASE_URL || import.meta.env?.VITE_API_URL)) || '';
 
 function formatINR(value) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
@@ -228,6 +228,18 @@ export default function TransportPage() {
     };
     window.addEventListener('harvestmitra:logout', handleLogout);
     return () => window.removeEventListener('harvestmitra:logout', handleLogout);
+  }, []);
+
+  // Auto-refresh farmer bookings and switch tracking when new booking is created
+  useEffect(() => {
+    const handleBookingCreated = (e) => {
+      loadMyRequests();
+      if (e.detail?.id) {
+        setSelectedBookingId(e.detail.id);
+      }
+    };
+    window.addEventListener('harvestmitra:booking-created', handleBookingCreated);
+    return () => window.removeEventListener('harvestmitra:booking-created', handleBookingCreated);
   }, []);
 
   async function loadMyRequests() {

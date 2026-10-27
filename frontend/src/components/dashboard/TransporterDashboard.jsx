@@ -41,7 +41,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import DigitalGatePassModal from '../transport/DigitalGatePassModal';
 import LiveDriverTrackingMap from '../transport/LiveDriverTrackingMap';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+const API_BASE_URL = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_API_BASE_URL || import.meta.env?.VITE_API_URL)) || '';
 
 function formatINR(value) {
   return new Intl.NumberFormat('en-IN', {
@@ -1292,22 +1292,33 @@ export default function TransporterDashboard() {
                           <span>{t('transporter.viewGatePass') || "Gate Pass (QR)"}</span>
                         </button>
 
-                        {trip.status === 'awaiting_pickup' || trip.status === 'accepted' || trip.status === 'vehicle_assigned' ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedTripForPickup(trip);
-                              setPickupFormData({
-                                actualPickupTime: new Date().toISOString().slice(0, 16),
-                                loadedQuantity: String(trip.weightKg || ''),
-                                pickupNotes: ''
-                              });
-                            }}
-                            className="btn-primary py-1.5 px-3.5 rounded-xl text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            <Scale className="w-3.5 h-3.5" />
-                            <span>{t('transporter.pickupAction') || "Confirm Pickup"}</span>
-                          </button>
+                        {['awaiting_pickup', 'accepted', 'vehicle_assigned', 'driver_assigned', 'confirmed'].includes(trip.status) ? (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedTripForPickup(trip);
+                                setPickupFormData({
+                                  actualPickupTime: new Date().toISOString().slice(0, 16),
+                                  loadedQuantity: String(trip.weightKg || ''),
+                                  pickupNotes: ''
+                                });
+                              }}
+                              className="btn-primary py-1.5 px-3.5 rounded-xl text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <Scale className="w-3.5 h-3.5" />
+                              <span>{t('transporter.pickupAction') || "Confirm Pickup"}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleProgressTrip(trip.id, 'in_transit')}
+                              className="bg-purple-600 hover:bg-purple-700 text-white py-1.5 px-3 rounded-xl text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                              title="Direct Depart & Start Transit"
+                            >
+                              <Navigation className="w-3.5 h-3.5" />
+                              <span>Depart</span>
+                            </button>
+                          </div>
                         ) : trip.status === 'pickup_confirmed' ? (
                           <button
                             type="button"
@@ -1944,22 +1955,33 @@ export default function TransporterDashboard() {
                         </button>
 
                         {/* Action buttons based on current state */}
-                        {['accepted', 'vehicle_assigned', 'awaiting_pickup'].includes(trip.status) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedTripForPickup(trip);
-                              setPickupFormData({
-                                actualPickupTime: new Date().toISOString().slice(0, 16),
-                                loadedQuantity: String(trip.weightKg || ''),
-                                pickupNotes: ''
-                              });
-                            }}
-                            className="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
-                          >
-                            <Scale className="w-3.5 h-3.5" />
-                            <span>Confirm Farm Pickup</span>
-                          </button>
+                        {['accepted', 'vehicle_assigned', 'driver_assigned', 'awaiting_pickup', 'confirmed'].includes(trip.status) && (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedTripForPickup(trip);
+                                setPickupFormData({
+                                  actualPickupTime: new Date().toISOString().slice(0, 16),
+                                  loadedQuantity: String(trip.weightKg || ''),
+                                  pickupNotes: ''
+                                });
+                              }}
+                              className="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            >
+                              <Scale className="w-3.5 h-3.5" />
+                              <span>Confirm Farm Pickup</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleProgressTrip(trip.id, 'in_transit')}
+                              className="bg-purple-600 hover:bg-purple-700 text-white py-1.5 px-3 rounded-xl text-xs font-bold inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                              title="Direct Depart & Start Transit"
+                            >
+                              <Navigation className="w-3.5 h-3.5" />
+                              <span>Depart</span>
+                            </button>
+                          </div>
                         )}
 
                         {trip.status === 'pickup_confirmed' && (

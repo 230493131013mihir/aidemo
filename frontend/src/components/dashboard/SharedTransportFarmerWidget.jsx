@@ -29,7 +29,7 @@ import { useToast } from '../../context/ToastContext';
 import { useLanguage } from '../../context/LanguageContext';
 import DigitalGatePassModal from '../transport/DigitalGatePassModal';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+const API_BASE_URL = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_API_BASE_URL || import.meta.env?.VITE_API_URL)) || '';
 
 function formatINR(value) {
   return new Intl.NumberFormat('en-IN', {
@@ -455,6 +455,8 @@ export default function SharedTransportFarmerWidget({
 
   // Handle Booking Creation
   const handleCreateBooking = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+
     // Authentication guard: Unauthenticated visitors can view but cannot book
     if (!token || !user || user.isGuest) {
       showToast({ 
@@ -527,6 +529,9 @@ export default function SharedTransportFarmerWidget({
 
       fetchMyBookings();
       fetchVehicles();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('harvestmitra:booking-created', { detail: json.data }));
+      }
     } catch (err) {
       showToast({ type: 'error', title: 'Booking Failed', message: err.message });
     } finally {

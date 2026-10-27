@@ -807,7 +807,7 @@ router.get("/incoming-requests", requireRole("transporter", "admin"), async (req
 
         const where = {};
         if (status === "pending") {
-            where.status = { [Op.in]: ["pending", "open"] };
+            where.status = { [Op.in]: ["pending", "open", "confirmed"] };
         } else if (status === "confirmed" || status === "accepted" || status === "driver_assigned") {
             where.status = { [Op.in]: ["confirmed", "accepted", "driver_assigned"] };
         } else if (status && status !== "all") {
@@ -827,7 +827,7 @@ router.get("/incoming-requests", requireRole("transporter", "admin"), async (req
                 ...(where[Op.and] || []),
                 {
                     [Op.or]: [
-                        { status: { [Op.in]: ["open", "pending"] }, transporterId: null },
+                        { status: { [Op.in]: ["open", "pending", "confirmed"] }, transporterId: null },
                         { transporterId: req.user.id }
                     ]
                 }
@@ -1344,9 +1344,10 @@ router.post("/shared-trips/group", requireRole("transporter", "admin"), async (r
 router.get("/my-requests", requireRole("farmer", "transporter", "fpo_leader"), async (req, res) => {
     try {
         await ensureTransportSchema();
+        const bookingUserId = await resolveBookingUserId(req.user);
         const whereCondition = req.user.role === "transporter"
             ? await getTransporterWhereCondition(req.user)
-            : { userId: req.user.id };
+            : { [Op.or]: [{ userId: bookingUserId }, { userId: req.user.id }] };
 
         const data = await TransportRequest.findAll({
             where: whereCondition,
@@ -1907,7 +1908,7 @@ router.put("/requests/:id/progress", requireRole("transporter"), async (req, res
     }
 });
 
-router.put("/requests/:id/confirm", requireRole("farmer", "fpo_leader"), async (req, res) => {
+router.put(["/requests/:id/confirm", "/bookings/:id/confirm"], requireRole("farmer", "fpo_leader"), async (req, res) => {
     try {
         await ensureTransportSchema();
         const request = await TransportRequest.findByPk(req.params.id);
