@@ -9,7 +9,7 @@ const authMiddleware = async (req, res, next) => {
         // Support guest access if requested
         if (!authHeader) {
             if (process.env.ENABLE_GUEST_MODE === "true") {
-                if (req.headers["x-guest-mode"] === "true" || req.query.guest === "true") {
+                if (req.headers["x-guest-mode"] === "true" || req.query?.guest === "true") {
                     req.user = {
                         id: 999999,
                         name: "Guest Farmer",
@@ -93,7 +93,7 @@ const authMiddleware = async (req, res, next) => {
         next();
 
     } catch (error) {
-        if (process.env.ENABLE_GUEST_MODE === "true" && (req.headers["x-guest-mode"] === "true" || req.query.guest === "true")) {
+        if (process.env.ENABLE_GUEST_MODE === "true" && (req.headers["x-guest-mode"] === "true" || req.query?.guest === "true")) {
             req.user = {
                 id: 999999,
                 name: "Guest User",

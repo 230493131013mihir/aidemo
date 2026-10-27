@@ -1049,7 +1049,67 @@ const updateProfile = async (req, res) => {
                 }
                 await transProfile.save();
             }
+
+            // Synchronize with Vehicle model so Farmer Shared Transport displays dynamically
+            try {
+                const targetPlate = (transProfile.vehicleNumber || req.body.vehicleNumber || "").trim().toUpperCase();
+                let vehicle = null;
+                if (targetPlate) {
+                    vehicle = await Vehicle.findOne({ where: { registrationNumber: targetPlate } });
+                }
+                if (!vehicle) {
+                    vehicle = await Vehicle.findOne({ where: { userId } });
+                }
+
+                const driverName = name ? name.trim() : (transProfile.driverName || user.name);
+                const driverPhone = phone ? phone.trim() : (transProfile.phone || user.phone);
+                const vehType = transProfile.vehicleType || req.body.vehicleType || "Mahindra Bolero Maxi Truck";
+                const capKg = Number(transProfile.capacityKg) || 2500;
+                const baseLoc = transProfile.baseMandi || req.body.baseMandi || "Pune APMC";
+                const rateKm = Number(transProfile.ratePerKm) || 28;
+                const isAvail = transProfile.isAvailable !== undefined ? Boolean(transProfile.isAvailable) : true;
+
+                if (vehicle) {
+                    if (targetPlate) vehicle.registrationNumber = targetPlate;
+                    vehicle.userId = userId;
+                    vehicle.vehicleType = vehType;
+                    vehicle.capacityKg = capKg;
+                    vehicle.baseLocation = baseLoc;
+                    vehicle.ratePerKm = rateKm;
+                    vehicle.driverName = driverName;
+                    vehicle.driverPhone = driverPhone;
+                    vehicle.isAvailable = isAvail;
+                    vehicle.status = isAvail ? "available" : "busy";
+                    if (!vehicle.supportedRoutes || vehicle.supportedRoutes.length < 5) {
+                        vehicle.supportedRoutes = `${baseLoc} to Mumbai Vashi APMC, Pune APMC, Nashik APMC, Kolhapur APMC, Surat APMC, All APMCs`;
+                    }
+                    if (!vehicle.supportedCrops || vehicle.supportedCrops.length < 5) {
+                        vehicle.supportedCrops = "Tomato, Onion, Potato, Vegetables, Wheat, Grains, Fruits, All Crops";
+                    }
+                    await vehicle.save();
+                } else if (targetPlate) {
+                    await Vehicle.create({
+                        userId,
+                        registrationNumber: targetPlate,
+                        vehicleType: vehType,
+                        capacityKg: capKg,
+                        capacityUnit: "kg",
+                        supportedCrops: "Tomato, Onion, Potato, Vegetables, Wheat, Grains, Fruits, All Crops",
+                        specialHandling: "Ventilated",
+                        baseLocation: baseLoc,
+                        supportedRoutes: `${baseLoc} to Mumbai Vashi APMC, Pune APMC, Nashik APMC, Kolhapur APMC, Surat APMC, All APMCs`,
+                        ratePerKm: rateKm,
+                        driverName,
+                        driverPhone,
+                        isAvailable: isAvail,
+                        status: isAvail ? "available" : "busy"
+                    });
+                }
+            } catch (vSyncErr) {
+                console.error("Failed to sync vehicle during updateProfile:", vSyncErr.message);
+            }
         }
+
 
         // Update or create MandiProfile
         if (user.role === "mandi" || mandiName || licenseNumber) {

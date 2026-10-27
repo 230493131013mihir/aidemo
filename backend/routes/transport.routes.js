@@ -252,7 +252,7 @@ router.get("/vehicles", async (req, res) => {
             where: {
                 isAvailable: true,
                 status: "available",
-                ...(req.user?.id ? { userId: { [Op.ne]: req.user.id } } : {})
+                ...(req.query.excludeOwn === "true" && req.user?.id ? { userId: { [Op.ne]: req.user.id } } : {})
             },
             include: [
                 {
@@ -269,8 +269,9 @@ router.get("/vehicles", async (req, res) => {
             order: [["capacityKg", "ASC"]]
         });
 
-        // Filter out vehicles that do not belong to a transporter or admin account
-        const transporterVehicles = vehicles.filter(v => v.User && (v.User.role === "transporter" || v.User.role === "admin"));
+        // Filter out vehicles that do not belong to a transporter or admin account (or include if user role not set)
+        const transporterVehicles = vehicles.filter(v => !v.User || v.User.role === "transporter" || v.User.role === "admin");
+
 
         // If specific crop requested, get its handling profile
         const cropProfile = crop ? getCropProfile(crop) : null;
@@ -298,9 +299,11 @@ router.get("/vehicles", async (req, res) => {
                 const destKeywords = destNorm.split(/\s+/).filter(w => w.length > 2 && !["apmc", "market", "yard", "wholesale"].includes(w));
                 const routesStr = String(v.supportedRoutes || "").toLowerCase();
                 const baseLocStr = String(v.baseLocation || "").toLowerCase();
-                const matchesKeyword = destKeywords.some(kw => routesStr.includes(kw) || baseLocStr.includes(kw));
-                isRouteEligible = matchesKeyword || routesStr.includes(destNorm) || destNorm.includes(routesStr) || baseLocStr.includes(destNorm);
+                const matchesKeyword = destKeywords.length === 0 || destKeywords.some(kw => routesStr.includes(kw) || baseLocStr.includes(kw));
+                const isBroadRoute = !v.supportedRoutes || routesStr.includes("all") || routesStr.includes("any") || routesStr.includes("maharashtra") || routesStr.includes("gujarat");
+                isRouteEligible = isBroadRoute || matchesKeyword || routesStr.includes(destNorm) || destNorm.includes(routesStr) || baseLocStr.includes(destNorm);
             }
+
 
             // Crop suitability & smart matching score
             let isCropSuitable = true;

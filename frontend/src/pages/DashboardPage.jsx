@@ -45,7 +45,7 @@ import SharedTransportFarmerWidget from '../components/dashboard/SharedTransport
 import MandiBookingNotificationWidget from '../components/dashboard/MandiBookingNotificationWidget';
 import apiClient from '../services/apiClient';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+import { API_BASE_URL } from '../config/apiConfig';
 
 function AcreageTooltip({ active, payload }) {
   if (active && payload && payload.length) {

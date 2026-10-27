@@ -4,7 +4,7 @@
  * HarvestMitra AI - ISSUE-10
  */
 
-const API_BASE_URL = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_API_URL || import.meta.env?.VITE_API_BASE_URL)) || '';
+import { API_BASE_URL } from '../config/apiConfig';
 
 /**
  * Generate or retrieve persistent anonymous session ID

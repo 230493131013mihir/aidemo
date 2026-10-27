@@ -40,7 +40,7 @@ import { useToast } from '../../context/ToastContext';
 import DigitalGatePassModal from '../transport/DigitalGatePassModal';
 import LiveDriverTrackingMap from '../transport/LiveDriverTrackingMap';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+import { API_BASE_URL } from '../../config/apiConfig';
 
 function formatINR(value) {
   return new Intl.NumberFormat('en-IN', {
