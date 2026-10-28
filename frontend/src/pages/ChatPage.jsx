@@ -1,12 +1,22 @@
-import React from 'react';
-import { Bot, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Bot, Sparkles, Stethoscope } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import ChatWindow from '../components/chatbot/ChatWindow';
+import CropDoctorModal from '../components/features/CropDoctorModal';
 
 export default function ChatPage() {
   const { t, language } = useLanguage();
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [doctorModalOpen, setDoctorModalOpen] = useState(searchParams.get('tab') === 'doctor');
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'doctor') {
+      setDoctorModalOpen(true);
+    }
+  }, [searchParams]);
 
   const profile = user?.FarmerProfile;
   const demoFarmerContext = {
@@ -73,7 +83,17 @@ export default function ChatPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {!isTransporter && (
+              <button
+                type="button"
+                onClick={() => setDoctorModalOpen(true)}
+                className="px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold flex items-center gap-1.5 transition-all backdrop-blur-md border border-white/30"
+              >
+                <Stethoscope className="w-3.5 h-3.5 text-emerald-200" />
+                <span>{t('cropDoctor.title', 'AI Crop Doctor')}</span>
+              </button>
+            )}
             <span className="badge-tag bg-teal-500/20 text-teal-200 border border-teal-400/40 font-bold">
               <Sparkles className="w-3.5 h-3.5 text-teal-300 animate-pulse" aria-hidden="true" />
               <span>{isTransporter ? 'Logistics Assistant Active' : 'Mitra AI Active & Multilingual'}</span>
@@ -81,6 +101,19 @@ export default function ChatPage() {
           </div>
         </div>
       </section>
+
+      {/* Crop Doctor Modal */}
+      <CropDoctorModal
+        isOpen={doctorModalOpen}
+        onClose={() => {
+          setDoctorModalOpen(false);
+          if (searchParams.get('tab') === 'doctor') {
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.delete('tab');
+            setSearchParams(nextParams, { replace: true });
+          }
+        }}
+      />
 
       {/* Live ChatWindow */}
       <div className="w-full h-[680px] sm:h-[720px] flex flex-col">
