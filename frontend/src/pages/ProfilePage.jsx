@@ -206,7 +206,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto py-6 px-4">
+    <div className="space-y-6 w-full max-w-full 2xl:max-w-[1720px] mx-auto py-4 sm:py-6 px-2 sm:px-4">
       {/* 1. ROLE-BASED PAGE HEADER */}
       <div className="border-b border-border pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

@@ -350,8 +350,13 @@ export default function MandiDashboard() {
       {/* 1. APMC Mandi Official Banner Header */}
       <div 
         id="mandi-header-banner"
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-900 via-teal-900 to-slate-900 text-white p-6 sm:p-8 shadow-xl border border-emerald-700/50"
+        className="relative overflow-hidden rounded-3xl text-white p-6 sm:p-8 shadow-xl border border-emerald-700/50"
       >
+        <div 
+          className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
+          style={{ backgroundImage: `url('/images/mandi-hero.jpg')` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/95 via-teal-950/90 to-slate-950/85 backdrop-blur-[1px]" />
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-80 h-80 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/3 -mb-12 w-64 h-64 rounded-full bg-teal-400/10 blur-2xl pointer-events-none" />
 

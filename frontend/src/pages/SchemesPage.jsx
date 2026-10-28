@@ -240,7 +240,7 @@ export default function SchemesPage() {
     : schemes;
 
   return (
-    <div className="space-y-6 sm:space-y-8 w-full max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 sm:space-y-8 w-full max-w-full 2xl:max-w-[1720px] mx-auto pb-12">
       {/* 1. Header Hero Banner */}
       <div className="relative rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-emerald-900 via-slate-900 to-emerald-950 text-white shadow-xl overflow-hidden border border-emerald-800/40">
         {/* Subtle background graphics */}

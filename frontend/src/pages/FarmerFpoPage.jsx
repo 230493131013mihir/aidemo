@@ -97,18 +97,24 @@ export default function FarmerFpoPage() {
   });
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto py-6 px-4">
+    <div className="space-y-6 w-full max-w-full 2xl:max-w-[1720px] mx-auto py-4 sm:py-6 px-2 sm:px-4">
       {/* Header */}
-      <section className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-900 via-teal-900 to-slate-900 text-white p-6 sm:p-8 shadow-xl relative overflow-hidden">
-        <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold uppercase tracking-wider">
+      <section className="rounded-3xl border border-emerald-700/40 text-white p-6 sm:p-8 shadow-xl relative overflow-hidden">
+        <div 
+          className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
+          style={{ backgroundImage: `url('/images/harvest-hero.jpg')` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/95 via-teal-950/90 to-slate-950/85 backdrop-blur-[1px]" />
+
+        <div className="relative z-10 space-y-2 max-w-2xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
             <Users className="w-4 h-4" />
             <span>Farmer Producer Organizations (FPOs)</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+          <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-white drop-shadow-md">
             FPO Membership & Collective Power
           </h1>
-          <p className="text-xs sm:text-sm text-emerald-200/80 max-w-2xl leading-relaxed">
+          <p className="text-xs sm:text-sm text-emerald-200/90 leading-relaxed drop-shadow-sm">
             Join a registered agricultural collective in your district. Access bulk mandi procurement contracts, subsidized shared transport, and collective input purchasing.
           </p>
         </div>

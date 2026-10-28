@@ -901,7 +901,7 @@ export default function HarvestPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto py-6 px-4">
+    <div className="space-y-6 w-full max-w-full 2xl:max-w-[1720px] mx-auto py-4 sm:py-6 px-2 sm:px-4">
       {/* Header Banner with 3D Depth Card */}
       <section className="relative rounded-3xl overflow-hidden shadow-xl border border-emerald-900/30 text-white">
         <div 
