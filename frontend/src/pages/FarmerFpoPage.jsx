@@ -25,6 +25,7 @@ export default function FarmerFpoPage() {
   const [fpos, setFpos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [myMembership, setMyMembership] = useState(null);
+  const [allMemberships, setAllMemberships] = useState([]);
   const [applyingId, setApplyingId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -45,7 +46,9 @@ export default function FarmerFpoPage() {
         setFpos(fpoJson.data);
       }
       if (memJson.success) {
-        setMyMembership(memJson.data);
+        const memArray = Array.isArray(memJson.data) ? memJson.data : (memJson.data ? [memJson.data] : []);
+        setAllMemberships(memArray);
+        setMyMembership(memArray[0] || null);
       }
     } catch (err) {
       console.warn('Could not load FPO data:', err);
@@ -127,6 +130,8 @@ export default function FarmerFpoPage() {
             ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
             : myMembership.status === 'pending'
             ? 'bg-amber-50 border-amber-300 text-amber-950'
+            : myMembership.status === 'rejected'
+            ? 'bg-rose-50 border-rose-300 text-rose-950'
             : 'bg-slate-50 border-slate-300 text-slate-800'
         }`}>
           <div className="flex items-start sm:items-center gap-3">
@@ -135,6 +140,8 @@ export default function FarmerFpoPage() {
                 ? 'bg-emerald-600 text-white'
                 : myMembership.status === 'pending'
                 ? 'bg-amber-600 text-white'
+                : myMembership.status === 'rejected'
+                ? 'bg-rose-600 text-white'
                 : 'bg-slate-600 text-white'
             }`}>
               {myMembership.status === 'active' ? (
@@ -148,16 +155,18 @@ export default function FarmerFpoPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-extrabold text-sm sm:text-base">
-                  {myMembership.fpo?.name || 'Registered FPO'}
+                  {myMembership.fpo?.name || myMembership.fpoName || 'Registered FPO'}
                 </h3>
                 <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${
                   myMembership.status === 'active'
                     ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                     : myMembership.status === 'pending'
                     ? 'bg-amber-100 text-amber-800 border-amber-300'
+                    : myMembership.status === 'rejected'
+                    ? 'bg-rose-100 text-rose-800 border-rose-300'
                     : 'bg-slate-200 text-slate-800 border-slate-400'
                 }`}>
-                  {myMembership.status}
+                  {myMembership.status === 'active' ? 'Approved' : myMembership.status === 'pending' ? 'Pending' : myMembership.status}
                 </span>
               </div>
               <p className="text-xs mt-0.5 opacity-85">
@@ -165,6 +174,8 @@ export default function FarmerFpoPage() {
                   ? 'Your membership is active and verified. You are eligible for collective crop pooling and bulk mandi offers.'
                   : myMembership.status === 'pending'
                   ? 'Your membership request is currently awaiting approval from the FPO executive committee.'
+                  : myMembership.status === 'rejected'
+                  ? 'Your previous membership application was rejected. You may submit a new request to join.'
                   : 'Your membership application was reviewed.'}
               </p>
             </div>
@@ -211,9 +222,11 @@ export default function FarmerFpoPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredFpos.map((fpo) => {
-              const isCurrentFpo = myMembership?.fpoId === fpo.id;
-              const isPending = isCurrentFpo && myMembership.status === 'pending';
-              const isActive = isCurrentFpo && myMembership.status === 'active';
+              const memberRecord = allMemberships.find(m => Number(m.fpoId) === Number(fpo.id)) || 
+                (myMembership && Number(myMembership.fpoId) === Number(fpo.id) ? myMembership : null);
+              const isPending = memberRecord?.status === 'pending';
+              const isActive = memberRecord?.status === 'active';
+              const isRejected = memberRecord?.status === 'rejected';
 
               return (
                 <div
@@ -236,12 +249,17 @@ export default function FarmerFpoPage() {
 
                       {isActive && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                          Enrolled
+                          Approved Member
                         </span>
                       )}
                       {isPending && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
                           Pending Approval
+                        </span>
+                      )}
+                      {isRejected && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
+                          Rejected
                         </span>
                       )}
                     </div>
@@ -279,7 +297,7 @@ export default function FarmerFpoPage() {
                         className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                       >
                         <Send className="w-3.5 h-3.5" />
-                        <span>{applyingId === fpo.id ? 'Submitting...' : 'Apply for Membership'}</span>
+                        <span>{applyingId === fpo.id ? 'Submitting...' : 'Request to Join'}</span>
                       </button>
                     )}
                   </div>

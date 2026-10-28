@@ -68,6 +68,7 @@ export const mr = {
     farmingGuidance: "शेती मार्गदर्शन",
     govtSchemes: "सरकारी योजना",
     fpoMembership: "FPO सदस्यता",
+    requestJoinFpo: "FPO मध्ये सामील होण्याची विनंती",
     relevantSupport: "सहाय्य सेवा",
     languageSelect: "भाषा",
     accountSettings: "खाते सेटिंग्ज",

@@ -53,6 +53,7 @@ export const hi = {
     signOut: "साइन आउट",
     farmerLogin: "किसान लॉगिन",
     createAccount: "खाता बनाएं",
+    requestJoinFpo: "FPO में शामिल होने का अनुरोध",
   },
   dashboard: {
     title: "किसान डैशबोर्ड",
