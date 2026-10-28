@@ -95,6 +95,12 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
     }));
   };
 
+  const handleLinkClick = () => {
+    if (typeof onClose === 'function') {
+      onClose();
+    }
+  };
+
   // Farmer's 5 Primary Navigation Groups (Simplified, Farmer-First Structure)
   const farmerNavigationGroups = [
     {
