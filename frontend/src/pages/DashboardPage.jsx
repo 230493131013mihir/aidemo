@@ -29,6 +29,8 @@ import { useAuth } from '../context/AuthContext';
 
 // Dashboard Components
 import DashboardHeader from '../components/dashboard/DashboardHeader';
+import FarmerActionCards from '../components/dashboard/FarmerActionCards';
+import FarmerSummarySection from '../components/dashboard/FarmerSummarySection';
 import ProfileSummary from '../components/dashboard/ProfileSummary';
 import TransporterDashboard from '../components/dashboard/TransporterDashboard';
 import MandiDashboard from '../components/dashboard/MandiDashboard';
@@ -285,115 +287,34 @@ function FarmerDashboard({ user, t }) {
 
   return (
     <div className="space-y-6 sm:space-y-8 w-full max-w-full 2xl:max-w-[1720px] mx-auto pb-12">
-      {/* 1. Dashboard Header */}
+      {/* 1. Dashboard Header (Top Greeting, Simple Location & Ask Mitra AI) */}
       <DashboardHeader />
 
-      {/* PART 2.1 — 4 Primary Action Cards immediately obvious to the Farmer */}
-      <section aria-label="Primary Farmer Actions" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Action 1: Check Market Prices */}
-        <Link 
-          to="/markets"
-          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 p-5 text-white shadow-lg shadow-emerald-950/20 hover:shadow-xl hover:scale-[1.02] transition-all flex flex-col justify-between"
-        >
-          <div className="flex items-center justify-between">
-            <span className="p-3 rounded-xl bg-white/15 backdrop-blur-sm">
-              <TrendingUp className="w-6 h-6 text-white" />
-            </span>
-            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-white/20 text-emerald-100">
-              Live Mandi
-            </span>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-base font-black tracking-tight flex items-center gap-1.5">
-              <span>Check Market Prices</span>
-              <ArrowRight className="w-4 h-4 opacity-70 group-hover:translate-x-1 transition-transform" />
-            </h3>
-            <p className="text-xs text-emerald-100/90 mt-1">
-              Live APMC mandi rates across Maharashtra & major crop benchmarks.
-            </p>
-          </div>
-        </Link>
-
-        {/* Action 2: Calculate My Profit */}
-        <Link 
-          to="/harvest"
-          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-5 text-white shadow-lg shadow-blue-950/20 hover:shadow-xl hover:scale-[1.02] transition-all flex flex-col justify-between"
-        >
-          <div className="flex items-center justify-between">
-            <span className="p-3 rounded-xl bg-white/15 backdrop-blur-sm">
-              <Calculator className="w-6 h-6 text-white" />
-            </span>
-            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-white/20 text-blue-100">
-              Simulation
-            </span>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-base font-black tracking-tight flex items-center gap-1.5">
-              <span>Calculate My Profit</span>
-              <ArrowRight className="w-4 h-4 opacity-70 group-hover:translate-x-1 transition-transform" />
-            </h3>
-            <p className="text-xs text-blue-100/90 mt-1">
-              Estimate net take-home earnings with transport and mandi fees.
-            </p>
-          </div>
-        </Link>
-
-        {/* Action 3: Book Transportation */}
-        <Link 
-          to="/transport"
-          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-600 to-orange-700 p-5 text-white shadow-lg shadow-amber-950/20 hover:shadow-xl hover:scale-[1.02] transition-all flex flex-col justify-between"
-        >
-          <div className="flex items-center justify-between">
-            <span className="p-3 rounded-xl bg-white/15 backdrop-blur-sm">
-              <Truck className="w-6 h-6 text-white" />
-            </span>
-            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-white/20 text-amber-100">
-              Shared Fleet
-            </span>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-base font-black tracking-tight flex items-center gap-1.5">
-              <span>Book Transportation</span>
-              <ArrowRight className="w-4 h-4 opacity-70 group-hover:translate-x-1 transition-transform" />
-            </h3>
-            <p className="text-xs text-amber-100/90 mt-1">
-              Reserve verified transporters and share loads to save freight cost.
-            </p>
-          </div>
-        </Link>
-
-        {/* Action 4: Ask Mitra AI */}
-        <Link 
-          to="/chat"
-          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-700 p-5 text-white shadow-lg shadow-purple-950/20 hover:shadow-xl hover:scale-[1.02] transition-all flex flex-col justify-between"
-        >
-          <div className="flex items-center justify-between">
-            <span className="p-3 rounded-xl bg-white/15 backdrop-blur-sm">
-              <Bot className="w-6 h-6 text-white" />
-            </span>
-            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-white/20 text-purple-100">
-              Voice & Chat
-            </span>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-base font-black tracking-tight flex items-center gap-1.5">
-              <span>Ask Mitra AI</span>
-              <ArrowRight className="w-4 h-4 opacity-70 group-hover:translate-x-1 transition-transform" />
-            </h3>
-            <p className="text-xs text-purple-100/90 mt-1">
-              Ask in Marathi or English for crop prices, doctor diagnosis, and advice.
-            </p>
-          </div>
-        </Link>
-      </section>
-
-      {/* 2. Farmer Profile Summary */}
-      <ProfileSummary />
+      {/* 2. Four Clear, Large Main Action Cards */}
+      <FarmerActionCards 
+        primaryCrop={crops.length ? crops[0].cropName : 'Tomato'}
+        primaryPrice={primaryPrice || 28.50}
+        marketName={primaryMarketName}
+        estimatedProceeds={currentStatRevenue || 35138}
+        quantityKg={totalCombinedHarvestKg || 1500}
+      />
 
       {/* 2.1 Mitra AI Farmer Copilot (Prominent One-Click Access & Suggested Questions) */}
       <MitraFarmerCopilotWidget />
 
-      {/* 2.2 Live APMC Mandi Booking & Procurement Inquiries */}
+      {/* 2.2 Farmer Profile Summary */}
+      <ProfileSummary />
+
+      {/* 3. Operational Farmer Summary (Crops listed, Active bookings, Upcoming tasks, Local weather) */}
+      <FarmerSummarySection 
+        crops={crops} 
+        onAddCropClick={() => {
+          const el = document.getElementById('registered-crops');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }}
+      />
+
+      {/* 4. Live APMC Mandi Procurement Inquiries */}
       <MandiBookingNotificationWidget />
 
       {/* 2.5 Action Bar: Printable Kisan Farm Decision Report Banner */}
@@ -544,14 +465,16 @@ function FarmerDashboard({ user, t }) {
         </div>
       </section>
 
-      {/* 3.1 NEW: My Registered Crops (STEP 8 Layout & STEP 3-6 Dynamic Calculations) */}
-      <RegisteredCropsManager
-        crops={crops}
-        loading={loadingCrops}
-        onRefresh={fetchFarmerCrops}
-        district={farmerDistrict}
-        state={farmerState}
-      />
+      {/* 3.1 My Registered Crops */}
+      <div id="registered-crops" className="scroll-mt-20">
+        <RegisteredCropsManager
+          crops={crops}
+          loading={loadingCrops}
+          onRefresh={fetchFarmerCrops}
+          district={farmerDistrict}
+          state={farmerState}
+        />
+      </div>
 
       {/* 3.5 Multi-Crop Farm Profile Switcher with Interactive Recharts Acreage Distribution Chart */}
       <section aria-labelledby="multi-crop-heading" className="space-y-4">

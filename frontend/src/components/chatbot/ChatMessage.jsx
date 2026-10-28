@@ -64,8 +64,7 @@ export default function ChatMessage({
           )}
         </div>
 
-        {/* Bubble */}
-        <div className="bg-white border border-emerald-100 rounded-2xl rounded-tl-sm p-3.5 sm:p-4 text-xs sm:text-sm text-gray-800 shadow-sm space-y-2">
+        <div className="bg-white border border-emerald-200 text-slate-900 px-4 py-3.5 rounded-2xl rounded-tl-sm shadow-xs text-base sm:text-lg leading-relaxed break-words font-medium relative space-y-2">
           <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>
 
           {/* Action-Oriented Copilot Buttons (PART 10.7 One-question-to-action) */}

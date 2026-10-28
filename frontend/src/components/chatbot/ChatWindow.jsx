@@ -59,15 +59,6 @@ const SUGGESTED_QUERIES = {
     "पिकावरील रोगाची किंवा समस्येची माहिती द्या.",
     "माझ्यासाठी उपयुक्त सरकारी योजना शोधा."
   ],
-  en: [
-    "Where should I sell my crop?",
-    "Calculate my estimated profit.",
-    "Find transport for my harvest.",
-    "Check my booking status.",
-    "What is the weather risk?",
-    "Help me understand a crop problem.",
-    "Find a relevant government scheme."
-  ],
   hi: [
     "मैं अपनी फसल कहाँ बेचूँ?",
     "मेरा अनुमानित मुनाफा कैलकुलेट करें।",
@@ -85,6 +76,15 @@ const SUGGESTED_QUERIES = {
     "હવામાનનું જોખમ શું છે?",
     "પાકના રોગ અને સમસ્યા વિશે જણાવો.",
     "મારા માટે યોગ્ય સરકારી યોજના શોધો."
+  ],
+  en: [
+    "Where should I sell my crop?",
+    "Calculate my estimated profit.",
+    "Find transport for my harvest.",
+    "Check my booking status.",
+    "What is the weather risk?",
+    "Help me understand a crop problem.",
+    "Find a relevant government scheme."
   ]
 };
 

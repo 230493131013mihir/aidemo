@@ -267,25 +267,27 @@ export default function ChatInput({
           style={{ minHeight: '38px' }}
         />
 
-        {/* Microphone Button */}
-        <button
-          type="button"
-          onClick={handleStartVoice}
-          disabled={isLoading}
-          className={`p-2.5 rounded-lg flex items-center justify-center transition-all ${
-            isListening
-              ? 'bg-red-600 text-white animate-bounce shadow-md hover:bg-red-700'
-              : 'text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 active:scale-95'
-          }`}
-          aria-label={isListening ? labels.stopListening : labels.speak}
-          title={isListening ? labels.stopListening : labels.speak}
-        >
-          {isListening ? (
-            <MicOff className="w-5 h-5 text-white" />
-          ) : (
-            <Mic className="w-5 h-5 text-emerald-700" />
-          )}
-        </button>
+        {/* Microphone Button (only when speech recognition is implemented and supported) */}
+        {isSttSupported && (
+          <button
+            type="button"
+            onClick={handleStartVoice}
+            disabled={isLoading}
+            className={`p-2.5 rounded-xl flex items-center justify-center transition-all ${
+              isListening
+                ? 'bg-red-600 text-white animate-bounce shadow-md hover:bg-red-700'
+                : 'text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 active:scale-95'
+            }`}
+            aria-label={isListening ? labels.stopListening : labels.speak}
+            title={isListening ? labels.stopListening : labels.speak}
+          >
+            {isListening ? (
+              <MicOff className="w-5 h-5 text-white" />
+            ) : (
+              <Mic className="w-5 h-5 text-emerald-700" />
+            )}
+          </button>
+        )}
 
         {/* Send Button */}
         <button
