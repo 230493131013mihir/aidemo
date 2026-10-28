@@ -1251,6 +1251,213 @@ async function getOrdersHistory(req, res) {
   }
 }
 
+// List all registered FPOs for farmers to discover and apply
+async function listAllFPOs(req, res) {
+  try {
+    const fpoUsers = await User.findAll({
+      where: { role: { [Op.in]: ["fpo_leader", "fpo"] } },
+      attributes: ["id", "name", "phone", "email"],
+      include: [{ model: FarmerProfile }]
+    });
+
+    const result = fpoUsers.map(u => {
+      const p = u.FarmerProfile || {};
+      return {
+        id: u.id,
+        name: p.fpoName || u.name || "Kisan Samruddhi FPO",
+        registrationNumber: p.fpoRegistrationNumber || `FPO-MH-${u.id + 2000}`,
+        district: p.district || "Pune",
+        state: p.state || "Maharashtra",
+        totalAcres: Number(p.farmSizeAcres) || 45.0,
+        memberCount: p.memberFarmerCount || 45,
+        mainCrops: p.mainCrop || "Vegetables, Pulses, Grains"
+      };
+    });
+
+    return res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    console.error("[FPO Controller] listAllFPOs error:", err);
+    return res.status(500).json({ success: false, message: "Unable to load FPO directory" });
+  }
+}
+
+// Farmer applies to join an FPO
+async function farmerRequestMembership(req, res) {
+  try {
+    const farmerId = req.user.id;
+    const { fpoId, notes } = req.body;
+
+    if (!fpoId) {
+      return res.status(400).json({ success: false, message: "fpoId is required" });
+    }
+
+    const fpo = await User.findOne({
+      where: { id: Number(fpoId), role: { [Op.in]: ["fpo_leader", "fpo"] } }
+    });
+
+    if (!fpo) {
+      return res.status(404).json({ success: false, message: "Selected FPO was not found." });
+    }
+
+    // Check existing membership or pending request
+    const existing = await FpoMembership.findOne({
+      where: { fpoId: fpo.id, farmerId }
+    });
+
+    if (existing) {
+      if (existing.status === "active") {
+        return res.status(409).json({ success: false, message: `You are already an active member of ${fpo.name}.` });
+      }
+      if (existing.status === "pending") {
+        return res.status(409).json({ success: false, message: `Your membership application to ${fpo.name} is already under review.` });
+      }
+      // Re-apply if previously rejected
+      existing.status = "pending";
+      existing.invitedBy = "farmer";
+      existing.notes = notes || "Re-applied for membership.";
+      await existing.save();
+      return res.status(200).json({
+        success: true,
+        message: `Membership application resubmitted to ${fpo.name}! Status: PENDING.`,
+        data: existing
+      });
+    }
+
+    const membership = await FpoMembership.create({
+      fpoId: fpo.id,
+      farmerId,
+      status: "pending",
+      invitedBy: "farmer",
+      consentShareCrops: true,
+      consentShareContact: true,
+      notes: notes || "Farmer submitted online membership request."
+    });
+
+    // Notify FPO via ContactRequest persistent log
+    await ContactRequest.create({
+      senderId: farmerId,
+      senderName: req.user.name || "Registered Farmer",
+      senderRole: "farmer",
+      receiverId: fpo.id,
+      receiverName: fpo.name,
+      receiverRole: "fpo_leader",
+      cropName: req.user.FarmerProfile?.mainCrop || "All Crops",
+      quantityKg: req.user.FarmerProfile?.currentHarvestKg || 500,
+      proposedPricePerKg: 0,
+      message: `📝 Farmer ${req.user.name} submitted a new membership request to join your FPO.`,
+      status: "pending",
+      contactType: "farmer_to_fpo"
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: `Membership application sent to ${fpo.name}! Status: PENDING approval by FPO management.`,
+      data: membership
+    });
+  } catch (err) {
+    console.error("[FPO Controller] farmerRequestMembership error:", err);
+    return res.status(500).json({ success: false, message: "Unable to submit membership application" });
+  }
+}
+
+// Farmer gets their current FPO membership status
+async function getFarmerMembershipStatus(req, res) {
+  try {
+    const farmerId = req.user.id;
+    const memberships = await FpoMembership.findAll({
+      where: { farmerId },
+      include: [{
+        model: User,
+        as: "Fpo",
+        attributes: ["id", "name", "phone", "email"],
+        include: [{ model: FarmerProfile }]
+      }],
+      order: [["updatedAt", "DESC"]]
+    });
+
+    const formatted = memberships.map(m => {
+      const f = m.Fpo || {};
+      const fp = f.FarmerProfile || {};
+      return {
+        id: m.id,
+        fpoId: m.fpoId,
+        fpoName: fp.fpoName || f.name || "Kisan Samruddhi FPO",
+        fpoPhone: f.phone,
+        district: fp.district || "Pune",
+        state: fp.state || "Maharashtra",
+        status: m.status, // 'pending' | 'active' | 'rejected'
+        invitedBy: m.invitedBy,
+        joinedAt: m.joinedAt || m.createdAt,
+        updatedAt: m.updatedAt
+      };
+    });
+
+    return res.status(200).json({ success: true, data: formatted });
+  } catch (err) {
+    console.error("[FPO Controller] getFarmerMembershipStatus error:", err);
+    return res.status(500).json({ success: false, message: "Unable to load membership status" });
+  }
+}
+
+// FPO decides on incoming membership request (Accept or Reject)
+async function decideMembershipRequest(req, res) {
+  try {
+    const fpoId = req.user.id;
+    const { id } = req.params;
+    const { decision, reason } = req.body; // 'accept' or 'reject'
+
+    if (!decision || (decision !== "accept" && decision !== "reject")) {
+      return res.status(400).json({ success: false, message: "decision must be either 'accept' or 'reject'" });
+    }
+
+    const membership = await FpoMembership.findOne({
+      where: { id: Number(id), fpoId },
+      include: [{ model: User, as: "Farmer", attributes: ["id", "name"] }]
+    });
+
+    if (!membership) {
+      return res.status(404).json({ success: false, message: "Membership record not found." });
+    }
+
+    if (decision === "accept") {
+      membership.status = "active";
+      membership.joinedAt = new Date();
+      if (reason) membership.notes = reason;
+      await membership.save();
+
+      // Update ContactRequest if any
+      await ContactRequest.update(
+        { status: "accepted" },
+        { where: { senderId: membership.farmerId, receiverId: fpoId, contactType: "farmer_to_fpo" } }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: `Accepted membership for ${membership.Farmer?.name || 'Farmer'}! Member is now active.`,
+        data: membership
+      });
+    } else {
+      membership.status = "rejected";
+      if (reason) membership.notes = `Rejected: ${reason}`;
+      await membership.save();
+
+      await ContactRequest.update(
+        { status: "declined" },
+        { where: { senderId: membership.farmerId, receiverId: fpoId, contactType: "farmer_to_fpo" } }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: `Membership application for ${membership.Farmer?.name || 'Farmer'} has been rejected.`,
+        data: membership
+      });
+    }
+  } catch (err) {
+    console.error("[FPO Controller] decideMembershipRequest error:", err);
+    return res.status(500).json({ success: false, message: "Unable to process membership decision" });
+  }
+}
+
 module.exports = {
   getOverview,
   listMembers,
@@ -1266,5 +1473,9 @@ module.exports = {
   mandiQuoteOffer,
   fpoDecideQuotation,
   requestCollectiveTransport,
-  getOrdersHistory
+  getOrdersHistory,
+  listAllFPOs,
+  farmerRequestMembership,
+  getFarmerMembershipStatus,
+  decideMembershipRequest
 };

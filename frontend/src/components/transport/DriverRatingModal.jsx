@@ -11,6 +11,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { API_BASE_URL } from '../../config/apiConfig';
 
 const STAR_LABELS = {
   1: 'Poor — Cargo mishandled or severe delays',
@@ -58,7 +59,6 @@ export default function DriverRatingModal({ isOpen, booking, onClose, onReviewSu
   async function handleSubmitReview() {
     setSubmitting(true);
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
       const token = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('harvestmitra_token')) ||
                     (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('token')) ||
                     (typeof localStorage !== 'undefined' && localStorage.getItem('harvestmitra_token')) ||

@@ -28,7 +28,14 @@ import {
   ClipboardList,
   Stethoscope,
   HelpCircle,
-  FolderOpen
+  FolderOpen,
+  Compass,
+  FileCheck2,
+  CalendarCheck,
+  BookOpen,
+  Globe2,
+  Building2,
+  LifeBuoy
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -45,18 +52,9 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
   const isAdmin = user?.role === 'admin';
   const isTransporter = user?.role === 'transporter';
   const isFpo = user?.role === 'fpo_leader' || user?.role === 'fpo';
-  const displayName = user?.name || (isAdmin ? 'Admin' : isMandi ? 'Mandi Official' : isTransporter ? 'Transporter' : isFpo ? 'FPO Leader' : 'Farmer');
+  const isFarmer = !isMandi && !isAdmin && !isTransporter && !isFpo;
 
-  const roleName =
-    isAdmin
-      ? 'Administrator'
-      : isMandi
-      ? 'APMC Mandi Official'
-      : isTransporter
-      ? 'Transporter'
-      : isFpo
-      ? 'FPO Leader'
-      : 'Farmer';
+  const displayName = user?.name || (isAdmin ? 'Admin' : isMandi ? 'Mandi Official' : isTransporter ? 'Transporter' : isFpo ? 'FPO Leader' : 'Farmer');
 
   const userRoleSubtitle =
     isAdmin
@@ -255,10 +253,29 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
     { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' }
   ];
 
-  const handleLinkClick = () => {
-    if (onClose) {
-      onClose();
+  // Mandi Navigation
+  const mandiItems = [
+    { to: '/dashboard', label: t('nav.mandiDashboard', 'Mandi Dashboard'), icon: LayoutDashboard },
+    { to: '/dashboard?tab=listings', label: t('nav.incomingListings', 'Incoming Crop Listings'), icon: Sprout },
+    { to: '/dashboard?tab=bookings', label: t('nav.procurementBookings', 'Procurement & Bookings'), icon: Scale },
+    { to: '/markets', label: t('nav.liveApmcRates', 'Live APMC Rates'), icon: TrendingUp },
+    { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' }
+  ];
+
+  // Admin Navigation
+  const adminItems = [
+    { to: '/admin', label: t('nav.adminControlCenter', 'Admin Control Center'), icon: Shield, badge: 'Gov' },
+    { to: '/markets', label: t('nav.markets', 'Mandi Prices'), icon: TrendingUp },
+    { to: '/schemes', label: t('nav.schemes', 'Govt Schemes'), icon: Landmark, badge: 'New' },
+    { to: '/chat', label: t('nav.chat', 'Mitra Assistant'), icon: Bot, badge: 'AI' }
+  ];
+
+  const isItemActive = (to) => {
+    const [path, search] = to.split('?');
+    if (search) {
+      return location.pathname === path && location.search.includes(search);
     }
+    return location.pathname === path && !location.search;
   };
 
   const renderSidebarContent = (isMobileDrawer = false) => (
@@ -519,7 +536,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
               to="/profile"
               onClick={handleLinkClick}
               className={({ isActive }) =>
-                `flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all group ${
+`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all group ${
                   isActive
                     ? 'bg-primary text-white shadow-xs font-extrabold'
                     : 'text-text hover:bg-emerald-50/90 hover:text-primary'
@@ -554,7 +571,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
                 <NavLink
                   to="/login"
                   onClick={handleLinkClick}
-                  className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold text-text hover:bg-emerald-50 hover:text-primary transition-all"
+className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold text-text hover:bg-emerald-50 hover:text-primary transition-all"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <User className="w-5 h-5 shrink-0" />
@@ -565,7 +582,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
                 <NavLink
                   to="/register"
                   onClick={handleLinkClick}
-                  className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold text-text hover:bg-emerald-50 hover:text-primary transition-all"
+className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold text-text hover:bg-emerald-50 hover:text-primary transition-all"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <UserPlus className="w-5 h-5 shrink-0" />
@@ -596,10 +613,10 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
 
   return (
     <>
-      {/* 1. Desktop Static Sidebar (Always visible on lg screens and up) */}
+      {/* 1. Desktop Static Sidebar (Always visible on lg screens and up, width w-72 for readable typography) */}
       <aside 
         id="dashboard-sidebar-desktop"
-        className={`hidden lg:flex w-64 shrink-0 self-start ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-surface border-border'} border-r h-[calc(100vh-4rem)] flex-col sticky top-16 z-20 overflow-y-auto overflow-x-hidden min-h-0 p-4 sidebar-scroll overscroll-contain touch-pan-y ${className}`}
+        className={`hidden lg:flex w-72 shrink-0 self-start ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-surface border-border'} border-r h-[calc(100vh-4rem)] flex-col sticky top-16 z-20 overflow-y-auto overflow-x-hidden min-h-0 p-4 sidebar-scroll overscroll-contain touch-pan-y ${className}`}
         aria-label="Dashboard desktop sidebar navigation"
       >
         {renderSidebarContent(false)}
@@ -608,14 +625,12 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
       {/* 2. Responsive Mobile / Tablet Off-Canvas Drawer (< lg) */}
       {isOpen && (
         <>
-          {/* Backdrop Overlay */}
           <div 
             className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 lg:hidden transition-opacity"
             onClick={onClose}
             aria-hidden="true"
           />
 
-          {/* Off-canvas Sliding Drawer */}
           <aside 
             id="dashboard-sidebar-mobile"
             className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] ${isDark ? 'bg-slate-900 text-white' : 'bg-white'} shadow-2xl flex flex-col p-4 overflow-y-auto overflow-x-hidden min-h-0 sidebar-scroll overscroll-contain touch-pan-y lg:hidden animate-in slide-in-from-left duration-200`}

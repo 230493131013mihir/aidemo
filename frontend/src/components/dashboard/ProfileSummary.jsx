@@ -24,10 +24,10 @@ export default function ProfileSummary() {
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                APMC Mandi & Crop Explorer
+                {t('profileExtra.guestModeTitle', 'APMC Mandi & Crop Explorer')}
               </h2>
               <p className="text-xs text-slate-600 font-medium">
-                Live wholesale price discovery, weather radar, and profit simulation
+                {t('profileExtra.guestModeSubtitle', 'Live wholesale price discovery, weather radar, and profit simulation')}
               </p>
             </div>
           </div>
@@ -36,18 +36,18 @@ export default function ProfileSummary() {
               to="/login"
               className="px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-800 border border-slate-300 hover:bg-slate-50 transition-colors shadow-2xs"
             >
-              Login
+              {t('nav.farmerLogin', 'Login')}
             </Link>
             <Link
               to="/register"
               className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:bg-emerald-700 transition-colors shadow-xs"
             >
-              Register Farm
+              {t('nav.createAccount', 'Register Farm')}
             </Link>
           </div>
         </div>
         <p className="text-xs text-slate-600 bg-emerald-50/80 p-3 rounded-xl border border-emerald-200/60">
-          💡 You are browsing in read-only guest mode. You can view all live APMC prices and calculate market spreads. To save your own farm land acreage, manage multi-crop harvest inventory, or book shared transport, please log in or register.
+          {t('profileExtra.guestModeNotice', '💡 You are browsing in read-only guest mode. You can view all live APMC prices and calculate market spreads. To save your own farm land acreage, manage multi-crop harvest inventory, or book shared transport, please log in or register.')}
         </p>
       </div>
     );
@@ -56,16 +56,18 @@ export default function ProfileSummary() {
   const profile = user?.FarmerProfile;
   const farmerName = user?.name || 'Registered Farmer';
 
+  const notSetText = t('profileExtra.notSet', 'Not set');
+
   const location = profile?.district
     ? `${profile.district}${profile.state ? `, ${profile.state}` : ''}`
-    : 'Not set';
+    : notSetText;
 
   const farmSize = profile?.farmSizeAcres
-    ? `${profile.farmSizeAcres} Acres`
-    : 'Not set';
+    ? `${profile.farmSizeAcres} ${t('common.acres', 'Acres')}`
+    : notSetText;
 
-  const mainCrop = profile?.mainCrop || 'Not set';
-  const cropsList = mainCrop !== 'Not set'
+  const mainCrop = profile?.mainCrop || notSetText;
+  const cropsList = mainCrop !== notSetText
     ? mainCrop.split(',').map(c => c.trim()).filter(Boolean)
     : [];
 
@@ -92,7 +94,7 @@ export default function ProfileSummary() {
   const totalHarvestKg = cropBreakdown.reduce((sum, c) => sum + c.qty, 0);
   const currentHarvest = cropBreakdown.length > 0
     ? cropBreakdown.map(c => `${c.crop}: ${c.qty} kg`).join(' • ')
-    : profile?.currentHarvestKg ? `${profile.currentHarvestKg} kg` : 'Not set';
+    : profile?.currentHarvestKg ? `${profile.currentHarvestKg} kg` : notSetText;
 
   const languageLabel = profile?.preferredLanguage === 'gu'
     ? 'Gujarati (ગુજરાતી)'
@@ -104,19 +106,19 @@ export default function ProfileSummary() {
 
   const profileItems = [
     {
-      label: 'Location',
+      label: t('profileExtra.locationLabel', 'Location'),
       value: location,
       icon: MapPin,
       color: 'text-rose-600 bg-rose-50 border-rose-200',
     },
     {
-      label: profile?.mainCrop?.includes(',') ? 'Crops' : 'Main Crop',
+      label: profile?.mainCrop?.includes(',') ? t('profileExtra.cropsLabel', 'Crops') : t('profileExtra.mainCropLabel', 'Main Crop'),
       value: mainCrop,
       icon: Sprout,
       color: 'text-primary bg-primary-50 border-primary/20',
     },
     {
-      label: cropBreakdown.length > 1 ? 'Harvest per Crop' : 'Harvest Ready',
+      label: cropBreakdown.length > 1 ? t('profileExtra.harvestPerCropLabel', 'Harvest per Crop') : t('profileExtra.harvestReadyLabel', 'Harvest Ready'),
       value: currentHarvest,
       subValue: cropBreakdown.length > 1 ? `Total: ${totalHarvestKg} kg` : null,
       breakdown: cropBreakdown,
@@ -124,13 +126,13 @@ export default function ProfileSummary() {
       color: 'text-amber-700 bg-amber-50 border-amber-200',
     },
     {
-      label: 'Farm Size',
+      label: t('profileExtra.farmSizeLabel', 'Farm Size'),
       value: farmSize,
       icon: Layers,
       color: 'text-blue-700 bg-blue-50 border-blue-200',
     },
     {
-      label: 'Language',
+      label: t('profileExtra.languageLabel', 'Language'),
       value: languageLabel,
       icon: Globe,
       color: 'text-emerald-700 bg-emerald-50 border-emerald-200',
@@ -166,14 +168,14 @@ export default function ProfileSummary() {
         <div className="flex items-center gap-2">
           <span className="badge-tag text-xs bg-emerald-100/70 text-emerald-900 border border-emerald-300/80 font-bold flex items-center gap-1.5 shadow-2xs">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Verified Farmer Profile</span>
+            <span>{t('profileExtra.verifiedFarmerBadge', 'Verified Farmer Profile')}</span>
           </span>
           <Link
             to="/profile"
             className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:text-primary-dark transition-all px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-50 border border-primary/25 shadow-2xs"
           >
             <Edit3 className="w-3.5 h-3.5" />
-            <span>Edit Profile</span>
+            <span>{t('profileExtra.editProfileLink', 'Edit Profile')}</span>
           </Link>
         </div>
       </div>

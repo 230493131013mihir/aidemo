@@ -59,7 +59,10 @@ function makeRequest({ method = 'GET', path = '/', body = null, headers = {} }) 
 async function runApiTests() {
   console.log('\n======================================================');
   console.log('📡 HarvestMitra AI - Market & Weather API Integration Tests');
-  console.log('======================================================\n');
+  const sequelize = require('../config/database');
+  const seed = require('../seed');
+  await sequelize.sync();
+  try { await seed(); } catch (_) {}
 
   // 1. GET /api/markets
   const marketsRes = await makeRequest({ path: '/api/markets' });

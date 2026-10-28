@@ -16,6 +16,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import LanguageSelector from '../common/LanguageSelector';
+import { API_BASE_URL } from '../../config/apiConfig';
 // Note: ThemeToggle component is maintained in Sidebar.jsx (Issue #176)
 
 export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
@@ -57,7 +58,7 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen = false }) {
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== 'farmer') return;
-    const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+    const API_BASE = API_BASE_URL;
     async function checkBookings() {
       try {
         const token = sessionStorage.getItem('harvestmitra_token') || localStorage.getItem('harvestmitra_token');

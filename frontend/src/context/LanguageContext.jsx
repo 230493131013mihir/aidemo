@@ -57,33 +57,50 @@ export function LanguageProvider({ children }) {
     }
   }, []);
 
-  // Translation lookup with safe fallback chain
-  const t = useCallback((key, fallback) => {
+  // Translation lookup with safe fallback chain and parameter interpolation
+  const t = useCallback((key, fallback, params) => {
     if (!key) return '';
 
+    let effectiveFallback = fallback;
+    let effectiveParams = params;
+    if (typeof fallback === 'object' && fallback !== null && params === undefined) {
+      effectiveParams = fallback;
+      effectiveFallback = undefined;
+    }
+
+    let text;
     // 1. Check current language
     const currentDict = TRANSLATIONS[language] || TRANSLATIONS[DEFAULT_LANGUAGE];
     const value = resolveKey(currentDict, key);
     if (value !== undefined) {
-      return value;
-    }
-
-    // 2. Safe fallback to English dictionary
-    if (language !== DEFAULT_LANGUAGE) {
+      text = value;
+    } else if (language !== DEFAULT_LANGUAGE) {
+      // 2. Safe fallback to English dictionary
       const enValue = resolveKey(TRANSLATIONS[DEFAULT_LANGUAGE], key);
       if (enValue !== undefined) {
-        return enValue;
+        text = enValue;
       }
     }
 
-    // 3. Fallback parameter or readable fallback
-    if (fallback !== undefined) {
-      return fallback;
+    if (text === undefined) {
+      // 3. Fallback parameter or readable fallback
+      if (effectiveFallback !== undefined) {
+        text = effectiveFallback;
+      } else {
+        const lastKeySegment = key.split('.').pop() || key;
+        text = lastKeySegment.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
+      }
     }
 
-    // 4. Return formatted key segment instead of crashing
-    const lastKeySegment = key.split('.').pop() || key;
-    return lastKeySegment.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
+    // 4. Interpolate template parameters (e.g. {weight}, {crop}, {amount}, {fare})
+    if (effectiveParams && typeof effectiveParams === 'object') {
+      text = String(text);
+      for (const [k, v] of Object.entries(effectiveParams)) {
+        text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), v !== undefined && v !== null ? v : '');
+      }
+    }
+
+    return text;
   }, [language]);
 
   const value = useMemo(() => ({

@@ -22,7 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import apiClient from '../../services/apiClient';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+import { API_BASE_URL } from '../../config/apiConfig';
 
 export default function FpoDashboardPage() {
   const { user } = useAuth();
@@ -89,23 +89,29 @@ export default function FpoDashboardPage() {
   const fpo = data.fpo || {};
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto py-6 px-4">
-      {/* FPO Header Banner — Green / Purple Cooperative Identity */}
-      <section className="rounded-3xl border border-purple-500/30 bg-gradient-to-br from-emerald-950 via-slate-900 to-purple-950/80 text-white p-6 sm:p-8 shadow-xl relative overflow-hidden animate-fade-slide-up">
+    <div className="space-y-6 w-full max-w-full 2xl:max-w-[1720px] mx-auto py-4 sm:py-6 px-2 sm:px-4">
+      {/* FPO Header Banner — Green / Purple Cooperative Identity with Photographic Backdrop */}
+      <section className="rounded-3xl border border-purple-500/30 text-white p-6 sm:p-8 shadow-xl relative overflow-hidden animate-fade-slide-up">
+        <div 
+          className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
+          style={{ backgroundImage: `url('/images/harvest-hero.jpg')` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/95 via-slate-900/90 to-purple-950/85 backdrop-blur-[1px]" />
         <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+        
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-xs font-bold uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
               <ShieldCheck className="w-4 h-4 text-purple-300" />
               <span>Certified Farmer Producer Organization</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-sm">
+            <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-white drop-shadow-md">
               {fpo.name || user?.name || 'Kisan Samruddhi FPO'}
             </h1>
             <p className="text-xs sm:text-sm text-purple-100 font-medium leading-relaxed drop-shadow-xs">
               Aggregate farmer member yields, coordinate bulk transport, and maximize returns.
             </p>
-            <p className="text-xs text-emerald-200/80 max-w-2xl leading-relaxed">
+            <p className="text-xs sm:text-sm text-emerald-200/90 max-w-2xl leading-relaxed drop-shadow-sm">
               Agristack Registration: <span className="font-mono font-bold text-white">{fpo.registrationNumber}</span> • Operational Jurisdiction: <span className="font-semibold text-white">{fpo.district}, {fpo.state}</span> • Member Landholdings: <span className="font-semibold text-white">{fpo.collectiveAcres} Acres</span>
             </p>
           </div>

@@ -37,7 +37,7 @@ import { useToast } from '../context/ToastContext';
 import { getTimeGreeting } from '../utils/greeting';
 import apiClient from '../services/apiClient';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+import { API_BASE_URL } from '../config/apiConfig';
 
 function authHeaders(token) {
   return { 
@@ -106,6 +106,15 @@ export default function AdminPage() {
   const [auditLogs, setAuditLogs] = useState([]);
   const [auditPage, setAuditPage] = useState(1);
   const [auditSearchQuery, setAuditSearchQuery] = useState('');
+
+  // Fleet & Vehicles (PART 7 & 17)
+  const [vehicles, setVehicles] = useState([]);
+  const [vehicleMetrics, setVehicleMetrics] = useState(null);
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
+  const [vehicleRegQuery, setVehicleRegQuery] = useState('');
+  const [vehicleTypeFilter, setVehicleTypeFilter] = useState('');
+  const [vehicleAvailFilter, setVehicleAvailFilter] = useState('all');
+  const [vehiclePage, setVehiclePage] = useState(1);
 
   const [isSchemeModalOpen, setIsSchemeModalOpen] = useState(false);
   const [schemeFormSubmitting, setSchemeFormSubmitting] = useState(false);
@@ -187,7 +196,7 @@ export default function AdminPage() {
     setError('');
 
     try {
-      const [summaryRes, usersRes, pricesRes, marketsRes, cropsRes, transportRes, schemesRes, auditRes] = await Promise.all([
+      const [summaryRes, usersRes, pricesRes, marketsRes, cropsRes, transportRes, schemesRes, auditRes, metricsRes, vehiclesRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/admin/overview`, { headers: authHeaders(activeToken) }),
         fetch(`${API_BASE_URL}/api/admin/users`, { headers: authHeaders(activeToken) }),
         fetch(`${API_BASE_URL}/api/admin/market-prices`, { headers: authHeaders(activeToken) }),
@@ -196,9 +205,11 @@ export default function AdminPage() {
         fetch(`${API_BASE_URL}/api/transport/requests`, { headers: authHeaders(activeToken) }).catch(() => null),
         fetch(`${API_BASE_URL}/api/schemes`, { headers: authHeaders(activeToken) }).catch(() => null),
         fetch(`${API_BASE_URL}/api/admin/audit-logs`, { headers: authHeaders(activeToken) }).catch(() => null),
+        fetch(`${API_BASE_URL}/api/admin/vehicle-metrics`, { headers: authHeaders(activeToken) }).catch(() => null),
+        fetch(`${API_BASE_URL}/api/admin/vehicles`, { headers: authHeaders(activeToken) }).catch(() => null),
       ]);
 
-      const [summaryPayload, usersPayload, pricesPayload, marketsPayload, cropsPayload, transportPayload, schemesPayload, auditPayload] = await Promise.all([
+      const [summaryPayload, usersPayload, pricesPayload, marketsPayload, cropsPayload, transportPayload, schemesPayload, auditPayload, metricsPayload, vehiclesPayload] = await Promise.all([
         summaryRes.json(),
         usersRes.json(),
         pricesRes.json(),
@@ -207,6 +218,8 @@ export default function AdminPage() {
         transportRes ? transportRes.json().catch(() => ({ success: true, data: [] })) : { success: true, data: [] },
         schemesRes ? schemesRes.json().catch(() => ({ success: true, data: [] })) : { success: true, data: [] },
         auditRes ? auditRes.json().catch(() => ({ success: true, data: [] })) : { success: true, data: [] },
+        metricsRes ? metricsRes.json().catch(() => ({ success: true, data: null })) : { success: true, data: null },
+        vehiclesRes ? vehiclesRes.json().catch(() => ({ success: true, data: [] })) : { success: true, data: [] },
       ]);
 
       if (!summaryPayload.success || !usersPayload.success || !pricesPayload.success) {
@@ -219,6 +232,12 @@ export default function AdminPage() {
       setMarkets(marketsPayload.data || []);
       setCrops(cropsPayload.data || []);
       setTransports(transportPayload?.data || []);
+      if (metricsPayload?.success && metricsPayload.data) {
+        setVehicleMetrics(metricsPayload.data);
+      }
+      if (vehiclesPayload?.success && Array.isArray(vehiclesPayload.data)) {
+        setVehicles(vehiclesPayload.data);
+      }
       if (schemesPayload?.success && Array.isArray(schemesPayload.data)) {
         setSchemes(schemesPayload.data);
       }
@@ -753,7 +772,7 @@ export default function AdminPage() {
   ];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto py-6 px-4">
+    <div className="space-y-6 w-full max-w-full 2xl:max-w-[1720px] mx-auto py-4 sm:py-6 px-2 sm:px-4">
       {/* Admin Header with Navy / Slate Operations Identity */}
       <section className="rounded-3xl border border-slate-700/60 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white p-6 sm:p-8 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-slide-up">
         <div>
@@ -1040,6 +1059,22 @@ export default function AdminPage() {
               <span>Government Schemes & Subsidies</span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono font-bold">
                 {schemes.length || 10}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('vehicles')}
+              className={`pb-3 flex items-center gap-2 border-b-2 transition-all ${
+                activeTab === 'vehicles'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted hover:text-text'
+              }`}
+            >
+              <Truck className="w-4 h-4 text-cyan-600" />
+              <span>Fleet & Vehicle Registry</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 font-mono font-bold">
+                {vehicleMetrics?.totalRegisteredVehicles ?? vehicles.length}
               </span>
             </button>
 
@@ -2103,6 +2138,182 @@ export default function AdminPage() {
                   </div>
                 )}
               </section>
+            </div>
+          )}
+
+          {/* TAB 5: FLEET & VEHICLE MANAGEMENT (PART 7) */}
+          {activeTab === 'vehicles' && (
+            <div className="space-y-4">
+              {/* Accurate Operational Metrics Cards (Deduplicated Counts) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
+                <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Fleet</span>
+                  <span className="text-xl font-black text-slate-900 font-mono">
+                    {vehicleMetrics?.totalRegisteredVehicles ?? vehicles.length}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">Registered</span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 shadow-2xs">
+                  <span className="text-[10px] uppercase font-bold text-emerald-700 block">Available</span>
+                  <span className="text-xl font-black text-emerald-950 font-mono">
+                    {vehicleMetrics?.activeAndAvailableVehicles ?? 0}
+                  </span>
+                  <span className="text-[10px] text-emerald-700 font-bold block mt-0.5">Ready for Load</span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-blue-50 border border-blue-200 shadow-2xs">
+                  <span className="text-[10px] uppercase font-bold text-blue-700 block">Assigned / In Trip</span>
+                  <span className="text-xl font-black text-blue-950 font-mono">
+                    {vehicleMetrics?.vehiclesAssignedToActiveTrips ?? 0}
+                  </span>
+                  <span className="text-[10px] text-blue-700 font-bold block mt-0.5">On Highway</span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-100 border border-slate-200 shadow-2xs">
+                  <span className="text-[10px] uppercase font-bold text-slate-600 block">Unavailable</span>
+                  <span className="text-xl font-black text-slate-800 font-mono">
+                    {vehicleMetrics?.vehiclesUnavailable ?? 0}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">Off Duty / Maint</span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 shadow-2xs">
+                  <span className="text-[10px] uppercase font-bold text-amber-700 block">Trips In Progress</span>
+                  <span className="text-xl font-black text-amber-950 font-mono">
+                    {vehicleMetrics?.tripsInProgress ?? 0}
+                  </span>
+                  <span className="text-[10px] text-amber-700 font-bold block mt-0.5">Live Dispatches</span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-purple-50 border border-purple-200 shadow-2xs">
+                  <span className="text-[10px] uppercase font-bold text-purple-700 block">Completed Trips</span>
+                  <span className="text-xl font-black text-purple-950 font-mono">
+                    {vehicleMetrics?.completedTrips ?? 0}
+                  </span>
+                  <span className="text-[10px] text-purple-700 font-bold block mt-0.5">Delivered</span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-orange-50 border border-orange-200 shadow-2xs">
+                  <span className="text-[10px] uppercase font-bold text-orange-700 block">Pending Requests</span>
+                  <span className="text-xl font-black text-orange-950 font-mono">
+                    {vehicleMetrics?.pendingRequests ?? 0}
+                  </span>
+                  <span className="text-[10px] text-orange-700 font-bold block mt-0.5">Awaiting Transporter</span>
+                </div>
+              </div>
+
+              {/* Search & Filter Strip */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-border shadow-xs">
+                <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:w-64">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                    <input
+                      type="text"
+                      placeholder="Search Reg. No. or Transporter..."
+                      value={vehicleRegQuery}
+                      onChange={(e) => setVehicleRegQuery(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 rounded-xl text-xs border border-border focus:ring-1 focus:ring-primary focus:outline-none"
+                    />
+                  </div>
+
+                  <select
+                    value={vehicleTypeFilter}
+                    onChange={(e) => setVehicleTypeFilter(e.target.value)}
+                    className="px-3 py-2 rounded-xl text-xs border border-border focus:outline-none bg-white font-medium"
+                  >
+                    <option value="">All Vehicle Types</option>
+                    <option value="Bolero">Mahindra Bolero</option>
+                    <option value="Tata Ace">Tata Ace / Chhota Hathi</option>
+                    <option value="Pickup">Pickup 1.7T</option>
+                    <option value="Truck">Eicher / Medium Truck</option>
+                  </select>
+
+                  <select
+                    value={vehicleAvailFilter}
+                    onChange={(e) => setVehicleAvailFilter(e.target.value)}
+                    className="px-3 py-2 rounded-xl text-xs border border-border focus:outline-none bg-white font-medium"
+                  >
+                    <option value="all">All Availability</option>
+                    <option value="available">Available Only</option>
+                    <option value="busy">In Active Trip / Unavailable</option>
+                  </select>
+                </div>
+
+                <span className="text-xs text-muted font-mono shrink-0">
+                  Showing {vehicles.filter(v => {
+                    const matchQ = !vehicleRegQuery || 
+                      (v.registrationNumber || '').toLowerCase().includes(vehicleRegQuery.toLowerCase()) ||
+                      (v.transporter?.name || '').toLowerCase().includes(vehicleRegQuery.toLowerCase());
+                    const matchType = !vehicleTypeFilter || (v.vehicleType || '').toLowerCase().includes(vehicleTypeFilter.toLowerCase());
+                    const matchAvail = vehicleAvailFilter === 'all' || 
+                      (vehicleAvailFilter === 'available' && v.isAvailable) ||
+                      (vehicleAvailFilter === 'busy' && !v.isAvailable);
+                    return matchQ && matchType && matchAvail;
+                  }).length} Vehicles
+                </span>
+              </div>
+
+              {/* Vehicles Data Table */}
+              <div className="rounded-2xl border border-border bg-white shadow-xs overflow-hidden">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-border bg-slate-50/80 text-[11px] font-extrabold uppercase tracking-wider text-muted">
+                      <th className="px-4 py-3">Vehicle Details</th>
+                      <th className="px-4 py-3">Type & Capacity</th>
+                      <th className="px-4 py-3">Transporter</th>
+                      <th className="px-4 py-3">Base Location & Routes</th>
+                      <th className="px-4 py-3">Rate / Km</th>
+                      <th className="px-4 py-3">Availability</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {vehicles.filter(v => {
+                      const matchQ = !vehicleRegQuery || 
+                        (v.registrationNumber || '').toLowerCase().includes(vehicleRegQuery.toLowerCase()) ||
+                        (v.transporter?.name || '').toLowerCase().includes(vehicleRegQuery.toLowerCase());
+                      const matchType = !vehicleTypeFilter || (v.vehicleType || '').toLowerCase().includes(vehicleTypeFilter.toLowerCase());
+                      const matchAvail = vehicleAvailFilter === 'all' || 
+                        (vehicleAvailFilter === 'available' && v.isAvailable) ||
+                        (vehicleAvailFilter === 'busy' && !v.isAvailable);
+                      return matchQ && matchType && matchAvail;
+                    }).map((v) => (
+                      <tr key={v.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 inline-block">
+                            {v.registrationNumber}
+                          </div>
+                          <div className="text-[10px] text-muted mt-0.5">ID: #{v.id}</div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="font-bold text-text">{v.vehicleType}</div>
+                          <div className="text-[11px] text-muted font-mono">{v.capacityKg} {v.capacityUnit || 'kg'}</div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="font-bold text-text">{v.transporter?.name || 'Transporter'}</div>
+                          <div className="text-[11px] text-muted font-mono">{v.transporter?.phone || 'Protected'}</div>
+                        </td>
+                        <td className="px-4 py-3 text-text max-w-xs truncate" title={v.supportedRoutes || v.baseLocation}>
+                          <div className="font-medium text-xs">{v.baseLocation || 'Pune'}</div>
+                          <div className="text-[10px] text-muted truncate">{v.supportedRoutes || 'Maharashtra Corridors'}</div>
+                        </td>
+                        <td className="px-4 py-3 font-mono font-bold text-slate-800 whitespace-nowrap">
+                          ₹{v.ratePerKm || 25} / km
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                            v.isAvailable 
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}>
+                            {v.isAvailable ? '🟢 Available' : '🟡 In Active Trip'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

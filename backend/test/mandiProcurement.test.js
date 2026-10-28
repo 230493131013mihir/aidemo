@@ -37,6 +37,8 @@ async function runTests() {
       mainCrop: 'Cotton',
       currentHarvestKg: 500
     });
+  } else {
+    await ContactRequest.destroy({ where: { receiverId: farmer.id } });
   }
 
   // Clean up prior test requests for this isolated test farmer so test runs are idempotent

@@ -5,6 +5,8 @@
  */
 
 const { findMatchingTransport, calculateSharedTransportCost } = require('../services/transportMatcher');
+const { TransportRequest, Vehicle } = require('../models');
+const { Op } = require('sequelize');
 
 // Realistic transport pools across Maharashtra APMC Mandis
 let transportPools = [
@@ -256,43 +258,93 @@ function handleBookPool(req, res) {
   }
 }
 
-// In-Memory Live Driver Telemetry State
-const liveDriverTelemetry = {
-  'MH-APMC-9421': {
-    passCode: 'MH-APMC-9421',
-    driverName: 'Dnyaneshwar Shinde',
-    driverPhone: '+91 98220 44120',
-    vehicleNumber: 'MH-12-RN-4120',
-    vehicleType: 'Tata 407 (Agri Freight)',
-    latitude: 19.6644,
-    longitude: 73.4735,
-    speedKmh: 58,
-    heading: 236,
-    checkpoint: 'Kasara Ghat Pass (NH-160)',
-    checkpointIndex: 3,
-    status: 'in_transit',
-    tarpSecured: true,
-    distanceCoveredKm: 54,
-    distanceRemainingKm: 94,
-    etaMinutes: 98,
-    lastUpdated: new Date().toISOString()
-  }
-};
+// In-Memory Live Driver Telemetry State (Updated via real driver phone GPS or IoT gateways)
+const liveDriverTelemetry = {};
 
 /**
  * GET /api/transport/telemetry/:passCode
  * Retrieve live GPS and telemetry for a specific gate pass / driver
  */
-function handleGetTelemetry(req, res) {
+async function handleGetTelemetry(req, res) {
   try {
-    const passCode = (req.params.passCode || req.query.passCode || 'MH-APMC-9421').trim();
-    const telemetry = liveDriverTelemetry[passCode] || liveDriverTelemetry['MH-APMC-9421'];
+    const rawPassCode = (req.params.passCode || req.query.passCode || '').trim();
+    if (!rawPassCode) {
+      return res.status(400).json({ success: false, message: 'Passcode or Booking ID is required' });
+    }
+
+    // Check if live telemetry coordinates have been posted for this passCode
+    const liveCoords = liveDriverTelemetry[rawPassCode] || null;
+
+    // Look up the actual booking in MySQL by gatePassCode, bookingId, or PK id
+    let booking = null;
+    try {
+      const isNumeric = /^\d+$/.test(rawPassCode);
+      const orClauses = [
+        { gatePassCode: rawPassCode },
+        { bookingId: rawPassCode }
+      ];
+      if (isNumeric) {
+        orClauses.push({ id: Number(rawPassCode) });
+      }
+
+      booking = await TransportRequest.findOne({
+        where: { [Op.or]: orClauses },
+        include: [{ model: Vehicle, required: false }]
+      });
+    } catch (dbErr) {
+      console.warn('[Telemetry] DB lookup warning:', dbErr.message);
+    }
+
+    if (!booking && !liveCoords) {
+      return res.status(404).json({
+        success: false,
+        message: `No active transport booking or telemetry found for pass code: ${rawPassCode}`
+      });
+    }
+
+    const hasLiveGps = Boolean(liveCoords && liveCoords.latitude && liveCoords.longitude && !liveCoords.isSimulated);
+    const lastGpsTime = liveCoords ? liveCoords.lastUpdated : null;
+
+    const resolvedDriverName = booking
+      ? (booking.driverName || booking.Vehicle?.driverName || null)
+      : (liveCoords?.driverName || null);
+
+    const resolvedDriverPhone = booking
+      ? (booking.driverPhone || booking.Vehicle?.driverPhone || null)
+      : (liveCoords?.driverPhone || null);
+
+    const resolvedVehicleNumber = booking
+      ? (booking.vehicleNumber || booking.Vehicle?.registrationNumber || null)
+      : (liveCoords?.vehicleNumber || null);
+
+    const resolvedVehicleType = booking
+      ? (booking.vehicleType || booking.Vehicle?.vehicleType || null)
+      : (liveCoords?.vehicleType || null);
+
+    const tripStatus = booking ? booking.status : (liveCoords?.status || 'pending');
 
     return res.json({
       success: true,
       telemetry: {
-        ...telemetry,
-        lastUpdated: telemetry.lastUpdated || new Date().toISOString()
+        passCode: rawPassCode,
+        bookingId: booking?.id || booking?.bookingId || rawPassCode,
+        driverName: resolvedDriverName || 'Driver not assigned yet',
+        driverPhone: resolvedDriverPhone,
+        vehicleNumber: resolvedVehicleNumber || 'Vehicle not assigned yet',
+        vehicleType: resolvedVehicleType || 'Commercial Freight Vehicle',
+        status: tripStatus,
+        pickupLocation: booking?.pickupLocation || liveCoords?.pickupLocation || null,
+        destinationMarket: booking?.destinationMarket || liveCoords?.destinationMarket || null,
+        hasLiveGps,
+        isSimulated: !hasLiveGps,
+        latitude: liveCoords?.latitude || null,
+        longitude: liveCoords?.longitude || null,
+        speedKmh: hasLiveGps ? (liveCoords?.speedKmh ?? 0) : 0,
+        heading: hasLiveGps ? (liveCoords?.heading ?? 0) : 0,
+        checkpoint: liveCoords?.checkpoint || null,
+        distanceRemainingKm: liveCoords?.distanceRemainingKm !== undefined ? liveCoords.distanceRemainingKm : null,
+        etaMinutes: booking?.estimatedDurationMinutes || liveCoords?.etaMinutes || null,
+        lastUpdated: lastGpsTime || new Date().toISOString()
       }
     });
   } catch (err) {
