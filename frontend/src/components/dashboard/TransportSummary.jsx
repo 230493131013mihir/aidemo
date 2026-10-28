@@ -14,8 +14,9 @@ export default function TransportSummary() {
         className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
         style={{ backgroundImage: `url('/images/transport-hero.jpg')` }}
       />
-      {/* Dark Slate & Navy Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-900/85 to-blue-950/75 backdrop-blur-[0.5px]" />
+      {/* Dark Slate & Navy High-Contrast Gradient Overlay */}
+      <div className="absolute inset-0 bg-slate-950/80" />
+      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-900/90 to-blue-950/80 backdrop-blur-[0.5px]" />
       <div className="absolute inset-0 bg-radial-at-t from-blue-500/10 via-transparent to-black/40 pointer-events-none" />
 
       {/* Content Container */}
@@ -26,7 +27,7 @@ export default function TransportSummary() {
             <div className="p-2 rounded-xl bg-blue-500/20 text-blue-300 border border-blue-400/30 backdrop-blur-md">
               <Truck className="w-4 h-4" aria-hidden="true" />
             </div>
-            <h3 className="font-black text-base text-white">
+            <h3 className="font-black text-base text-white" style={{ color: '#FFFFFF' }}>
               {t('dashboard.transport.title')}
             </h3>
           </div>
@@ -51,7 +52,7 @@ export default function TransportSummary() {
             </div>
           </div>
 
-          <p className="text-[11px] text-slate-200 leading-relaxed font-medium">
+          <p className="text-[11px] leading-relaxed font-normal" style={{ color: '#F1F5F9' }}>
             Book transport and track your own confirmed requests in the Shared Transport section.
           </p>
         </div>

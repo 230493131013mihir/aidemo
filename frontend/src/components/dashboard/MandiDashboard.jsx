@@ -369,10 +369,16 @@ export default function MandiDashboard() {
             </div>
 
             <div>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
+              <h1 
+                className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3 drop-shadow-md"
+                style={{ color: '#FFFFFF' }}
+              >
                 {mandiName}
               </h1>
-              <p className="text-emerald-200/90 text-sm sm:text-base mt-1 flex items-center gap-2">
+              <p 
+                className="text-sm sm:text-base mt-1 flex items-center gap-2 font-medium drop-shadow-sm"
+                style={{ color: '#F1F5F9' }}
+              >
                 <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>{district} {t('mandi.marketYard', 'District APMC Market Yard')} • {state}</span>
               </p>

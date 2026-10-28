@@ -99,10 +99,16 @@ export default function FpoDashboardPage() {
               <ShieldCheck className="w-4 h-4" />
               <span>Certified Farmer Producer Organization</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+            <h1 
+              className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-md"
+              style={{ color: '#FFFFFF' }}
+            >
               {fpo.name || user?.name || 'Kisan Samruddhi FPO'}
             </h1>
-            <p className="text-xs sm:text-sm text-emerald-200/80 max-w-2xl leading-relaxed">
+            <p 
+              className="text-xs sm:text-sm max-w-2xl leading-relaxed font-normal drop-shadow-sm"
+              style={{ color: '#F1F5F9' }}
+            >
               Agristack Registration: <span className="font-mono font-bold text-white">{fpo.registrationNumber}</span> • Operational Jurisdiction: <span className="font-semibold text-white">{fpo.district}, {fpo.state}</span> • Member Landholdings: <span className="font-semibold text-white">{fpo.collectiveAcres} Acres</span>
             </p>
           </div>

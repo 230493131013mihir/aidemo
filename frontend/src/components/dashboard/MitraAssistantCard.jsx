@@ -13,7 +13,8 @@ export default function MitraAssistantCard() {
         className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
         style={{ backgroundImage: `url('/images/dashboard-hero.jpg')` }}
       />
-      {/* Emerald Glowing Gradient Overlay */}
+      {/* High-Contrast Dark Overlay & Emerald Glowing Gradient */}
+      <div className="absolute inset-0 bg-slate-950/80" />
       <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-emerald-950/85 to-teal-950/80 backdrop-blur-[0.5px]" />
       <div className="absolute inset-0 bg-radial-at-t from-emerald-400/20 via-transparent to-black/40 pointer-events-none" />
 
@@ -25,7 +26,7 @@ export default function MitraAssistantCard() {
             <div className="w-9 h-9 rounded-xl bg-emerald-500/25 text-emerald-300 flex items-center justify-center border border-emerald-400/35 backdrop-blur-md">
               <Bot className="w-5 h-5" aria-hidden="true" />
             </div>
-            <h3 className="font-black text-base text-white">
+            <h3 className="font-black text-base text-white" style={{ color: '#FFFFFF' }}>
               {t('dashboard.mitraAssistant.cardTitle')}
             </h3>
           </div>
@@ -37,10 +38,10 @@ export default function MitraAssistantCard() {
 
         {/* Body */}
         <div className="space-y-2">
-          <h4 className="font-extrabold text-sm sm:text-base text-white leading-snug">
+          <h4 className="font-extrabold text-sm sm:text-base text-white leading-snug drop-shadow-sm" style={{ color: '#FFFFFF' }}>
             {t('dashboard.mitraAssistant.promptTitle')}
           </h4>
-          <p className="text-xs text-slate-200 leading-relaxed font-medium">
+          <p className="text-xs leading-relaxed font-normal" style={{ color: '#F1F5F9' }}>
             Ask questions in Gujarati, Hindi, Marathi, or English about crop harvesting timing, pesticide remedies, or today&apos;s APMC mandi rates.
           </p>
         </div>

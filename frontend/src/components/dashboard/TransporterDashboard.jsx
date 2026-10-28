@@ -793,6 +793,7 @@ export default function TransporterDashboard() {
           className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
           style={{ backgroundImage: `url('/images/transport-hero.jpg')` }}
         />
+        <div className="absolute inset-0 bg-slate-950/80" />
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-900/90 to-emerald-950/80 backdrop-blur-[1px]" />
 
         <div className="relative z-10 p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -802,11 +803,17 @@ export default function TransporterDashboard() {
               <span>{t('transporter.headerBadge') || "Transporter Logistics & Shared Transport Hub"}</span>
             </div>
 
-            <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
+            <h1 
+              className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md"
+              style={{ color: '#FFFFFF' }}
+            >
               {t('transporter.headerTitle') || "Logistics Management Console"}
             </h1>
 
-            <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
+            <p 
+              className="text-xs sm:text-sm leading-relaxed drop-shadow-sm font-normal"
+              style={{ color: '#F1F5F9' }}
+            >
               {t('transporter.headerSubtitle') || "Manage agricultural cargo dispatch, group compatible farmer bookings into shared trips, assign fleet carriers, and track delivery progress across Maharashtra corridors."}
             </p>
           </div>
