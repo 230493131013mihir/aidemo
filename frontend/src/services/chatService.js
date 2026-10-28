@@ -102,6 +102,7 @@ export async function sendChatMessage({
       provider: data.provider || 'gemini',
       mode: data.mode || 'ai',
       message: data.message || data.reply || '',
+      actions: data.actions || [],
       metadata: data.metadata || {},
       source_disclaimer: data.source_disclaimer || ''
     };
@@ -137,6 +138,7 @@ export async function sendChatMessage({
             provider: data.provider || 'gemini',
             mode: data.mode || 'ai',
             message: data.message || data.reply || '',
+            actions: data.actions || [],
             metadata: data.metadata || {},
             source_disclaimer: data.source_disclaimer || ''
           };

@@ -89,11 +89,11 @@ export default function TransportPage() {
   const [vehicleForm, setVehicleForm] = useState({
     driverName: user?.name || '',
     phone: user?.phone || '',
-    vehicleType: 'Mahindra Bolero Maxi Truck',
-    vehicleNumber: 'MH-12-RN-4921',
-    capacityKg: '2200',
-    baseMandi: 'Pune APMC',
-    ratePerKm: '25',
+    vehicleType: user?.TransporterProfile?.vehicleType || 'Tata 407 Agri LCV',
+    vehicleNumber: user?.TransporterProfile?.vehicleNumber || '',
+    capacityKg: user?.TransporterProfile?.capacityKg ? String(user.TransporterProfile.capacityKg) : '2500',
+    baseMandi: user?.TransporterProfile?.baseMandi || 'Pune APMC',
+    ratePerKm: user?.TransporterProfile?.ratePerKm ? String(user.TransporterProfile.ratePerKm) : '25',
   });
   const [savingVehicle, setSavingVehicle] = useState(false);
 

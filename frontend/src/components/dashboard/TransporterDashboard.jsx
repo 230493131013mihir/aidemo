@@ -169,9 +169,9 @@ export default function TransporterDashboard() {
     escrowLockedEarnings: 0,
     rating: 4.8,
     totalRatings: 1,
-    vehicleType: 'Mahindra Bolero Maxi Truck',
-    vehicleNumber: 'MH-12-RN-4921',
-    capacityKg: 2200,
+    vehicleType: user?.TransporterProfile?.vehicleType || '',
+    vehicleNumber: user?.TransporterProfile?.vehicleNumber || '',
+    capacityKg: user?.TransporterProfile?.capacityKg || 0,
     isAvailable: true,
     activeTrip: null
   });
@@ -1816,7 +1816,7 @@ export default function TransporterDashboard() {
                     ))
                   ) : (
                     <option value="primary">
-                      {stats.vehicleType || 'Commercial Goods Carrier'} ({stats.vehicleNumber || 'MH-12-RN-4921'}) • {stats.capacityKg || 2200} kg [Primary Profile]
+                      {stats.vehicleType || user?.TransporterProfile?.vehicleType || 'Commercial Goods Carrier'}{(stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber) ? ` (${stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber})` : ''}{(stats.capacityKg || user?.TransporterProfile?.capacityKg) ? ` • ${stats.capacityKg || user?.TransporterProfile?.capacityKg} kg` : ''} [Primary Profile]
                     </option>
                   )}
                 </select>
@@ -2615,7 +2615,7 @@ export default function TransporterDashboard() {
                       ))
                     ) : (
                       <option value="primary">
-                        {stats.vehicleType || user?.TransporterProfile?.vehicleType || 'Commercial Agri Carrier'} ({stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber || 'MH-12-RN-4921'}) • Capacity {stats.capacityKg || 2200} kg [Primary Profile]
+                        {stats.vehicleType || user?.TransporterProfile?.vehicleType || 'Commercial Agri Carrier'}{(stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber) ? ` (${stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber})` : ''}{(stats.capacityKg || user?.TransporterProfile?.capacityKg) ? ` • Capacity ${stats.capacityKg || user?.TransporterProfile?.capacityKg} kg` : ''} [Primary Profile]
                       </option>
                     )}
                   </select>

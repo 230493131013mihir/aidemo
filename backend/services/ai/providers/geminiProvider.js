@@ -18,7 +18,13 @@ class GeminiProvider {
    * @returns {boolean}
    */
   isConfigured() {
-    return Boolean(this.apiKey && typeof this.apiKey === 'string' && this.apiKey.trim().length > 0);
+    return Boolean(
+      this.apiKey &&
+      typeof this.apiKey === 'string' &&
+      this.apiKey.trim().length > 0 &&
+      !this.apiKey.includes('your_optional_') &&
+      !this.apiKey.includes('placeholder')
+    );
   }
 
   /**

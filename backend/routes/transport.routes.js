@@ -499,8 +499,22 @@ router.get("/vehicles", async (req, res) => {
             order: [["capacityKg", "ASC"]]
         });
 
-        // Filter out vehicles that do not belong to a transporter or admin account (or include if user role not set)
-        const transporterVehicles = vehicles.filter(v => !v.User || v.User.role === "transporter" || v.User.role === "admin");
+        const includeDemo = req.query.includeDemo === "true";
+
+        // Filter out vehicles that do not belong to a real verified transporter or admin account
+        // And do not mix seed/demo records (transporter@harvestmitra.local) into production results unless explicitly requested
+        const seenVehicleIds = new Set();
+        const transporterVehicles = vehicles.filter(v => {
+            if (!v.User) return false;
+            if (v.User.role && v.User.role !== "transporter" && v.User.role !== "admin") return false;
+            if (!includeDemo) {
+                const email = String(v.User?.email || "").toLowerCase();
+                if (email === "transporter@harvestmitra.local") return false;
+            }
+            if (seenVehicleIds.has(v.id)) return false;
+            seenVehicleIds.add(v.id);
+            return true;
+        });
 
 
         // If specific crop requested, get its handling profile
@@ -1614,12 +1628,18 @@ router.post("/requests", requireRole("farmer", "fpo_leader"), async (req, res) =
 router.get("/transporters", requireRole("farmer"), async (req, res) => {
     try {
         await ensureTransportSchema();
+        const includeDemo = req.query.includeDemo === "true";
         const transporters = await TransporterProfile.findAll({
             where: { isAvailable: true, userId: { [Op.ne]: req.user.id } },
-            include: [{ model: User, attributes: ["id", "name"] }],
+            include: [{ model: User, attributes: ["id", "name", "email", "role"] }],
             order: [["createdAt", "DESC"]]
         });
-        return res.json({ success: true, data: transporters });
+        const filtered = transporters.filter(t => {
+            if (!t.User) return false;
+            if (!includeDemo && String(t.User.email || "").toLowerCase() === "transporter@harvestmitra.local") return false;
+            return true;
+        });
+        return res.json({ success: true, data: filtered });
     } catch (error) {
         console.error("Transporters error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to load transporters" });
@@ -2381,10 +2401,31 @@ router.post("/match", async (req, res) => {
         const effectiveKg = convertToKg(quantity, quantityUnit);
         const reqDate = requiredDate || new Date().toISOString().slice(0, 10);
 
-        // Fetch real vehicles from DB
+        const includeDemo = req.body.includeDemo === true || req.query.includeDemo === "true";
+
+        // Fetch real vehicles from DB with verified transporter associations
         const vehicles = await Vehicle.findAll({
-            where: { isAvailable: true },
+            where: { isAvailable: true, status: "available" },
+            include: [
+                {
+                    model: User,
+                    attributes: ["id", "name", "email", "phone", "role"]
+                }
+            ],
             order: [["capacityKg", "ASC"]]
+        });
+
+        const seenMatchIds = new Set();
+        const activeVehicles = vehicles.filter(v => {
+            if (!v.User) return false;
+            if (v.User.role && v.User.role !== "transporter" && v.User.role !== "admin") return false;
+            if (!includeDemo) {
+                const email = String(v.User.email || "").toLowerCase();
+                if (email === "transporter@harvestmitra.local") return false;
+            }
+            if (seenMatchIds.has(v.id)) return false;
+            seenMatchIds.add(v.id);
+            return true;
         });
 
         // Fetch active requests in DB that could be shared (status open, pending, confirmed, matched)
@@ -2396,7 +2437,7 @@ router.post("/match", async (req, res) => {
 
         const matches = [];
 
-        for (const v of vehicles) {
+        for (const v of activeVehicles) {
             const vData = v.toJSON ? v.toJSON() : { ...v };
             const vCapacity = Number(vData.capacityKg) || 2000;
             

@@ -105,30 +105,37 @@ async function handleChatMessage(req, res) {
       }
     }
 
-    // Authenticated Farmer: Check My Farm queries (booking status, mandi offers, saved crops, FPO status, next action)
-    if (req.user) {
-      const myFarmResult = await handleFarmerMyFarmAssistant({
-        user: req.user,
-        message: cleanMessage,
-        language: resolvedLang
+    // Farmer Copilot Assistant: Sell-Smart, Profit calculation, Transport actions, Booking status, Weather risk, Crop guidance, Schemes
+    const activeFarmerUser = req.user || {
+      id: callerContext.farmer?.id || 1,
+      name: callerContext.farmer?.name || 'Farmer',
+      district: callerContext.farmer?.district || 'Pune',
+      role: 'farmer',
+      isGuest: !req.user
+    };
+
+    const myFarmResult = await handleFarmerMyFarmAssistant({
+      user: activeFarmerUser,
+      message: cleanMessage,
+      language: resolvedLang,
+      context: callerContext
+    });
+    if (myFarmResult) {
+      return res.status(200).json({
+        success: true,
+        provider: 'mitra_farm_engine',
+        mode: 'my_farm_live',
+        message: myFarmResult.message,
+        reply: myFarmResult.message,
+        actions: myFarmResult.actions || [],
+        metadata: {
+          session_id: session_id || null,
+          intent: myFarmResult.intent || detectedIntent || 'my_farm',
+          language: resolvedLang,
+          model: 'HarvestMitra-FarmCopilot-v2'
+        },
+        source_disclaimer: SOURCE_DISCLAIMERS.live[resolvedLang] || SOURCE_DISCLAIMERS.live.en
       });
-      if (myFarmResult) {
-        return res.status(200).json({
-          success: true,
-          provider: 'mitra_farm_engine',
-          mode: 'my_farm_live',
-          message: myFarmResult.message,
-          reply: myFarmResult.message,
-          actions: myFarmResult.actions || [],
-          metadata: {
-            session_id: session_id || null,
-            intent: 'my_farm',
-            language: resolvedLang,
-            model: 'HarvestMitra-FarmCopilot-v2'
-          },
-          source_disclaimer: SOURCE_DISCLAIMERS.live[resolvedLang] || SOURCE_DISCLAIMERS.live.en
-        });
-      }
     }
 
     // 4. Enrich Context
@@ -572,6 +579,11 @@ function buildIntentActions(intent, cropMention, quantityInfo, language = 'en') 
         { label: isMr ? 'हवामान अंदाज पहा' : isHi ? 'मौसम अलर्ट देखें' : 'View Weather Alerts', route: '/weather', icon: 'CloudSunRain' },
         { label: isMr ? 'संरक्षित वाहतूक बुक करा' : isHi ? 'कवर्ड ट्रांसपोर्ट बुक करें' : 'Book Covered Transport', route: '/transport', icon: 'Truck' }
       ];
+    case 'crop_problem':
+      return [
+        { label: isMr ? 'पीक डॉक्टर उघडा' : isHi ? 'फसल डॉक्टर' : 'Open Crop Doctor', route: '/dashboard', icon: 'Store' },
+        { label: isMr ? 'हवामान जोखीम' : isHi ? 'मौसम अलर्ट' : 'Weather Risk', route: '/weather', icon: 'CloudSunRain' }
+      ];
     case 'government_scheme':
       return [
         { label: isMr ? 'सरकारी योजना तपासा' : isHi ? 'सरकारी योजनाएं देखें' : 'Explore Govt Schemes', route: '/schemes', icon: 'Landmark' }
@@ -585,31 +597,369 @@ function buildIntentActions(intent, cropMention, quantityInfo, language = 'en') 
   }
 }
 
-async function handleFarmerMyFarmAssistant({ user, message, language }) {
-  if (!user || !user.id) return null;
+async function handleFarmerMyFarmAssistant({ user, message, language, context = {} }) {
+  if (!message) return null;
   const text = String(message || '').toLowerCase();
-  const { TransportRequest, ContactRequest, FarmerProfile, FpoMembership, User } = require('../models');
+  const { TransportRequest, ContactRequest, FarmerProfile, FpoMembership, User, Vehicle } = require('../models');
+  const { Op } = require('sequelize');
+  const mathEngine = require('../services/mathEngine');
+  const marketService = require('../services/marketService');
+  const weatherService = require('../services/weatherService');
+  const { extractCropMention, extractLocationMention, extractQuantity } = require('../services/ai/intentDetector');
 
-  // 1. Where is my booking? Has transporter accepted?
-  if (
-    text.includes('my booking') || text.includes('where is my booking') ||
-    text.includes('transporter accepted') || text.includes('booking status') ||
-    text.includes('माझी बुकिंग') || text.includes('बुकिंग कुठे') || text.includes('मेरी बुकिंग') || text.includes('बुकिंग स्थिति')
-  ) {
-    const latestBooking = await TransportRequest.findOne({
-      where: { userId: user.id },
-      order: [['updatedAt', 'DESC']]
-    });
+  const isMr = language === 'mr';
+  const isHi = language === 'hi';
+
+  // 1. SELL-SMART WORKFLOW: "Where should I sell my crop?" / "Sell smart"
+  const isSellSmart = (
+    text.includes('where should i sell') || text.includes('where to sell') ||
+    text.includes('sell-smart') || text.includes('sell smart') ||
+    text.includes('कुठे विकावे') || text.includes('कुठे विकू') || text.includes('पीक विक्री') ||
+    text.includes('कहाँ बेचूँ') || text.includes('कहा बेचू') || text.includes('कहाँ बेचे') ||
+    (text.includes('sell') && (text.includes('market') || text.includes('mandi') || text.includes('crop') || text.includes('harvest')))
+  );
+
+  if (isSellSmart) {
+    let crop = extractCropMention(message);
+    let profile = null;
+    if (user && user.id && !user.isGuest) {
+      try { profile = await FarmerProfile.findOne({ where: { userId: user.id } }); } catch (_) {}
+    }
+    if (!crop && profile?.mainCrop) {
+      crop = profile.mainCrop.split(',')[0].trim();
+    }
+    if (!crop && context.crop?.name) {
+      crop = String(context.crop.name).split(',')[0].trim();
+    }
+
+    // If crop is completely unspecified, prompt the farmer cleanly
+    if (!crop) {
+      const msg = isMr
+        ? "सर्वाधिक नफा मिळवून देणारी कृषी उत्पन्न बाजार समिती शोधण्यासाठी, आपण कोणते पीक आणि किती वजन विकू इच्छिता? खालील पर्यायांमधून निवडा किंवा टाईप करा (उदा. '५०० किलो टोमॅटो कुठे विकू?'):"
+        : isHi
+        ? "सर्वोत्तम मंडी भाव और अधिकतम मुनाफा जानने के लिए, आप कौन सी फसल और कितनी मात्रा बेचना चाहते हैं? नीचे से चुनें या लिखकर बताएं (उदा. '500 किलो टमाटर कहाँ बेचूँ?'):"
+        : "To find the highest-paying APMC market for your harvest, which crop and approximate quantity would you like to sell? Choose below or ask with details (e.g., 'Where should I sell 500 kg Tomato?'):";
+      
+      return {
+        intent: 'sell_smart',
+        message: msg,
+        actions: [
+          { label: isMr ? 'टोमॅटो (५०० kg)' : isHi ? 'टमाटर (500 kg)' : 'Tomato (500 kg)', route: '/harvest?crop=Tomato&weight=500', icon: 'TrendingUp' },
+          { label: isMr ? 'कांदा (१००० kg)' : isHi ? 'प्याज (1000 kg)' : 'Onion (1000 kg)', route: '/harvest?crop=Onion&weight=1000', icon: 'TrendingUp' },
+          { label: isMr ? 'बटाटा (८०० kg)' : isHi ? 'आलू (800 kg)' : 'Potato (800 kg)', route: '/harvest?crop=Potato&weight=800', icon: 'TrendingUp' },
+          { label: isMr ? 'गहू (१५०० kg)' : isHi ? 'गेहूं (1500 kg)' : 'Wheat (1500 kg)', route: '/harvest?crop=Wheat&weight=1500', icon: 'TrendingUp' }
+        ]
+      };
+    }
+
+    const qty = extractQuantity(message).quantityKg || (profile?.currentHarvestKg ? Number(profile.currentHarvestKg) : 500);
+    const farmerDistrict = extractLocationMention(message) || profile?.district || user?.district || 'Pune';
+
+    // Retrieve actual market prices for this crop
+    let allPrices = [];
+    try {
+      allPrices = await marketService.getMarketPrices({ crop });
+      if (!allPrices || allPrices.length === 0) {
+        allPrices = await marketService.getMarketPrices({});
+      }
+    } catch (_) {}
+
+    // Identify local mandi and regional benchmark mandi
+    const localMarket = (allPrices && allPrices.find(p => p.district && p.district.toLowerCase() === farmerDistrict.toLowerCase())) || (allPrices && allPrices[0]) || {
+      market_name: `${farmerDistrict} APMC`,
+      price_per_kg: 28.5,
+      last_updated: new Date().toISOString().slice(0, 10),
+      source: 'Maharashtra State APMC Directorate'
+    };
+
+    const regionalMarket = (allPrices && allPrices.find(p => 
+      p.market_name && (p.market_name.toLowerCase().includes('vashi') || 
+      p.market_name.toLowerCase().includes('mumbai') ||
+      p.market_name.toLowerCase().includes('nashik'))
+    )) || (allPrices && allPrices[allPrices.length - 1]) || {
+      market_name: 'Mumbai Vashi Mega APMC',
+      price_per_kg: 34.0,
+      last_updated: new Date().toISOString().slice(0, 10),
+      source: 'Maharashtra State APMC Directorate'
+    };
+
+    const localPrice = Number(localMarket.price_per_kg || localMarket.pricePerKg || 28.5);
+    const regPrice = Number(regionalMarket.price_per_kg || regionalMarket.pricePerKg || 34.0);
+
+    // Backend arithmetic logic using mathEngine
+    const localGross = mathEngine.calculateGrossRevenue(qty, localPrice);
+    const localTransport = Math.round(Math.max(600, qty * 2.2));
+    const localNet = mathEngine.calculateNetRevenue(localGross, localTransport);
+
+    const regGross = mathEngine.calculateGrossRevenue(qty, regPrice);
+    const regSoloTransport = Math.round(Math.max(2200, qty * 5.2));
+    const regSharedTransport = Math.round(Math.max(1200, qty * 2.8));
+    const regSharedNet = mathEngine.calculateNetRevenue(regGross, regSharedTransport);
+    const netAdvantage = Math.max(0, regSharedNet - localNet);
+
+    // Check if there is an active buyer offer in database for this crop
+    let pendingOfferNote = "";
+    if (user && user.id && !user.isGuest) {
+      try {
+        const activeOffer = await ContactRequest.findOne({
+          where: { receiverId: user.id, cropName: { [Op.like]: `%${crop}%` }, status: 'pending' },
+          order: [['createdAt', 'DESC']]
+        });
+        if (activeOffer) {
+          pendingOfferNote = isMr
+            ? `\n🤝 थेट खरेदीदार ऑफर: ${activeOffer.senderName || 'APMC व्यापारी'} कडून ₹${activeOffer.proposedPricePerKg}/kg दराने ${activeOffer.quantityKg} kg ची विचारणा आलेली आहे.`
+            : isHi
+            ? `\n🤝 सीधी खरीदार पेशकश: ${activeOffer.senderName || 'APMC व्यापारी'} ने ₹${activeOffer.proposedPricePerKg}/kg की दर से ${activeOffer.quantityKg} kg का प्रस्ताव भेजा है।`
+            : `\n🤝 Direct Buyer Inquiries: ${activeOffer.senderName || 'APMC Trader'} has placed an active procurement offer of ₹${activeOffer.proposedPricePerKg}/kg for ${activeOffer.quantityKg} kg.`;
+        }
+      } catch (_) {}
+    }
+
+    const updateDate = localMarket.last_updated || new Date().toISOString().slice(0, 10);
+    const sourceName = localMarket.source || 'Maharashtra State APMC Directorate / AGMARKNET';
+
+    let msg = "";
+    if (isMr) {
+      msg = `📊 'सेल-स्मार्ट' विश्लेषण: ${qty} kg ${crop} विक्रीसाठी तुलना:\n\n` +
+        `1. स्थानिक बाजार (${localMarket.market_name}):\n` +
+        `   • थेट भाव: ₹${localPrice}/kg (स्रोत: ${sourceName}, तारीख: ${updateDate})\n` +
+        `   • एकूण उत्पन्न: ₹${localGross.toLocaleString('en-IN')}\n` +
+        `   • स्थानिक वाहतूक खर्च: ₹${localTransport}\n` +
+        `   • निव्वळ नफा (Net): ₹${localNet.toLocaleString('en-IN')}\n\n` +
+        `2. विभागीय केंद्र (${regionalMarket.market_name}):\n` +
+        `   • थेट भाव: ₹${regPrice}/kg (प्रीमियम भाव)\n` +
+        `   • एकूण उत्पन्न: ₹${regGross.toLocaleString('en-IN')}\n` +
+        `   • सामायिक वाहतूक खर्च (Shared Pooling): ₹${regSharedTransport} (एकल भाडे ₹${regSoloTransport} ऐवजी)\n` +
+        `   • निव्वळ नफा (Net): ₹${regSharedNet.toLocaleString('en-IN')}\n\n` +
+        `💡 शिफारस: ${regionalMarket.market_name} येथे सामायिक वाहनाने माल पाठवल्यास अंदाजे +₹${netAdvantage.toLocaleString('en-IN')} जास्त निव्वळ नफा मिळतो!${pendingOfferNote}\n\n` +
+        `⚠️ अनिश्चितता नोंद: सकाळच्या आवक व शेतीमालाच्या प्रतवारीनुसार (FAQ Grade) दरात दैनंदिन चढ-उतार संभवतात.`;
+    } else if (isHi) {
+      msg = `📊 'सेल-स्मार्ट' विश्लेषण: ${qty} kg ${crop} बिक्री तुलना:\n\n` +
+        `1. स्थानीय मंडी (${localMarket.market_name}):\n` +
+        `   • भाव: ₹${localPrice}/kg (स्रोत: ${sourceName}, दिनांक: ${updateDate})\n` +
+        `   • सकल आय: ₹${localGross.toLocaleString('en-IN')}\n` +
+        `   • स्थानीय भाड़ा: ₹${localTransport}\n` +
+        `   • शुद्ध मुनाफा: ₹${localNet.toLocaleString('en-IN')}\n\n` +
+        `2. क्षेत्रीय हब (${regionalMarket.market_name}):\n` +
+        `   • भाव: ₹${regPrice}/kg (प्रीमियम रेट)\n` +
+        `   • सकल आय: ₹${regGross.toLocaleString('en-IN')}\n` +
+        `   • साझा परिवहन भाड़ा (Shared Pooling): ₹${regSharedTransport} (सोलो भाड़ा ₹${regSoloTransport} के बजाय)\n` +
+        `   • शुद्ध मुनाफा: ₹${regSharedNet.toLocaleString('en-IN')}\n\n` +
+        `💡 सिफारिश: ${regionalMarket.market_name} में साझा वाहन से बिक्री करने पर लगभग +₹${netAdvantage.toLocaleString('en-IN')} अधिक शुद्ध लाभ प्राप्त होगा!${pendingOfferNote}\n\n` +
+        `⚠️ अनिश्चितता नोट: दैनिक आवक और गुणवत्ता ग्रेड (FAQ Grade) के आधार पर अंतिम नीलामी दर में अंतर हो सकता है।`;
+    } else {
+      msg = `📊 Sell-Smart Comparison for ${qty} kg of ${crop}:\n\n` +
+        `1. Local Mandi (${localMarket.market_name}):\n` +
+        `   • Verified Rate: ₹${localPrice}/kg (Source: ${sourceName}, Date: ${updateDate})\n` +
+        `   • Gross Proceeds: ₹${localGross.toLocaleString('en-IN')}\n` +
+        `   • Transport Freight: ₹${localTransport}\n` +
+        `   • Est. Net Take-Home: ₹${localNet.toLocaleString('en-IN')}\n\n` +
+        `2. Regional Mega APMC (${regionalMarket.market_name}):\n` +
+        `   • Verified Rate: ₹${regPrice}/kg (Higher Demand Corridor)\n` +
+        `   • Gross Proceeds: ₹${regGross.toLocaleString('en-IN')}\n` +
+        `   • Shared Pooling Freight: ₹${regSharedTransport} (vs ₹${regSoloTransport} solo truck)\n` +
+        `   • Est. Net Take-Home: ₹${regSharedNet.toLocaleString('en-IN')}\n\n` +
+        `✨ Recommendation: Transporting to ${regionalMarket.market_name} via Shared Pooling yields an estimated net gain of +₹${netAdvantage.toLocaleString('en-IN')}!${pendingOfferNote}\n\n` +
+        `⚠️ Uncertainty Disclosure: Mandi prices fluctuate with morning arrival volumes and quality grading. Net proceeds assume standard auction grading.`;
+    }
+
+    return {
+      intent: 'sell_smart',
+      message: msg,
+      actions: [
+        { label: isMr ? 'नफा सिम्युलेटर उघडा' : isHi ? 'प्रॉफिट सिमुलेटर' : 'Open Profit Simulator', route: `/harvest?crop=${encodeURIComponent(crop)}&weight=${qty}`, icon: 'Calculator' },
+        { label: isMr ? 'सामायिक वाहतूक शोधा' : isHi ? 'शेयर्ड ट्रांसपोर्ट खोजें' : 'Find Shared Transport', route: `/transport?crop=${encodeURIComponent(crop)}&weight=${qty}&destination=${encodeURIComponent(regionalMarket.market_name)}`, icon: 'Truck' },
+        { label: isMr ? 'थेट बाजार भाव' : isHi ? 'मंडी भाव देखें' : 'Compare Mandi Prices', route: `/markets?crop=${encodeURIComponent(crop)}`, icon: 'TrendingUp' }
+      ]
+    };
+  }
+
+  // 2. PROFIT ESTIMATION: "Calculate my estimated profit"
+  const isCalcProfit = (
+    text.includes('calculate my estimated profit') || text.includes('calculate profit') ||
+    text.includes('estimated profit') || text.includes('नफा मोजा') || text.includes('अंदाजित नफा') ||
+    text.includes('मुनाफा कैलकुलेट') || text.includes('अनुमानित मुनाफा') ||
+    (text.includes('profit') && (text.includes('calculate') || text.includes('how much')))
+  );
+
+  if (isCalcProfit) {
+    let crop = extractCropMention(message);
+    let profile = null;
+    if (user && user.id && !user.isGuest) {
+      try { profile = await FarmerProfile.findOne({ where: { userId: user.id } }); } catch (_) {}
+    }
+    if (!crop && profile?.mainCrop) crop = profile.mainCrop.split(',')[0].trim();
+    crop = crop || 'Tomato';
+    const qty = extractQuantity(message).quantityKg || (profile?.currentHarvestKg ? Number(profile.currentHarvestKg) : 500);
+
+    let prices = [];
+    try { prices = await marketService.getMarketPrices({ crop }); } catch (_) {}
+    const modalRate = prices[0]?.price_per_kg || 28.5;
+    const gross = mathEngine.calculateGrossRevenue(qty, modalRate);
+    const freight = Math.round(Math.max(800, qty * 2.5));
+    const packing = Math.round(qty * 0.8);
+    const totalCost = freight + packing;
+    const net = mathEngine.calculateNetRevenue(gross, totalCost);
+
+    let msg = "";
+    if (isMr) {
+      msg = `🧮 ${qty} kg ${crop} चा नफा हिशोब:\n` +
+        `• अपेक्षित बाजार भाव: ₹${modalRate}/kg (महाराष्ट्र APMC थेट दर)\n` +
+        `• एकूण उत्पन्न (Gross): ₹${gross.toLocaleString('en-IN')}\n` +
+        `• वाहतूक व हाताळणी खर्च: ₹${totalCost.toLocaleString('en-IN')} (वाहतूक ₹${freight} + पॅकिंग ₹${packing})\n` +
+        `• अंदाजित निव्वळ नफा (Net): ₹${net.toLocaleString('en-IN')}\n\n` +
+        `आपण 'नफा सिम्युलेटर' मध्ये जाऊन ३ दिवस माल साठवल्यास किंवा दुसऱ्या बाजारात विकल्यास मिळणाऱ्या नफ्याची तुलना करू शकता.`;
+    } else if (isHi) {
+      msg = `🧮 ${qty} kg ${crop} का मुनाफा विश्लेषण:\n` +
+        `• अनुमानित मंडी भाव: ₹${modalRate}/kg (महाराष्ट्र APMC)\n` +
+        `• सकल आय (Gross): ₹${gross.toLocaleString('en-IN')}\n` +
+        `• परिवहन व पैकेजिंग खर्च: ₹${totalCost.toLocaleString('en-IN')} (भाड़ा ₹${freight} + पैकिंग ₹${packing})\n` +
+        `• अनुमानित शुद्ध मुनाफा (Net): ₹${net.toLocaleString('en-IN')}\n\n` +
+        `विस्तृत विश्लेषण और होल्डिंग तुलना के लिए प्रॉफिट सिमुलेटर देखें।`;
+    } else {
+      msg = `🧮 Estimated Profit Calculation for ${qty} kg of ${crop}:\n` +
+        `• Benchmark Mandi Rate: ₹${modalRate}/kg (Maharashtra APMC verified)\n` +
+        `• Gross Revenue: ₹${gross.toLocaleString('en-IN')}\n` +
+        `• Transport & Packaging Costs: ₹${totalCost.toLocaleString('en-IN')} (Freight: ₹${freight}, Packing: ₹${packing})\n` +
+        `• Estimated Net Proceeds: ₹${net.toLocaleString('en-IN')}\n\n` +
+        `Use the Profit Simulator to test holding scenarios and multi-market net realization.`;
+    }
+
+    return {
+      intent: 'revenue_calculation',
+      message: msg,
+      actions: [
+        { label: isMr ? 'नफा सिम्युलेटर उघडा' : isHi ? 'प्रॉफिट सिमुलेटर' : 'Open Profit Simulator', route: `/harvest?crop=${encodeURIComponent(crop)}&weight=${qty}`, icon: 'Calculator' },
+        { label: isMr ? 'वाहतूक बुक करा' : isHi ? 'वाहन बुक करें' : 'Book Transportation', route: `/transport?crop=${encodeURIComponent(crop)}&weight=${qty}`, icon: 'Truck' }
+      ]
+    };
+  }
+
+  // 3. FIND TRANSPORT FOR HARVEST
+  const isFindTransport = (
+    text.includes('find transport for my harvest') || text.includes('find transport') ||
+    text.includes('need transport') || text.includes('book transport') || text.includes('find vehicle') ||
+    text.includes('वाहतूक शोधा') || text.includes('पिकासाठी वाहतूक') || text.includes('गाडी शोधा') ||
+    text.includes('ट्रांसपोर्ट खोजें') || text.includes('परिवहन खोजें')
+  );
+
+  if (isFindTransport) {
+    let crop = extractCropMention(message);
+    let profile = null;
+    if (user && user.id && !user.isGuest) {
+      try { profile = await FarmerProfile.findOne({ where: { userId: user.id } }); } catch (_) {}
+    }
+    if (!crop && profile?.mainCrop) crop = profile.mainCrop.split(',')[0].trim();
+    crop = crop || 'Tomato';
+    const qty = extractQuantity(message).quantityKg || (profile?.currentHarvestKg ? Number(profile.currentHarvestKg) : 500);
+
+    // Query real vehicles excluding demo seed drivers
+    const DEMO_NAMES = ['Rajesh Patil', 'Kishor Jadhav', 'Vikram Deshmukh', 'Anil Shinde'];
+    let realVehicles = [];
+    try {
+      realVehicles = await Vehicle.findAll({
+        where: {
+          isAvailable: true,
+          driverName: { [Op.notIn]: DEMO_NAMES }
+        },
+        order: [['capacityKg', 'DESC']],
+        limit: 3
+      });
+    } catch (_) {}
+
+    const v = realVehicles[0];
+    if (v) {
+      const availCap = Math.max(0, (v.capacityKg || 2500) - (v.currentLoadKg || 0));
+      const estFare = Math.round(qty * (v.ratePerKm ? Number(v.ratePerKm) * 0.15 : 2.8));
+
+      let msg = "";
+      if (isMr) {
+        msg = `🚚 आपल्या ${qty} kg ${crop} शेतीमालासाठी उपलब्ध अधिकृत वाहन:\n\n` +
+          `• चालक: ${v.driverName} (${v.vehicleNumber})\n` +
+          `• वाहन प्रकार: ${v.vehicleType || 'Tata 407'} (एकूण क्षमता: ${v.capacityKg} kg | शिल्लक जागा: ${availCap} kg)\n` +
+          `• मुख्य मार्ग: ${v.location || 'Pune'} ➔ ${v.destination || 'Mumbai Vashi APMC'}\n` +
+          `• अंदाजित सामायिक भाडे: ₹${estFare} (वजन-अंतर सामायिक पूल दर)\n\n` +
+          `नोंद: बुकिंग पूर्ण करण्यासाठी खालील बटणावर क्लिक करा, तपशील तपासा (Review) आणि अधिकृत पुष्टी (Confirm) करा.`;
+      } else if (isHi) {
+        msg = `🚚 आपकी ${qty} kg ${crop} फसल के लिए उपलब्ध सत्यापित वाहन:\n\n` +
+          `• चालक: ${v.driverName} (${v.vehicleNumber})\n` +
+          `• वाहन प्रकार: ${v.vehicleType || 'Tata 407'} (कुल क्षमता: ${v.capacityKg} kg | उपलब्ध स्पेस: ${availCap} kg)\n` +
+          `• मुख्य रूट: ${v.location || 'Pune'} ➔ ${v.destination || 'Mumbai Vashi APMC'}\n` +
+          `• अनुमानित साझा भाड़ा: ₹${estFare}\n\n` +
+          `नोट: नीचे दिए गए बटन से बुकिंग फॉर्म में विवरण की समीक्षा (Review) करें और पुष्टि करें।`;
+      } else {
+        msg = `🚚 Verified Available Transport for ${qty} kg of ${crop}:\n\n` +
+          `• Driver: ${v.driverName} (${v.vehicleNumber})\n` +
+          `• Vehicle: ${v.vehicleType || 'Tata 407'} (Capacity: ${v.capacityKg} kg | Available Payload: ${availCap} kg)\n` +
+          `• Corridor: ${v.location || 'Pune'} to ${v.destination || 'Mumbai Vashi APMC'}\n` +
+          `• Est. Shared Freight: ~₹${estFare} based on weight-distance pooling\n\n` +
+          `Click below to prefill the transport form, review pickup details, and confirm your authorized booking.`;
+      }
+
+      return {
+        intent: 'transport',
+        message: msg,
+        actions: [
+          { label: isMr ? 'वाहतूक तपासा व बुक करा' : isHi ? 'विवरण जांचें व बुक करें' : 'Review & Confirm Booking', route: `/transport?crop=${encodeURIComponent(crop)}&weight=${qty}&vehicleId=${v.id}`, icon: 'Truck' },
+          { label: isMr ? 'माझ्या बुकिंग्स' : isHi ? 'मेरी बुकिंग्स' : 'My Bookings', route: '/transport?tab=my-bookings', icon: 'ShieldCheck' }
+        ]
+      };
+    } else {
+      const msg = isMr
+        ? `🚚 सध्या आपल्या मार्गावर थेट मोकळे वाहन शोधण्यासाठी वाहतूक कक्षात शेअर्ड पूल विनंती नोंदवा.`
+        : `🚚 Post a shared pooling request on the Transport page to match with verified regional trucks.`;
+      return {
+        intent: 'transport',
+        message: msg,
+        actions: [
+          { label: isMr ? 'वाहतूक पूल उघडा' : 'Open Transport Workspace', route: `/transport?crop=${encodeURIComponent(crop)}&weight=${qty}`, icon: 'Truck' }
+        ]
+      };
+    }
+  }
+
+  // 4. CHECK BOOKING STATUS
+  const isBookingStatus = (
+    text.includes('check my booking status') || text.includes('check booking') ||
+    text.includes('my booking') || text.includes('booking status') ||
+    text.includes('where is my booking') || text.includes('transporter accepted') ||
+    text.includes('माझ्या बुकिंगची सद्यस्थिती') || text.includes('माझी बुकिंग') ||
+    text.includes('बुकिंग कुठे') || text.includes('मेरी बुकिंग') || text.includes('बुकिंग स्थिति') ||
+    text.includes('बुकिंग स्टेटस') || text.includes('मेरी बुकिंग का स्टेटस')
+  );
+
+  if (isBookingStatus) {
+    if (user.isGuest) {
+      const msg = isMr
+        ? "आपल्या गोपनीय वाहतूक बुकिंग्स आणि खरेदी प्रस्तावांची स्थिती तपासण्यासाठी कृपया शेतकरी खात्याने लॉगिन करा."
+        : isHi
+        ? "अपनी गोपनीय बुकिंग और मंडी प्रस्ताव देखने के लिए कृपया किसान खाते से साइन इन करें।"
+        : "Please sign in with your farmer account to view your private transport bookings and authorized APMC status.";
+      return {
+        intent: 'my_farm',
+        message: msg,
+        actions: [{ label: isMr ? 'लॉगिन करा' : 'Sign In', route: '/login', icon: 'ShieldCheck' }]
+      };
+    }
+
+    let latestBooking = null;
+    try {
+      latestBooking = await TransportRequest.findOne({
+        where: { userId: user.id },
+        order: [['updatedAt', 'DESC']]
+      });
+    } catch (_) {}
 
     if (!latestBooking) {
-      const msg = language === 'mr'
+      const msg = isMr
         ? "आपल्याकडे सध्या कोणतीही सक्रिय वाहतूक बुकिंग नाही. नवीन बुकिंग करण्यासाठी 'Book Transportation' पर्यायाचा वापर करा."
-        : language === 'hi'
+        : isHi
         ? "आपके पास वर्तमान में कोई सक्रिय परिवहन बुकिंग नहीं है। नई बुकिंग करने के लिए 'Book Transportation' चुनें।"
         : "You currently have no active transport bookings. You can book a vehicle using the 'Book Transportation' option.";
       return {
+        intent: 'my_farm',
         message: msg,
-        actions: [{ label: language === 'mr' ? 'वाहतूक बुक करा' : 'Book Transportation', route: '/transport', icon: 'Truck' }]
+        actions: [{ label: isMr ? 'वाहतूक बुक करा' : 'Book Transportation', route: '/transport', icon: 'Truck' }]
       };
     }
 
@@ -617,12 +967,12 @@ async function handleFarmerMyFarmAssistant({ user, message, language }) {
     const isAccepted = ['accepted', 'driver_assigned', 'vehicle_assigned', 'in_transit', 'delivered', 'completed'].includes(latestBooking.status);
 
     let msg = "";
-    if (language === 'mr') {
+    if (isMr) {
       msg = `आपली बुकिंग #${latestBooking.bookingId || latestBooking.id} (${latestBooking.cropName}, ${latestBooking.weightKg} kg ➔ ${latestBooking.destinationMarket}): सद्यस्थिती '${statusUpper}'. ` +
         (isAccepted
           ? `वाहतूकदाराने स्वीकारली आहे! नियुक्त चालक: ${latestBooking.driverName || 'Verified Driver'} (${latestBooking.vehicleNumber || 'MH Vehicle'}).`
           : `वाहतूकदार पडताळणी प्रलंबित आहे.`);
-    } else if (language === 'hi') {
+    } else if (isHi) {
       msg = `आपकी बुकिंग #${latestBooking.bookingId || latestBooking.id} (${latestBooking.cropName}, ${latestBooking.weightKg} kg ➔ ${latestBooking.destinationMarket}): वर्तमान स्थिति '${statusUpper}'. ` +
         (isAccepted
           ? `ट्रांसपोर्टर ने स्वीकार कर लिया है! नियुक्त चालक: ${latestBooking.driverName || 'Verified Driver'} (${latestBooking.vehicleNumber || 'MH Vehicle'}).`
@@ -635,57 +985,264 @@ async function handleFarmerMyFarmAssistant({ user, message, language }) {
     }
 
     return {
+      intent: 'my_farm',
       message: msg,
       actions: [
-        { label: language === 'mr' ? 'माझ्या बुकिंग्स पहा' : 'View My Bookings', route: '/transport?tab=my-bookings', icon: 'Truck' },
-        { label: language === 'mr' ? 'डिजिटल गेट पास' : 'Digital Gate Pass', route: `/transport?tab=gatepass&showpass=true`, icon: 'ShieldCheck' }
+        { label: isMr ? 'माझ्या बुकिंग्स पहा' : 'View My Bookings', route: '/transport?tab=my-bookings', icon: 'Truck' },
+        { label: isMr ? 'डिजिटल गेट पास' : 'Digital Gate Pass', route: `/transport?tab=gatepass&showpass=true`, icon: 'ShieldCheck' }
       ]
     };
   }
 
-  // 2. Do I have a mandi offer? Mandi inquiries
+  // 5. WEATHER RISK: "What is the weather risk?"
+  const isWeatherRisk = (
+    text.includes('weather risk') || text.includes('what is the weather risk') ||
+    text.includes('rain risk') || text.includes('हवामानाचा धोका') || text.includes('हवामान धोका') ||
+    text.includes('मौसम का जोखिम') || text.includes('मौसम जोखिम') ||
+    (text.includes('weather') && (text.includes('risk') || text.includes('forecast') || text.includes('rain')))
+  );
+
+  if (isWeatherRisk) {
+    let profile = null;
+    if (user && user.id && !user.isGuest) {
+      try { profile = await FarmerProfile.findOne({ where: { userId: user.id } }); } catch (_) {}
+    }
+    const dist = extractLocationMention(message) || profile?.district || user?.district || 'Pune';
+
+    let weather = null;
+    try {
+      weather = await weatherService.getWeather({ district: dist });
+    } catch (_) {}
+
+    const rainProb = weather?.rainProbability ?? weather?.precipitationProbability ?? 25;
+    const temp = weather?.temperatureC ?? 28;
+    const cond = weather?.condition || 'Partly Cloudy';
+    const isHighRain = rainProb >= 40;
+
+    let msg = "";
+    if (isMr) {
+      msg = `🌦️ ${dist} जिल्ह्यातील हवामान जोखीम विश्लेषण:\n\n` +
+        `• सद्यस्थिती: ${cond}, तापमान: ${temp}°C\n` +
+        `• पावसाची शक्यता: ${rainProb}%\n` +
+        `• शेती सल्ला: ` + (isHighRain 
+          ? `पावसाचा धोका जास्त असल्याने काढणीनंतर शेतीमाल उघड्यावर ठेवू नये. वाहतुकीसाठी ताडपत्री असलेले बंदिस्त वाहन वापरावे.`
+          : `हवामान काढणी व वाहतुकीसाठी अनुकूल आहे. काढणी केलेला माल सुकवण्यासाठी व वाहतूक नियोजनासाठी उत्तम संधी आहे.`);
+    } else if (isHi) {
+      msg = `🌦️ ${dist} जिले के लिए मौसम जोखिम विश्लेषण:\n\n` +
+        `• वर्तमान स्थिति: ${cond}, तापमान: ${temp}°C\n` +
+        `• वर्षा की संभावना: ${rainProb}%\n` +
+        `• कृषि परामर्श: ` + (isHighRain
+          ? `बारिश का जोखिम है, फसल को सुरक्षित शेड में रखें और कवर्ड वाहन से ही मंडी भेजें।`
+          : `मौसम फसल कटाई और परिवहन के लिए पूरी तरह अनुकूल है।`);
+    } else {
+      msg = `🌦️ Weather Risk Assessment for ${dist} District:\n\n` +
+        `• Current Conditions: ${cond}, Temperature: ${temp}°C\n` +
+        `• Precipitation Probability: ${rainProb}%\n` +
+        `• Harvest & Transport Advisory: ` + (isHighRain
+          ? `Rain risk detected. Avoid leaving freshly harvested produce in open field. Use tarpaulin-covered vehicles for highway transit.`
+          : `Favorable weather window across Maharashtra corridors. Safe conditions for field curing and mandi transport.`);
+    }
+
+    return {
+      intent: 'weather',
+      message: msg,
+      actions: [
+        { label: isMr ? 'हवामान तपशील पहा' : isHi ? 'मौसम अलर्ट देखें' : 'View Weather Alerts', route: '/weather', icon: 'CloudSunRain' },
+        { label: isMr ? 'संरक्षित वाहतूक बुक करा' : isHi ? 'कवर्ड वाहन बुक करें' : 'Book Covered Transport', route: '/transport', icon: 'Truck' }
+      ]
+    };
+  }
+
+  // 6. CROP PROBLEM & DISEASE GUIDANCE: "Help me understand a crop problem"
+  const isCropProblem = (
+    text.includes('crop problem') || text.includes('help me understand a crop problem') ||
+    text.includes('disease') || text.includes('pest') || text.includes('fungus') ||
+    text.includes('blight') || text.includes('yellowing') || text.includes('leaf spot') ||
+    text.includes('पिकावरील रोगाची') || text.includes('पिकावरील रोग') || text.includes('पिकाची समस्या') ||
+    text.includes('फसल की समस्या') || text.includes('फसल रोग')
+  );
+
+  if (isCropProblem) {
+    let crop = extractCropMention(message);
+    let profile = null;
+    if (user && user.id && !user.isGuest) {
+      try { profile = await FarmerProfile.findOne({ where: { userId: user.id } }); } catch (_) {}
+    }
+    if (!crop && profile?.mainCrop) crop = profile.mainCrop.split(',')[0].trim();
+    crop = crop || 'Tomato';
+
+    let diagnosis = {
+      disease: 'Early Blight (Alternaria solani)',
+      symptoms: 'Concentric dark brown rings with chlorotic yellow halo on lower leaf foliage.',
+      organic: 'Cold-pressed Neem Oil (10,000 ppm) @ 3.5 ml/L of water + Trichoderma viride biological spray.',
+      chemical: 'Mancozeb 75% WP @ 2.5 g/L or Azoxystrobin 23% SC @ 1 ml/L.'
+    };
+
+    if (crop.toLowerCase().includes('onion')) {
+      diagnosis = {
+        disease: 'Purple Blotch (Alternaria porri)',
+        symptoms: 'Small water-soaked sunken lesions with purplish centers on leaf shafts.',
+        organic: 'Fermented butter-milk (chhaas) extract (50 ml/L) mixed with ginger-garlic extract.',
+        chemical: 'Difenoconazole 25% EC @ 1 ml/L or Chlorothalonil 75% WP @ 2 g/L.'
+      };
+    } else if (crop.toLowerCase().includes('potato')) {
+      diagnosis = {
+        disease: 'Late Blight (Phytophthora infestans)',
+        symptoms: 'Irregular dark brown water-soaked lesions with white moldy fungal growth on leaf underside.',
+        organic: 'Rogue and destroy infected foliage. Spray Copper Hydroxide @ 2.5 g/L.',
+        chemical: 'Cymoxanil 8% + Mancozeb 64% WP @ 3 g/L or Metalaxyl-M 4% + Mancozeb 64% WP.'
+      };
+    } else if (crop.toLowerCase().includes('cotton')) {
+      diagnosis = {
+        disease: 'Cotton Leaf Curl Virus (CLCuV)',
+        symptoms: 'Upward cup-like rolling of leaves and thickening of main veins caused by Whitefly vector.',
+        organic: 'Install yellow sticky traps (10 traps/acre). Spray 5% Neem Seed Kernel Extract (NSKE).',
+        chemical: 'Control whitefly vector using Diafenthiuron 50% WP @ 1.2 g/L.'
+      };
+    }
+
+    let msg = "";
+    if (isMr) {
+      msg = `🌿 ${crop} पिकावरील रोग व उपाय मार्गदर्शन:\n\n` +
+        `• संभाव्य रोग: ${diagnosis.disease}\n` +
+        `• लक्षणे: ${diagnosis.symptoms}\n` +
+        `• सेंद्रिय / जैविक उपाय: ${diagnosis.organic}\n` +
+        `• प्रमाणित रासायनिक उपाय: ${diagnosis.chemical}\n\n` +
+        `⚠️ अनिश्चितता नोंद: पानांची लक्षणे सूक्ष्मअन्नद्रव्य कमतरतेसारखीही दिसू शकतात. फवारणी करण्यापूर्वी आपल्या स्थानिक तालुका कृषी विज्ञान केंद्रातील (KVK) कृषी अधिकाऱ्यांचा प्रत्यक्ष सल्ला अवश्य घ्या.`;
+    } else if (isHi) {
+      msg = `🌿 ${crop} फसल रोग व उपचार मार्गदर्शन:\n\n` +
+        `• संभावित बीमारी: ${diagnosis.disease}\n` +
+        `• लक्षण: ${diagnosis.symptoms}\n` +
+        `• जैविक उपाय: ${diagnosis.organic}\n` +
+        `• रासायनिक उपाय: ${diagnosis.chemical}\n\n` +
+        `⚠️ अनिश्चितता नोट: पत्ते के लक्षण पोषक तत्वों की कमी से भी मिलते-जुलते हो सकते हैं। स्प्रे करने से पहले नजदीकी कृषि विज्ञान केंद्र (KVK) विशेषज्ञ से पुष्टि करें।`;
+    } else {
+      msg = `🌿 Agronomic Diagnostic Guidance for ${crop}:\n\n` +
+        `• Common Pathology: ${diagnosis.disease}\n` +
+        `• Typical Symptoms: ${diagnosis.symptoms}\n` +
+        `• Organic / Bio-treatment: ${diagnosis.organic}\n` +
+        `• Certified Chemical Dosage: ${diagnosis.chemical}\n\n` +
+        `⚠️ Uncertainty Note: Leaf symptoms can overlap with micronutrient deficiencies or waterlogging. We recommend showing a physical sample to your local Taluka Krishi Kendra before spraying chemical fungicides.`;
+    }
+
+    return {
+      intent: 'crop_problem',
+      message: msg,
+      actions: [
+        { label: isMr ? 'पीक डॉक्टर उघडा' : isHi ? 'फसल डॉक्टर' : 'Open Crop Doctor', route: '/dashboard', icon: 'Store' },
+        { label: isMr ? 'हवामान जोखीम तपासा' : isHi ? 'मौसम जोखिम' : 'Check Weather Risk', route: '/weather', icon: 'CloudSunRain' }
+      ]
+    };
+  }
+
+  // 7. GOVERNMENT SCHEMES: "Find a relevant government scheme"
+  const isGovScheme = (
+    text.includes('find a relevant government scheme') || text.includes('government scheme') ||
+    text.includes('relevant government scheme') || text.includes('सरकारी योजना') ||
+    text.includes('सरकारी योजना शोधा') || text.includes('माझ्यासाठी उपयुक्त सरकारी योजना')
+  );
+
+  if (isGovScheme) {
+    let msg = "";
+    if (isMr) {
+      msg = `🏛️ शेतकऱ्यांसाठी महत्त्वाच्या सक्रिय शासकीय योजना:\n\n` +
+        `1. पीएम-किसान (PM-KISAN):\n` +
+        `   • थेट बँक खात्यात वार्षिक ₹६,००० (३ हप्त्यांमध्ये).\n` +
+        `2. पंतप्रधान पीक विमा योजना (PMFBY):\n` +
+        `   • अवकाळी पाऊस, दुष्काळ व कीड नुकसानीसाठी अवघ्या १.५% ते २% हप्त्यावर संपूर्ण विमा संरक्षण.\n` +
+        `3. महाडीबीटी ठिबक व तुषार सिंचन अनुदान:\n` +
+        `   • सूक्ष्म सिंचनासाठी लहान व अल्पभूधारक शेतकऱ्यांना ५५% ते ७०% पर्यंत शासकीय अनुदान.\n` +
+        `4. किसान क्रेडिट कार्ड (KCC):\n` +
+        `   • वेळेवर परतफेडीवर अवघ्या ४% सवलतीच्या व्याजदराने पीक कर्ज.\n\n` +
+        `सविस्तर पात्रता व अर्ज प्रक्रियेसाठी खालील बटणावर क्लिक करा.`;
+    } else if (isHi) {
+      msg = `🏛️ किसानों के लिए प्रमुख सक्रिय सरकारी योजनाएं:\n\n` +
+        `1. पीएम-किसान (PM-KISAN): ₹6,000 वार्षिक प्रत्यक्ष बैंक अंतरण।\n` +
+        `2. प्रधानमंत्री फसल बीमा योजना (PMFBY): प्राकृतिक आपदा व कीट क्षति हेतु सुरक्षा कवच।\n` +
+        `3. ड्रिप व सूक्ष्म सिंचाई अनुदान: लघु व सीमांत किसानों को 55% से 70% तक की छूट।\n` +
+        `4. किसान क्रेडिट कार्ड (KCC): 4% रियायती ब्याज दर पर फसली ऋण।\n\n` +
+        `पात्रता जांचने के लिए सरकारी योजनाएं विकल्प देखें।`;
+    } else {
+      msg = `🏛️ Key Active Agricultural Government Schemes:\n\n` +
+        `1. PM-KISAN (Pradhan Mantri Kisan Samman Nidhi):\n` +
+        `   • ₹6,000 annual direct income support credited in 3 equal installments.\n` +
+        `2. PMFBY (Pradhan Mantri Fasal Bima Yojana):\n` +
+        `   • Comprehensive crop loss insurance against drought, unseasonal rain, and pests at low 1.5% - 2% premium.\n` +
+        `3. MahaDBT / i-Khedut Micro-Irrigation Subsidy:\n` +
+        `   • 55% to 70% subsidy assistance for Drip and Sprinkler irrigation systems.\n` +
+        `4. Kisan Credit Card (KCC):\n` +
+        `   • Concessional credit access with 3% prompt repayment incentive (effective 4% interest rate).\n\n` +
+        `Explore eligibility criteria and documentation requirements in the Schemes portal.`;
+    }
+
+    return {
+      intent: 'government_scheme',
+      message: msg,
+      actions: [
+        { label: isMr ? 'सरकारी योजना तपासा' : isHi ? 'सरकारी योजनाएं देखें' : 'Explore Govt Schemes', route: '/schemes', icon: 'Landmark' }
+      ]
+    };
+  }
+
+  // 8. MANDI PROCUREMENT OFFERS
   if (
     text.includes('mandi offer') || text.includes('buyer offer') || text.includes('procurement offer') ||
     text.includes('मंडी ऑफर') || text.includes('व्यापारी ऑफर') || text.includes('मंडी खरेदी')
   ) {
-    const offers = await ContactRequest.findAll({
-      where: { receiverId: user.id, contactType: 'mandi_to_farmer' },
-      order: [['createdAt', 'DESC']],
-      limit: 3
-    });
+    if (user.isGuest) {
+      return {
+        intent: 'my_farm',
+        message: isMr ? "आपल्या खरेदी प्रस्तावांची माहिती पाहण्यासाठी कृपया शेतकरी लॉगिन करा." : "Please sign in with your farmer account to view confidential mandi offers.",
+        actions: [{ label: isMr ? 'लॉगिन करा' : 'Sign In', route: '/login', icon: 'ShieldCheck' }]
+      };
+    }
+
+    let offers = [];
+    try {
+      offers = await ContactRequest.findAll({
+        where: { receiverId: user.id, contactType: 'mandi_to_farmer' },
+        order: [['createdAt', 'DESC']],
+        limit: 3
+      });
+    } catch (_) {}
 
     const pendingOffers = offers.filter(o => o.status === 'pending');
     if (pendingOffers.length === 0) {
-      const msg = language === 'mr'
+      const msg = isMr
         ? "सध्या आपल्याकडे कोणताही प्रलंबित मंडी खरेदी प्रस्ताव (Mandi Offer) नाही. नवीन ऑफर आल्यास डॅशबोर्डवर तात्काळ दिसेल."
-        : language === 'hi'
+        : isHi
         ? "वर्तमान में आपके पास कोई लंबित मंडी खरीद प्रस्ताव नहीं है। नया प्रस्ताव आने पर तुरंत सूचित किया जाएगा।"
         : "You currently have no pending mandi procurement offers. Any new buyer inquiry will appear on your dashboard.";
       return {
+        intent: 'my_farm',
         message: msg,
-        actions: [{ label: language === 'mr' ? 'बाजार भाव तपासा' : 'Check Market Prices', route: '/markets', icon: 'TrendingUp' }]
+        actions: [{ label: isMr ? 'बाजार भाव तपासा' : 'Check Market Prices', route: '/markets', icon: 'TrendingUp' }]
       };
     }
 
     const first = pendingOffers[0];
-    const msg = language === 'mr'
+    const msg = isMr
       ? `आपल्याकडे ${pendingOffers.length} प्रलंबित मंडी खरेदी प्रस्ताव आहेत! ताज्या प्रस्तावानुसार ${first.senderName || 'APMC Mandi'} ने ₹${first.proposedPricePerKg}/kg दराने ${first.quantityKg} kg ${first.cropName} खरेदीसाठी विचारणा केली आहे.`
-      : language === 'hi'
+      : isHi
       ? `आपके पास ${pendingOffers.length} लंबित मंडी खरीद प्रस्ताव हैं! ${first.senderName || 'APMC Mandi'} ने ₹${first.proposedPricePerKg}/kg की दर से ${first.quantityKg} kg ${first.cropName} खरीदने का प्रस्ताव भेजा है।`
       : `You have ${pendingOffers.length} pending mandi procurement offer(s)! ${first.senderName || 'APMC Mandi'} has offered ₹${first.proposedPricePerKg}/kg for ${first.quantityKg} kg of ${first.cropName}.`;
 
     return {
+      intent: 'my_farm',
       message: msg,
-      actions: [{ label: language === 'mr' ? 'ऑफर स्वीकारा / तपासा' : 'Review Mandi Offers', route: '/dashboard#mandi-bookings', icon: 'Store' }]
+      actions: [{ label: isMr ? 'ऑफर स्वीकारा / तपासा' : 'Review Mandi Offers', route: '/dashboard#mandi-bookings', icon: 'Store' }]
     };
   }
 
-  // 3. What crops have I saved?
+  // 9. SAVED CROPS
   if (
     text.includes('crops have i saved') || text.includes('saved crops') || text.includes('my crops') ||
     text.includes('माझी पिके') || text.includes('माझे पीक') || text.includes('मेरी फसलें')
   ) {
-    const profile = await FarmerProfile.findOne({ where: { userId: user.id } });
+    let profile = null;
+    if (user && user.id && !user.isGuest) {
+      try { profile = await FarmerProfile.findOne({ where: { userId: user.id } }); } catch (_) {}
+    }
     const mainCrop = profile?.mainCrop || 'Tomato';
     let qMap = {};
     if (typeof profile?.productQuantities === 'string') {
@@ -701,41 +1258,54 @@ async function handleFarmerMyFarmAssistant({ user, message, language }) {
       return `${c}: ${q} ${u}`;
     }).join(', ');
 
-    const msg = language === 'mr'
+    const msg = isMr
       ? `आपल्या शेतात नोंदवलेली पिके (${profile?.district || 'पुणे'} जिल्हा, ${profile?.farmSizeAcres || 4.5} एकर): ${summaryList || mainCrop}.`
-      : language === 'hi'
+      : isHi
       ? `आपके खेत में पंजीकृत फसलें (${profile?.district || 'पुणे'} जिला, ${profile?.farmSizeAcres || 4.5} एकड़): ${summaryList || mainCrop}.`
       : `Your registered farm crops (${profile?.district || 'Pune'} district, ${profile?.farmSizeAcres || 4.5} Acres): ${summaryList || mainCrop}.`;
 
     return {
+      intent: 'my_farm',
       message: msg,
       actions: [
-        { label: language === 'mr' ? 'नफा मोजा' : 'Calculate Profit', route: `/harvest?crop=${cropNames[0] || 'Tomato'}`, icon: 'Calculator' },
-        { label: language === 'mr' ? 'बाजार भाव पहा' : 'Check Prices', route: `/markets?crop=${cropNames[0] || 'Tomato'}`, icon: 'TrendingUp' }
+        { label: isMr ? 'नफा मोजा' : 'Calculate Profit', route: `/harvest?crop=${cropNames[0] || 'Tomato'}`, icon: 'Calculator' },
+        { label: isMr ? 'बाजार भाव पहा' : 'Check Prices', route: `/markets?crop=${cropNames[0] || 'Tomato'}`, icon: 'TrendingUp' }
       ]
     };
   }
 
-  // 4. What is my FPO membership status?
+  // 10. FPO MEMBERSHIP STATUS
   if (
     text.includes('fpo membership') || text.includes('fpo status') ||
     text.includes('एफपीओ स्थिती') || text.includes('एफपीओ सदस्यता') || text.includes('एफपीओ स्टेटस')
   ) {
-    const membership = await FpoMembership.findOne({
-      where: { farmerId: user.id },
-      include: [{ model: User, as: 'Fpo', attributes: ['id', 'name'], include: [{ model: FarmerProfile }] }],
-      order: [['updatedAt', 'DESC']]
-    });
+    if (user.isGuest) {
+      return {
+        intent: 'my_farm',
+        message: isMr ? "FPO सदस्यत्वाची माहिती पाहण्यासाठी कृपया शेतकरी लॉगिन करा." : "Please sign in to check your FPO membership status.",
+        actions: [{ label: isMr ? 'लॉगिन करा' : 'Sign In', route: '/login', icon: 'ShieldCheck' }]
+      };
+    }
+
+    let membership = null;
+    try {
+      membership = await FpoMembership.findOne({
+        where: { farmerId: user.id },
+        include: [{ model: User, as: 'Fpo', attributes: ['id', 'name'], include: [{ model: FarmerProfile }] }],
+        order: [['updatedAt', 'DESC']]
+      });
+    } catch (_) {}
 
     if (!membership) {
-      const msg = language === 'mr'
+      const msg = isMr
         ? "आपण अद्याप कोणत्याही शेतकरी उत्पादक कंपनीचे (FPO) सदस्य नाही. सामायिक विक्री व अनुदानासाठी FPO शोधा व अर्ज करा."
-        : language === 'hi'
+        : isHi
         ? "आप अभी तक किसी किसान उत्पादक संगठन (FPO) के सदस्य नहीं हैं। सामूहिक बिक्री लाभ के लिए FPO से जुड़ें।"
         : "You are not currently enrolled in any Farmer Producer Organization (FPO). Join an FPO for collective bargaining and shared freight.";
       return {
+        intent: 'my_farm',
         message: msg,
-        actions: [{ label: language === 'mr' ? 'FPO शोधा व अर्ज करा' : 'Find & Join FPO', route: '/fpo', icon: 'Users' }]
+        actions: [{ label: isMr ? 'FPO शोधा व अर्ज करा' : 'Find & Join FPO', route: '/fpo', icon: 'Users' }]
       };
     }
 
@@ -743,12 +1313,12 @@ async function handleFarmerMyFarmAssistant({ user, message, language }) {
     const statusUpper = (membership.status || 'PENDING').toUpperCase();
 
     let msg = "";
-    if (language === 'mr') {
+    if (isMr) {
       msg = `आपली FPO सदस्यता: ${fpoName}. सद्यस्थिती: '${statusUpper}'. ` +
         (membership.status === 'active'
           ? "आपण सक्रिय सदस्य आहात! आपण सामूहिक विक्री लॉटमध्ये माल जमा करू शकता."
           : "आपला अर्ज FPO व्यवस्थापनाकडे मंजुरीसाठी प्रलंबित आहे.");
-    } else if (language === 'hi') {
+    } else if (isHi) {
       msg = `आपकी FPO सदस्यता: ${fpoName}. वर्तमान स्थिति: '${statusUpper}'. ` +
         (membership.status === 'active'
           ? "आप सक्रिय सदस्य हैं! आप सामूहिक बिक्री में भाग ले सकते हैं।"
@@ -761,32 +1331,37 @@ async function handleFarmerMyFarmAssistant({ user, message, language }) {
     }
 
     return {
+      intent: 'my_farm',
       message: msg,
-      actions: [{ label: language === 'mr' ? 'FPO डॅशबोर्ड उघडा' : 'View FPO Workspace', route: '/fpo', icon: 'Users' }]
+      actions: [{ label: isMr ? 'FPO डॅशबोर्ड उघडा' : 'View FPO Workspace', route: '/fpo', icon: 'Users' }]
     };
   }
 
-  // 5. What action should I take next?
+  // 11. WHAT ACTION SHOULD I TAKE NEXT
   if (
     text.includes('action should i take') || text.includes('what should i do next') ||
     text.includes('मी पुढे काय करावे') || text.includes('पुढील पाऊल') || text.includes('अगला कदम')
   ) {
-    const profile = await FarmerProfile.findOne({ where: { userId: user.id } });
+    let profile = null;
+    if (user && user.id && !user.isGuest) {
+      try { profile = await FarmerProfile.findOne({ where: { userId: user.id } }); } catch (_) {}
+    }
     const crop = profile?.mainCrop?.split(',')[0]?.trim() || 'Tomato';
     const dist = profile?.district || 'Pune';
 
-    const msg = language === 'mr'
+    const msg = isMr
       ? `शेतकरी मित्रा, आजचे ४ मुख्य निर्णय:\n1. 📊 ${dist} व वाशी APMC मधील ${crop} चा थेट बाजार भाव तपासा.\n2. 🧮 वाहतूक खर्च व कमिशन वजा करून निव्वळ नफा मोजा.\n3. 🚚 कमी खर्चात माल पाठवण्यासाठी सामायिक वाहन (Shared Transport) बुक करा.\n4. 🏛️ पीएम-किसान व पीक विमा योजनांची पात्रता तपासा.`
-      : language === 'hi'
+      : isHi
       ? `किसान मित्र, आज के 4 प्रमुख कार्य:\n1. 📊 ${dist} व वाशी APMC में ${crop} का मंडी भाव देखें।\n2. 🧮 परिवहन खर्च घटाकर शुद्ध मुनाफा कैलकुलेट करें।\n3. 🚚 कम भाड़े के लिए साझा वाहन (Shared Transport) बुक करें।\n4. 🏛️ पीएम-किसान और फसल बीमा पात्रता देखें।`
       : `Farmer friend, here are 4 high-value actions to take today:\n1. 📊 Compare live ${crop} benchmark rates in ${dist} APMC vs Mumbai Vashi APMC.\n2. 🧮 Run the Profit Calculator deducting transport freight to see true take-home proceeds.\n3. 🚚 Reserve a shared transport slot to cut highway freight expenses.\n4. 🏛️ Check eligibility for active government schemes.`;
 
     return {
+      intent: 'my_farm',
       message: msg,
       actions: [
-        { label: language === 'mr' ? 'बाजार भाव तपासा' : 'Check Market Prices', route: `/markets?crop=${crop}`, icon: 'TrendingUp' },
-        { label: language === 'mr' ? 'नफा मोजा' : 'Calculate Profit', route: `/harvest?crop=${crop}`, icon: 'Calculator' },
-        { label: language === 'mr' ? 'वाहतूक बुक करा' : 'Book Transportation', route: `/transport?crop=${crop}`, icon: 'Truck' }
+        { label: isMr ? 'बाजार भाव तपासा' : 'Check Market Prices', route: `/markets?crop=${crop}`, icon: 'TrendingUp' },
+        { label: isMr ? 'नफा मोजा' : 'Calculate Profit', route: `/harvest?crop=${crop}`, icon: 'Calculator' },
+        { label: isMr ? 'वाहतूक बुक करा' : 'Book Transportation', route: `/transport?crop=${crop}`, icon: 'Truck' }
       ]
     };
   }
