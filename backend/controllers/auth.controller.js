@@ -6,6 +6,10 @@ const sequelize = require("../config/database");
 
 const otpService = require("../services/otpService");
 const agristackService = require("../services/agristackService");
+const {
+    calculateFarmerCropsAvailability,
+    calculateSingleCropAvailability
+} = require("../services/cropAvailabilityService");
 
 function formatUserResponse(userInstance) {
     if (!userInstance) return null;
@@ -1225,66 +1229,144 @@ const mandiProcurementRequest = async (req, res) => {
             });
         }
 
-        let farmer = await User.findByPk(Number(farmerId), {
-            include: [{ model: FarmerProfile }]
+        // Prevent duplicate rapid re-submissions within 10 seconds for identical lot
+        const recentDuplicate = await ContactRequest.findOne({
+            where: {
+                senderId: req.user.id,
+                receiverId: Number(farmerId),
+                cropName: String(cropName).trim(),
+                status: 'pending',
+                createdAt: {
+                    [Op.gte]: new Date(Date.now() - 10 * 1000)
+                }
+            }
         });
-
-        // Fallback: If not found by ID (e.g. demo simulated IDs), find demo farmer so booking never fails
-        if (!farmer) {
-            farmer = await User.findOne({
-                where: { role: "farmer" },
-                include: [{ model: FarmerProfile }]
-            });
-        }
-
-        if (!farmer) {
-            return res.status(404).json({
+        if (recentDuplicate && Math.abs(Number(recentDuplicate.quantityKg) - qty) < 0.01) {
+            return res.status(409).json({
                 success: false,
-                message: "Target farmer not found."
+                message: "A duplicate procurement request was recently submitted. Please wait a moment before sending another.",
+                code: "DUPLICATE_SUBMISSION"
             });
         }
 
-        // Fetch Mandi Profile for official credentials
-        const mandiProfile = await MandiProfile.findOne({ where: { userId: req.user.id } });
-        const mandiName = mandiProfile?.mandiName || req.user.name || "APMC Mandi";
+        // Execute authoritative availability check and booking inside atomic database transaction
+        const result = await sequelize.transaction(async (t) => {
+            let farmer = await User.findByPk(Number(farmerId), {
+                include: [{ model: FarmerProfile }],
+                transaction: t
+            });
 
-        const formattedRate = Number(rate.toFixed(2));
-        const noteText = notes && String(notes).trim() ? ` [Note: ${String(notes).trim()}]` : "";
-        const notificationText = `🏪 ${mandiName} placed a procurement inquiry for ${qty} kg ${cropName} at ₹${formattedRate}/kg${noteText}`;
+            // Fallback: If not found by ID and simulated/demo ID >= 100, find demo farmer so demo booking never errors out
+            if (!farmer && Number(farmerId) >= 100 && process.env.NODE_ENV !== 'test') {
+                farmer = await User.findOne({
+                    where: { role: "farmer" },
+                    include: [{ model: FarmerProfile }],
+                    transaction: t
+                });
+            }
 
-        const contactReq = await ContactRequest.create({
-            senderId: req.user.id,
-            senderName: mandiName,
-            senderRole: req.user.role,
-            senderContact: mandiProfile?.contactPhone || req.user.phone || mandiProfile?.contactEmail || req.user.email,
-            receiverId: farmer.id,
-            receiverName: farmer.name,
-            receiverRole: farmer.role,
-            cropName: String(cropName).trim(),
-            quantityKg: qty,
-            proposedPricePerKg: formattedRate,
-            message: notificationText,
-            status: "pending",
-            contactType: "mandi_to_farmer"
+            if (!farmer) {
+                const err = new Error("Target farmer not found.");
+                err.statusCode = 404;
+                throw err;
+            }
+
+            // Authoritatively calculate crop availability considering active reservations ('pending', 'accepted')
+            const cropAvail = await calculateSingleCropAvailability(farmer.id, farmer.FarmerProfile, cropName, t);
+
+            if (!cropAvail.exists || cropAvail.totalKg <= 0) {
+                const err = new Error(`Crop "${cropName}" is not listed or available for procurement from this farmer.`);
+                err.statusCode = 400;
+                err.code = "CROP_NOT_LISTED";
+                throw err;
+            }
+
+            if (cropAvail.availableKg <= 0) {
+                const err = new Error(`Listing for ${cropName} is SOLD OUT (0 kg available). No procurement request can be accepted.`);
+                err.statusCode = 409;
+                err.code = "SOLD_OUT";
+                err.availableKg = 0;
+                throw err;
+            }
+
+            if (qty > cropAvail.availableKg) {
+                const err = new Error(`Requested quantity (${qty} kg) exceeds remaining available quantity (${cropAvail.availableKg} kg) for ${cropName}.`);
+                err.statusCode = 400;
+                err.code = "EXCEEDS_AVAILABLE_QUANTITY";
+                err.availableKg = cropAvail.availableKg;
+                throw err;
+            }
+
+            // Fetch Mandi Profile for official credentials
+            const mandiProfile = await MandiProfile.findOne({
+                where: { userId: req.user.id },
+                transaction: t
+            });
+            const mandiName = mandiProfile?.mandiName || req.user.name || "APMC Mandi";
+
+            const formattedRate = Number(rate.toFixed(2));
+            const noteText = notes && String(notes).trim() ? ` [Note: ${String(notes).trim()}]` : "";
+            const notificationText = `🏪 ${mandiName} placed a procurement inquiry for ${qty} kg ${cropName} at ₹${formattedRate}/kg${noteText}`;
+
+            const contactReq = await ContactRequest.create({
+                senderId: req.user.id,
+                senderName: mandiName,
+                senderRole: req.user.role,
+                senderContact: mandiProfile?.contactPhone || req.user.phone || mandiProfile?.contactEmail || req.user.email,
+                receiverId: farmer.id,
+                receiverName: farmer.name,
+                receiverRole: farmer.role,
+                cropName: String(cropName).trim(),
+                quantityKg: qty,
+                proposedPricePerKg: formattedRate,
+                message: notificationText,
+                status: "pending",
+                contactType: "mandi_to_farmer"
+            }, { transaction: t });
+
+            return {
+                farmer,
+                mandiName,
+                formattedRate,
+                notificationText,
+                contactReq,
+                remainingAvailableKg: Math.max(0, cropAvail.availableKg - qty)
+            };
         });
 
         return res.status(201).json({
             success: true,
-            message: `Procurement booking request sent to ${farmer.name} successfully.`,
+            message: `Procurement booking request sent to ${result.farmer.name} successfully.`,
             alert: {
-                id: contactReq.id,
-                farmerId: farmer.id,
-                farmerName: farmer.name,
-                mandiName,
+                id: result.contactReq.id,
+                farmerId: result.farmer.id,
+                farmerName: result.farmer.name,
+                mandiName: result.mandiName,
                 cropName,
                 quantityKg: qty,
-                offeredRate: formattedRate,
-                message: notificationText,
-                createdAt: contactReq.createdAt
+                offeredRate: result.formattedRate,
+                message: result.notificationText,
+                createdAt: result.contactReq.createdAt
             },
-            data: contactReq
+            data: result.contactReq,
+            remainingAvailableKg: result.remainingAvailableKg
         });
     } catch (error) {
+        if (error.statusCode) {
+            return res.status(error.statusCode).json({
+                success: false,
+                message: error.message,
+                code: error.code,
+                availableKg: error.availableKg
+            });
+        }
+        if (error.name === 'SequelizeTimeoutError' || (error.parent && error.parent.code === 'SQLITE_BUSY')) {
+            return res.status(409).json({
+                success: false,
+                message: "Another transaction is currently reserving produce for this farmer. Please retry in a moment.",
+                code: "CONCURRENCY_LOCK"
+            });
+        }
         console.error("Mandi procurement request error:", error);
         return res.status(500).json({
             success: false,
@@ -1328,7 +1410,7 @@ const updateContactRequestStatus = async (req, res) => {
         const { id } = req.params;
         const { status } = req.body;
 
-        if (!['accepted', 'declined', 'pending'].includes(status)) {
+        if (!['accepted', 'declined', 'pending', 'cancelled', 'rejected'].includes(status)) {
             return res.status(400).json({ success: false, message: "Invalid status value" });
         }
 
@@ -1410,22 +1492,33 @@ const getRelevantFarmers = async (req, res) => {
             });
         }
 
-        return res.json({
-            success: true,
-            count: farmers.length,
-            data: farmers.map(f => ({
+        const farmersData = await Promise.all(farmers.map(async (f) => {
+            const profile = f.FarmerProfile;
+            const avail = await calculateFarmerCropsAvailability(f.id, profile);
+            return {
                 id: f.id,
                 name: f.name,
                 phone: f.phone,
                 email: f.email,
-                district: f.FarmerProfile?.district,
-                village: f.FarmerProfile?.village,
-                farmSizeAcres: f.FarmerProfile?.farmSizeAcres,
-                mainCrop: f.FarmerProfile?.mainCrop,
-                customCrop: f.FarmerProfile?.customCrop,
-                currentHarvestKg: f.FarmerProfile?.currentHarvestKg,
-                productQuantities: f.FarmerProfile?.productQuantities
-            }))
+                district: profile?.district,
+                village: profile?.village,
+                farmSizeAcres: profile?.farmSizeAcres,
+                mainCrop: profile?.mainCrop,
+                customCrop: profile?.customCrop,
+                currentHarvestKg: profile?.currentHarvestKg,
+                productQuantities: profile?.productQuantities,
+                cropsAvailability: avail.crops,
+                totalLotKg: avail.totalLotKg,
+                totalBookedKg: avail.totalBookedKg,
+                totalAvailableKg: avail.totalAvailableKg,
+                isAllSoldOut: avail.isAllSoldOut
+            };
+        }));
+
+        return res.json({
+            success: true,
+            count: farmersData.length,
+            data: farmersData
         });
     } catch (error) {
         console.error("Get Relevant Farmers error:", error);

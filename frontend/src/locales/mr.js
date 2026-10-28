@@ -440,6 +440,8 @@ export const mr = {
     issueDirectBooking: "थेट APMC खरेदी ऑफर द्या",
     availableHarvestLots: "उपलब्ध काढणी लॉट्स आणि अपेक्षित दर:",
     expectedRate: "अपेक्षित",
+    availableProduceLot: "उपलब्ध शेतमाल",
+    soldOutStatus: "पूर्ण बुक झाले — 0 किलो उपलब्ध (SOLD OUT)",
     totalProduceLot: "एकूण माल लॉट",
     procurementTitle: "APMC खरेदी प्रस्ताव आणि गेट पास",
     procurementSubtitle: "शेतकऱ्यांना पाठवलेले खरेदी प्रस्ताव, त्यांचे निर्णय आणि गेट आवक पावत्यांचा मागोवा घ्या.",

@@ -440,6 +440,8 @@ export const hi = {
     issueDirectBooking: "सीधा APMC खरीद अनुरोध जारी करें",
     availableHarvestLots: "उपलब्ध कटाई लॉट्स और अपेक्षित दरें:",
     expectedRate: "अपेक्षित",
+    availableProduceLot: "उपलब्ध उपज",
+    soldOutStatus: "पूर्ण बुक — 0 किग्रा उपलब्ध (SOLD OUT)",
     totalProduceLot: "कुल उपज लॉट",
     procurementTitle: "APMC मंडी खरीद प्रस्ताव और गेट पास",
     procurementSubtitle: "किसानों को भेजे गए खरीद अनुरोध, पुष्टि निर्णय और आवक पर्चियों को ट्रैक करें।",
