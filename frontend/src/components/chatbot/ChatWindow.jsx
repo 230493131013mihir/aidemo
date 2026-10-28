@@ -51,32 +51,40 @@ const WELCOME_MESSAGES = {
 
 const SUGGESTED_QUERIES = {
   mr: [
-    "पीएम-किसान (PM-KISAN) योजना पात्रता व लाभ",
-    "पंतप्रधान पीक विमा योजना (PMFBY) नियम",
-    "i-Khedut / महाडीबीटी ठिबक सिंचन अनुदान",
-    "आज टोमॅटोचा भाव काय आहे?",
-    "सामायिक वाहनाने वाहतूक खर्च कसा वाचवावा?"
-  ],
-  hi: [
-    "पीएम-किसान (PM-KISAN) योजना पात्रता एवं लाभ",
-    "प्रधानमंत्री फसल बीमा योजना (PMFBY) नियम",
-    "आई-खेड़ूत (i-Khedut) ड्रिप व कृषि उपकरण सब्सिडी",
-    "आज टमाटर का मंडी भाव क्या है?",
-    "साझा वाहन से भाड़ा कैसे बचाएं?"
-  ],
-  gu: [
-    "પીએમ-કિસાન (PM-KISAN) યોજનાની પાત્રતા અને સહાય",
-    "પીએમ પાક વીમા યોજના (PMFBY) ના નિયમો",
-    "આઈ-ખેડૂત (i-Khedut) ટપક સિંચાઈ અને ટ્રેક્ટર સબસિડી",
-    "આજે ટામેટાંનો ભાવ શું છે?",
-    "શેર્ડ વાહનથી પરિવહન ખર્ચ કેવી રીતે બચાવવો?"
+    "माझे पीक मी कुठे विकावे?",
+    "माझा अंदाजित नफा मोजा.",
+    "माझ्या शेतीमालासाठी वाहतूक शोधा.",
+    "माझ्या बुकिंगची सद्यस्थिती तपासा.",
+    "हवामानाचा धोका काय आहे?",
+    "पिकावरील रोगाची किंवा समस्येची माहिती द्या.",
+    "माझ्यासाठी उपयुक्त सरकारी योजना शोधा."
   ],
   en: [
-    "PM-KISAN eligibility & subsidy rules",
-    "PMFBY crop insurance claim guidelines",
-    "i-Khedut portal drip irrigation subsidy",
-    "What is today's tomato rate in Maharashtra?",
-    "How can I save on shared transport?"
+    "Where should I sell my crop?",
+    "Calculate my estimated profit.",
+    "Find transport for my harvest.",
+    "Check my booking status.",
+    "What is the weather risk?",
+    "Help me understand a crop problem.",
+    "Find a relevant government scheme."
+  ],
+  hi: [
+    "मैं अपनी फसल कहाँ बेचूँ?",
+    "मेरा अनुमानित मुनाफा कैलकुलेट करें।",
+    "मेरी फसल के लिए ट्रांसपोर्ट खोजें।",
+    "मेरी बुकिंग का स्टेटस चेक करें।",
+    "मौसम का क्या जोखिम है?",
+    "फसल की समस्या और बीमारी समझने में मदद करें।",
+    "मेरे लिए उपयुक्त सरकारी योजना खोजें।"
+  ],
+  gu: [
+    "મારું પાક હું ક્યાં વેચું?",
+    "મારો અંદાજિત નફો ગણો.",
+    "મારા પાક માટે પરિવહન શોધો.",
+    "મારી બુકિંગ સ્થિતિ તપાસો.",
+    "હવામાનનું જોખમ શું છે?",
+    "પાકના રોગ અને સમસ્યા વિશે જણાવો.",
+    "મારા માટે યોગ્ય સરકારી યોજના શોધો."
   ]
 };
 
@@ -139,9 +147,11 @@ export default function ChatWindow({
   onClose = null,
   contextData = {},
   initialLanguage = null,
-  isTransporter = false
+  isTransporter = false,
+  initialPrompt = null
 }) {
   const { language: globalLanguage, setLanguage: setGlobalLanguage } = useLanguage?.() || {};
+  const initialPromptHandledRef = useRef(false);
 
   // 1. Language state: restore from initialLanguage, globalLanguage, localStorage or default to 'mr'
   const [selectedLanguage, setSelectedLanguage] = useState(() => {
@@ -364,6 +374,7 @@ export default function ChatWindow({
         disclaimer: response.source_disclaimer,
         mode: response.mode,
         provider: response.provider,
+        actions: response.actions || [],
         timestamp: Date.now()
       };
 
@@ -389,6 +400,14 @@ export default function ChatWindow({
       setIsLoading(false);
     }
   };
+
+  // Automatic execution of initialPrompt from navigation
+  useEffect(() => {
+    if (initialPrompt && !initialPromptHandledRef.current) {
+      initialPromptHandledRef.current = true;
+      handleSendMessage(initialPrompt);
+    }
+  }, [initialPrompt]);
 
   // Reset conversation to fresh state
   const handleResetChat = () => {

@@ -40,6 +40,7 @@ import PlanningHistoryChart from '../components/dashboard/PlanningHistoryChart';
 import RecentActivity from '../components/dashboard/RecentActivity';
 import TransportSummary from '../components/dashboard/TransportSummary';
 import MitraAssistantCard from '../components/dashboard/MitraAssistantCard';
+import MitraFarmerCopilotWidget from '../components/dashboard/MitraFarmerCopilotWidget';
 import QuickActions from '../components/dashboard/QuickActions';
 import PrintableReportModal from '../components/common/PrintableReportModal';
 import RegisteredCropsManager from '../components/dashboard/RegisteredCropsManager';
@@ -388,6 +389,9 @@ function FarmerDashboard({ user, t }) {
 
       {/* 2. Farmer Profile Summary */}
       <ProfileSummary />
+
+      {/* 2.1 Mitra AI Farmer Copilot (Prominent One-Click Access & Suggested Questions) */}
+      <MitraFarmerCopilotWidget />
 
       {/* 2.2 Live APMC Mandi Booking & Procurement Inquiries */}
       <MandiBookingNotificationWidget />

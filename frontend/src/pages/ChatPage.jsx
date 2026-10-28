@@ -1,10 +1,13 @@
 import React from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Bot, Sparkles } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import ChatWindow from '../components/chatbot/ChatWindow';
 
 export default function ChatPage() {
+  const [searchParams] = useSearchParams();
+  const initialPrompt = searchParams.get('prompt') || searchParams.get('q') || searchParams.get('query') || null;
   const { t, language } = useLanguage();
   const { user } = useAuth();
 
@@ -87,6 +90,7 @@ export default function ChatPage() {
           contextData={isTransporter ? { transporter: { id: user?.id, name: user?.name, phone: user?.phone } } : demoFarmerContext} 
           initialLanguage={language}
           isTransporter={isTransporter}
+          initialPrompt={initialPrompt}
         />
       </div>
     </div>
