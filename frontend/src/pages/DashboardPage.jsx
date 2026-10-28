@@ -27,6 +27,8 @@ import { useAuth } from '../context/AuthContext';
 
 // Dashboard Components
 import DashboardHeader from '../components/dashboard/DashboardHeader';
+import FarmerActionCards from '../components/dashboard/FarmerActionCards';
+import FarmerSummarySection from '../components/dashboard/FarmerSummarySection';
 import ProfileSummary from '../components/dashboard/ProfileSummary';
 import TransporterDashboard from '../components/dashboard/TransporterDashboard';
 import MandiDashboard from '../components/dashboard/MandiDashboard';
@@ -282,13 +284,28 @@ function FarmerDashboard({ user, t }) {
 
   return (
     <div className="space-y-6 sm:space-y-8 w-full max-w-7xl mx-auto pb-12">
-      {/* 1. Dashboard Header */}
+      {/* 1. Dashboard Header (Top Greeting, Simple Location & Ask Mitra AI) */}
       <DashboardHeader />
 
-      {/* 2. Farmer Profile Summary */}
-      <ProfileSummary />
+      {/* 2. Four Clear, Large Main Action Cards */}
+      <FarmerActionCards 
+        primaryCrop={crops.length ? crops[0].cropName : 'Tomato'}
+        primaryPrice={primaryPrice || 28.50}
+        marketName={primaryMarketName}
+        estimatedProceeds={currentStatRevenue || 35138}
+        quantityKg={totalCombinedHarvestKg || 1500}
+      />
 
-      {/* 2.2 Live APMC Mandi Booking & Procurement Inquiries */}
+      {/* 3. Operational Farmer Summary (Crops listed, Active bookings, Upcoming tasks, Local weather) */}
+      <FarmerSummarySection 
+        crops={crops} 
+        onAddCropClick={() => {
+          const el = document.getElementById('registered-crops');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }}
+      />
+
+      {/* 4. Live APMC Mandi Procurement Inquiries */}
       <MandiBookingNotificationWidget />
 
       {/* 2.5 Action Bar: Printable Kisan Farm Decision Report Banner */}
@@ -439,14 +456,16 @@ function FarmerDashboard({ user, t }) {
         </div>
       </section>
 
-      {/* 3.1 NEW: My Registered Crops (STEP 8 Layout & STEP 3-6 Dynamic Calculations) */}
-      <RegisteredCropsManager
-        crops={crops}
-        loading={loadingCrops}
-        onRefresh={fetchFarmerCrops}
-        district={farmerDistrict}
-        state={farmerState}
-      />
+      {/* 3.1 My Registered Crops */}
+      <div id="registered-crops" className="scroll-mt-20">
+        <RegisteredCropsManager
+          crops={crops}
+          loading={loadingCrops}
+          onRefresh={fetchFarmerCrops}
+          district={farmerDistrict}
+          state={farmerState}
+        />
+      </div>
 
       {/* 3.5 Multi-Crop Farm Profile Switcher with Interactive Recharts Acreage Distribution Chart */}
       <section aria-labelledby="multi-crop-heading" className="space-y-4">

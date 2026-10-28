@@ -130,6 +130,79 @@
 }
 
 /* Custom reusable utility classes */
+/* ============================================
+   FARMER-FRIENDLY ACCESSIBLE TYPOGRAPHY SYSTEM
+   (Specifications: 28-34px title, 21-24px section, 18-20px card, 16-18px body/btn, >=14px subtext)
+   ============================================ */
+
+.farmer-title {
+  font-size: clamp(1.75rem, 3vw, 2.125rem); /* 28px - 34px */
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.farmer-section-heading {
+  font-size: clamp(1.3125rem, 2.2vw, 1.5rem); /* 21px - 24px */
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--color-text);
+}
+
+.farmer-card-heading {
+  font-size: clamp(1.125rem, 1.8vw, 1.25rem); /* 18px - 20px */
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--color-text);
+}
+
+.farmer-body {
+  font-size: clamp(1rem, 1.4vw, 1.125rem); /* 16px - 18px */
+  font-weight: 500;
+  line-height: 1.6;
+  color: var(--color-text);
+}
+
+.farmer-btn-label {
+  font-size: clamp(1rem, 1.4vw, 1.125rem); /* 16px - 18px */
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.farmer-subtext {
+  font-size: 0.875rem; /* 14px */
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--color-muted);
+}
+
+.farmer-price-value {
+  font-size: clamp(1.625rem, 3.5vw, 2.25rem); /* 26px - 36px */
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+/* Large action card for farmer dashboard */
+.farmer-action-card {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(27, 94, 32, 0.05);
+}
+
+.farmer-action-card:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px rgba(27, 94, 32, 0.12);
+}
+
 .card-harvest {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);

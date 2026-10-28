@@ -61,7 +61,7 @@ export default function ChatMessage({
         </div>
 
         {/* Bubble */}
-        <div className="bg-white border border-emerald-100/80 text-gray-800 px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm text-sm sm:text-base leading-relaxed break-words font-normal relative">
+        <div className="bg-white border border-emerald-200 text-slate-900 px-4 py-3.5 rounded-2xl rounded-tl-sm shadow-xs text-base sm:text-lg leading-relaxed break-words font-medium relative">
           <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>
 
           {/* Source disclaimer */}
