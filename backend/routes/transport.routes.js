@@ -16,6 +16,27 @@ const {
 } = require("../services/cropTransportCompatibility");
 const { findMatchingTransport, calculateSharedTransportCost } = require("../services/transportMatcher");
 
+const ACTIVE_BOOKING_STATUSES = [
+    "open",
+    "pending",
+    "confirmed",
+    "accepted",
+    "driver_assigned",
+    "vehicle_assigned",
+    "awaiting_pickup",
+    "pickup_confirmed",
+    "in_transit",
+    "arrived_destination"
+];
+
+const TERMINAL_BOOKING_STATUSES = [
+    "delivered",
+    "delivery_confirmed",
+    "completed",
+    "cancelled",
+    "rejected"
+];
+
 const router = express.Router();
 
 function normalizeTransportInput(body, reqUser = {}) {
@@ -515,7 +536,21 @@ router.get("/vehicles", async (req, res) => {
             seenVehicleIds.add(v.id);
             return true;
         });
-
+        // Determine caller identity from auth header if available
+        let callerId = req.user?.id || null;
+        if (!callerId) {
+            const authHeader = req.headers.authorization;
+            if (authHeader && authHeader.startsWith("Bearer ")) {
+                const token = authHeader.slice(7).trim();
+                if (token && token !== "guest") {
+                    const jwt = require("jsonwebtoken");
+                    try {
+                        const decoded = jwt.verify(token, process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon");
+                        callerId = decoded?.id || null;
+                    } catch (_) {}
+                }
+            }
+        }
 
         // If specific crop requested, get its handling profile
         const cropProfile = crop ? getCropProfile(crop) : null;
@@ -524,17 +559,22 @@ router.get("/vehicles", async (req, res) => {
         const augmented = await Promise.all(transporterVehicles.map(async (v) => {
             const vehicleData = v.toJSON();
 
-            // Calculate active ongoing bookings and assignments for this vehicle
+            // Calculate active ongoing bookings and assignments for this vehicle using authoritative statuses
             const activeBookings = await TransportRequest.findAll({
                 where: {
                     vehicleId: v.id,
-                    status: { [Op.in]: ["confirmed", "accepted", "driver_assigned", "in_transit"] }
+                    ...(date && date.trim() ? { pickupDate: date.trim() } : {}),
+                    status: { [Op.in]: ACTIVE_BOOKING_STATUSES }
                 }
             });
 
-            const bookedWeightKg = activeBookings.reduce((sum, b) => sum + (b.weightKg || 0), 0);
+            const bookedWeightKg = activeBookings.reduce((sum, b) => sum + (Number(b.weightKg) || 0), 0);
             const remainingCapacityKg = Math.max(0, v.capacityKg - bookedWeightKg);
+            const isFullyBooked = remainingCapacityKg <= 0;
             const isCurrentlyInTransit = activeBookings.some(b => ["in_transit", "driver_assigned"].includes(b.status));
+
+            // Check if caller has an active booking on this vehicle
+            const userActiveBooking = callerId ? activeBookings.find(b => Number(b.userId) === Number(callerId)) : null;
 
             // Check route compatibility if destination is provided
             let isRouteEligible = true;
@@ -547,7 +587,6 @@ router.get("/vehicles", async (req, res) => {
                 const isBroadRoute = !v.supportedRoutes || routesStr.includes("all") || routesStr.includes("any") || routesStr.includes("maharashtra") || routesStr.includes("gujarat");
                 isRouteEligible = isBroadRoute || matchesKeyword || routesStr.includes(destNorm) || destNorm.includes(routesStr) || baseLocStr.includes(destNorm);
             }
-
 
             // Crop suitability & smart matching score
             let isCropSuitable = true;
@@ -625,8 +664,21 @@ router.get("/vehicles", async (req, res) => {
                 ...vehicleData,
                 transporterId: v.userId,
                 transporterName: v.User?.name || v.driverName,
+                totalCapacityKg: v.capacityKg,
                 bookedWeightKg,
                 remainingCapacityKg,
+                isFullyBooked,
+                isBookedByCurrentUser: Boolean(userActiveBooking),
+                userActiveBooking: userActiveBooking ? {
+                    id: userActiveBooking.id,
+                    bookingId: userActiveBooking.bookingId,
+                    status: userActiveBooking.status,
+                    weightKg: userActiveBooking.weightKg,
+                    cropName: userActiveBooking.cropName,
+                    pickupDate: userActiveBooking.pickupDate,
+                    pickupLocation: userActiveBooking.pickupLocation,
+                    destinationMarket: userActiveBooking.destinationMarket
+                } : null,
                 isCurrentlyInTransit,
                 isRouteEligible,
                 isCropSuitable,
@@ -636,16 +688,23 @@ router.get("/vehicles", async (req, res) => {
                 estimatedSoloFare,
                 estimatedSharedFare,
                 estimatedDurationMinutes: distanceKm > 100 ? 210 : 90,
-                canAccommodateCargo: effectiveKg > 0 ? (remainingCapacityKg >= effectiveKg) : (remainingCapacityKg > 0),
+                canAccommodateCargo: !isFullyBooked && !userActiveBooking && (effectiveKg > 0 ? (remainingCapacityKg >= effectiveKg) : (remainingCapacityKg > 0)),
                 hasActiveSharedPool: activeBookings.length > 0,
                 activeBookingsCount: activeBookings.length
             };
         }));
 
-        // Apply filters: must not be in transit, must have remaining capacity, must be route eligible
-        let result = augmented.filter(v => !v.isCurrentlyInTransit && v.remainingCapacityKg > 0 && v.isRouteEligible);
+        // Apply filters: must not be in transit and must be route eligible
+        let result = augmented.filter(v => !v.isCurrentlyInTransit && v.isRouteEligible);
 
-        if (effectiveKg > 0) {
+        if (req.query.availableOnly === "true") {
+            result = result.filter(v => v.remainingCapacityKg > 0 && !v.isBookedByCurrentUser);
+        } else {
+            // Keep vehicles with remaining capacity OR already booked by this farmer (to display their ALREADY BOOKED status)
+            result = result.filter(v => v.remainingCapacityKg > 0 || v.isBookedByCurrentUser);
+        }
+
+        if (effectiveKg > 0 && req.query.strictCapacity === "true") {
             result = result.filter(v => v.remainingCapacityKg >= effectiveKg);
         }
         if (vehicleType && vehicleType !== "any") {
@@ -655,7 +714,7 @@ router.get("/vehicles", async (req, res) => {
             result = result.filter(v => v.hasActiveSharedPool || v.remainingCapacityKg > 500);
         }
 
-        // Prioritize vehicles tailored for the selected crop
+        // Prioritize vehicles: available matches first, then crop match score
         result.sort((a, b) => {
             if ((b.cropMatchScore || 0) !== (a.cropMatchScore || 0)) {
                 return (b.cropMatchScore || 0) - (a.cropMatchScore || 0);
@@ -845,66 +904,154 @@ router.post("/bookings", requireRole("farmer", "fpo_leader"), async (req, res) =
 
     try {
         await ensureTransportSchema();
+        const bookingUserId = await resolveBookingUserId(req.user);
 
-        let vehicle = null;
-        if (fields.vehicleId) {
-            vehicle = await Vehicle.findByPk(fields.vehicleId);
-        } else if (req.body.transporterId) {
-            vehicle = await Vehicle.findOne({ where: { userId: Number(req.body.transporterId), isAvailable: true } });
-        }
-
-        // If specific vehicle chosen, validate capacity and compatibility
-        if (vehicle) {
-            if (!vehicle.isAvailable || vehicle.status === "maintenance") {
-                return res.status(400).json({ success: false, message: "The chosen vehicle is currently not available." });
-            }
-
-            // Check live capacity on chosen vehicle for that pickup date
-            const existingBookings = await TransportRequest.findAll({
+        // Optional Idempotency key check
+        const idempotencyKey = req.headers["x-idempotency-key"] || req.body.idempotencyKey;
+        if (idempotencyKey) {
+            const existingByKey = await TransportRequest.findOne({
                 where: {
-                    vehicleId: vehicle.id,
-                    pickupDate: fields.pickupDate,
-                    status: { [Op.in]: ["confirmed", "accepted", "driver_assigned", "in_transit"] }
+                    userId: bookingUserId,
+                    [Op.or]: [{ bookingId: idempotencyKey }, { gatePassCode: idempotencyKey }]
                 }
             });
+            if (existingByKey) {
+                return res.status(200).json({
+                    success: true,
+                    data: existingByKey,
+                    bookingId: existingByKey.bookingId,
+                    gatePassCode: existingByKey.gatePassCode,
+                    message: `Booking #${existingByKey.bookingId} verified via idempotency key.`
+                });
+            }
+        }
 
-            const currentBookedKg = existingBookings.reduce((sum, b) => sum + (b.weightKg || 0), 0);
-            const remainingCapacityKg = vehicle.capacityKg - currentBookedKg;
-
-            if (fields.weightKg > remainingCapacityKg) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Vehicle capacity is ${vehicle.capacityKg} kg (${currentBookedKg} kg already booked). Only ${remainingCapacityKg} kg space remains.`
+        // Execute booking creation inside an atomic database transaction
+        const booking = await sequelize.transaction(async (t) => {
+            let vehicle = null;
+            if (fields.vehicleId) {
+                vehicle = await Vehicle.findByPk(fields.vehicleId, { transaction: t, lock: t.LOCK.UPDATE });
+            } else if (req.body.transporterId) {
+                vehicle = await Vehicle.findOne({
+                    where: { userId: Number(req.body.transporterId), isAvailable: true },
+                    transaction: t,
+                    lock: t.LOCK.UPDATE
                 });
             }
 
-            // Check crop handling compatibility with already booked cargo
-            if (existingBookings.length > 0 && fields.bookingType === "shared") {
-                for (const existing of existingBookings) {
-                    if (!areCropsCompatibleForSharedTransport(existing.cropName, fields.cropName)) {
-                        return res.status(400).json({
-                            success: false,
-                            message: `Incompatible cargo: Cannot pool ${fields.cropName} with already booked ${existing.cropName} due to hygiene/storage requirements.`
-                        });
+            if (vehicle) {
+                if (!vehicle.isAvailable || vehicle.status === "maintenance") {
+                    const err = new Error("The chosen vehicle is currently not available.");
+                    err.statusCode = 400;
+                    err.code = "VEHICLE_UNAVAILABLE";
+                    throw err;
+                }
+
+                // 1. Check if THIS farmer already has an active booking on this vehicle for this crop and date
+                const existingUserBooking = await TransportRequest.findOne({
+                    where: {
+                        userId: bookingUserId,
+                        vehicleId: vehicle.id,
+                        pickupDate: fields.pickupDate,
+                        cropName: fields.cropName,
+                        status: { [Op.in]: ACTIVE_BOOKING_STATUSES }
+                    },
+                    transaction: t
+                });
+
+                if (existingUserBooking) {
+                    const err = new Error(
+                        `You already have an active booking (#${existingUserBooking.bookingId || existingUserBooking.id}) for ${fields.cropName} on vehicle ${vehicle.registrationNumber} (Status: ${existingUserBooking.status.toUpperCase()}). Please manage your existing booking instead of creating a duplicate.`
+                    );
+                    err.statusCode = 409;
+                    err.code = "DUPLICATE_BOOKING";
+                    err.data = existingUserBooking;
+                    throw err;
+                }
+
+                // 2. Rapid double-submission protection (within 10 seconds for same shipment requirement)
+                const recentDuplicate = await TransportRequest.findOne({
+                    where: {
+                        userId: bookingUserId,
+                        cropName: fields.cropName,
+                        pickupDate: fields.pickupDate,
+                        destinationMarket: fields.destinationMarket,
+                        status: { [Op.in]: ACTIVE_BOOKING_STATUSES }
+                    },
+                    order: [["createdAt", "DESC"]],
+                    transaction: t
+                });
+
+                if (recentDuplicate && (Date.now() - new Date(recentDuplicate.createdAt).getTime()) < 10000) {
+                    const err = new Error(
+                        `Duplicate booking prevented: A booking request (#${recentDuplicate.bookingId || recentDuplicate.id}) for ${fields.cropName} was just created. Please check My Bookings.`
+                    );
+                    err.statusCode = 409;
+                    err.code = "DUPLICATE_BOOKING";
+                    err.data = recentDuplicate;
+                    throw err;
+                }
+
+                // 3. Authoritative remaining capacity check: total capacity - all active reservations
+                const existingBookings = await TransportRequest.findAll({
+                    where: {
+                        vehicleId: vehicle.id,
+                        pickupDate: fields.pickupDate,
+                        status: { [Op.in]: ACTIVE_BOOKING_STATUSES }
+                    },
+                    transaction: t
+                });
+
+                const currentBookedKg = existingBookings.reduce((sum, b) => sum + (Number(b.weightKg) || 0), 0);
+                const remainingCapacityKg = Math.max(0, vehicle.capacityKg - currentBookedKg);
+
+                if (remainingCapacityKg <= 0) {
+                    const err = new Error(`Vehicle ${vehicle.registrationNumber} is FULLY BOOKED for ${fields.pickupDate}. No capacity remaining.`);
+                    err.statusCode = 409;
+                    err.code = "VEHICLE_FULLY_BOOKED";
+                    throw err;
+                }
+
+                if (fields.weightKg > remainingCapacityKg) {
+                    const err = new Error(
+                        `Vehicle capacity is ${vehicle.capacityKg} kg (${currentBookedKg} kg already booked). Only ${remainingCapacityKg} kg space remains, but ${fields.weightKg} kg was requested.`
+                    );
+                    err.statusCode = 409;
+                    err.code = "INSUFFICIENT_CAPACITY";
+                    throw err;
+                }
+
+                // 4. Check crop handling compatibility with already booked cargo for shared pooling
+                if (existingBookings.length > 0 && fields.bookingType === "shared") {
+                    for (const existing of existingBookings) {
+                        if (!areCropsCompatibleForSharedTransport(existing.cropName, fields.cropName)) {
+                            const err = new Error(
+                                `Incompatible cargo: Cannot pool ${fields.cropName} with already booked ${existing.cropName} due to hygiene/storage requirements.`
+                            );
+                            err.statusCode = 400;
+                            err.code = "INCOMPATIBLE_CARGO";
+                            throw err;
+                        }
                     }
                 }
+
+                // Assign vehicle details to the booking
+                fields.vehicleId = vehicle.id;
+                fields.transporterId = vehicle.userId;
+                fields.vehicleType = vehicle.vehicleType;
+                fields.vehicleNumber = vehicle.registrationNumber;
+                fields.driverName = vehicle.driverName;
+                fields.driverPhone = vehicle.driverPhone;
+                fields.status = "confirmed";
             }
 
-            // Assign vehicle details to the booking
-            fields.vehicleId = vehicle.id;
-            fields.transporterId = vehicle.userId;
-            fields.vehicleType = vehicle.vehicleType;
-            fields.vehicleNumber = vehicle.registrationNumber;
-            fields.driverName = vehicle.driverName;
-            fields.driverPhone = vehicle.driverPhone;
-            fields.status = "confirmed";
-        }
+            // Create booking in database atomically
+            const newBooking = await TransportRequest.create({
+                ...fields,
+                userId: bookingUserId
+            }, { transaction: t });
 
-        // Create booking in database
-        const bookingUserId = await resolveBookingUserId(req.user);
-        const booking = await TransportRequest.create({
-            ...fields,
-            userId: bookingUserId
+            return newBooking;
         });
 
         return res.status(201).json({
@@ -915,6 +1062,14 @@ router.post("/bookings", requireRole("farmer", "fpo_leader"), async (req, res) =
             message: `Booking #${booking.bookingId} confirmed! Digital APMC Gate Pass generated.`
         });
     } catch (err) {
+        if (err.statusCode) {
+            return res.status(err.statusCode).json({
+                success: false,
+                code: err.code || "BOOKING_ERROR",
+                message: err.message,
+                data: err.data || null
+            });
+        }
         console.error("Create booking error:", err.message);
         return res.status(500).json({ success: false, message: err.message || "Unable to create booking" });
     }
@@ -2522,8 +2677,8 @@ router.post("/match", async (req, res) => {
             });
         }
 
-        // Fallback default Maharashtra APMC demo pools if DB vehicles had 0 matches
-        if (matches.length === 0) {
+        // Only include demo pools when explicitly requested (demo mode) and DB has 0 matches
+        if (matches.length === 0 && includeDemo) {
             const defaultPools = [
                 {
                     id: 991,
