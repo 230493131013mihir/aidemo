@@ -786,7 +786,7 @@ export default function TransporterDashboard() {
   );
 
   return (
-    <div className="space-y-6 sm:space-y-8 w-full max-w-7xl mx-auto pb-16 animate-in fade-in">
+    <div className="space-y-6 sm:space-y-8 w-full max-w-full 2xl:max-w-[1720px] mx-auto pb-16 animate-in fade-in">
       {/* 1. Transporter Header Banner */}
       <section className="relative rounded-3xl overflow-hidden shadow-xl border border-primary/20 text-white">
         <div 

@@ -283,7 +283,7 @@ function FarmerDashboard({ user, t }) {
     : `Net Take-Home (${(activeCropData?.expectedYieldKg || 0).toLocaleString('en-IN')} kg @ ₹${activeCropData?.mandiRatePerKg || 0}/kg)`;
 
   return (
-    <div className="space-y-6 sm:space-y-8 w-full max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 sm:space-y-8 w-full max-w-full 2xl:max-w-[1720px] mx-auto pb-12">
       {/* 1. Dashboard Header */}
       <DashboardHeader />
 
