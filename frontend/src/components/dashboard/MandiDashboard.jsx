@@ -17,6 +17,7 @@ import {
   PlusCircle, 
   Send, 
   X, 
+  XCircle,
   Sparkles,
   ArrowUpRight,
   Landmark,
@@ -121,8 +122,16 @@ export default function MandiDashboard() {
       village: 'Haveli',
       farmSizeAcres: 4.5,
       mainCrop: 'Tomato',
-      currentHarvestKg: 4100,
-      productQuantities: JSON.stringify({ Tomato: 1200, Onion: 800, Wheat: 1500, Soybean: 600 }),
+      currentHarvestKg: 3100,
+      totalOriginalKg: 4100,
+      totalBookedKg: 1000,
+      totalAvailableKg: 3100,
+      productQuantities: JSON.stringify({ 
+        Tomato: { originalQty: 1200, bookedQty: 1000, availableQty: 200, unit: 'kg', isSoldOut: false, isPartiallyBooked: true }, 
+        Onion: { originalQty: 800, bookedQty: 0, availableQty: 800, unit: 'kg', isSoldOut: false, isPartiallyBooked: false }, 
+        Wheat: { originalQty: 1500, bookedQty: 0, availableQty: 1500, unit: 'kg', isSoldOut: false, isPartiallyBooked: false }, 
+        Soybean: { originalQty: 600, bookedQty: 0, availableQty: 600, unit: 'kg', isSoldOut: false, isPartiallyBooked: false }
+      }),
       isGovtVerified: true
     },
     {
@@ -175,8 +184,32 @@ export default function MandiDashboard() {
     }
   ];
 
-  // Helper to parse crops from farmer record
+  // Helper to parse crops and exact availability from farmer record
   const getFarmerCrops = (farmer) => {
+    if (!farmer) return [];
+
+    // 1. If backend already enriched crops array with availability data
+    if (Array.isArray(farmer.crops) && farmer.crops.length > 0) {
+      return farmer.crops.map(c => {
+        const orig = Number(c.originalQty || c.quantityKg) || 0;
+        const booked = Number(c.bookedKg) || 0;
+        const avail = c.availableKg !== undefined ? Number(c.availableKg) : Math.max(0, orig - booked);
+        return {
+          crop: c.crop,
+          originalQty: orig,
+          bookedKg: booked,
+          pendingKg: Number(c.pendingKg) || 0,
+          availableKg: avail,
+          quantityKg: avail,
+          unit: c.unit || 'kg',
+          expectedPrice: c.expectedPrice || null,
+          isSoldOut: c.isSoldOut !== undefined ? Boolean(c.isSoldOut) : (avail <= 0),
+          isPartiallyBooked: c.isPartiallyBooked !== undefined ? Boolean(c.isPartiallyBooked) : (booked > 0 && avail > 0)
+        };
+      });
+    }
+
+    // 2. If productQuantities object or JSON string is available
     if (farmer.productQuantities) {
       try {
         const parsed = typeof farmer.productQuantities === 'string' 
@@ -184,31 +217,52 @@ export default function MandiDashboard() {
           : farmer.productQuantities;
         return Object.entries(parsed).map(([crop, val]) => {
           if (typeof val === 'object' && val !== null) {
+            const orig = Number(val.originalQty || val.qty || val.harvestQuantityKg) || 0;
+            const booked = Number(val.bookedQty || val.bookedKg) || 0;
+            const avail = val.availableQty !== undefined ? Number(val.availableQty) : Math.max(0, orig - booked);
             return {
               crop,
-              quantityKg: Number(val.harvestQuantityKg || val.qty) || 0,
+              originalQty: orig,
+              bookedKg: booked,
+              pendingKg: Number(val.pendingQty || val.pendingKg) || 0,
+              availableKg: avail,
+              quantityKg: avail,
               unit: val.unit || 'kg',
-              originalQty: val.qty || val.harvestQuantityKg || 0,
-              expectedPrice: val.expectedPricePerKg || null
+              expectedPrice: val.expectedPricePerKg || val.expectedPrice || null,
+              isSoldOut: val.isSoldOut !== undefined ? Boolean(val.isSoldOut) : (avail <= 0),
+              isPartiallyBooked: val.isPartiallyBooked !== undefined ? Boolean(val.isPartiallyBooked) : (booked > 0 && avail > 0)
             };
           }
+          const orig = Number(val) || 0;
           return {
             crop,
-            quantityKg: Number(val) || 0,
+            originalQty: orig,
+            bookedKg: 0,
+            pendingKg: 0,
+            availableKg: orig,
+            quantityKg: orig,
             unit: 'kg',
-            originalQty: Number(val) || 0,
-            expectedPrice: null
+            expectedPrice: null,
+            isSoldOut: orig <= 0,
+            isPartiallyBooked: false
           };
         });
       } catch (_) {}
     }
+
     const cropList = farmer.mainCrop ? farmer.mainCrop.split(',').map(c => c.trim()) : ['Tomato'];
+    const orig = Number(farmer.currentHarvestKg) || 500;
     return cropList.map(c => ({
       crop: c,
-      quantityKg: Number(farmer.currentHarvestKg) || 500,
+      originalQty: orig,
+      bookedKg: 0,
+      pendingKg: 0,
+      availableKg: orig,
+      quantityKg: orig,
       unit: 'kg',
-      originalQty: Number(farmer.currentHarvestKg) || 500,
-      expectedPrice: null
+      expectedPrice: null,
+      isSoldOut: orig <= 0,
+      isPartiallyBooked: false
     }));
   };
 
@@ -248,8 +302,21 @@ export default function MandiDashboard() {
   // Open Procurement Request Modal
   const handleOpenProcurement = (farmer, defaultCrop = null) => {
     const crops = getFarmerCrops(farmer);
-    const targetCrop = defaultCrop || crops[0]?.crop || 'Tomato';
-    const availableQty = crops.find(c => c.crop === targetCrop)?.quantityKg || 500;
+    const availableCrops = crops.filter(c => !c.isSoldOut && c.availableKg > 0);
+
+    if (availableCrops.length === 0) {
+      showToast?.({
+        type: 'warning',
+        title: 'Produce Lot Sold Out',
+        message: `${farmer.name}'s produce lots are currently 100% booked or sold out.`
+      });
+      return;
+    }
+
+    const matchingCrop = defaultCrop ? availableCrops.find(c => c.crop.toLowerCase() === defaultCrop.toLowerCase()) : null;
+    const targetCropObj = matchingCrop || availableCrops[0];
+    const targetCrop = targetCropObj.crop;
+    const availableQty = targetCropObj.availableKg || 500;
     
     // Default benchmark rate estimate (₹/kg)
     const benchmarkRates = {
@@ -277,6 +344,19 @@ export default function MandiDashboard() {
     e.preventDefault();
     if (!selectedFarmer) return;
 
+    const crops = getFarmerCrops(selectedFarmer);
+    const selectedCropObj = crops.find(c => c.crop.toLowerCase() === procurementForm.cropName.toLowerCase());
+    const availKg = selectedCropObj ? selectedCropObj.availableKg : 0;
+
+    if (selectedCropObj && selectedCropObj.isSoldOut) {
+      showToast?.({
+        type: 'error',
+        title: 'Produce Lot Sold Out',
+        message: `${procurementForm.cropName} is already fully booked and sold out.`
+      });
+      return;
+    }
+
     const qty = parseFloat(procurementForm.quantityKg);
     const rate = parseFloat(procurementForm.offeredRate);
 
@@ -285,6 +365,15 @@ export default function MandiDashboard() {
         type: 'error',
         title: 'Invalid Quantity',
         message: 'Please enter a valid procurement quantity in kg.'
+      });
+      return;
+    }
+
+    if (selectedCropObj && qty > availKg) {
+      showToast?.({
+        type: 'error',
+        title: 'Quantity Exceeds Available Lot',
+        message: `Cannot request ${qty} kg. Only ${availKg} kg of ${procurementForm.cropName} is available.`
       });
       return;
     }
@@ -320,6 +409,7 @@ export default function MandiDashboard() {
           message: `Booking notification sent to ${selectedFarmer.name} for ${qty} kg ${procurementForm.cropName} at ₹${rate}/kg.`
         });
         setProcurementModalOpen(false);
+        fetchFarmers();
         fetchRecentBookings();
       } else {
         showToast?.({
@@ -617,17 +707,28 @@ export default function MandiDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredFarmers.map((farmer) => {
                 const crops = getFarmerCrops(farmer);
-                const totalKg = crops.reduce((acc, c) => acc + c.quantityKg, 0);
+                const totalAvailableKg = crops.reduce((acc, c) => acc + c.availableKg, 0);
+                const totalOriginalKg = crops.reduce((acc, c) => acc + c.originalQty, 0);
+                const totalBookedKg = crops.reduce((acc, c) => acc + c.bookedKg, 0);
+                const isFarmerFullyBooked = crops.length > 0 && crops.every(c => c.isSoldOut);
 
                 return (
                   <div
                     key={farmer.id}
-                    className="p-5 rounded-2xl bg-secondary/40 border border-border hover:border-emerald-400/60 dark:hover:border-emerald-600 transition-all flex flex-col justify-between space-y-4 hover:shadow-md"
+                    className={`p-5 rounded-2xl border transition-all flex flex-col justify-between space-y-4 hover:shadow-md ${
+                      isFarmerFullyBooked 
+                        ? 'bg-red-50/20 dark:bg-red-950/20 border-red-200 dark:border-red-900/60' 
+                        : 'bg-secondary/40 border border-border hover:border-emerald-400/60 dark:hover:border-emerald-600'
+                    }`}
                   >
                     {/* Farmer Identification Header */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold text-base flex items-center justify-center shrink-0 border border-emerald-300 dark:border-emerald-700 shadow-2xs">
+                        <div className={`w-10 h-10 rounded-xl font-bold text-base flex items-center justify-center shrink-0 border shadow-2xs ${
+                          isFarmerFullyBooked
+                            ? 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-300 dark:border-red-800'
+                            : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                        }`}>
                           🌾
                         </div>
                         <div>
@@ -641,6 +742,14 @@ export default function MandiDashboard() {
                             >
                               {t('mandi.agristackVerifiedBadge', 'Agristack Verified')}
                             </span>
+                            {isFarmerFullyBooked && (
+                              <span 
+                                id={`badge-sold-out-${farmer.id}`}
+                                className="inline-flex items-center text-[10px] font-black uppercase tracking-wider text-white bg-red-600 px-2 py-0.5 rounded shadow-2xs"
+                              >
+                                FULLY BOOKED
+                              </span>
+                            )}
                           </div>
                           <p className="text-xs text-muted font-medium flex items-center gap-1 mt-0.5">
                             <MapPin className="w-3.5 h-3.5 text-primary" />
@@ -661,47 +770,105 @@ export default function MandiDashboard() {
                       </div>
                     </div>
 
-                    {/* Ready Harvest Quantities */}
+                    {/* Ready Harvest Quantities & Availability */}
                     <div className="space-y-2 pt-2 border-t border-border/70">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-muted block">
-                        {t('mandi.availableHarvestLots', 'Ready Harvest Lots & Expected Rates:')}
+                        {t('mandi.availableHarvestLots', 'Ready Harvest Lots & Availability:')}
                       </span>
                       <div className="flex flex-wrap gap-2">
-                        {crops.map((c, i) => (
-                          <div 
-                            key={i}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface border border-border/80 text-xs shadow-2xs"
-                          >
-                            <span className="font-extrabold text-primary">{c.crop}:</span>
-                            <span className="font-bold text-text">
-                              {c.originalQty ? `${c.originalQty.toLocaleString('en-IN')} ${c.unit}` : `${c.quantityKg.toLocaleString('en-IN')} kg`}
-                            </span>
-                            <span className="text-[10px] text-muted font-medium">({(c.quantityKg / 100).toFixed(1)} Qtl)</span>
-                            {c.expectedPrice && (
-                              <span className="text-[10px] font-extrabold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
-                                {t('mandi.expectedRate', 'Exp')}: ₹{c.expectedPrice}/kg
+                        {crops.map((c, i) => {
+                          if (c.isSoldOut) {
+                            return (
+                              <div 
+                                key={i}
+                                className="flex items-center flex-wrap gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 text-xs shadow-2xs"
+                              >
+                                <span className="font-extrabold text-red-700 dark:text-red-300">{c.crop}:</span>
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-red-600 text-white shadow-2xs">
+                                  SOLD OUT
+                                </span>
+                                <span className="text-[11px] font-semibold text-red-700 dark:text-red-300">
+                                  (0 kg avail • {c.bookedKg.toLocaleString('en-IN')} kg / {c.originalQty.toLocaleString('en-IN')} kg Booked)
+                                </span>
+                              </div>
+                            );
+                          }
+
+                          if (c.isPartiallyBooked) {
+                            return (
+                              <div 
+                                key={i}
+                                className="flex items-center flex-wrap gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 text-xs shadow-2xs"
+                              >
+                                <span className="font-extrabold text-amber-900 dark:text-amber-200">{c.crop}:</span>
+                                <span className="font-black text-amber-800 dark:text-amber-300">
+                                  {c.availableKg.toLocaleString('en-IN')} {c.unit} available
+                                </span>
+                                <span className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">
+                                  ({c.bookedKg.toLocaleString('en-IN')} kg booked of {c.originalQty.toLocaleString('en-IN')} kg)
+                                </span>
+                                {c.expectedPrice && (
+                                  <span className="text-[10px] font-extrabold text-amber-800 bg-amber-200/80 dark:bg-amber-900/60 px-1.5 py-0.5 rounded">
+                                    Exp: ₹{c.expectedPrice}/kg
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div 
+                              key={i}
+                              className="flex items-center flex-wrap gap-1.5 px-3 py-1.5 rounded-xl bg-surface border border-border/80 text-xs shadow-2xs"
+                            >
+                              <span className="font-extrabold text-primary">{c.crop}:</span>
+                              <span className="font-bold text-text">
+                                {c.availableKg.toLocaleString('en-IN')} {c.unit} available
                               </span>
-                            )}
-                          </div>
-                        ))}
+                              <span className="text-[10px] text-muted font-medium">({(c.availableKg / 100).toFixed(1)} Qtl)</span>
+                              {c.expectedPrice && (
+                                <span className="text-[10px] font-extrabold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                                  Exp: ₹{c.expectedPrice}/kg
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
 
                     {/* Action Button: Issue APMC Procurement Request */}
                     <div className="pt-2 flex items-center justify-between border-t border-border/70">
-                      <span className="text-xs text-muted font-semibold">
-                        {t('mandi.totalProduceLot', 'Total Produce Lot')}: <strong className="text-text">{totalKg.toLocaleString('en-IN')} kg</strong>
-                      </span>
+                      <div className="space-y-0.5">
+                        <span className="text-xs text-muted font-semibold block">
+                          {t('mandi.totalProduceLot', 'Available Produce')}: <strong className={isFarmerFullyBooked ? "text-red-600 font-black" : "text-text"}>{totalAvailableKg.toLocaleString('en-IN')} kg</strong>
+                          {totalBookedKg > 0 && (
+                            <span className="text-[11px] text-muted font-normal ml-1.5">
+                              ({totalBookedKg.toLocaleString('en-IN')} kg booked / {totalOriginalKg.toLocaleString('en-IN')} kg total)
+                            </span>
+                          )}
+                        </span>
+                      </div>
 
-                      <button
-                        type="button"
-                        id={`procure-btn-farmer-${farmer.id}`}
-                        onClick={() => handleOpenProcurement(farmer)}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-emerald-600 text-white font-bold text-xs shadow-sm transition-all active:scale-95 group cursor-pointer"
-                      >
-                        <PlusCircle className="w-4 h-4 transition-transform group-hover:rotate-90" />
-                        <span>{t('mandi.issueDirectBooking', 'Issue APMC Procurement Request')}</span>
-                      </button>
+                      {isFarmerFullyBooked ? (
+                        <div 
+                          id={`sold-out-badge-farmer-${farmer.id}`}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-100 dark:bg-red-900/40 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 font-extrabold text-xs shadow-xs cursor-not-allowed select-none"
+                        >
+                          <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                          <span>SOLD OUT • FULLY BOOKED</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          id={`procure-btn-farmer-${farmer.id}`}
+                          onClick={() => handleOpenProcurement(farmer)}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-emerald-600 text-white font-bold text-xs shadow-sm transition-all active:scale-95 group cursor-pointer"
+                        >
+                          <PlusCircle className="w-4 h-4 transition-transform group-hover:rotate-90" />
+                          <span>{t('mandi.issueDirectBooking', 'Issue APMC Procurement Request')}</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -934,12 +1101,22 @@ export default function MandiDashboard() {
                 <select
                   id="procure-crop-select"
                   value={procurementForm.cropName}
-                  onChange={(e) => setProcurementForm({ ...procurementForm, cropName: e.target.value })}
+                  onChange={(e) => {
+                    const selected = e.target.value;
+                    const crops = getFarmerCrops(selectedFarmer);
+                    const cropObj = crops.find(c => c.crop.toLowerCase() === selected.toLowerCase());
+                    const maxAvail = cropObj?.availableKg || 500;
+                    setProcurementForm(prev => ({
+                      ...prev,
+                      cropName: selected,
+                      quantityKg: Math.min(Number(prev.quantityKg) || maxAvail, maxAvail).toString()
+                    }));
+                  }}
                   className="w-full px-3 py-2.5 text-xs rounded-xl bg-background border border-border text-text focus:outline-hidden focus:ring-2 focus:ring-primary font-bold"
                 >
                   {getFarmerCrops(selectedFarmer).map((c) => (
-                    <option key={c.crop} value={c.crop}>
-                      {c.crop} ({c.quantityKg.toLocaleString('en-IN')} kg)
+                    <option key={c.crop} value={c.crop} disabled={c.isSoldOut}>
+                      {c.crop} — {c.isSoldOut ? '🔴 SOLD OUT (0 kg avail)' : `${c.availableKg.toLocaleString('en-IN')} kg available (of ${c.originalQty.toLocaleString('en-IN')} kg)`}
                     </option>
                   ))}
                 </select>
@@ -951,14 +1128,28 @@ export default function MandiDashboard() {
                   <label className="text-xs font-bold text-text uppercase tracking-wider">
                     {t('mandi.requestedQty', 'Requested Quantity (kg)')}
                   </label>
-                  <span className="text-[11px] text-muted">
-                    1 Quintal = 100 kg
-                  </span>
+                  {(() => {
+                    const selectedCropObj = getFarmerCrops(selectedFarmer).find(
+                      c => c.crop.toLowerCase() === procurementForm.cropName.toLowerCase()
+                    );
+                    return (
+                      <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                        Max Available: {selectedCropObj?.availableKg?.toLocaleString('en-IN') || 0} kg
+                        {selectedCropObj?.bookedKg > 0 && ` (${selectedCropObj.bookedKg.toLocaleString('en-IN')} kg booked)`}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <input
                   type="number"
                   id="procure-quantity-input"
                   min="1"
+                  max={(() => {
+                    const crop = getFarmerCrops(selectedFarmer).find(
+                      c => c.crop.toLowerCase() === procurementForm.cropName.toLowerCase()
+                    );
+                    return crop ? crop.availableKg : 10000;
+                  })()}
                   step="1"
                   required
                   placeholder="e.g. 500"

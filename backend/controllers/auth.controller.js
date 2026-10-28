@@ -1304,6 +1304,62 @@ const mandiProcurementRequest = async (req, res) => {
             });
         }
 
+        // Determine original listed quantity for this crop
+        let originalLotKg = 0;
+        const normalizedCrop = String(cropName).trim().toLowerCase();
+        if (farmer.FarmerProfile?.productQuantities) {
+            try {
+                const pq = typeof farmer.FarmerProfile.productQuantities === 'string'
+                    ? JSON.parse(farmer.FarmerProfile.productQuantities)
+                    : farmer.FarmerProfile.productQuantities;
+                for (const [k, v] of Object.entries(pq)) {
+                    if (k.trim().toLowerCase() === normalizedCrop) {
+                        originalLotKg = typeof v === 'object' && v !== null
+                            ? Number(v.harvestQuantityKg || v.qty || v.originalQty || 0)
+                            : Number(v || 0);
+                        break;
+                    }
+                }
+            } catch (_) {}
+        }
+        if (!originalLotKg) {
+            originalLotKg = Number(farmer.FarmerProfile?.currentHarvestKg) || 1000;
+        }
+
+        // Calculate already accepted / confirmed / completed bookings for this farmer and crop
+        const existingBookings = await ContactRequest.findAll({
+            where: {
+                receiverId: farmer.id,
+                contactType: "mandi_to_farmer",
+                status: { [Op.in]: ["accepted", "confirmed", "completed"] }
+            }
+        });
+
+        const bookedKg = existingBookings
+            .filter(r => (r.cropName || '').trim().toLowerCase() === normalizedCrop)
+            .reduce((sum, r) => sum + (parseFloat(r.quantityKg) || 0), 0);
+
+        const availableKg = Math.max(0, originalLotKg - bookedKg);
+
+        if (availableKg <= 0) {
+            return res.status(409).json({
+                success: false,
+                message: `Cannot issue procurement request: ${farmer.name}'s ${cropName} lot is already FULLY BOOKED / SOLD OUT (0 kg available of ${originalLotKg} kg lot).`,
+                isSoldOut: true,
+                availableKg: 0,
+                bookedKg: originalLotKg
+            });
+        }
+
+        if (qty > availableKg) {
+            return res.status(400).json({
+                success: false,
+                message: `Requested quantity (${qty} kg) exceeds remaining available produce (${availableKg} kg available of ${originalLotKg} kg lot).`,
+                availableKg,
+                bookedKg
+            });
+        }
+
         // Fetch Mandi Profile for official credentials
         const mandiProfile = await MandiProfile.findOne({ where: { userId: req.user.id } });
         const mandiName = mandiProfile?.mandiName || req.user.name || "APMC Mandi";
@@ -1388,7 +1444,7 @@ const updateContactRequestStatus = async (req, res) => {
         const { id } = req.params;
         const { status } = req.body;
 
-        if (!['accepted', 'declined', 'pending'].includes(status)) {
+        if (!['accepted', 'declined', 'pending', 'cancelled', 'completed'].includes(status)) {
             return res.status(400).json({ success: false, message: "Invalid status value" });
         }
 
@@ -1400,6 +1456,60 @@ const updateContactRequestStatus = async (req, res) => {
         // Only receiver can accept or decline
         if (contactReq.receiverId !== userId && contactReq.senderId !== userId) {
             return res.status(403).json({ success: false, message: "Not authorized to update this contact request" });
+        }
+
+        // If accepting a mandi procurement request, verify produce availability before committing
+        if (status === 'accepted' && contactReq.contactType === 'mandi_to_farmer') {
+            const farmer = await User.findByPk(contactReq.receiverId, {
+                include: [{ model: FarmerProfile }]
+            });
+            if (farmer) {
+                let originalLotKg = 0;
+                const normalizedCrop = (contactReq.cropName || '').trim().toLowerCase();
+                if (farmer.FarmerProfile?.productQuantities) {
+                    try {
+                        const pq = typeof farmer.FarmerProfile.productQuantities === 'string'
+                            ? JSON.parse(farmer.FarmerProfile.productQuantities)
+                            : farmer.FarmerProfile.productQuantities;
+                        for (const [k, v] of Object.entries(pq)) {
+                            if (k.trim().toLowerCase() === normalizedCrop) {
+                                originalLotKg = typeof v === 'object' && v !== null
+                                    ? Number(v.harvestQuantityKg || v.qty || v.originalQty || 0)
+                                    : Number(v || 0);
+                                break;
+                            }
+                        }
+                    } catch (_) {}
+                }
+                if (!originalLotKg) {
+                    originalLotKg = Number(farmer.FarmerProfile?.currentHarvestKg) || 1000;
+                }
+
+                const otherBookings = await ContactRequest.findAll({
+                    where: {
+                        receiverId: contactReq.receiverId,
+                        contactType: "mandi_to_farmer",
+                        status: { [Op.in]: ["accepted", "confirmed", "completed"] },
+                        id: { [Op.ne]: contactReq.id }
+                    }
+                });
+
+                const bookedKg = otherBookings
+                    .filter(r => (r.cropName || '').trim().toLowerCase() === normalizedCrop)
+                    .reduce((sum, r) => sum + (parseFloat(r.quantityKg) || 0), 0);
+
+                const availableKg = Math.max(0, originalLotKg - bookedKg);
+                const reqQty = parseFloat(contactReq.quantityKg) || 0;
+
+                if (reqQty > availableKg) {
+                    return res.status(409).json({
+                        success: false,
+                        message: `Cannot accept booking: Requested quantity (${reqQty} kg) exceeds remaining available produce (${availableKg} kg available of ${originalLotKg} kg lot). Lot is already booked by another order.`,
+                        availableKg,
+                        bookedKg
+                    });
+                }
+            }
         }
 
         contactReq.status = status;
@@ -1417,6 +1527,38 @@ const updateContactRequestStatus = async (req, res) => {
             message: "Failed to update contact request"
         });
     }
+};
+
+// Helper to compute crop-level availability and reservations for farmers
+const computeFarmerCropAvailability = async (farmerIds) => {
+    if (!farmerIds || farmerIds.length === 0) return {};
+
+    const activeRequests = await ContactRequest.findAll({
+        where: {
+            receiverId: { [Op.in]: farmerIds },
+            contactType: "mandi_to_farmer",
+            status: { [Op.in]: ["accepted", "confirmed", "completed", "pending"] }
+        },
+        attributes: ["id", "receiverId", "cropName", "quantityKg", "status"]
+    });
+
+    const reservations = {}; // `${farmerId}_${crop.toLowerCase()}` -> { acceptedKg, pendingKg }
+
+    activeRequests.forEach(req => {
+        const cropKey = (req.cropName || '').trim().toLowerCase();
+        const key = `${req.receiverId}_${cropKey}`;
+        if (!reservations[key]) {
+            reservations[key] = { acceptedKg: 0, pendingKg: 0 };
+        }
+        const q = parseFloat(req.quantityKg) || 0;
+        if (['accepted', 'confirmed', 'completed'].includes(req.status)) {
+            reservations[key].acceptedKg += q;
+        } else if (req.status === 'pending') {
+            reservations[key].pendingKg += q;
+        }
+    });
+
+    return reservations;
 };
 
 // Discover relevant registered farmers for Mandi users
@@ -1470,22 +1612,112 @@ const getRelevantFarmers = async (req, res) => {
             });
         }
 
-        return res.json({
-            success: true,
-            count: farmers.length,
-            data: farmers.map(f => ({
+        const farmerIds = farmers.map(f => f.id);
+        const reservations = await computeFarmerCropAvailability(farmerIds);
+
+        const enrichedFarmers = farmers.map(f => {
+            const fp = f.FarmerProfile;
+            let productQuantitiesObj = {};
+            if (fp?.productQuantities) {
+                try {
+                    productQuantitiesObj = typeof fp.productQuantities === 'string'
+                        ? JSON.parse(fp.productQuantities)
+                        : fp.productQuantities;
+                } catch (_) {}
+            }
+
+            let cropEntries = Object.entries(productQuantitiesObj);
+            if (cropEntries.length === 0) {
+                const mainCrops = fp?.mainCrop ? fp.mainCrop.split(',').map(c => c.trim()) : ['Tomato'];
+                const fallbackQty = Number(fp?.currentHarvestKg) || 1000;
+                cropEntries = mainCrops.map(c => [c, fallbackQty]);
+            }
+
+            let totalOriginalKg = 0;
+            let totalBookedKg = 0;
+            let totalAvailableKg = 0;
+
+            const enrichedProductQuantities = {};
+            const enrichedCropsList = [];
+
+            cropEntries.forEach(([cropName, val]) => {
+                let orig = 0;
+                let unit = 'kg';
+                let expectedPrice = null;
+
+                if (typeof val === 'object' && val !== null) {
+                    orig = Number(val.originalQty || val.harvestQuantityKg || val.qty || 0);
+                    unit = val.unit || 'kg';
+                    expectedPrice = val.expectedPricePerKg || null;
+                } else {
+                    orig = Number(val) || 0;
+                }
+
+                const resKey = `${f.id}_${cropName.trim().toLowerCase()}`;
+                const resData = reservations[resKey] || { acceptedKg: 0, pendingKg: 0 };
+                const booked = resData.acceptedKg;
+                const pending = resData.pendingKg;
+                const avail = Math.max(0, orig - booked);
+                const isSoldOut = avail <= 0;
+                const isPartiallyBooked = booked > 0 && avail > 0;
+
+                totalOriginalKg += orig;
+                totalBookedKg += booked;
+                totalAvailableKg += avail;
+
+                enrichedProductQuantities[cropName] = {
+                    originalQty: orig,
+                    bookedQty: booked,
+                    pendingQty: pending,
+                    availableQty: avail,
+                    unit,
+                    isSoldOut,
+                    isPartiallyBooked,
+                    expectedPricePerKg: expectedPrice
+                };
+
+                enrichedCropsList.push({
+                    crop: cropName,
+                    originalQty: orig,
+                    bookedKg: booked,
+                    pendingKg: pending,
+                    availableKg: avail,
+                    quantityKg: avail,
+                    unit,
+                    isSoldOut,
+                    isPartiallyBooked,
+                    expectedPrice
+                });
+            });
+
+            const isFullyBooked = enrichedCropsList.length > 0 && enrichedCropsList.every(c => c.isSoldOut);
+
+            return {
                 id: f.id,
                 name: f.name,
                 phone: f.phone,
                 email: f.email,
-                district: f.FarmerProfile?.district,
-                village: f.FarmerProfile?.village,
-                farmSizeAcres: f.FarmerProfile?.farmSizeAcres,
-                mainCrop: f.FarmerProfile?.mainCrop,
-                customCrop: f.FarmerProfile?.customCrop,
-                currentHarvestKg: f.FarmerProfile?.currentHarvestKg,
-                productQuantities: f.FarmerProfile?.productQuantities
-            }))
+                district: fp?.district,
+                village: fp?.village,
+                farmSizeAcres: fp?.farmSizeAcres,
+                mainCrop: fp?.mainCrop,
+                customCrop: fp?.customCrop,
+                currentHarvestKg: totalAvailableKg,
+                originalHarvestKg: totalOriginalKg,
+                bookedHarvestKg: totalBookedKg,
+                totalOriginalKg: totalOriginalKg,
+                totalBookedKg: totalBookedKg,
+                totalAvailableKg: totalAvailableKg,
+                isFullyBooked: isFullyBooked,
+                productQuantities: JSON.stringify(enrichedProductQuantities),
+                crops: enrichedCropsList
+            };
+        });
+
+        return res.json({
+            success: true,
+            count: enrichedFarmers.length,
+            data: enrichedFarmers
         });
     } catch (error) {
         console.error("Get Relevant Farmers error:", error);
