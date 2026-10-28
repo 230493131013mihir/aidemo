@@ -70,6 +70,8 @@ export default function CropDoctorModal({ isOpen, onClose }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [customCropName, setCustomCropName] = useState('');
+  const [isCustomUploaded, setIsCustomUploaded] = useState(false);
+  const [offlineNotice, setOfflineNotice] = useState(null);
   const fileInputRef = useRef(null);
 
   // Load supported crops on mount or modal open
@@ -212,8 +214,10 @@ export default function CropDoctorModal({ isOpen, onClose }) {
     // Display actual user uploaded image
     const objectUrl = URL.createObjectURL(file);
     setCustomImage(objectUrl);
+    setIsCustomUploaded(true);
     setActiveTab('upload');
     setAnalyzing(true);
+    setOfflineNotice(null);
 
     setTimeout(() => {
       setAnalyzing(false);

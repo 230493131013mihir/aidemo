@@ -3,7 +3,7 @@ const { ContactRequest } = require("../models");
 
 // Active reservation statuses that reserve produce stock
 // Any status outside of this list (e.g., 'declined', 'cancelled', 'rejected') releases the reservation
-const ACTIVE_RESERVATION_STATUSES = ['pending', 'accepted'];
+const ACTIVE_RESERVATION_STATUSES = ['pending', 'accepted', 'confirmed', 'completed'];
 
 /**
  * Normalizes crop names for robust comparison (e.g., "Cotton", "cotton", " Cotton ")

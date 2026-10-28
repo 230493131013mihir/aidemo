@@ -5,4 +5,4 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'gu', label: 'Gujarati', nativeName: 'ગુજરાતી' },
 ];
 
-export const DEFAULT_LANGUAGE = 'en';
+export const DEFAULT_LANGUAGE = 'mr';

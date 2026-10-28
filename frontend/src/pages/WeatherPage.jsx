@@ -13,7 +13,7 @@ export default function WeatherPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto py-6 px-4">
+    <div className="space-y-6 w-full max-w-full 2xl:max-w-[1720px] mx-auto py-4 sm:py-6 px-2 sm:px-4">
       {/* Module Hero Banner — Sky Blue / Leaf Green Identity with Atmospheric Sky & Fields Visual */}
       <section className="relative rounded-3xl overflow-hidden shadow-xl border border-sky-800/40 text-white animate-fade-slide-up">
         <div 
@@ -27,20 +27,20 @@ export default function WeatherPage() {
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
               <CloudSunRain className="w-3.5 h-3.5 text-sky-400" />
-              <span>District Rain Advisory & Harvest Timing</span>
+              <span>{t('weather.badge', 'District Rain Advisory & Harvest Timing')}</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
-              Agricultural Weather Intelligence
+              {t('weather.pageTitle', 'Agricultural Weather Intelligence')}
             </h1>
-            <p className="text-xs sm:text-sm text-sky-100 font-medium leading-relaxed drop-shadow-xs">
-              Localized weather alerts, rain probability, and AI leaf diagnosis.
+            <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
+              {t('weather.pageSubtitle', 'Localized precipitation forecasts, rain probability alerts, and data-backed harvest timing advisories.')}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="badge-tag bg-sky-500/20 text-sky-200 border border-sky-400/30 font-bold">
               <Sparkles className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />
-              <span>Live Rain Advisory Active</span>
+              <span>{t('weather.liveBadge', 'Live Rain Advisory Active')}</span>
             </span>
           </div>
         </div>

@@ -27,10 +27,11 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useLanguage } from '../context/LanguageContext';
 
 import apiClient from '../services/apiClient';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+import { API_BASE_URL } from '../config/apiConfig';
 
 function formatINR(value) {
   return new Intl.NumberFormat('en-IN', {
@@ -259,6 +260,7 @@ export default function HarvestPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { t, language } = useLanguage();
 
   const farmerProfile = user?.FarmerProfile;
   const userDistrict = farmerProfile?.district || 'Pune';
@@ -645,8 +647,8 @@ export default function HarvestPage() {
         id: `option-1-${cropName}`,
         optionNumber: 1,
         crop: cropName,
-        title: 'Option 1: Immediate Sale at Local Mandi',
-        sub: `Immediate Cash Settlement (~${localDistanceKm} km) • Zero Storage Loss`,
+        title: language === 'mr' ? 'पर्याय १: स्थानिक बाजार समितीत त्वरित विक्री' : 'Option 1: Immediate Sale at Local Mandi',
+        sub: language === 'mr' ? `त्वरित रोख पेमेंट (~${localDistanceKm} किमी) • शून्य साठवणूक नुकसान` : `Immediate Cash Settlement (~${localDistanceKm} km) • Zero Storage Loss`,
         mandi: `${userDistrict} APMC Market Yard`,
         pricePerKg: prices.localRate,
         grossRevenue: localRevenue,
@@ -657,7 +659,7 @@ export default function HarvestPage() {
         spoilageCost: 0,
         netProfit: localNetProfit,
         icon: Building2,
-        badge: 'Lowest Logistics Friction',
+        badge: language === 'mr' ? 'किमान वाहतूक खर्च' : 'Lowest Logistics Friction',
         badgeColor: 'bg-slate-100 text-slate-800 border-slate-300',
         routeDistance: `${localDistanceKm} km local haul`,
         quantityKg: validQty
@@ -666,7 +668,7 @@ export default function HarvestPage() {
         id: `option-2-${cropName}`,
         optionNumber: 2,
         crop: cropName,
-        title: `Option 2: Cold Storage Holding (${params.holdingDays} Days)`,
+        title: language === 'mr' ? `पर्याय २: शीतगृहात साठवून नंतर विक्री (${params.holdingDays} दिवस)` : `Option 2: Cold Storage Holding (${params.holdingDays} Days)`,
         sub: `${profile.storageTypeShort} • ${profile.storageFacility}`,
         mandi: `${userDistrict} ${profile.storageFacility}`,
         pricePerKg: prices.holdRate,
@@ -678,7 +680,7 @@ export default function HarvestPage() {
         spoilageCost: spoilageLoss,
         netProfit: holdNetProfit,
         icon: Clock,
-        badge: `${params.damageRisk}% Spoilage Factored (${profile.category})`,
+        badge: language === 'mr' ? `${params.damageRisk}% नासाडी जोखीम वजा` : `${params.damageRisk}% Spoilage Factored (${profile.category})`,
         badgeColor: profile.category === 'perishable' 
           ? 'bg-rose-100 text-rose-800 border-rose-300' 
           : 'bg-amber-100 text-amber-800 border-amber-300',
@@ -689,8 +691,8 @@ export default function HarvestPage() {
         id: `option-3-${cropName}`,
         optionNumber: 3,
         crop: cropName,
-        title: `Option 3: Regional APMC Terminal (${targetRegionalMandi.district})`,
-        sub: `High Metro Consumer Demand (${targetRegionalMandi.distanceKm} km route)`,
+        title: language === 'mr' ? `पर्याय ३: प्रादेशिक मुख्य बाजार समिती (${targetRegionalMandi.district})` : `Option 3: Regional APMC Terminal (${targetRegionalMandi.district})`,
+        sub: language === 'mr' ? `मोठ्या शहरात जास्त भाव मागणी (${targetRegionalMandi.distanceKm} किमी मार्ग)` : `High Metro Consumer Demand (${targetRegionalMandi.distanceKm} km route)`,
         mandi: targetRegionalMandi.name,
         pricePerKg: prices.regionalRate,
         grossRevenue: regionalRevenue,
@@ -701,7 +703,7 @@ export default function HarvestPage() {
         spoilageCost: 0,
         netProfit: regionalNetProfit,
         icon: Truck,
-        badge: profile.category === 'perishable' ? 'Highest Metro Demand' : 'Regional Bulk Rate',
+        badge: language === 'mr' ? 'कमाल प्रादेशिक भाव' : (profile.category === 'perishable' ? 'Highest Metro Demand' : 'Regional Bulk Rate'),
         badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
         routeDistance: `${targetRegionalMandi.distanceKm} km route`,
         quantityKg: validQty
@@ -756,15 +758,15 @@ export default function HarvestPage() {
       });
 
       const titles = {
-        1: 'Option 1: Immediate Sale at Local Mandi (All Crops)',
-        2: `Option 2: Cold Storage Holding & Warehouse Holding (All Crops)`,
-        3: `Option 3: Regional APMC Terminal (${targetRegionalMandi.district}) (All Crops)`
+        1: language === 'mr' ? 'पर्याय १: स्थानिक बाजार समितीत त्वरित विक्री (सर्व पिके)' : 'Option 1: Immediate Sale at Local Mandi (All Crops)',
+        2: language === 'mr' ? 'पर्याय २: शीतगृहात साठवून नंतर विक्री (सर्व पिके)' : `Option 2: Cold Storage Holding & Warehouse Holding (All Crops)`,
+        3: language === 'mr' ? `पर्याय ३: प्रादेशिक मुख्य बाजार समिती (${targetRegionalMandi.district}) (सर्व पिके)` : `Option 3: Regional APMC Terminal (${targetRegionalMandi.district}) (All Crops)`
       };
 
       const subs = {
-        1: `Local APMC Sale across ${selectedCrops.length} crops`,
-        2: `Staggered crop holding according to individual shelf lives`,
-        3: `Combined logistics to ${targetRegionalMandi.name}`
+        1: language === 'mr' ? `सर्व ${selectedCrops.length} पिकांची स्थानिक बाजार समितीत विक्री` : `Local APMC Sale across ${selectedCrops.length} crops`,
+        2: language === 'mr' ? `प्रत्येक पिकाच्या टिकाऊ क्षमतेनुसार साठवणूक` : `Staggered crop holding according to individual shelf lives`,
+        3: language === 'mr' ? `${targetRegionalMandi.name} साठी एकत्रित वाहतूक` : `Combined logistics to ${targetRegionalMandi.name}`
       };
 
       return {
@@ -782,7 +784,11 @@ export default function HarvestPage() {
         spoilageCost: spoil,
         netProfit: net,
         icon: optNum === 1 ? Building2 : optNum === 2 ? Clock : Truck,
-        badge: optNum === 3 ? 'Multi-Crop Consolidated Freight' : optNum === 2 ? 'Agronomic Staggered Hold' : 'Quick Local Cash',
+        badge: optNum === 3 
+          ? (language === 'mr' ? 'एकत्रित सामायिक मालवाहतूक' : 'Multi-Crop Consolidated Freight') 
+          : optNum === 2 
+          ? (language === 'mr' ? 'टिकाऊ साठवणूक नियोजन' : 'Agronomic Staggered Hold') 
+          : (language === 'mr' ? 'त्वरित रोख रक्कम' : 'Quick Local Cash'),
         badgeColor: optNum === 3 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-slate-100 text-slate-800 border-slate-300',
         routeDistance: optNum === 3 ? `${targetRegionalMandi.distanceKm} km regional` : 'Local hauls'
       };
@@ -895,7 +901,7 @@ export default function HarvestPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto py-6 px-4">
+    <div className="space-y-6 w-full max-w-full 2xl:max-w-[1720px] mx-auto py-4 sm:py-6 px-2 sm:px-4">
       {/* Module Hero Banner — Blue / Indigo Identity with Calculation & Harvest Planning Theme */}
       <section className="relative rounded-3xl overflow-hidden shadow-xl border border-blue-800/40 text-white animate-fade-slide-up">
         <div 
@@ -909,18 +915,18 @@ export default function HarvestPage() {
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
               <Calculator className="w-3.5 h-3.5 text-blue-400" />
-              <span>Maharashtra APMC Arbitrage & Profit Engine</span>
+              <span>{t('harvest.badge', 'Maharashtra APMC Arbitrage & Profit Engine')}</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
-              Harvest Simulator & Net Take-Home Earnings
+              {t('harvest.heroTitle', 'Harvest Simulator & Net Take-Home Earnings')}
             </h1>
             <p className="text-xs sm:text-sm text-blue-100 font-medium leading-relaxed drop-shadow-xs">
-              Estimate your earnings after transport and market expenses.
+              {t('harvest.heroSubtitle', 'Calculate genuine take-home cash after deducting transport logistics, statutory APMC market cess, and storage expenses across Maharashtra mandis.')}
             </p>
             {user?.isGuest && (
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-blue-400/20 text-blue-200 border border-blue-300/40 text-xs font-semibold backdrop-blur-sm mt-1">
                 <Sparkles className="w-3.5 h-3.5 text-blue-300" />
-                <span>Active Guest Session: 4.5 Acres (Pune District) • Pre-loaded Simulator Active</span>
+                <span>{language === 'mr' ? 'सक्रिय अतिथी सत्र: ४.५ एकर (पुणे जिल्हा) • सिम्युलेटर सक्रिय' : 'Active Guest Session: 4.5 Acres (Pune District) • Pre-loaded Simulator Active'}</span>
               </div>
             )}
           </div>
@@ -934,11 +940,11 @@ export default function HarvestPage() {
             }}
           >
             <span className="text-[10px] font-bold uppercase tracking-wider text-blue-100 flex items-center justify-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Ranked #1 Selling Strategy
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" /> {t('harvest.rankedStrategy', 'Ranked #1 Selling Strategy')}
             </span>
             <p className="text-base font-black mt-1 line-clamp-1">{winningScenario.title}</p>
             <div className="mt-2 inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/20 text-xs font-mono font-bold">
-              + {formatINR(extraProfit)} Extra Cash!
+              + {formatINR(extraProfit)} {language === 'mr' ? 'जास्तीचा नफा!' : 'Extra Cash!'}
             </div>
           </div>
         </div>

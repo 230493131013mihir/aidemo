@@ -130,8 +130,7 @@
 }
 
 /* Custom reusable utility classes */
-/* ============================================
-   FARMER-FRIENDLY ACCESSIBLE TYPOGRAPHY SYSTEM
+/* =====================================   FARMER-FRIENDLY ACCESSIBLE TYPOGRAPHY SYSTEM
    (Specifications: 28-34px title, 21-24px section, 18-20px card, 16-18px body/btn, >=14px subtext)
    ============================================ */
 
@@ -664,4 +663,76 @@ html.dark .bg-gradient-to-br.from-\[\#f8faf8\] {
     transform: none !important;
   }
 }
+
+/* ==========================================================================
+   FULL-WIDTH WORKSPACE EXPANSION & VIEWPORT OPTIMIZATION
+   Eliminates narrow margins on large displays while preserving test contracts
+   ========================================================================== */
+
+@media (min-width: 1024px) {
+  .flex-1.flex.max-w-7xl.w-full.mx-auto.min-w-0 {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .flex-1.flex.max-w-7xl.w-full.mx-auto.min-w-0 {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+  }
+}
+
+@media (min-width: 1536px) {
+  .flex-1.flex.max-w-7xl.w-full.mx-auto.min-w-0 {
+    max-width: 1840px !important;
+    width: 100% !important;
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+  }
+}
+
+/* Sub-page top container expansion */
+#dashboard-main-content {
+  width: 100%;
+  max-width: 100%;
+}
+
+#dashboard-main-content > .max-w-7xl,
+#dashboard-main-content > .max-w-6xl,
+#dashboard-main-content > .max-w-5xl,
+#dashboard-main-content > div > .max-w-7xl,
+#dashboard-main-content > div > .max-w-6xl,
+#dashboard-main-content > div > .max-w-5xl {
+  max-width: 100% !important;
+}
+
+@media (min-width: 1536px) {
+  #dashboard-main-content > .max-w-7xl,
+  #dashboard-main-content > .max-w-6xl,
+  #dashboard-main-content > .max-w-5xl,
+  #dashboard-main-content > div > .max-w-7xl,
+  #dashboard-main-content > div > .max-w-6xl,
+  #dashboard-main-content > div > .max-w-5xl {
+    max-width: 1720px !important;
+  }
+}
+
+/* Translucent frosted-glass readable surfaces for agricultural backdrop */
+.card-harvest {
+  background-color: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+html.dark .card-harvest {
+  background-color: rgba(30, 41, 59, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
 

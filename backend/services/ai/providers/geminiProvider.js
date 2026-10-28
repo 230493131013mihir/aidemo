@@ -8,7 +8,7 @@ class GeminiProvider {
   constructor(config = {}) {
     this.name = 'gemini';
     this.apiKey = config.apiKey || process.env.GEMINI_API_KEY || process.env.AI_API_KEY || null;
-    this.model = config.model || process.env.AI_MODEL || 'gemini-3.5-flash-lite';
+    this.model = config.model || process.env.AI_MODEL || 'gemini-1.5-flash';
     this.timeoutMs = Number(config.timeoutMs || process.env.AI_TIMEOUT_MS || 15000);
     this.baseUrl = config.baseUrl || 'https://generativelanguage.googleapis.com/v1beta';
   }
@@ -18,7 +18,13 @@ class GeminiProvider {
    * @returns {boolean}
    */
   isConfigured() {
-    return Boolean(this.apiKey && typeof this.apiKey === 'string' && this.apiKey.trim().length > 0);
+    return Boolean(
+      this.apiKey &&
+      typeof this.apiKey === 'string' &&
+      this.apiKey.trim().length > 0 &&
+      !this.apiKey.includes('your_optional_') &&
+      !this.apiKey.includes('placeholder')
+    );
   }
 
   /**

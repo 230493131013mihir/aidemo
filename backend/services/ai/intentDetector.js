@@ -18,57 +18,68 @@ const INTENT_PATTERNS = {
 
   harvest_decision: [
     // English
-    /\b(harvest|sell|hold|store|wait|when to sell|should i sell|sell today|sell later)\b/i,
+    /\b(harvest|sell|hold|store|wait|when to sell|should i sell|sell today|sell later|where should i sell|where to sell|sell-smart|sell smart)\b/i,
     // Hindi
-    /(काटना|काटूं|बेचना|बेचूं|रखूं|इंतजार|कब बेचूं|आज बेचूं|फसल बेचूं)/i,
+    /(काटना|काटूं|बेचना|बेचूं|रखूं|इंतजार|कब बेचूं|आज बेचूं|फसल बेचूं|कहाँ बेचूं|कहा बेचू|कहाँ बेचे|फसल बिक्री)/i,
     // Gujarati
-    /(કાપણી|વેચવું|વેચું|રાખવું|રાખું|ક્યારે વેચવું|આજે વેચવું|ખોટ|નફો થશે)/i,
+    /(કાપણી|વેચવું|વેચું|રાખવું|રાખું|ક્યારે વેચવું|આજે વેચવું|ખોટ|નફો થશે|ક્યાં વેચવું)/i,
     // Marathi
-    /(कापणी|काढणी|विकू|विकायचे|विकावे|ठेवू|साठवण|कधी विकावे|आज विकावे|फायदा होईल)/i
+    /(कापणी|काढणी|विकू|विकायचे|विकावे|ठेवू|साठवण|कधी विकावे|आज विकावे|फायदा होईल|कुठे विकावे|कुठे विकू|पीक विक्री)/i
   ],
 
   government_scheme: [
     // English
-    /\b(scheme|schemes|subsidy|subsidies|pm-kisan|pmkisan|fasal bima|pmfby|ikhedut|khedut|kcc|kisan credit card|soil health|krishi yojana|yojana|yojna|grant|financial assistance|tractor subsidy|drip subsidy)\b/i,
+    /\b(scheme|schemes|subsidy|subsidies|pm-kisan|pmkisan|fasal bima|pmfby|ikhedut|khedut|kcc|kisan credit card|soil health|krishi yojana|yojana|yojna|grant|financial assistance|tractor subsidy|drip subsidy|government scheme)\b/i,
     // Hindi
-    /(योजना|योजनाएं|सब्सिडी|अनुदान|पीएम-किसान|पीएम किसान|फसल बीमा|सरकारी सहायता|कृषि योजना|केसीसी|ऋण|सहायता राशि|पात्रता)/i,
+    /(योजना|योजनाएं|सब्सिडी|अनुदान|पीएम-किसान|पीएम किसान|फसल बीमा|सरकारी सहायता|कृषि योजना|केसीसी|ऋण|सहायता राशि|पात्रता|सरकारी योजना)/i,
     // Gujarati
-    /(યોજના|યોજનાઓ|સબસિડી|સહાય|આઈ-ખેડૂત|ખેડૂત સહાય|પીએમ કિસાન|પાક વીમો|ટ્રેક્ટર સબસિડી|ટપક સિંચાઈ|પાત્રતા)/i,
+    /(યોજના|યોજનાઓ|સબસિડી|સહાય|આઈ-ખેડૂત|ખેડૂત સહાય|પીએમ કિસાન|પાક વીમો|ટ્રેક્ટર સબસિડી|ટપક સિંચાઈ|પાત્રતા|સરકારી યોજના)/i,
     // Marathi
-    /(योजना|अनुदान|सबसिडी|पीएम किसान|पीएम-किसान|पीक विमा|शासकीय मदत|कृषी योजना|कर्ज माफी|ट्रॅक्टर सबसिडी|पात्रता)/i
+    /(योजना|अनुदान|सबसिडी|पीएम किसान|पीएम-किसान|पीक विमा|शासकीय मदत|कृषी योजना|कर्ज माफी|ट्रॅक्टर सबसिडी|पात्रता|सरकारी योजना)/i
   ],
 
   transport: [
     // English
-    /\b(transport|vehicle|truck|tempo|pool|share transport|logistics|freight|delivery)\b/i,
+    /\b(transport|vehicle|truck|tempo|pool|share transport|logistics|freight|delivery|find transport)\b/i,
     // Hindi
-    /(परिवहन|गाड़ी|ट्रक|टेंपो|भाड़ा|साझा परिवहन|किराया|सवारी)/i,
+    /(परिवहन|गाड़ी|ट्रक|टेंपो|भाड़ा|साझा परिवहन|किराया|सवारी|ट्रांसपोर्ट खोजें|ट्रांसपोर्ट)/i,
     // Gujarati
-    /(વાહન|ગાડી|ટ્રક|ટેમ્પો|ભાડું|સહિયારું વાહન|ટ્રાન્સપોર્ટ)/i,
+    /(વાહન|ગાડી|ટ્રક|ટેમ્પો|ભાડું|સહિયારું વાહન|ટ્રાન્સપોર્ટ|વાહન શોધો)/i,
     // Marathi
-    /(वाहतूक|गाडी|ट्रक|टेम्पो|भाडे|सामायिक वाहतूक|लॉजिस्टिक्स)/i
+    /(वाहतूक|गाडी|ट्रक|टेम्पो|भाडे|सामायिक वाहतूक|लॉजिस्टिक्स|वाहतूक शोधा|गाडी शोधा)/i
   ],
 
   revenue_calculation: [
     // English
-    /\b(revenue|profit|income|net revenue|gross revenue|calculate|calculation|earning|expenses|total cost)\b/i,
+    /\b(revenue|profit|income|net revenue|gross revenue|calculate|calculation|earning|expenses|total cost|calculate profit|estimated profit)\b/i,
     // Hindi
-    /(कमाई|मुनाफा|शुद्ध लाभ|कुल लाभ|शुद्ध कमाई|कुल कमाई|खर्च|लागत|हिसाब|गणना)/i,
+    /(कमाई|मुनाफा|शुद्ध लाभ|कुल लाभ|शुद्ध कमाई|कुल कमाई|खर्च|लागत|हिसाब|गणना|मुनाफा कैलकुलेट|अनुमानित मुनाफा)/i,
     // Gujarati
-    /(ચોખ્ખો નફો|કુલ આવક|નફો|ખર્ચ|ગણતરી|હિસાબ|આવક)/i,
+    /(ચોખ્ખો નફો|કુલ આવક|નફો|ખર્ચ|ગણતરી|હિસાબ|આવક|અંદાજિત નફો)/i,
     // Marathi
-    /(नफा|कमाई|उत्पन्न|निव्वळ नफा|खर्च|लागत|हिशोब|हिशेब|गणना)/i
+    /(नफा|कमाई|उत्पन्न|निव्वळ नफा|खर्च|लागत|हिशोब|हिशेब|गणना|नफा मोजा|अंदाजित नफा)/i
   ],
 
   weather: [
     // English & Romanized Indian / Hinglish terms
-    /\b(weather|rain|raining|rainfall|forecast|monsoon|storm|temperature|humidity|climate|barish|barsat|mausam|mosam|badal|dhund|paus|havaman|tapman|varsad|vaatavaran)\b/i,
+    /\b(weather|rain|raining|rainfall|forecast|monsoon|storm|temperature|humidity|climate|barish|barsat|mausam|mosam|badal|dhund|paus|havaman|tapman|varsad|vaatavaran|weather risk)\b/i,
     // Hindi
-    /(मौसम|बारिश|वर्षा|तूफान|तापमान|पूर्वानुमान|बादल|ओले|पाला)/i,
+    /(मौसम|बारिश|वर्षा|तूफान|तापमान|पूर्वानुमान|बादल|ओले|पाला|मौसम का जोखिम|मौसम जोखिम)/i,
     // Gujarati
-    /(હવામાન|વરસાદ|વાતાવરણ|તાપમાન|આગાહી|વાદળ)/i,
+    /(હવામાન|વરસાદ|વાતાવરણ|તાપમાન|આગાહી|વાદળ|હવામાન જોખમ)/i,
     // Marathi
-    /(हवामान|पाऊस|तापमान|अंदाज|वादळ|ढग|गारपीट)/i
+    /(हवामान|पाऊस|तापमान|अंदाज|वादळ|ढग|गारपीट|हवामानाचा धोका|हवामान धोका)/i
+  ],
+
+  crop_problem: [
+    // English
+    /\b(crop problem|disease|pest|fungus|blight|yellowing|leaf spot|insects|worm|wilt|damage|rot|pesticide|fungicide|plant problem|crop issue|crop damage)\b/i,
+    // Hindi
+    /(फसल की समस्या|फसल रोग|कीड़ा|कीट|इल्ली|फफूंद|पत्ते पीले|झुलसा|कीटनाशक|रोकथाम|पौधे की बीमारी|रोग समस्या)/i,
+    // Gujarati
+    /(પાક રોગ|જીવાત|ઈયળ|ફૂગ|પાંદડા પીળા|રોગ નિયંત્રણ|જંતુનાશક|પાક સમસ્યા)/i,
+    // Marathi
+    /(पिकावरील रोगाची|पिकावरील रोग|रोग|कीड|अळी|बुरशी|पान पिवळे|करपा|मर रोग|फवारणी|कीटकनाशक|पिकाची समस्या|पिकाचे नुकसान)/i
   ],
 
   profile: [
