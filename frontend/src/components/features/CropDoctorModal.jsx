@@ -89,6 +89,8 @@ export default function CropDoctorModal({ isOpen, onClose }) {
   const [selectedCase, setSelectedCase] = useState(SAMPLE_DIAGNOSES[0]);
   const [analyzing, setAnalyzing] = useState(false);
   const [customImage, setCustomImage] = useState(null);
+  const [isCustomUploaded, setIsCustomUploaded] = useState(false);
+  const [offlineNotice, setOfflineNotice] = useState(null);
 
   if (!isOpen) return null;
 
@@ -159,16 +161,23 @@ export default function CropDoctorModal({ isOpen, onClose }) {
     if (!file) return;
 
     setCustomImage(URL.createObjectURL(file));
+    setIsCustomUploaded(true);
     setAnalyzing(true);
+    setOfflineNotice(null);
 
     setTimeout(() => {
       setAnalyzing(false);
-      showToast({
-        type: 'celebrate',
-        title: '🌱 AI Leaf Scan Complete',
-        message: `Diagnosed ${selectedCase.diseaseName} with ${selectedCase.confidence} accuracy.`,
+      setOfflineNotice({
+        title: '🌱 Computer Vision Model in Reference Comparison Mode',
+        message: 'Live computer vision leaf inference model is currently in offline reference mode. Showing nearest verified pathology reference case for visual comparison.',
+        safeNextStep: 'Safe Next Step: Do not spray chemical fungicides based solely on photo upload. Take a physical leaf sample to your local Taluka Krishi Kendra / KVK center for certified confirmation.'
       });
-    }, 1200);
+      showToast({
+        type: 'info',
+        title: '🌱 Reference Pathology Loaded',
+        message: 'Visual reference case displayed. Please verify with local Krishi Kendra before spraying.',
+      });
+    }, 1000);
   }
 
   function handleVoiceRead() {
@@ -290,6 +299,19 @@ export default function CropDoctorModal({ isOpen, onClose }) {
             </span>
           </label>
 
+          {offlineNotice && (
+            <div className="rounded-2xl bg-amber-50 border border-amber-300 p-4 space-y-2 text-xs text-amber-950 animate-fadeIn">
+              <div className="flex items-center gap-2 font-bold text-amber-900">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>{offlineNotice.title}</span>
+              </div>
+              <p className="text-amber-800 leading-relaxed">{offlineNotice.message}</p>
+              <p className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
+                🛡️ {offlineNotice.safeNextStep}
+              </p>
+            </div>
+          )}
+
           {analyzing ? (
             <div className="rounded-2xl border border-border bg-slate-50 p-8 text-center space-y-2">
               <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin mx-auto" />
@@ -314,8 +336,12 @@ export default function CropDoctorModal({ isOpen, onClose }) {
                 </div>
 
                 <div className="text-right">
-                  <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-bold font-mono">
-                    {selectedCase.confidence} Confidence
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold font-mono ${
+                    isCustomUploaded 
+                      ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                      : 'bg-emerald-100 text-emerald-900'
+                  }`}>
+                    {isCustomUploaded ? 'Visual Reference (Manual Verification Needed)' : `${selectedCase.confidence} Verified`}
                   </span>
                   <p className="text-[10px] text-muted font-bold mt-1">Severity: {selectedCase.severity}</p>
                 </div>

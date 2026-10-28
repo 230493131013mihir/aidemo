@@ -37,10 +37,11 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { useLanguage } from '../../context/LanguageContext';
 import DigitalGatePassModal from '../transport/DigitalGatePassModal';
 import LiveDriverTrackingMap from '../transport/LiveDriverTrackingMap';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+import { API_BASE_URL } from '../../config/apiConfig';
 
 function formatINR(value) {
   return new Intl.NumberFormat('en-IN', {
@@ -118,6 +119,7 @@ const TRIP_PROGRESS_STEPS = [
 export default function TransporterDashboard() {
   const { user, token } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -167,9 +169,9 @@ export default function TransporterDashboard() {
     escrowLockedEarnings: 0,
     rating: 4.8,
     totalRatings: 1,
-    vehicleType: 'Mahindra Bolero Maxi Truck',
-    vehicleNumber: 'MH-12-RN-4921',
-    capacityKg: 2200,
+    vehicleType: user?.TransporterProfile?.vehicleType || '',
+    vehicleNumber: user?.TransporterProfile?.vehicleNumber || '',
+    capacityKg: user?.TransporterProfile?.capacityKg || 0,
     isAvailable: true,
     activeTrip: null
   });
@@ -515,9 +517,9 @@ export default function TransporterDashboard() {
         body: JSON.stringify({
           vehicleId: selectedVehicle?.id || (assignedVehicleId !== 'primary' ? assignedVehicleId : null),
           vehicleType: selectedVehicle?.vehicleType || stats.vehicleType || user?.TransporterProfile?.vehicleType || 'Commercial Agri Carrier',
-          vehicleNumber: selectedVehicle?.registrationNumber || stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber || 'MH-12-RN-4921',
-          driverName: selectedVehicle?.driverName || user?.name || 'Assigned Driver',
-          driverPhone: selectedVehicle?.driverPhone || user?.phone || '9876543210'
+          vehicleNumber: selectedVehicle?.registrationNumber || stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber || null,
+          driverName: selectedVehicle?.driverName || user?.TransporterProfile?.driverName || user?.name || 'Assigned Driver',
+          driverPhone: selectedVehicle?.driverPhone || user?.phone || null
         })
       });
       const json = await res.json();
@@ -784,7 +786,7 @@ export default function TransporterDashboard() {
   );
 
   return (
-    <div className="space-y-6 sm:space-y-8 w-full max-w-7xl mx-auto pb-16 animate-in fade-in">
+    <div className="space-y-6 sm:space-y-8 w-full max-w-full 2xl:max-w-[1720px] mx-auto pb-16 animate-in fade-in">
       {/* 1. Transporter Header Banner */}
       <section className="relative rounded-3xl overflow-hidden shadow-xl border border-primary/20 text-white">
         <div 
@@ -797,15 +799,15 @@ export default function TransporterDashboard() {
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
               <Truck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Transporter Logistics & Shared Transport Hub</span>
+              <span>{t('transporter.headerBadge') || "Transporter Logistics & Shared Transport Hub"}</span>
             </div>
 
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
-              Logistics Management Console
+              {t('transporter.headerTitle') || "Logistics Management Console"}
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
-              Manage agricultural cargo dispatch, group compatible farmer bookings into shared trips, assign fleet carriers, and track delivery progress across Maharashtra corridors.
+              {t('transporter.headerSubtitle') || "Manage agricultural cargo dispatch, group compatible farmer bookings into shared trips, assign fleet carriers, and track delivery progress across Maharashtra corridors."}
             </p>
           </div>
 
@@ -816,7 +818,7 @@ export default function TransporterDashboard() {
               className="py-2.5 px-4 rounded-xl bg-primary hover:bg-primary-dark text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
-              <span>Register Fleet Vehicle</span>
+              <span>{t('transporter.registerVehicleBtn') || "Register Fleet Vehicle"}</span>
             </button>
 
             <button
@@ -830,7 +832,7 @@ export default function TransporterDashboard() {
                 loadTripHistory();
               }}
               className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-colors cursor-pointer"
-              title="Refresh Logistics Stats"
+              title={t('transporter.refreshStatsTooltip') || "Refresh Logistics Stats"}
             >
               <RefreshCw className="w-4 h-4" />
             </button>
@@ -843,7 +845,7 @@ export default function TransporterDashboard() {
         {/* Metric 1: New Eligible Requests */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">Eligible Requests</span>
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">{t('transporter.metricEligibleRequests') || "Eligible Requests"}</span>
             <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
               <Truck className="w-3.5 h-3.5" />
             </div>
@@ -851,13 +853,13 @@ export default function TransporterDashboard() {
           <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono mt-0.5">
             {stats.newEligibleRequestsCount ?? incomingRequests.length}
           </p>
-          <span className="text-[11px] text-emerald-700 font-semibold block">Awaiting Acceptance</span>
+          <span className="text-[11px] text-emerald-700 font-semibold block">{t('transporter.awaitingAcceptance') || "Awaiting Acceptance"}</span>
         </div>
 
         {/* Metric 2: Trips Awaiting Assignment */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">Awaiting Vehicle</span>
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">{t('transporter.metricAwaitingVehicle') || "Awaiting Vehicle"}</span>
             <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
               <Car className="w-3.5 h-3.5" />
             </div>
@@ -865,13 +867,13 @@ export default function TransporterDashboard() {
           <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono mt-0.5">
             {stats.tripsAwaitingAssignmentCount ?? 0}
           </p>
-          <span className="text-[11px] text-amber-700 font-semibold block">Need Carrier Match</span>
+          <span className="text-[11px] text-amber-700 font-semibold block">{t('transporter.needCarrierMatch') || "Need Carrier Match"}</span>
         </div>
 
         {/* Metric 3: Today's Pickups */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">Today's Pickups</span>
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">{t('transporter.metricTodayPickups') || "Today's Pickups"}</span>
             <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
               <Calendar className="w-3.5 h-3.5" />
             </div>
@@ -879,13 +881,13 @@ export default function TransporterDashboard() {
           <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono mt-0.5">
             {stats.todayPickupsCount ?? 0}
           </p>
-          <span className="text-[11px] text-blue-700 font-semibold block">Scheduled Today</span>
+          <span className="text-[11px] text-blue-700 font-semibold block">{t('transporter.scheduledToday') || "Scheduled Today"}</span>
         </div>
 
         {/* Metric 4: Active Trips */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">Active Trips</span>
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">{t('transporter.metricActiveTrips') || "Active Trips"}</span>
             <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center">
               <Navigation className="w-3.5 h-3.5" />
             </div>
@@ -893,13 +895,13 @@ export default function TransporterDashboard() {
           <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono mt-0.5">
             {stats.activeTripsCount ?? activeBookings.length}
           </p>
-          <span className="text-[11px] text-purple-700 font-semibold block">In Progress / Transit</span>
+          <span className="text-[11px] text-purple-700 font-semibold block">{t('transporter.inTransit') || "In Progress / Transit"}</span>
         </div>
 
         {/* Metric 5: Deliveries Completed */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">Completed Trips</span>
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">{t('transporter.metricCompletedTrips') || "Completed Trips"}</span>
             <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
               <CheckCircle2 className="w-3.5 h-3.5" />
             </div>
@@ -907,13 +909,13 @@ export default function TransporterDashboard() {
           <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono mt-0.5">
             {stats.deliveriesCompletedCount ?? stats.totalTripsCompleted ?? 0}
           </p>
-          <span className="text-[11px] text-emerald-700 font-semibold block">Verified APMC Deliveries</span>
+          <span className="text-[11px] text-emerald-700 font-semibold block">{t('transporter.verifiedDeliveries') || "Verified APMC Deliveries"}</span>
         </div>
 
         {/* Metric 6: Registered Fleet Availability */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">Fleet Ready</span>
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">{t('transporter.metricFleetReady') || "Fleet Ready"}</span>
             <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center">
               <Car className="w-3.5 h-3.5" />
             </div>
@@ -921,7 +923,7 @@ export default function TransporterDashboard() {
           <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono mt-0.5">
             {stats.availableVehiclesCount ?? myFleet.filter((v) => v.isAvailable !== false).length} / {stats.registeredVehiclesCount ?? myFleet.length}
           </p>
-          <span className="text-[11px] text-teal-700 font-semibold block">Vehicles Available</span>
+          <span className="text-[11px] text-teal-700 font-semibold block">{t('transporter.vehiclesAvailable') || "Vehicles Available"}</span>
         </div>
       </section>
 
@@ -931,45 +933,45 @@ export default function TransporterDashboard() {
           <div className="flex items-center gap-2">
             <IndianRupee className="w-4 h-4 text-emerald-400" />
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">
-              Freight Accounts & Earnings Ledger (Non-Estimated)
+              {t('transporter.ledgerTitle') || "Freight Accounts & Earnings Ledger (Non-Estimated)"}
             </h3>
           </div>
           <span className="text-[11px] text-slate-400">
-            Confirmed payouts, pending freight, and escrow deposits are kept strictly distinct.
+            {t('transporter.ledgerSubtitle') || "Confirmed payouts, pending freight, and escrow deposits are kept strictly distinct."}
           </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
           <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Confirmed Freight Paid</span>
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">{t('transporter.confirmedPaid') || "Confirmed Freight Paid"}</span>
             <span className="text-lg sm:text-xl font-black text-emerald-400 font-mono block">
               {formatINR(stats.confirmedFreightEarnings ?? 0)}
             </span>
-            <span className="text-[10.5px] text-emerald-300">Directly settled / paid</span>
+            <span className="text-[10.5px] text-emerald-300">{t('transporter.settledDesc') || "Directly settled / paid"}</span>
           </div>
 
           <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Completed Trips Total</span>
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">{t('transporter.completedTotal') || "Completed Trips Total"}</span>
             <span className="text-lg sm:text-xl font-black text-white font-mono block">
               {formatINR(stats.completedTripTotals ?? stats.totalEarnings ?? 0)}
             </span>
-            <span className="text-[10.5px] text-slate-300">{stats.deliveriesCompletedCount ?? stats.totalTripsCompleted ?? 0} verified trips</span>
+            <span className="text-[10.5px] text-slate-300">{(t('transporter.verifiedTripsDesc') || "{count} verified trips").replace('{count}', stats.deliveriesCompletedCount ?? stats.totalTripsCompleted ?? 0)}</span>
           </div>
 
           <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Pending / Active Freight</span>
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">{t('transporter.pendingFreight') || "Pending / Active Freight"}</span>
             <span className="text-lg sm:text-xl font-black text-amber-400 font-mono block">
               {formatINR(stats.pendingFreightEarnings ?? 0)}
             </span>
-            <span className="text-[10.5px] text-amber-300">{stats.activeTripsCount ?? activeBookings.length} trips in transit</span>
+            <span className="text-[10.5px] text-amber-300">{(t('transporter.inTransitDesc') || "{count} trips in transit").replace('{count}', stats.activeTripsCount ?? activeBookings.length)}</span>
           </div>
 
           <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Locked in Escrow</span>
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">{t('transporter.lockedEscrow') || "Locked in Escrow"}</span>
             <span className="text-lg sm:text-xl font-black text-blue-400 font-mono block">
               {formatINR(stats.escrowLockedEarnings ?? 0)}
             </span>
-            <span className="text-[10.5px] text-blue-300">Protected farmer deposits</span>
+            <span className="text-[10.5px] text-blue-300">{t('transporter.protectedDeposits') || "Protected farmer deposits"}</span>
           </div>
         </div>
       </section>
@@ -986,7 +988,7 @@ export default function TransporterDashboard() {
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
-          <span>Dashboard Overview</span>
+          <span>{t('transporter.overviewTab') || "Dashboard Overview"}</span>
         </button>
 
         <button
@@ -999,7 +1001,7 @@ export default function TransporterDashboard() {
           }`}
         >
           <Truck className="w-3.5 h-3.5 text-emerald-500" />
-          <span>Incoming Requests ({incomingRequests.length})</span>
+          <span>{t('transporter.incomingRequestsTab') || "Incoming Requests"} ({incomingRequests.length})</span>
         </button>
 
         <button
@@ -1012,7 +1014,7 @@ export default function TransporterDashboard() {
           }`}
         >
           <Users className="w-3.5 h-3.5 text-amber-500" />
-          <span>Shared Trips & Groups ({suggestedGroups.length})</span>
+          <span>{t('transporter.sharedTripsTab') || "Shared Trips & Groups"} ({suggestedGroups.length})</span>
         </button>
 
         <button
@@ -1025,7 +1027,7 @@ export default function TransporterDashboard() {
           }`}
         >
           <Navigation className="w-3.5 h-3.5 text-purple-500" />
-          <span>My Active Trips ({activeBookings.length})</span>
+          <span>{t('transporter.activeTripsTab') || "My Active Trips"} ({activeBookings.length})</span>
         </button>
 
         <button
@@ -1038,7 +1040,7 @@ export default function TransporterDashboard() {
           }`}
         >
           <ShieldCheck className="w-3.5 h-3.5 text-teal-500" />
-          <span>Cargo Trips & Gate Pass</span>
+          <span>{t('transporter.gatePassTab') || "Cargo Trips & Gate Pass"}</span>
         </button>
 
         <button
@@ -1051,7 +1053,7 @@ export default function TransporterDashboard() {
           }`}
         >
           <Car className="w-3.5 h-3.5 text-blue-500" />
-          <span>Fleet & Vehicles ({myFleet.length})</span>
+          <span>{t('transporter.fleetTab') || "Fleet & Vehicles"} ({myFleet.length})</span>
         </button>
 
         <button
@@ -1064,7 +1066,7 @@ export default function TransporterDashboard() {
           }`}
         >
           <IndianRupee className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Trip History & Earnings</span>
+          <span>{t('transporter.historyTab') || "Trip History & Earnings"}</span>
         </button>
 
         <button
@@ -1077,7 +1079,7 @@ export default function TransporterDashboard() {
           }`}
         >
           <Bell className="w-3.5 h-3.5 text-amber-500" />
-          <span>Notifications</span>
+          <span>{t('transporter.notificationsTab') || "Notifications"}</span>
         </button>
       </div>
 
@@ -1090,10 +1092,10 @@ export default function TransporterDashboard() {
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                   <Truck className="w-4 h-4 text-primary" />
-                  <span>A. Incoming Produce Booking Requests</span>
+                  <span>{t('transporter.sectionA') || "A. Incoming Produce Booking Requests"}</span>
                 </h3>
                 <p className="text-xs text-muted">
-                  Recent farmer requests awaiting your vehicle assignment or review.
+                  {t('transporter.sectionASub') || "Recent farmer requests awaiting your vehicle assignment or review."}
                 </p>
               </div>
               <button
@@ -1101,14 +1103,14 @@ export default function TransporterDashboard() {
                 onClick={() => handleTabChange('requests')}
                 className="text-xs text-primary font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
               >
-                <span>View All ({incomingRequests.length})</span>
+                <span>{t('transporter.viewAllRequests') || "View All"} ({incomingRequests.length})</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {incomingRequests.length === 0 ? (
               <div className="p-6 text-center text-xs text-muted bg-slate-50 rounded-xl border border-slate-200">
-                No new unassigned requests in your coverage corridors.
+                {t('transporter.noIncomingRequests') || "No new unassigned requests in your coverage corridors."}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1130,7 +1132,7 @@ export default function TransporterDashboard() {
                         onClick={() => setSelectedRequestForAction({ type: 'accept', booking: req })}
                         className="px-2.5 py-1 rounded-lg bg-primary text-white font-bold text-[11px] hover:bg-primary-dark cursor-pointer shadow-xs"
                       >
-                        Accept Load
+                        {t('transporter.acceptAction') || "Accept Load"}
                       </button>
                     </div>
                   </div>
@@ -1145,10 +1147,10 @@ export default function TransporterDashboard() {
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                   <Users className="w-4 h-4 text-amber-500" />
-                  <span>B. Suggested Shared Trips (3–4 Farmer Optimization)</span>
+                  <span>{t('transporter.sectionB') || "B. Suggested Shared Trips (3–4 Farmer Optimization)"}</span>
                 </h3>
                 <p className="text-xs text-muted">
-                  AI-clustered compatible farmer requests sharing the same highway corridor, pickup date, and produce handling rules.
+                  {t('transporter.sectionBSub') || "AI-clustered compatible farmer requests sharing the same highway corridor, pickup date, and produce handling rules."}
                 </p>
               </div>
               <button
@@ -1168,7 +1170,7 @@ export default function TransporterDashboard() {
               </div>
             ) : suggestedGroups.length === 0 ? (
               <div className="p-6 text-center text-xs text-muted bg-slate-50 rounded-xl border border-slate-200">
-                No compatible multi-farmer groups identified right now. Groups will suggest automatically when 2–4 compatible bookings arrive.
+                {t('transporter.noSharedGroups') || "No compatible multi-farmer groups identified right now. Groups will suggest automatically when 2–4 compatible bookings arrive."}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1241,10 +1243,10 @@ export default function TransporterDashboard() {
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                   <Navigation className="w-4 h-4 text-purple-600" />
-                  <span>C. Active Dispatches & Live Telemetry Console</span>
+                  <span>{t('transporter.sectionC') || "C. Active Dispatches & Live Telemetry Console"}</span>
                 </h3>
                 <p className="text-xs text-muted">
-                  Audited progression from farm gate pickup to destination mandi weighbridge clearance.
+                  {t('transporter.sectionCSub') || "Audited progression from farm gate pickup to destination mandi weighbridge clearance."}
                 </p>
               </div>
               <button
@@ -1252,14 +1254,14 @@ export default function TransporterDashboard() {
                 onClick={() => handleTabChange('active')}
                 className="text-xs text-primary font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
               >
-                <span>Open Active Workspace ({activeBookings.length})</span>
+                <span>{t('transporter.viewAllTrips') || "Open Active Workspace"} ({activeBookings.length})</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {activeBookings.length === 0 ? (
               <div className="p-6 text-center text-xs text-muted bg-slate-50 rounded-xl border border-slate-200">
-                No trips actively on the road. Accept an incoming request or confirm a shared trip above to begin transit.
+                {t('transporter.noActiveTrips') || "No trips actively on the road. Accept an incoming request or confirm a shared trip above to begin transit."}
               </div>
             ) : (
               <div className="space-y-4">
@@ -1272,7 +1274,7 @@ export default function TransporterDashboard() {
                             {trip.gatePassCode || `PASS-${trip.id}`}
                           </span>
                           <span className="text-xs text-slate-300 font-bold">
-                            {trip.bookingType === 'shared' ? 'Shared Transport Pool' : 'Individual Consignment'}
+                            {trip.bookingType === 'shared' ? (t('transporter.pooledTrip') || 'Shared Transport Pool') : (t('transporter.soloTrip') || 'Individual Consignment')}
                           </span>
                         </div>
                         <h4 className="text-sm sm:text-base font-black text-white mt-1">
@@ -1287,25 +1289,36 @@ export default function TransporterDashboard() {
                           className="px-3 py-1.5 rounded-xl border border-white/20 hover:bg-white/10 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                         >
                           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Gate Pass (QR)</span>
+                          <span>{t('transporter.viewGatePass') || "Gate Pass (QR)"}</span>
                         </button>
 
-                        {trip.status === 'awaiting_pickup' || trip.status === 'accepted' || trip.status === 'vehicle_assigned' ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedTripForPickup(trip);
-                              setPickupFormData({
-                                actualPickupTime: new Date().toISOString().slice(0, 16),
-                                loadedQuantity: String(trip.weightKg || ''),
-                                pickupNotes: ''
-                              });
-                            }}
-                            className="btn-primary py-1.5 px-3.5 rounded-xl text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            <Scale className="w-3.5 h-3.5" />
-                            <span>Confirm Pickup</span>
-                          </button>
+                        {['awaiting_pickup', 'accepted', 'vehicle_assigned', 'driver_assigned', 'confirmed'].includes(trip.status) ? (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedTripForPickup(trip);
+                                setPickupFormData({
+                                  actualPickupTime: new Date().toISOString().slice(0, 16),
+                                  loadedQuantity: String(trip.weightKg || ''),
+                                  pickupNotes: ''
+                                });
+                              }}
+                              className="btn-primary py-1.5 px-3.5 rounded-xl text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <Scale className="w-3.5 h-3.5" />
+                              <span>{t('transporter.pickupAction') || "Confirm Pickup"}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleProgressTrip(trip.id, 'in_transit')}
+                              className="bg-purple-600 hover:bg-purple-700 text-white py-1.5 px-3 rounded-xl text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                              title="Direct Depart & Start Transit"
+                            >
+                              <Navigation className="w-3.5 h-3.5" />
+                              <span>Depart</span>
+                            </button>
+                          </div>
                         ) : trip.status === 'pickup_confirmed' ? (
                           <button
                             type="button"
@@ -1330,7 +1343,7 @@ export default function TransporterDashboard() {
                             className="bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 px-3.5 rounded-xl text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
                           >
                             <CheckCheck className="w-3.5 h-3.5" />
-                            <span>Confirm Mandi Delivery</span>
+                            <span>{t('transporter.deliveryAction') || "Confirm Mandi Delivery"}</span>
                           </button>
                         ) : null}
                       </div>
@@ -1363,7 +1376,7 @@ export default function TransporterDashboard() {
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                   <Car className="w-4 h-4 text-blue-600" />
-                  <span>D. Fleet Availability Quick Toggle</span>
+                  <span>{t('transporter.sectionD') || "D. Fleet Availability Quick Toggle"}</span>
                 </h3>
                 <button
                   type="button"
@@ -1376,7 +1389,7 @@ export default function TransporterDashboard() {
 
               {myFleet.length === 0 ? (
                 <div className="p-4 text-center text-xs text-muted bg-slate-50 rounded-xl border border-slate-200">
-                  No registered fleet vehicles. Register one to receive direct farmer bookings.
+                  {t('transporter.noFleetRegistered') || "No registered fleet vehicles. Register one to receive direct farmer bookings."}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -1803,7 +1816,7 @@ export default function TransporterDashboard() {
                     ))
                   ) : (
                     <option value="primary">
-                      {stats.vehicleType || 'Commercial Goods Carrier'} ({stats.vehicleNumber || 'MH-12-RN-4921'}) • {stats.capacityKg || 2200} kg [Primary Profile]
+                      {stats.vehicleType || user?.TransporterProfile?.vehicleType || 'Commercial Goods Carrier'}{(stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber) ? ` (${stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber})` : ''}{(stats.capacityKg || user?.TransporterProfile?.capacityKg) ? ` • ${stats.capacityKg || user?.TransporterProfile?.capacityKg} kg` : ''} [Primary Profile]
                     </option>
                   )}
                 </select>
@@ -1942,22 +1955,33 @@ export default function TransporterDashboard() {
                         </button>
 
                         {/* Action buttons based on current state */}
-                        {['accepted', 'vehicle_assigned', 'awaiting_pickup'].includes(trip.status) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedTripForPickup(trip);
-                              setPickupFormData({
-                                actualPickupTime: new Date().toISOString().slice(0, 16),
-                                loadedQuantity: String(trip.weightKg || ''),
-                                pickupNotes: ''
-                              });
-                            }}
-                            className="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
-                          >
-                            <Scale className="w-3.5 h-3.5" />
-                            <span>Confirm Farm Pickup</span>
-                          </button>
+                        {['accepted', 'vehicle_assigned', 'driver_assigned', 'awaiting_pickup', 'confirmed'].includes(trip.status) && (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedTripForPickup(trip);
+                                setPickupFormData({
+                                  actualPickupTime: new Date().toISOString().slice(0, 16),
+                                  loadedQuantity: String(trip.weightKg || ''),
+                                  pickupNotes: ''
+                                });
+                              }}
+                              className="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            >
+                              <Scale className="w-3.5 h-3.5" />
+                              <span>Confirm Farm Pickup</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleProgressTrip(trip.id, 'in_transit')}
+                              className="bg-purple-600 hover:bg-purple-700 text-white py-1.5 px-3 rounded-xl text-xs font-bold inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                              title="Direct Depart & Start Transit"
+                            >
+                              <Navigation className="w-3.5 h-3.5" />
+                              <span>Depart</span>
+                            </button>
+                          </div>
                         )}
 
                         {trip.status === 'pickup_confirmed' && (
@@ -2134,10 +2158,10 @@ export default function TransporterDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                Registered Fleet Vehicles ({myFleet.length})
+                {t('transporter.fleetTitle') || "Registered Fleet Vehicles"} ({myFleet.length})
               </h3>
               <p className="text-xs text-muted">
-                Maintain accurate vehicle registration, payload capacity (kg), special handling, and availability.
+                {t('transporter.fleetSubtitle') || "Maintain accurate vehicle registration, payload capacity (kg), special handling, and availability."}
               </p>
             </div>
 
@@ -2147,7 +2171,7 @@ export default function TransporterDashboard() {
               className="btn-primary py-2 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
               <PlusCircle className="w-3.5 h-3.5" />
-              <span>Register New Vehicle</span>
+              <span>{t('transporter.registerNewVehicle') || "Register New Vehicle"}</span>
             </button>
           </div>
 
@@ -2173,15 +2197,15 @@ export default function TransporterDashboard() {
 
                 <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-muted text-[11px]">Payload Capacity:</span>
+                    <span className="text-muted text-[11px]">{t('transporter.payloadCapacityLabel') || "Payload Capacity:"}</span>
                     <strong className="text-slate-900 font-mono">{vehicle.capacityKg} kg</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted text-[11px]">Freight Rate:</span>
+                    <span className="text-muted text-[11px]">{t('transporter.freightRateLabel') || "Freight Rate:"}</span>
                     <strong className="text-slate-900 font-mono">₹{vehicle.ratePerKm}/km</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted text-[11px]">Driver:</span>
+                    <span className="text-muted text-[11px]">{t('transporter.driverLabel') || "Driver:"}</span>
                     <span className="text-slate-800 font-semibold">{vehicle.driverName} ({vehicle.driverPhone})</span>
                   </div>
                 </div>
@@ -2189,7 +2213,7 @@ export default function TransporterDashboard() {
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1 text-emerald-700 font-semibold text-[11px]">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>APMC Verified</span>
+                    <span>{t('transporter.apmcVerified') || "APMC Verified"}</span>
                   </span>
                   <button
                     type="button"
@@ -2200,7 +2224,7 @@ export default function TransporterDashboard() {
                         : 'bg-red-100 text-red-800 hover:bg-red-200'
                     }`}
                   >
-                    {vehicle.isAvailable ? '🟢 Available' : '🔴 In Service'}
+                    {vehicle.isAvailable ? `🟢 ${t('transporter.available') || 'Available'}` : `🔴 ${t('transporter.inService') || 'In Service'}`}
                   </button>
                 </div>
               </div>
@@ -2215,10 +2239,10 @@ export default function TransporterDashboard() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                Transporter Trip History & Freight Ledger
+                {t('transporter.historyTitle') || "Transporter Trip History & Freight Ledger"}
               </h3>
               <p className="text-xs text-muted">
-                Audit all completed and settled transport bookings with actual recorded freight earnings.
+                {t('transporter.historySubtitle') || "Audit all completed and settled transport bookings with actual recorded freight earnings."}
               </p>
             </div>
 
@@ -2228,7 +2252,7 @@ export default function TransporterDashboard() {
               className="py-2 px-3.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print History Report</span>
+              <span>{t('transporter.printReportBtn') || "Print History Report"}</span>
             </button>
           </div>
 
@@ -2236,7 +2260,7 @@ export default function TransporterDashboard() {
           <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
             <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
               <Filter className="w-3.5 h-3.5 text-primary" />
-              <span>Filter History Records</span>
+              <span>{t('transporter.filterTitle') || "Filter History Records"}</span>
             </span>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -2356,7 +2380,7 @@ export default function TransporterDashboard() {
         <div className="space-y-4 max-w-3xl">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900">
-              Messages & Dispatch Alerts
+              {t('transporter.notificationsTitle') || "Messages & Dispatch Alerts"}
             </h3>
             <button
               type="button"
@@ -2364,7 +2388,7 @@ export default function TransporterDashboard() {
               className="text-xs text-primary font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
             >
               <Bell className="w-3.5 h-3.5" />
-              <span>Test Audio Alert Chime</span>
+              <span>{t('transporter.testAudioAlert') || "Test Audio Alert Chime"}</span>
             </button>
           </div>
 
@@ -2395,7 +2419,7 @@ export default function TransporterDashboard() {
               <div className="flex items-center gap-2">
                 <Truck className="w-5 h-5 text-primary" />
                 <h3 className="font-black text-base text-slate-900">
-                  Register New Vehicle in Fleet
+                  {t('transporter.registerVehicleTitle') || "Register New Vehicle in Fleet"}
                 </h3>
               </div>
               <button
@@ -2410,11 +2434,11 @@ export default function TransporterDashboard() {
             <form onSubmit={handleAddVehicle} className="space-y-3.5 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Registration Number *</label>
+                  <label className="font-bold text-slate-700">{t('transporter.registrationNumber') || "Registration Number *"}</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. MH-12-AB-1234"
+                    placeholder={t('transporter.registrationNumberPlaceholder') || "e.g. MH-12-AB-1234"}
                     value={vehicleForm.registrationNumber}
                     onChange={(e) => setVehicleForm({ ...vehicleForm, registrationNumber: e.target.value })}
                     className="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono font-bold uppercase outline-none focus:border-primary"
@@ -2422,7 +2446,7 @@ export default function TransporterDashboard() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Vehicle Type *</label>
+                  <label className="font-bold text-slate-700">{t('transporter.vehicleType') || "Vehicle Type *"}</label>
                   <select
                     value={vehicleForm.vehicleType}
                     onChange={(e) => setVehicleForm({ ...vehicleForm, vehicleType: e.target.value })}
@@ -2437,7 +2461,7 @@ export default function TransporterDashboard() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Usable Payload Capacity (kg) *</label>
+                  <label className="font-bold text-slate-700">{t('transporter.payloadCapacity') || "Usable Payload Capacity (kg) *"}</label>
                   <input
                     type="number"
                     required
@@ -2450,7 +2474,7 @@ export default function TransporterDashboard() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Rate per km (₹) *</label>
+                  <label className="font-bold text-slate-700">{t('transporter.ratePerKm') || "Rate per km (₹) *"}</label>
                   <input
                     type="number"
                     required
@@ -2463,7 +2487,7 @@ export default function TransporterDashboard() {
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-700">Special Handling / Body Type</label>
+                <label className="font-bold text-slate-700">{t('transporter.specialHandling') || "Special Handling / Body Type"}</label>
                 <select
                   value={vehicleForm.specialHandling}
                   onChange={(e) => setVehicleForm({ ...vehicleForm, specialHandling: e.target.value })}
@@ -2476,7 +2500,7 @@ export default function TransporterDashboard() {
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-700">Supported Crops / Cargo Types</label>
+                <label className="font-bold text-slate-700">{t('transporter.supportedCrops') || "Supported Crops / Cargo Types"}</label>
                 <input
                   type="text"
                   value={vehicleForm.supportedCrops}
@@ -2488,7 +2512,7 @@ export default function TransporterDashboard() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Assigned Driver Name *</label>
+                  <label className="font-bold text-slate-700">{t('transporter.driverName') || "Assigned Driver Name *"}</label>
                   <input
                     type="text"
                     required
@@ -2499,7 +2523,7 @@ export default function TransporterDashboard() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Driver Phone *</label>
+                  <label className="font-bold text-slate-700">{t('transporter.driverPhone') || "Driver Phone *"}</label>
                   <input
                     type="tel"
                     required
@@ -2516,7 +2540,7 @@ export default function TransporterDashboard() {
                   onClick={() => setShowAddVehicleModal(false)}
                   className="py-2 px-4 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold cursor-pointer"
                 >
-                  Cancel
+                  {t('transporter.cancelBtn') || "Cancel"}
                 </button>
                 <button
                   type="submit"
@@ -2526,10 +2550,10 @@ export default function TransporterDashboard() {
                   {savingVehicle ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Saving...</span>
+                      <span>{t('transporter.registeringBtn') || "Saving..."}</span>
                     </>
                   ) : (
-                    <span>Register Vehicle</span>
+                    <span>{t('transporter.registerBtn') || "Register Vehicle"}</span>
                   )}
                 </button>
               </div>
@@ -2544,7 +2568,7 @@ export default function TransporterDashboard() {
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-black text-base text-slate-900">
-                {selectedRequestForAction.type === 'accept' ? 'Accept Booking Request' : 'Reject Booking Request'}
+                {selectedRequestForAction.type === 'accept' ? (t('transporter.acceptRequestTitle') || 'Accept Booking Request') : (t('transporter.rejectRequestTitle') || 'Reject Booking Request')}
               </h3>
               <button
                 type="button"
@@ -2557,17 +2581,17 @@ export default function TransporterDashboard() {
 
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1 text-xs">
               <div className="flex justify-between">
-                <span className="text-muted">Farmer:</span>
+                <span className="text-muted">{t('transporter.farmer') || "Farmer:"}</span>
                 <span className="font-bold text-slate-900">{selectedRequestForAction.booking.farmerName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted">Cargo:</span>
+                <span className="text-muted">{t('transporter.cargo') || "Cargo:"}</span>
                 <span className="font-bold text-slate-900">
                   {selectedRequestForAction.booking.weightKg} kg {selectedRequestForAction.booking.cropName}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted">Route:</span>
+                <span className="text-muted">{t('transporter.route') || "Route:"}</span>
                 <span className="font-semibold text-slate-800">
                   {selectedRequestForAction.booking.pickupLocation} ➔ {selectedRequestForAction.booking.destinationMarket}
                 </span>
@@ -2577,7 +2601,7 @@ export default function TransporterDashboard() {
             {selectedRequestForAction.type === 'accept' ? (
               <div className="space-y-3 text-xs">
                 <div className="space-y-1.5">
-                  <label className="font-bold text-slate-800">Assign Vehicle from Fleet *</label>
+                  <label className="font-bold text-slate-800">{t('transporter.assignVehicle') || "Assign Vehicle from Fleet *"}</label>
                   <select
                     value={assignedVehicleId}
                     onChange={(e) => setAssignedVehicleId(e.target.value)}
@@ -2591,7 +2615,7 @@ export default function TransporterDashboard() {
                       ))
                     ) : (
                       <option value="primary">
-                        {stats.vehicleType || user?.TransporterProfile?.vehicleType || 'Commercial Agri Carrier'} ({stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber || 'MH-12-RN-4921'}) • Capacity {stats.capacityKg || 2200} kg [Primary Profile]
+                        {stats.vehicleType || user?.TransporterProfile?.vehicleType || 'Commercial Agri Carrier'}{(stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber) ? ` (${stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber})` : ''}{(stats.capacityKg || user?.TransporterProfile?.capacityKg) ? ` • Capacity ${stats.capacityKg || user?.TransporterProfile?.capacityKg} kg` : ''} [Primary Profile]
                       </option>
                     )}
                   </select>
@@ -2603,7 +2627,7 @@ export default function TransporterDashboard() {
                     onClick={() => setSelectedRequestForAction(null)}
                     className="py-2 px-4 rounded-xl border border-slate-200 text-slate-700 font-bold cursor-pointer"
                   >
-                    Cancel
+                    {t('transporter.cancelBtn') || "Cancel"}
                   </button>
                   <button
                     type="button"
@@ -2611,17 +2635,17 @@ export default function TransporterDashboard() {
                     onClick={() => handleAcceptBooking(selectedRequestForAction.booking.id)}
                     className="btn-primary py-2 px-5 rounded-xl font-bold cursor-pointer inline-flex items-center gap-1.5"
                   >
-                    {actionLoading ? 'Assigning...' : 'Confirm Acceptance'}
+                    {actionLoading ? (t('transporter.assigning') || 'Assigning...') : (t('transporter.confirmAcceptance') || 'Confirm Acceptance')}
                   </button>
                 </div>
               </div>
             ) : (
               <div className="space-y-3 text-xs">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-800">Reason for Rejection</label>
+                  <label className="font-bold text-slate-800">{t('transporter.rejectionReason') || "Reason for Rejection"}</label>
                   <textarea
                     rows={3}
-                    placeholder="e.g. All trucks fully booked on this date, or destination route out of coverage."
+                    placeholder={t('transporter.rejectionReasonPlaceholder') || "e.g. All trucks fully booked on this date, or destination route out of coverage."}
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
                     className="w-full rounded-xl border border-slate-300 p-2.5 font-medium outline-none focus:border-primary"
@@ -2634,7 +2658,7 @@ export default function TransporterDashboard() {
                     onClick={() => setSelectedRequestForAction(null)}
                     className="py-2 px-4 rounded-xl border border-slate-200 text-slate-700 font-bold cursor-pointer"
                   >
-                    Cancel
+                    {t('transporter.cancelBtn') || "Cancel"}
                   </button>
                   <button
                     type="button"
@@ -2642,7 +2666,7 @@ export default function TransporterDashboard() {
                     onClick={() => handleRejectBooking(selectedRequestForAction.booking.id)}
                     className="py-2 px-5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold cursor-pointer inline-flex items-center gap-1.5"
                   >
-                    {actionLoading ? 'Rejecting...' : 'Reject Request'}
+                    {actionLoading ? (t('transporter.rejecting') || 'Rejecting...') : (t('transporter.rejectBtn') || 'Reject Request')}
                   </button>
                 </div>
               </div>
@@ -2658,7 +2682,7 @@ export default function TransporterDashboard() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
                 <Scale className="w-5 h-5 text-primary" />
-                <span>Record Farm Gate Pickup</span>
+                <span>{t('transporter.pickupTitle') || "Record Farm Gate Pickup"}</span>
               </h3>
               <button
                 type="button"
@@ -2672,21 +2696,21 @@ export default function TransporterDashboard() {
             <form onSubmit={handleSubmitPickup} className="space-y-3.5 text-xs">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-muted">Farmer:</span>
+                  <span className="text-muted">{t('transporter.farmer') || "Farmer:"}</span>
                   <strong className="text-slate-900">{selectedTripForPickup.farmerName}</strong>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted">Origin:</span>
+                  <span className="text-muted">{t('transporter.route') || "Origin:"}</span>
                   <span className="text-slate-800">{selectedTripForPickup.pickupLocation}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted">Booked Weight:</span>
+                  <span className="text-muted">{t('transporter.loadedWeight') || "Booked Weight:"}</span>
                   <strong className="text-slate-900 font-mono">{selectedTripForPickup.weightKg} kg {selectedTripForPickup.cropName}</strong>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-700">Actual Pickup Timestamp *</label>
+                <label className="font-bold text-slate-700">{t('transporter.actualPickupTime') || "Actual Pickup Timestamp *"}</label>
                 <input
                   type="datetime-local"
                   required
@@ -2697,7 +2721,7 @@ export default function TransporterDashboard() {
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-700">Actual Loaded Quantity (kg) *</label>
+                <label className="font-bold text-slate-700">{t('transporter.actualLoadedQty') || "Actual Loaded Quantity (kg) *"}</label>
                 <input
                   type="number"
                   required
@@ -2710,10 +2734,10 @@ export default function TransporterDashboard() {
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-700">Pickup Notes / Condition Exceptions</label>
+                <label className="font-bold text-slate-700">{t('transporter.pickupNotes') || "Pickup Notes / Condition Exceptions"}</label>
                 <textarea
                   rows={2}
-                  placeholder="e.g. 50 crates inspected, crates loaded and strapped securely onto vehicle bed."
+                  placeholder={t('transporter.pickupNotesPlaceholder') || "e.g. 50 crates inspected, crates loaded and strapped securely onto vehicle bed."}
                   value={pickupFormData.pickupNotes}
                   onChange={(e) => setPickupFormData({ ...pickupFormData, pickupNotes: e.target.value })}
                   className="w-full rounded-xl border border-slate-300 p-2.5 font-medium outline-none focus:border-primary"
@@ -2726,14 +2750,14 @@ export default function TransporterDashboard() {
                   onClick={() => setSelectedTripForPickup(null)}
                   className="py-2 px-4 rounded-xl border border-slate-200 text-slate-700 font-bold cursor-pointer"
                 >
-                  Cancel
+                  {t('transporter.cancelBtn') || "Cancel"}
                 </button>
                 <button
                   type="submit"
                   disabled={submittingPickup}
                   className="btn-primary py-2 px-5 rounded-xl font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
-                  {submittingPickup ? 'Recording...' : 'Confirm Pickup Milestone'}
+                  {submittingPickup ? (t('transporter.recording') || 'Recording...') : (t('transporter.confirmPickup') || 'Confirm Pickup Milestone')}
                 </button>
               </div>
             </form>
@@ -2748,7 +2772,7 @@ export default function TransporterDashboard() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
                 <CheckCheck className="w-5 h-5 text-emerald-600" />
-                <span>Record Destination Delivery</span>
+                <span>{t('transporter.deliveryTitle') || "Record Destination Delivery"}</span>
               </h3>
               <button
                 type="button"
@@ -2762,17 +2786,17 @@ export default function TransporterDashboard() {
             <form onSubmit={handleSubmitDelivery} className="space-y-3.5 text-xs">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-muted">Destination:</span>
+                  <span className="text-muted">{t('transporter.destination') || "Destination:"}</span>
                   <strong className="text-slate-900">{selectedTripForDelivery.destinationMarket}</strong>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted">Loaded Weight:</span>
+                  <span className="text-muted">{t('transporter.loadedWeight') || "Loaded Weight:"}</span>
                   <strong className="text-slate-900 font-mono">{selectedTripForDelivery.loadedQuantity || selectedTripForDelivery.weightKg} kg</strong>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-700">Actual Arrival Timestamp *</label>
+                <label className="font-bold text-slate-700">{t('transporter.actualDeliveryTime') || "Actual Arrival Timestamp *"}</label>
                 <input
                   type="datetime-local"
                   required
@@ -2783,7 +2807,7 @@ export default function TransporterDashboard() {
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-700">Delivered Quantity (kg) *</label>
+                <label className="font-bold text-slate-700">{t('transporter.deliveredQty') || "Delivered Quantity (kg) *"}</label>
                 <input
                   type="number"
                   required
@@ -2796,7 +2820,7 @@ export default function TransporterDashboard() {
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-700">Recipient Acknowledgment / Trader Slip</label>
+                <label className="font-bold text-slate-700">{t('transporter.recipientSlip') || "Recipient Acknowledgment / Trader Slip"}</label>
                 <input
                   type="text"
                   required
@@ -2807,10 +2831,10 @@ export default function TransporterDashboard() {
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-700">Damage / Shortage / Delay Notes (if any)</label>
+                <label className="font-bold text-slate-700">{t('transporter.damageNotes') || "Damage / Shortage / Delay Notes (if any)"}</label>
                 <textarea
                   rows={2}
-                  placeholder="e.g. Zero damage, weighbridge verified, consignment received in full."
+                  placeholder={t('transporter.damageNotesPlaceholder') || "e.g. Zero damage, weighbridge verified, consignment received in full."}
                   value={deliveryFormData.deliveryNotes}
                   onChange={(e) => setDeliveryFormData({ ...deliveryFormData, deliveryNotes: e.target.value })}
                   className="w-full rounded-xl border border-slate-300 p-2.5 font-medium outline-none focus:border-primary"
@@ -2823,14 +2847,14 @@ export default function TransporterDashboard() {
                   onClick={() => setSelectedTripForDelivery(null)}
                   className="py-2 px-4 rounded-xl border border-slate-200 text-slate-700 font-bold cursor-pointer"
                 >
-                  Cancel
+                  {t('transporter.cancelBtn') || "Cancel"}
                 </button>
                 <button
                   type="submit"
                   disabled={submittingDelivery}
                   className="btn-primary py-2 px-5 rounded-xl font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
-                  {submittingDelivery ? 'Recording...' : 'Confirm Delivery Clearance'}
+                  {submittingDelivery ? (t('transporter.recording') || 'Recording...') : (t('transporter.confirmDelivery') || 'Confirm Delivery Clearance')}
                 </button>
               </div>
             </form>

@@ -37,7 +37,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+import { API_BASE_URL } from '../../config/apiConfig';
 
 // Maharashtra Highway Corridor Waypoints with Realistic Road Geometries & Checkpoints
 const CORRIDOR_PROFILES = {
@@ -226,27 +226,37 @@ export default function LiveDriverTrackingMap({
   const [playbackSpeed, setPlaybackSpeed] = useState(1); // 1x Natural | 2x Brisk | 4x Fast-Forward
   const [autoFollow, setAutoFollow] = useState(true); // Follow vehicle camera
   const [isSimulatingRain, setIsSimulatingRain] = useState(false); // Dynamic monsoon weather advisory
-  const [currentIndex, setCurrentIndex] = useState(65); // Initial point along route (~38%)
+  const tripStatus = booking?.status || 'pending';
+  const isPendingPickup = ['open', 'pending', 'confirmed', 'accepted', 'driver_assigned', 'awaiting_pickup'].includes(tripStatus);
+  const isDelivered = ['delivered', 'completed'].includes(tripStatus);
+
+  const [currentIndex, setCurrentIndex] = useState(isPendingPickup ? 0 : 45);
   const [liveSpeedKmh, setLiveSpeedKmh] = useState(0);
   const [liveBearing, setLiveBearing] = useState(236);
-  const [liveOdometerCoveredKm, setLiveOdometerCoveredKm] = useState(54.2);
-  const [liveDistanceRemainingKm, setLiveDistanceRemainingKm] = useState(89.8);
-  const [liveEtaMinutes, setLiveEtaMinutes] = useState(98);
-  const [currentMilestoneText, setCurrentMilestoneText] = useState('🛰️ Connecting to live driver telemetry...');
-  const [nextMilestoneText, setNextMilestoneText] = useState('🚧 Shahapur Agri Freight Bypass');
+  const [liveOdometerCoveredKm, setLiveOdometerCoveredKm] = useState(0);
+  const [liveDistanceRemainingKm, setLiveDistanceRemainingKm] = useState(168);
+  const [liveEtaMinutes, setLiveEtaMinutes] = useState(booking?.estimatedDurationMinutes || 120);
+  const [currentMilestoneText, setCurrentMilestoneText] = useState(
+    isPendingPickup
+      ? (['open', 'pending'].includes(tripStatus) ? '⏳ Awaiting Transporter Acceptance' : '🚚 Driver Assigned & Preparing for Pickup')
+      : isDelivered
+      ? '🏁 Mandi Auction Bay'
+      : '🛰️ Corridor Route Active'
+  );
+  const [nextMilestoneText, setNextMilestoneText] = useState('🚧 State Highway APMC Corridor');
   const [hasGpsError, setHasGpsError] = useState(false);
   const [lastTelemetryTimestamp, setLastTelemetryTimestamp] = useState(null);
   const [isLiveTelemetryActive, setIsLiveTelemetryActive] = useState(false);
 
-  // Booking particulars
-  const originName = booking?.pickupLocation || booking?.location || 'Nashik Rural Farm #4';
-  const destinationName = booking?.destinationMarket || booking?.destination || 'Mumbai Vashi Mega APMC';
-  const driverName = booking?.driverName || 'Dnyaneshwar Shinde';
-  const driverPhone = booking?.driverPhone || '9822044120';
-  const vehicleNumber = booking?.vehicleNumber || 'MH-12-RN-4120';
-  const vehicleType = booking?.vehicleType || 'Tata 407 (Agri Freight)';
-  const cropInfo = `${booking?.weightKg || 1200} kg ${booking?.cropName || 'Tomato'}`;
-  const passCode = booking?.gatePassCode || 'MH-APMC-9421';
+  // Booking particulars (Strictly resolved from actual database booking record)
+  const originName = booking?.pickupLocation || booking?.location || 'Origin Farm Gate';
+  const destinationName = booking?.destinationMarket || booking?.destination || 'Destination APMC Mandi';
+  const driverName = booking?.driverName || booking?.Vehicle?.driverName || '';
+  const driverPhone = booking?.driverPhone || booking?.Vehicle?.driverPhone || '';
+  const vehicleNumber = booking?.vehicleNumber || booking?.Vehicle?.registrationNumber || '';
+  const vehicleType = booking?.vehicleType || booking?.Vehicle?.vehicleType || '';
+  const cropInfo = booking ? `${booking.weightKg || 0} kg ${booking.cropName || 'Produce'}` : 'Agri Freight';
+  const passCode = booking?.gatePassCode || (booking?.id ? `MH-APMC-${booking.id}` : '');
 
   // Determine appropriate corridor profile
   const selectedProfile = useMemo(() => {
@@ -413,17 +423,18 @@ export default function LiveDriverTrackingMap({
     truckMarker.bindPopup(`
       <div style="font-family: system-ui; padding: 6px; font-size: 12px; line-height: 1.5; min-width: 210px;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
-          <strong style="color: #0f172a; font-size: 13px;">🚚 ${driverName}</strong>
-          <span style="background: #dcfce7; color: #166534; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px;">EN ROUTE</span>
+          <strong style="color: #0f172a; font-size: 13px;">🚚 ${driverName || 'Driver not assigned yet'}</strong>
+          <span style="background: #dcfce7; color: #166534; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px;">${tripStatus.toUpperCase().replace(/_/g, ' ')}</span>
         </div>
-        <div><strong>Vehicle:</strong> ${vehicleNumber} (${vehicleType})</div>
-        <div><strong>Gate Pass:</strong> <span style="font-family: monospace; font-weight: bold; color: #059669;">${passCode}</span></div>
+        <div><strong>Vehicle:</strong> ${vehicleNumber ? `${vehicleNumber} ${vehicleType ? `(${vehicleType})` : ''}` : 'Vehicle not assigned yet'}</div>
+        <div><strong>Gate Pass:</strong> <span style="font-family: monospace; font-weight: bold; color: #059669;">${passCode || 'Pending Assignment'}</span></div>
         <div><strong>Cargo:</strong> ${cropInfo}</div>
+        ${driverPhone ? `
         <div style="margin-top: 6px;">
           <a href="tel:${driverPhone}" style="display: inline-block; background: #10b981; color: white; text-decoration: none; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px;">
             📞 Call Driver (+91 ${driverPhone})
           </a>
-        </div>
+        </div>` : ''}
       </div>
     `);
 
@@ -839,20 +850,20 @@ export default function LiveDriverTrackingMap({
       <div className="absolute top-3 left-3 right-3 sm:right-auto z-10 flex flex-wrap items-center gap-2">
         <div className="px-3.5 py-1.5 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-white/15 text-xs flex items-center gap-2.5 shadow-lg">
           <span className="relative flex h-2.5 w-2.5">
-            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${trackingMode === 'live' ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
-            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${trackingMode === 'live' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isLiveTelemetryActive || isPhoneGpsActive ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isLiveTelemetryActive || isPhoneGpsActive ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
           </span>
           <span className="font-extrabold text-white tracking-wide">
-            🛰️ Live Delivery Radar
+            🛰️ Delivery Radar
           </span>
           <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
             isPhoneGpsActive
               ? 'bg-blue-500/20 text-blue-300 border-blue-400/30'
-              : trackingMode === 'live'
+              : isLiveTelemetryActive
               ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30'
               : 'bg-amber-500/20 text-amber-300 border-amber-400/30'
           }`}>
-            {isPhoneGpsActive ? 'PHONE GPS BROADCAST' : trackingMode === 'live' ? 'REAL-TIME GPS SYNC (3s)' : 'DEMO HIGHWAY SIMULATION'}
+            {isPhoneGpsActive ? 'PHONE GPS BROADCAST' : isLiveTelemetryActive ? 'LIVE HARDWARE GPS STREAM' : 'SIMULATED ROUTE PLAYBACK'}
           </span>
         </div>
 
@@ -940,21 +951,27 @@ export default function LiveDriverTrackingMap({
               <Truck className="w-4 h-4" />
             </div>
             <div>
-              <p className="font-extrabold text-white text-xs leading-none">{driverName}</p>
+              <p className="font-extrabold text-white text-xs leading-none">
+                {driverName || 'Driver not assigned yet'}
+              </p>
               <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                {vehicleNumber} • {vehicleType}
+                {vehicleNumber || 'Vehicle not assigned yet'} {vehicleType ? `• ${vehicleType}` : ''}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <a
-              href={`tel:${driverPhone}`}
-              className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[11px] flex items-center gap-1 shadow transition-colors"
-            >
-              <Phone className="w-3 h-3" />
-              <span>Call</span>
-            </a>
+            {driverPhone ? (
+              <a
+                href={`tel:${driverPhone}`}
+                className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[11px] flex items-center gap-1 shadow transition-colors"
+              >
+                <Phone className="w-3 h-3" />
+                <span>Call</span>
+              </a>
+            ) : (
+              <span className="text-[10px] text-slate-400 italic">No phone</span>
+            )}
           </div>
         </div>
 

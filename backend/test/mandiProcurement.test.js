@@ -37,6 +37,8 @@ async function runTests() {
       mainCrop: 'Cotton',
       currentHarvestKg: 500
     });
+  } else {
+    await ContactRequest.destroy({ where: { receiverId: farmer.id } });
   }
 
   // 2. Create or retrieve test mandi official

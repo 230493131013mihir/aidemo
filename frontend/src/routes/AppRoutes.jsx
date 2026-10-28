@@ -26,6 +26,16 @@ import FpoAggregationPage from '../pages/fpo/FpoAggregationPage';
 import FpoProcurementPage from '../pages/fpo/FpoProcurementPage';
 import FpoTransportPage from '../pages/fpo/FpoTransportPage';
 import FpoOrdersPage from '../pages/fpo/FpoOrdersPage';
+import FarmerFpoPage from '../pages/FarmerFpoPage';
+import { useAuth } from '../context/AuthContext';
+
+function FpoRouteGate() {
+  const { user } = useAuth();
+  if (user?.role === 'fpo_leader' || user?.role === 'fpo') {
+    return <FpoDashboardPage />;
+  }
+  return <FarmerFpoPage />;
+}
 
 export default function AppRoutes() {
   return (
@@ -59,14 +69,10 @@ export default function AppRoutes() {
         <Route path="/schemes" element={<SchemesPage />} />
         <Route path="/farmer/schemes" element={<SchemesPage />} />
         
-        {/* FPO Module Routes */}
+        {/* FPO Module Routes (PART 8: FPO Membership & Organization) */}
         <Route
           path="/fpo"
-          element={
-            <ProtectedRoute requiredRole="fpo">
-              <FpoDashboardPage />
-            </ProtectedRoute>
-          }
+          element={<FpoRouteGate />}
         />
         <Route
           path="/fpo/dashboard"

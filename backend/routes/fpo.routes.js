@@ -31,6 +31,11 @@ const requireMandiOrAdmin = (req, res, next) => {
   next();
 };
 
+// Public/Farmer Accessible FPO Directory & Membership
+router.get('/all-organizations', authMiddleware, fpoController.listAllFPOs);
+router.post('/membership-request', authMiddleware, fpoController.farmerRequestMembership);
+router.get('/my-membership', authMiddleware, fpoController.getFarmerMembershipStatus);
+
 // 1. Overview Statistics
 router.get('/overview', authMiddleware, requireFpo, fpoController.getOverview);
 
@@ -38,6 +43,7 @@ router.get('/overview', authMiddleware, requireFpo, fpoController.getOverview);
 router.get('/members', authMiddleware, requireFpo, fpoController.listMembers);
 router.post('/members', authMiddleware, requireFpo, fpoController.inviteOrAddMember);
 router.patch('/members/:id', authMiddleware, requireFpo, fpoController.updateMemberStatus);
+router.patch('/members/:id/decision', authMiddleware, requireFpo, fpoController.decideMembershipRequest);
 router.get('/available-farmers', authMiddleware, requireFpo, fpoController.getAvailableFarmers);
 
 // 3. Crop Availability & Aggregation

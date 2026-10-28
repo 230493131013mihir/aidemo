@@ -23,11 +23,15 @@ import {
   LogOut,
   Store,
   Calendar,
-  Warehouse
+  Warehouse,
+  PlusCircle,
+  RefreshCw,
+  X
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import LanguageSelector from '../components/common/LanguageSelector';
+import apiClient from '../services/apiClient';
 
 export default function ProfilePage() {
   const { t } = useLanguage();
@@ -76,6 +80,96 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Transporter registered fleet state & management
+  const [myFleet, setMyFleet] = useState([]);
+  const [loadingFleet, setLoadingFleet] = useState(false);
+  const [showAddVehicleModal, setShowAddVehicleModal] = useState(false);
+  const [addingVehicle, setAddingVehicle] = useState(false);
+  const [newVehicle, setNewVehicle] = useState({
+    registrationNumber: '',
+    vehicleType: 'Mahindra Bolero Maxi Truck',
+    capacityKg: '2200',
+    baseLocation: 'Pune APMC',
+    ratePerKm: '26',
+    driverName: '',
+    driverPhone: ''
+  });
+
+  async function loadMyFleet() {
+    if (userRole !== 'transporter') return;
+    setLoadingFleet(true);
+    try {
+      const res = await apiClient('/api/transport/vehicles/my-fleet');
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setMyFleet(json.data || []);
+      }
+    } catch (err) {
+      console.warn('Unable to load fleet:', err.message);
+    } finally {
+      setLoadingFleet(false);
+    }
+  }
+
+  useEffect(() => {
+    if (user && userRole === 'transporter') {
+      loadMyFleet();
+      setNewVehicle((prev) => ({
+        ...prev,
+        driverName: user.name || '',
+        driverPhone: user.phone || '',
+        baseLocation: user.TransporterProfile?.baseMandi || 'Pune APMC'
+      }));
+    }
+  }, [user, userRole]);
+
+  async function handleRegisterAdditionalVehicle(e) {
+    e.preventDefault();
+    setAddingVehicle(true);
+    setErrorMsg('');
+    try {
+      const regPlate = newVehicle.registrationNumber.trim().toUpperCase();
+      if (!regPlate) throw new Error('Please enter a vehicle registration plate number.');
+
+      const res = await apiClient('/api/transport/vehicles', {
+        method: 'POST',
+        body: JSON.stringify({
+          registrationNumber: regPlate,
+          vehicleType: newVehicle.vehicleType,
+          capacityKg: Number(newVehicle.capacityKg) || 2200,
+          capacityUnit: 'kg',
+          baseLocation: newVehicle.baseLocation || 'Pune APMC',
+          ratePerKm: Number(newVehicle.ratePerKm) || 26,
+          driverName: newVehicle.driverName?.trim() || user?.name || 'Verified Driver',
+          driverPhone: newVehicle.driverPhone?.trim() || user?.phone || '9876543210',
+          supportedRoutes: `${newVehicle.baseLocation || 'Pune APMC'} to Mumbai Vashi APMC, Pune APMC, Nashik APMC, Kolhapur APMC, Surat APMC`,
+          supportedCrops: 'Tomato, Onion, Potato, Vegetables, Wheat, Grains, Fruits, All Crops'
+        })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message || 'Failed to register fleet vehicle');
+
+      setSuccessMsg(`Vehicle ${regPlate} successfully registered to fleet and saved to database!`);
+      setShowAddVehicleModal(false);
+      setNewVehicle({
+        registrationNumber: '',
+        vehicleType: 'Mahindra Bolero Maxi Truck',
+        capacityKg: '2200',
+        baseLocation: form.baseMandi || 'Pune APMC',
+        ratePerKm: '26',
+        driverName: user?.name || '',
+        driverPhone: user?.phone || ''
+      });
+      await loadMyFleet();
+      setTimeout(() => setSuccessMsg(''), 5000);
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to register vehicle');
+      setTimeout(() => setErrorMsg(''), 5000);
+    } finally {
+      setAddingVehicle(false);
+    }
+  }
 
   // Sync form when user changes
   useEffect(() => {
@@ -150,7 +244,8 @@ export default function ProfilePage() {
           ratePerKm: Number(form.ratePerKm),
           isAvailable: form.isAvailable,
         });
-        setSuccessMsg('Transporter fleet profile and vehicle specs updated in MySQL!');
+        setSuccessMsg('Transporter fleet profile and vehicle specs updated & synchronized to database!');
+        await loadMyFleet();
       } else {
         // Farmer
         const selectedList = form.selectedCrops?.length > 0 
@@ -206,7 +301,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto py-6 px-4">
+    <div className="space-y-6 w-full max-w-full 2xl:max-w-[1720px] mx-auto py-4 sm:py-6 px-2 sm:px-4">
       {/* 1. ROLE-BASED PAGE HEADER */}
       <div className="border-b border-border pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -233,12 +328,12 @@ export default function ProfilePage() {
 
           <h1 className="text-2xl sm:text-3xl font-extrabold text-text">
             {userRole === 'admin'
-              ? 'Administrator Profile & System Clearance'
+              ? (t('profileExtra.adminSettingsHeading') || 'Administrator Profile & System Clearance')
               : userRole === 'mandi'
-              ? 'Mandi Official Profile & APMC License'
+              ? (t('profileExtra.mandiSettingsHeading') || 'Mandi Official Profile & APMC License')
               : userRole === 'transporter'
-              ? 'Transporter & Fleet Vehicle Profile'
-              : t('profile.title', 'Farmer Profile Settings')}
+              ? (t('profileExtra.transporterSettingsHeading') || 'Transporter & Fleet Vehicle Profile')
+              : (t('profile.title') || 'Farmer Profile Settings')}
           </h1>
 
           <p className="text-sm text-muted mt-1">
@@ -247,8 +342,8 @@ export default function ProfilePage() {
               : userRole === 'mandi'
               ? 'Manage your APMC mandi details, license, operating schedule, and market facilities.'
               : userRole === 'transporter'
-              ? 'Commercial vehicle specifications, payload limits, base mandi routes, and fare rates.'
-              : 'Manage personal farmer credentials, ready harvest quantity, and APMC market location.'}
+              ? (t('profileExtra.transporterSettingsHeading') || 'Commercial vehicle specifications, payload limits, base mandi routes, and fare rates.')
+              : (t('profileExtra.farmSpecificationsDesc') || 'Manage personal farmer credentials, ready harvest quantity, and APMC market location.')}
           </p>
         </div>
 
@@ -276,7 +371,7 @@ export default function ProfilePage() {
             title="Sign out of HarvestMitra AI"
           >
             <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out</span>
+            <span>{t('auth.signOut') || 'Sign Out'}</span>
           </button>
         </div>
       </div>
@@ -445,8 +540,8 @@ export default function ProfilePage() {
             <div className="card-harvest p-6 space-y-5 bg-white border border-border rounded-3xl shadow-sm">
               <div className="border-b border-border/80 pb-3 flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-text">Driver & Fleet Owner Identity</h2>
-                  <p className="text-xs text-muted">Contact details presented to farmers when you accept cargo trips</p>
+                  <h2 className="text-lg font-bold text-text">{t('profileExtra.driverIdentity') || "Driver & Fleet Owner Identity"}</h2>
+                  <p className="text-xs text-muted">{t('profileExtra.driverIdentityDesc') || "Contact details presented to farmers when you accept cargo trips"}</p>
                 </div>
                 <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
                   Fleet Provider
@@ -456,7 +551,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Driver / Owner Name *
+                    {t('profileExtra.fullName') || "Driver / Owner Name *"}
                   </span>
                   <input
                     type="text"
@@ -470,7 +565,7 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Mobile Number (Shared with Farmers) *
+                    {t('profileExtra.phone') || "Mobile Number (Shared with Farmers) *"}
                   </span>
                   <div className="relative">
                     <Phone className="w-4 h-4 text-muted absolute left-3 top-3.5" />
@@ -488,7 +583,7 @@ export default function ProfilePage() {
 
               <label className="block space-y-1.5">
                 <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                  Registered Account Email
+                  {t('profileExtra.emailReadOnly') || "Registered Account Email"}
                 </span>
                 <input
                   type="email"
@@ -502,16 +597,16 @@ export default function ProfilePage() {
             {/* Vehicle Fleet Specifications */}
             <div className="card-harvest p-6 space-y-5 bg-white border border-border rounded-3xl shadow-sm">
               <div className="border-b border-border/80 pb-3">
-                <h2 className="text-lg font-bold text-text">Vehicle Fleet Specifications</h2>
+                <h2 className="text-lg font-bold text-text">{t('profileExtra.fleetSpecs') || "Vehicle Fleet Specifications"}</h2>
                 <p className="text-xs text-muted">
-                  Used by our matching engine to calculate pooling capacity and route availability
+                  {t('profileExtra.fleetSpecsDesc') || "Used by our matching engine to calculate pooling capacity and route availability"}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Vehicle Model *
+                    {t('profileExtra.vehicleModel') || "Vehicle Model *"}
                   </span>
                   <select
                     value={form.vehicleType}
@@ -529,7 +624,7 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Registration Plate (e.g. GJ-05-BX-4921) *
+                    {t('profileExtra.registrationPlate') || "Registration Plate (e.g. GJ-05-BX-4921) *"}
                   </span>
                   <input
                     type="text"
@@ -545,7 +640,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Max Capacity (kg) *
+                    {t('profileExtra.maxCapacityKg') || "Max Capacity (kg) *"}
                   </span>
                   <input
                     type="number"
@@ -560,7 +655,7 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Operating Base Mandi *
+                    {t('profileExtra.baseMandi') || "Operating Base Mandi *"}
                   </span>
                   <select
                     value={form.baseMandi}
@@ -579,7 +674,7 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Freight Rate (₹ / km) *
+                    {t('profileExtra.freightRatePerKm') || "Freight Rate (₹ / km) *"}
                   </span>
                   <div className="relative">
                     <IndianRupee className="w-4 h-4 text-muted absolute left-3 top-3.5" />
@@ -604,21 +699,238 @@ export default function ProfilePage() {
                 className="btn-primary py-2.5 px-6 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm"
               >
                 <Save className="w-4 h-4" />
-                <span>{saving ? 'Saving...' : 'Update Fleet Profile'}</span>
+                <span>{saving ? (t('profileExtra.savingBtn') || 'Saving...') : (t('profileExtra.updateTransporterBtn') || 'Update Fleet Profile')}</span>
               </button>
             </div>
           </div>
 
-          {/* Right Column: Transporter Dashboard Link & Quick Card */}
+          {/* Right Column: Registered Fleet Vehicles & Vehicle Registration Portal */}
           <div className="space-y-6">
+            {/* Live Database Fleet Inventory */}
+            <div className="card-harvest p-6 bg-white border border-border rounded-3xl shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-border/80 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                    <Truck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-text">Fleet Vehicles in Database</h3>
+                    <p className="text-[11px] text-muted">{myFleet.length} registered vehicle{myFleet.length === 1 ? '' : 's'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={loadMyFleet}
+                    disabled={loadingFleet}
+                    className="p-1.5 rounded-lg border border-border hover:bg-slate-50 text-muted transition-colors"
+                    title="Refresh Fleet List"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingFleet ? 'animate-spin' : ''}`} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddVehicleModal(true)}
+                    className="btn-primary py-1.5 px-3 rounded-xl text-xs font-bold flex items-center gap-1 shadow-xs"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>Register Vehicle</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Fleet List */}
+              {loadingFleet && myFleet.length === 0 ? (
+                <div className="p-4 text-center text-xs text-muted">Loading fleet records from database...</div>
+              ) : myFleet.length === 0 ? (
+                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 text-center space-y-1">
+                  <p className="text-xs font-bold text-amber-900">No vehicles registered in database</p>
+                  <p className="text-[11px] text-amber-700">
+                    Click "Update Fleet Profile" on the left or use "+ Register Vehicle" above to save your first vehicle to the database.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                  {myFleet.map((v) => (
+                    <div
+                      key={v.id}
+                      className="p-3.5 rounded-2xl border border-border/80 bg-slate-50/50 hover:bg-white hover:border-primary/40 hover:shadow-xs transition-all flex items-start justify-between gap-3 text-xs"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-text text-sm">{v.vehicleType}</span>
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold font-mono">
+                            {v.registrationNumber}
+                          </span>
+                        </div>
+                        <p className="text-muted text-[11px]">
+                          Payload: <span className="font-bold text-text">{Number(v.capacityKg || 0).toLocaleString('en-IN')} kg</span> • Base: <span className="font-semibold text-text">{v.baseLocation || 'APMC'}</span>
+                        </p>
+                        <p className="text-muted text-[11px]">
+                          Freight: <span className="font-bold text-text font-mono">₹{v.ratePerKm || 25}/km</span> • Driver: <span className="text-text font-medium">{v.driverName}</span>
+                        </p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                        v.isAvailable && v.status === 'available'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
+                          : 'bg-amber-50 text-amber-700 border border-amber-300'
+                      }`}>
+                        {v.isAvailable && v.status === 'available' ? 'Available' : 'Busy'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Quick Register Vehicle Modal / Expandable Card */}
+            {showAddVehicleModal && (
+              <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl border border-border shadow-xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="flex items-center justify-between border-b border-border/80 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-5 h-5 text-primary" />
+                      <h3 className="font-bold text-base text-text">Register New Fleet Vehicle</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddVehicleModal(false)}
+                      className="p-1 rounded-lg text-muted hover:text-text hover:bg-slate-100 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleRegisterAdditionalVehicle} className="space-y-3.5">
+                    <label className="block space-y-1">
+                      <span className="text-xs font-semibold text-muted uppercase">Vehicle Model *</span>
+                      <select
+                        value={newVehicle.vehicleType}
+                        onChange={(e) => setNewVehicle((prev) => ({ ...prev, vehicleType: e.target.value }))}
+                        className="w-full rounded-xl border border-border px-3.5 py-2 text-sm font-semibold outline-none focus:border-primary bg-white"
+                      >
+                        <option value="Mahindra Bolero Maxi Truck">Mahindra Bolero Maxi Truck</option>
+                        <option value="Tata 407 LPT">Tata 407 LPT</option>
+                        <option value="Eicher Pro 2049">Eicher Pro 2049</option>
+                        <option value="Tata Ace Gold">Tata Ace Gold (Chota Hathi)</option>
+                        <option value="Ashok Leyland Dost">Ashok Leyland Dost</option>
+                        <option value="Tractor Trolley">Tractor Trolley</option>
+                        <option value="Refrigerated Carrier">Refrigerated Carrier</option>
+                        <option value="Large Goods Truck (10-Wheeler)">Large Goods Truck (10-Wheeler)</option>
+                      </select>
+                    </label>
+
+                    <label className="block space-y-1">
+                      <span className="text-xs font-semibold text-muted uppercase">Registration Plate *</span>
+                      <input
+                        type="text"
+                        required
+                        value={newVehicle.registrationNumber}
+                        onChange={(e) => setNewVehicle((prev) => ({ ...prev, registrationNumber: e.target.value.toUpperCase() }))}
+                        className="w-full rounded-xl border border-border px-3.5 py-2 text-sm font-mono font-bold uppercase outline-none focus:border-primary"
+                        placeholder="MH-12-TR-9000"
+                      />
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block space-y-1">
+                        <span className="text-xs font-semibold text-muted uppercase">Capacity (kg) *</span>
+                        <input
+                          type="number"
+                          required
+                          min="500"
+                          step="100"
+                          value={newVehicle.capacityKg}
+                          onChange={(e) => setNewVehicle((prev) => ({ ...prev, capacityKg: e.target.value }))}
+                          className="w-full rounded-xl border border-border px-3 py-2 text-sm font-mono font-bold outline-none focus:border-primary"
+                        />
+                      </label>
+
+                      <label className="block space-y-1">
+                        <span className="text-xs font-semibold text-muted uppercase">Rate (₹/km) *</span>
+                        <input
+                          type="number"
+                          required
+                          min="10"
+                          step="1"
+                          value={newVehicle.ratePerKm}
+                          onChange={(e) => setNewVehicle((prev) => ({ ...prev, ratePerKm: e.target.value }))}
+                          className="w-full rounded-xl border border-border px-3 py-2 text-sm font-mono font-bold outline-none focus:border-primary"
+                        />
+                      </label>
+                    </div>
+
+                    <label className="block space-y-1">
+                      <span className="text-xs font-semibold text-muted uppercase">Base Mandi / Location *</span>
+                      <select
+                        value={newVehicle.baseLocation}
+                        onChange={(e) => setNewVehicle((prev) => ({ ...prev, baseLocation: e.target.value }))}
+                        className="w-full rounded-xl border border-border px-3.5 py-2 text-sm font-semibold outline-none focus:border-primary bg-white"
+                      >
+                        <option value="Pune APMC">Pune APMC</option>
+                        <option value="Nashik APMC">Nashik APMC</option>
+                        <option value="Surat APMC">Surat APMC</option>
+                        <option value="Ahmedabad APMC">Ahmedabad APMC</option>
+                        <option value="Kolhapur APMC">Kolhapur APMC</option>
+                        <option value="Vashi APMC (Mumbai)">Vashi APMC (Mumbai)</option>
+                      </select>
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block space-y-1">
+                        <span className="text-xs font-semibold text-muted uppercase">Driver Name</span>
+                        <input
+                          type="text"
+                          value={newVehicle.driverName}
+                          onChange={(e) => setNewVehicle((prev) => ({ ...prev, driverName: e.target.value }))}
+                          className="w-full rounded-xl border border-border px-3 py-2 text-sm font-semibold outline-none focus:border-primary"
+                          placeholder={user?.name || 'Driver name'}
+                        />
+                      </label>
+
+                      <label className="block space-y-1">
+                        <span className="text-xs font-semibold text-muted uppercase">Driver Phone</span>
+                        <input
+                          type="tel"
+                          value={newVehicle.driverPhone}
+                          onChange={(e) => setNewVehicle((prev) => ({ ...prev, driverPhone: e.target.value }))}
+                          className="w-full rounded-xl border border-border px-3 py-2 text-sm font-mono font-bold outline-none focus:border-primary"
+                          placeholder="9876543210"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-border/80">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddVehicleModal(false)}
+                        className="px-4 py-2 rounded-xl border border-border text-xs font-bold text-muted hover:bg-slate-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={addingVehicle}
+                        className="btn-primary py-2 px-5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{addingVehicle ? 'Saving to Database...' : 'Save to Database'}</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Cargo Dispatch Portal Link */}
             <div className="card-harvest p-6 bg-gradient-to-br from-blue-900 to-slate-900 text-white rounded-3xl shadow-lg space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-blue-500/20 text-blue-300 flex items-center justify-center">
                   <Truck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-base">Cargo Dispatch Portal</h3>
-                  <p className="text-xs text-blue-200/80">Manage assigned loads and view live transit timers</p>
+                  <h3 className="font-extrabold text-base">{t('profileExtra.cargoDispatchPortal') || "Cargo Dispatch Portal"}</h3>
+                  <p className="text-xs text-blue-200/80">{t('profileExtra.cargoDispatchPortalDesc') || "Manage assigned loads, accept requests & view live telemetry"}</p>
                 </div>
               </div>
               <div className="pt-2">
@@ -626,7 +938,7 @@ export default function ProfilePage() {
                   to="/transport"
                   className="inline-flex items-center gap-2 py-2.5 px-5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs transition-colors shadow-md"
                 >
-                  <span>Open Logistics Console</span>
+                  <span>{t('profileExtra.openLogisticsConsole') || "Open Logistics Console"}</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </Link>
               </div>
@@ -871,8 +1183,8 @@ export default function ProfilePage() {
             <div className="card-harvest p-6 space-y-5 bg-white border border-border rounded-3xl shadow-sm">
               <div className="border-b border-border/80 pb-3 flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-text">Farmer Information</h2>
-                  <p className="text-xs text-muted">Personal identity and verified contact</p>
+                  <h2 className="text-lg font-bold text-text">{t('profileExtra.farmerInfo') || "Farmer Information"}</h2>
+                  <p className="text-xs text-muted">{t('profileExtra.farmerInfoDesc') || "Personal identity and verified contact"}</p>
                 </div>
                 <span className="text-xs text-muted font-mono">ID #{user?.id || 1}</span>
               </div>
@@ -880,7 +1192,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Full Name *
+                    {t('profileExtra.fullName') || "Full Name *"}
                   </span>
                   <input
                     type="text"
@@ -894,7 +1206,7 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Phone Number
+                    {t('profileExtra.phone') || "Phone Number"}
                   </span>
                   <div className="relative">
                     <Phone className="w-4 h-4 text-muted absolute left-3 top-3.5" />
@@ -911,7 +1223,7 @@ export default function ProfilePage() {
 
               <label className="block space-y-1.5">
                 <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                  Account Email (Read-Only)
+                  {t('profileExtra.emailReadOnly') || "Account Email (Read-Only)"}
                 </span>
                 <input
                   type="email"
@@ -925,16 +1237,16 @@ export default function ProfilePage() {
             {/* Farm Land & Crop Specifications */}
             <div className="card-harvest p-6 space-y-5 bg-white border border-border rounded-3xl shadow-sm">
               <div className="border-b border-border/80 pb-3">
-                <h2 className="text-lg font-bold text-text">Farm Land & Harvest Specifications</h2>
+                <h2 className="text-lg font-bold text-text">{t('profileExtra.farmSpecifications') || "Farm Land & Harvest Specifications"}</h2>
                 <p className="text-xs text-muted">
-                  Powers your dashboard crop prices, profit calculations, and transport matching
+                  {t('profileExtra.farmSpecificationsDesc') || "Powers your dashboard crop prices, profit calculations, and transport matching"}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    District / જિલ્લો / जिल्हा *
+                    {t('profileExtra.district') || "District / जिल्हा *"}
                   </span>
                   <div className="relative">
                     <MapPin className="w-4 h-4 text-muted absolute left-3 top-3.5" />
@@ -994,7 +1306,7 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    State / राज्य * (Fixed)
+                    {t('profileExtra.stateFixed') || "State / राज्य * (Fixed)"}
                   </span>
                   <select
                     value="Maharashtra"
@@ -1012,15 +1324,15 @@ export default function ProfilePage() {
                   <div className="flex items-center gap-2">
                     <Sprout className="w-4 h-4 text-emerald-700" />
                     <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      Crops Cultivated on Your Farm (Select All That Apply) *
+                      {t('profileExtra.cropsCultivated') || "Crops Cultivated on Your Farm (Select All That Apply) *"}
                     </span>
                   </div>
                   <span className="text-xs text-emerald-800 font-bold bg-white px-2.5 py-0.5 rounded-full border border-emerald-300 shadow-2xs">
-                    {form.selectedCrops?.length || 0} Crops Selected
+                    {(t('profileExtra.cropsSelectedCount') || "{count} Crops Selected").replace('{count}', form.selectedCrops?.length || 0)}
                   </span>
                 </div>
                 <p className="text-xs text-slate-600">
-                  Real farms cultivate multiple crops across seasons. Tap to toggle all your current crops:
+                  {t('profileExtra.cropsCultivatedDesc') || "Real farms cultivate multiple crops across seasons. Tap to toggle all your current crops:"}
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1">
                   {[
@@ -1058,7 +1370,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Farm Land (Acres) *
+                    {t('profileExtra.farmLandAcres') || "Farm Land (Acres) *"}
                   </span>
                   <div className="relative">
                     <Layers className="w-4 h-4 text-muted absolute left-3 top-3.5" />
@@ -1077,7 +1389,7 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Ready Harvest Quantity (kg)
+                    {t('profileExtra.readyHarvestKg') || "Ready Harvest Quantity (kg)"}
                   </span>
                   <div className="relative">
                     <Scale className="w-4 h-4 text-muted absolute left-3 top-3.5" />
@@ -1097,7 +1409,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Village / Taluka
+                    {t('profileExtra.villageTaluka') || "Village / Taluka"}
                   </span>
                   <input
                     type="text"
@@ -1110,7 +1422,7 @@ export default function ProfilePage() {
 
                 <label className="block space-y-1.5">
                   <span className="text-xs font-semibold text-muted uppercase tracking-wider">
-                    Preferred Language
+                    {t('profileExtra.preferredLanguage') || "Preferred Language"}
                   </span>
                   <select
                     value={form.preferredLanguage}
@@ -1132,7 +1444,7 @@ export default function ProfilePage() {
                 className="btn-primary py-2.5 px-6 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm"
               >
                 <Save className="w-4 h-4" />
-                <span>{saving ? 'Saving...' : 'Update Farmer Profile'}</span>
+                <span>{saving ? (t('profileExtra.savingBtn') || 'Saving...') : (t('profileExtra.updateFarmerBtn') || 'Update Farmer Profile')}</span>
               </button>
             </div>
           </div>
@@ -1142,26 +1454,26 @@ export default function ProfilePage() {
             <div className="p-6 rounded-3xl bg-emerald-50/60 border border-emerald-200/80 shadow-xs space-y-4">
               <h3 className="font-extrabold text-sm text-emerald-950 flex items-center gap-2">
                 <Sprout className="w-4 h-4 text-primary" />
-                <span>Harvest Snapshot</span>
+                <span>{t('profileExtra.harvestSnapshot') || "Harvest Snapshot"}</span>
               </h3>
 
               <div className="space-y-3 text-xs">
                 <div className="flex justify-between py-1.5 border-b border-emerald-200/50">
-                  <span className="text-slate-600 font-medium">Ready Crop:</span>
+                  <span className="text-slate-600 font-medium">{t('profileExtra.readyCrop') || "Ready Crop:"}</span>
                   <span className="font-bold text-slate-900">{form.mainCrop}</span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-emerald-200/50">
-                  <span className="text-slate-600 font-medium">Harvest Weight:</span>
+                  <span className="text-slate-600 font-medium">{t('profileExtra.harvestWeight') || "Harvest Weight:"}</span>
                   <span className="font-mono font-bold text-emerald-800">
                     {form.currentHarvestKg} kg
                   </span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-emerald-200/50">
-                  <span className="text-slate-600 font-medium">Land Holding:</span>
-                  <span className="font-bold text-slate-900">{form.farmSizeAcres} Acres</span>
+                  <span className="text-slate-600 font-medium">{t('profileExtra.landHolding') || "Land Holding:"}</span>
+                  <span className="font-bold text-slate-900">{form.farmSizeAcres} {t('common.acres') || 'Acres'}</span>
                 </div>
                 <div className="flex justify-between py-1.5">
-                  <span className="text-slate-600 font-medium">Agro-Zone Mandi:</span>
+                  <span className="text-slate-600 font-medium">{t('profileExtra.agroZoneMandi') || "Agro-Zone Mandi:"}</span>
                   <span className="font-bold text-slate-900">{form.district} APMC</span>
                 </div>
               </div>
@@ -1171,7 +1483,7 @@ export default function ProfilePage() {
                   to="/dashboard"
                   className="w-full btn-primary py-2 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2"
                 >
-                  <span>View Dashboard Analytics</span>
+                  <span>{t('profileExtra.viewAnalytics') || "View Dashboard Analytics"}</span>
                 </Link>
               </div>
             </div>

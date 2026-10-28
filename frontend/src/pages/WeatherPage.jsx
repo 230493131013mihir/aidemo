@@ -13,7 +13,7 @@ export default function WeatherPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto py-6 px-4">
+    <div className="space-y-6 w-full max-w-full 2xl:max-w-[1720px] mx-auto py-4 sm:py-6 px-2 sm:px-4">
       {/* Photographic Atmospheric Weather Banner */}
       <section className="relative rounded-3xl overflow-hidden shadow-xl border border-emerald-900/30 text-white">
         <div 
@@ -26,20 +26,20 @@ export default function WeatherPage() {
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
               <CloudSunRain className="w-3.5 h-3.5 text-emerald-400" />
-              <span>District Rain Advisory & Harvest Timing</span>
+              <span>{t('weather.badge', 'District Rain Advisory & Harvest Timing')}</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
-              Agricultural Weather Intelligence
+              {t('weather.pageTitle', 'Agricultural Weather Intelligence')}
             </h1>
             <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
-              Localized precipitation forecasts, rain probability alerts, and data-backed harvest timing advisories.
+              {t('weather.pageSubtitle', 'Localized precipitation forecasts, rain probability alerts, and data-backed harvest timing advisories.')}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="badge-tag bg-primary/10 text-primary border border-primary/20">
               <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Live Rain Advisory</span>
+              <span>{t('weather.liveBadge', 'Live Rain Advisory')}</span>
             </span>
           </div>
         </div>
