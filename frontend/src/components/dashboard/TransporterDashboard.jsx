@@ -808,7 +808,7 @@ export default function TransporterDashboard() {
             </h1>
 
             <p className="text-xs sm:text-sm text-orange-100 font-medium leading-relaxed drop-shadow-xs">
-              {t('transporter.headerSubtitle') || "Manage your vehicle fleet, accept transport bids, and assign drivers."}
+              {t('transporter.headerSubtitle') || "Manage agricultural cargo dispatch, group compatible farmer bookings into shared trips, assign fleet carriers, and track delivery progress across Maharashtra corridors."}
             </p>
           </div>
 

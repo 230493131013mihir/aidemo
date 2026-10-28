@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { 
   Building2, 
@@ -513,7 +513,7 @@ export default function MandiDashboard() {
         if (json.isExisting) {
           showToast?.({
             type: 'info',
-            title: 'Active Booking Found ℹ️',
+            title: 'Active Booking Found Γä╣∩╕Å',
             message: json.message || 'An active procurement inquiry for this lot is already recorded.'
           });
         } else {
@@ -738,7 +738,7 @@ export default function MandiDashboard() {
               </h3>
               <p className="text-[11px] text-teal-600 font-semibold flex items-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>{district} {t('mandi.agristackVerified', 'मधील ॲग्रीस्टॅक आणि ७/१२ जमिनीची पडताळणी पूर्ण')}</span>
+                <span>{district} {t('mandi.agristackVerified', 'αñ«αñºαÑÇαñ▓ αÑ▓αñùαÑìαñ░αÑÇαñ╕αÑìαñƒαÑàαñò αñåαñúαñ┐ αÑ¡/αÑºαÑ¿ αñ£αñ«αñ┐αñ¿αÑÇαñÜαÑÇ αñ¬αñíαññαñ╛αñ│αñúαÑÇ αñ¬αÑéαñ░αÑìαñú')}</span>
               </p>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 text-teal-600 flex items-center justify-center shrink-0">
@@ -778,7 +778,7 @@ export default function MandiDashboard() {
                 {t('mandi.incomingListingsTitle', 'Incoming District Farmer Crop Listings')}
               </h2>
               <p className="text-xs sm:text-sm text-muted">
-                {district} {t('mandi.incomingListingsSubtitle', 'जिल्ह्यातील पडताळणी झालेल्या शेतकऱ्यांनी सादर केलेली पीक स्थिती, लॉट्स आणि अपेक्षित दर.')}
+                {district} {t('mandi.incomingListingsSubtitle', 'αñ£αñ┐αñ▓αÑìαñ╣αÑìαñ»αñ╛αññαÑÇαñ▓ αñ¬αñíαññαñ╛αñ│αñúαÑÇ αñ¥αñ╛αñ▓αÑçαñ▓αÑìαñ»αñ╛ αñ╢αÑçαññαñòαñ▒αÑìαñ»αñ╛αñéαñ¿αÑÇ αñ╕αñ╛αñªαñ░ αñòαÑçαñ▓αÑçαñ▓αÑÇ αñ¬αÑÇαñò αñ╕αÑìαñÑαñ┐αññαÑÇ, αñ▓αÑëαñƒαÑìαñ╕ αñåαñúαñ┐ αñàαñ¬αÑçαñòαÑìαñ╖αñ┐αññ αñªαñ░.')}
               </p>
             </div>
 
@@ -1109,14 +1109,14 @@ export default function MandiDashboard() {
                               : 'bg-amber-100 text-amber-950 border-amber-300 dark:bg-amber-900 dark:text-amber-200'
                           }`}>
                             {isAccepted 
-                              ? `✅ ${t('mandi.confirmedByFarmer', 'Confirmed by Farmer')}` 
+                              ? `Γ£à ${t('mandi.confirmedByFarmer', 'Confirmed by Farmer')}` 
                               : req.status === 'cancelled'
-                              ? '⚪ Cancelled'
+                              ? 'ΓÜ¬ Cancelled'
                               : isDeclined 
-                              ? `❌ ${t('mandi.declined', 'Declined')}` 
+                              ? `Γ¥î ${t('mandi.declined', 'Declined')}` 
                               : isCompleted
                               ? '🏁 Fulfilled / Completed'
-                              : `⏳ ${t('mandi.pendingFarmerReview', 'Pending Farmer Review')}`}
+                              : `ΓÅ│ ${t('mandi.pendingFarmerReview', 'Pending Farmer Review')}`}
                           </span>
                           <span className="text-[11px] text-muted">
                             {req.createdAt ? new Date(req.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : t('common.live', 'Live')}

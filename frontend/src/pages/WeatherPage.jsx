@@ -33,7 +33,7 @@ export default function WeatherPage() {
               {t('weather.pageTitle', 'Agricultural Weather Intelligence')}
             </h1>
             <p className="text-xs sm:text-sm text-sky-100 font-medium leading-relaxed drop-shadow-xs">
-              {t('weather.pageSubtitle', 'Localized weather alerts, rain probability, and AI leaf diagnosis.')}
+              {t('weather.pageSubtitle', 'Localized precipitation forecasts, rain probability alerts, and data-backed harvest timing advisories.')}
             </p>
           </div>
 

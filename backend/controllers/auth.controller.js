@@ -516,7 +516,7 @@ const register = async (req, res) => {
         });
 
     } catch (error) {
-console.error("Register error:", error.message || error);
+        console.error("Register error:", error.message || error);
         const isDbConnError = error.name === "SequelizeConnectionError" ||
             error.name === "SequelizeHostNotFoundError" ||
             error.name === "SequelizeConnectionRefusedError" ||
@@ -623,7 +623,7 @@ const login = async (req, res) => {
             try {
                 const sequelize = require("../config/database");
                 await sequelize.sync();
-const seed = require("../seed");
+                const seed = require("../seed");
                 if (typeof seed === "function") await seed();
                 users = await User.findAll({
                     where: {
@@ -710,7 +710,7 @@ const seed = require("../seed");
             });
         }
 
-// Ensure profile exists based on role safely
+        // Ensure profile exists based on role safely
         try {
             if (user.role === "farmer" && !user.FarmerProfile) {
                 user.FarmerProfile = await ensureFarmerProfile(user.id);
@@ -747,7 +747,7 @@ const seed = require("../seed");
 
     } catch (error) {
         console.error("Login error:", error);
-// Immediate fallback for evaluation accounts even on unexpected exception
+        // Immediate fallback for evaluation accounts even on unexpected exception
         const fallbackId = String(req.body?.email || "").trim().toLowerCase();
         const local = fallbackId.split("@")[0];
         const pwd = String(req.body?.password || "");
@@ -1014,7 +1014,7 @@ const updateProfile = async (req, res) => {
                                 profile.currentHarvestKg = Math.round(totalKg);
                             }
                         }
-                    } catch (e) {}
+                    } catch (e) { }
                 }
                 if (preferredLanguage !== undefined) profile.preferredLanguage = preferredLanguage;
                 await profile.save();
@@ -1568,7 +1568,7 @@ const updateContactRequestStatus = async (req, res) => {
                                 break;
                             }
                         }
-                    } catch (_) {}
+                    } catch (_) { }
                 }
                 if (!originalLotKg) {
                     originalLotKg = Number(farmer.FarmerProfile?.currentHarvestKg) || 1000;
@@ -1712,7 +1712,7 @@ const getRelevantFarmers = async (req, res) => {
                     productQuantitiesObj = typeof fp.productQuantities === 'string'
                         ? JSON.parse(fp.productQuantities)
                         : fp.productQuantities;
-                } catch (_) {}
+                } catch (_) { }
             }
 
             const enrichedProductQuantities = {};
@@ -1871,12 +1871,12 @@ const verifyOtp = async (req, res) => {
             const displayName = name && name.trim()
                 ? name.trim()
                 : targetRole === "fpo_leader"
-                ? `FPO Aggregator (+91 ${cleanPhone.slice(-4)})`
-                : targetRole === "transporter"
-                ? `Transporter (+91 ${cleanPhone.slice(-4)})`
-                : targetRole === "mandi"
-                ? `Mandi Agent (+91 ${cleanPhone.slice(-4)})`
-                : `Kisan (+91 ${cleanPhone.slice(-4)})`;
+                    ? `FPO Aggregator (+91 ${cleanPhone.slice(-4)})`
+                    : targetRole === "transporter"
+                        ? `Transporter (+91 ${cleanPhone.slice(-4)})`
+                        : targetRole === "mandi"
+                            ? `Mandi Agent (+91 ${cleanPhone.slice(-4)})`
+                            : `Kisan (+91 ${cleanPhone.slice(-4)})`;
 
             const randomPassword = await bcrypt.hash(`otp_auth_${cleanPhone}_${Date.now()}`, 10);
 
@@ -2016,12 +2016,12 @@ const whatsappLogin = async (req, res) => {
             const displayName = name && name.trim()
                 ? name.trim()
                 : targetRole === "fpo_leader"
-                ? `FPO Aggregator (+91 ${cleanPhone.slice(-4)})`
-                : targetRole === "transporter"
-                ? `Transporter (+91 ${cleanPhone.slice(-4)})`
-                : targetRole === "mandi"
-                ? `Mandi Agent (+91 ${cleanPhone.slice(-4)})`
-                : `Kisan (+91 ${cleanPhone.slice(-4)})`;
+                    ? `FPO Aggregator (+91 ${cleanPhone.slice(-4)})`
+                    : targetRole === "transporter"
+                        ? `Transporter (+91 ${cleanPhone.slice(-4)})`
+                        : targetRole === "mandi"
+                            ? `Mandi Agent (+91 ${cleanPhone.slice(-4)})`
+                            : `Kisan (+91 ${cleanPhone.slice(-4)})`;
 
             const randomPassword = await bcrypt.hash(`whatsapp_auth_${cleanPhone}_${Date.now()}`, 10);
 

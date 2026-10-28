@@ -921,7 +921,7 @@ export default function HarvestPage() {
               {t('harvest.heroTitle', 'Harvest Simulator & Net Take-Home Earnings')}
             </h1>
             <p className="text-xs sm:text-sm text-blue-100 font-medium leading-relaxed drop-shadow-xs">
-              {t('harvest.heroSubtitle', 'Estimate your earnings after transport and market expenses.')}
+              {t('harvest.heroSubtitle', 'Calculate genuine take-home cash after deducting transport logistics, statutory APMC market cess, and storage expenses across Maharashtra mandis.')}
             </p>
             {user?.isGuest && (
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-blue-400/20 text-blue-200 border border-blue-300/40 text-xs font-semibold backdrop-blur-sm mt-1">
@@ -939,7 +939,7 @@ export default function HarvestPage() {
               boxShadow: '0 15px 30px -5px rgba(15, 23, 42, 0.4)',
             }}
           >
-<span className="text-[10px] font-bold uppercase tracking-wider text-blue-100 flex items-center justify-center gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-100 flex items-center justify-center gap-1">
               <Sparkles className="w-3.5 h-3.5 text-amber-300" /> {t('harvest.rankedStrategy', 'Ranked #1 Selling Strategy')}
             </span>
             <p className="text-base font-black mt-1 line-clamp-1">{winningScenario.title}</p>

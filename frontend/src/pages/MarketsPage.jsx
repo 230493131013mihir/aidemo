@@ -36,7 +36,7 @@ export default function MarketsPage() {
               {t('markets.title', 'Maharashtra APMC Mandi Rates')}
             </h1>
             <p className="text-xs sm:text-sm text-teal-100 font-medium leading-relaxed drop-shadow-xs">
-              {t('markets.subtitle', 'Compare available crop prices before deciding where to sell.')}
+              {t('markets.subtitle', 'Live wholesale price discovery across Maharashtra APMC yards (Pune, Nashik, Vashi, Kolhapur, Nagpur).')}
             </p>
           </div>
 

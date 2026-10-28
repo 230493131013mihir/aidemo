@@ -130,8 +130,7 @@
 }
 
 /* Custom reusable utility classes */
-/* ============================================
-   FARMER-FRIENDLY ACCESSIBLE TYPOGRAPHY SYSTEM
+/* =====================================   FARMER-FRIENDLY ACCESSIBLE TYPOGRAPHY SYSTEM
    (Specifications: 28-34px title, 21-24px section, 18-20px card, 16-18px body/btn, >=14px subtext)
    ============================================ */
 
@@ -664,7 +663,6 @@ html.dark .bg-gradient-to-br.from-\[\#f8faf8\] {
     transform: none !important;
   }
 }
-
 
 /* ==========================================================================
    FULL-WIDTH WORKSPACE EXPANSION & VIEWPORT OPTIMIZATION

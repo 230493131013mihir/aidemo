@@ -779,7 +779,7 @@ export default function TransportPage() {
               {t('farmerTransport.heroTitle', 'Shared Vehicle Pooling & Freight Logistics')}
             </h1>
             <p className="text-xs sm:text-sm text-amber-100 font-medium leading-relaxed drop-shadow-xs">
-              {t('farmerTransport.heroSubtitle', 'Find verified trucks and save up to 40% with shared freight pooling.')}
+              {t('farmerTransport.heroSubtitle', 'Split freight expenses by sharing trucks to APMC mandis. Includes automatic verifiable Digital Mandi Gate Passes with QR verification.')}
             </p>
           </div>
 
