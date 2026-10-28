@@ -1,10 +1,13 @@
 import React from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Bot, Sparkles } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import ChatWindow from '../components/chatbot/ChatWindow';
 
 export default function ChatPage() {
+  const [searchParams] = useSearchParams();
+  const initialPrompt = searchParams.get('prompt') || searchParams.get('q') || searchParams.get('query') || null;
   const { t, language } = useLanguage();
   const { user } = useAuth();
 
@@ -47,7 +50,7 @@ export default function ChatPage() {
   const isTransporter = user?.role === 'transporter';
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto py-6 px-4">
+    <div className="space-y-6 w-full max-w-full 2xl:max-w-[1600px] mx-auto py-4 sm:py-6 px-2 sm:px-4">
       {/* Module Hero Banner — Deep Green / Teal with Soft AI Glow */}
       <section className="relative rounded-3xl overflow-hidden shadow-xl border border-teal-700/50 text-white animate-fade-slide-up ai-glow-subtle">
         <div 
@@ -61,33 +64,34 @@ export default function ChatPage() {
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/20 text-teal-300 border border-teal-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
               <Bot className="w-3.5 h-3.5 text-teal-400" />
-              <span>{isTransporter ? 'Multilingual Logistics AI Dispatcher' : 'Voice & Multilingual AI Agronomist'}</span>
+              <span>{isTransporter ? t('chat.transporterBadge', 'Multilingual Logistics AI Dispatcher') : t('chat.farmerBadge', 'Voice & Multilingual AI Agronomist')}</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
-              {isTransporter ? 'Mitra Logistics Assistant' : 'Mitra AI Advisory Assistant'}
+              {isTransporter ? t('chat.transporterTitle', 'Mitra Logistics Assistant') : t('chat.title', 'Mitra AI Advisory Assistant')}
             </h1>
             <p className="text-xs sm:text-sm text-teal-100 font-medium leading-relaxed drop-shadow-xs">
               {isTransporter
-                ? 'Ask about your next pickup point, route corridors, remaining vehicle payload capacity, active trips, and highway weather.'
-                : 'Your 24/7 agricultural assistant for mandi rates, crop health, and government schemes.'}
+? t('chat.transporterSubtitle', 'Ask about your next pickup point, route corridors, remaining vehicle payload capacity, active trips, and highway weather.')
+                : t('chat.subtitle', 'Your 24/7 agricultural assistant for mandi rates, crop health, and government schemes.')}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="badge-tag bg-teal-500/20 text-teal-200 border border-teal-400/40 font-bold">
               <Sparkles className="w-3.5 h-3.5 text-teal-300 animate-pulse" aria-hidden="true" />
-              <span>{isTransporter ? 'Logistics Assistant Active' : 'Mitra AI Active & Multilingual'}</span>
+              <span>{isTransporter ? t('chat.transporterActiveStatus', 'Logistics Assistant Active') : t('chat.activeStatus', 'Mitra AI Active & Multilingual')}</span>
             </span>
           </div>
         </div>
       </section>
 
       {/* Live ChatWindow */}
-      <div className="w-full h-[680px] sm:h-[720px] flex flex-col">
+      <div className="w-full h-[calc(100vh-16rem)] min-h-[640px] max-h-[850px] flex flex-col">
         <ChatWindow 
           contextData={isTransporter ? { transporter: { id: user?.id, name: user?.name, phone: user?.phone } } : demoFarmerContext} 
           initialLanguage={language}
           isTransporter={isTransporter}
+          initialPrompt={initialPrompt}
         />
       </div>
     </div>

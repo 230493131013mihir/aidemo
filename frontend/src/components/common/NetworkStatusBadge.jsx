@@ -34,6 +34,8 @@ export function getOfflineSchemeChecklists() {
   }
 }
 
+import { API_BASE_URL } from '../../config/apiConfig';
+
 export default function NetworkStatusBadge({ className = '', inline = false }) {
   // Listen to browser connectivity via navigator.onLine and window events
   const [isOnline, setIsOnline] = useState(() => 
@@ -42,11 +44,25 @@ export default function NetworkStatusBadge({ className = '', inline = false }) {
       : true
   );
 
+  const [isBackendConnected, setIsBackendConnected] = useState(false);
   const [simulatedOffline, setSimulatedOffline] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState(() => 
     new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   );
+
+  // Check genuine backend connection health
+  const checkBackendHealth = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/health`, {
+        signal: AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined
+      });
+      const data = await res.json().catch(() => ({}));
+      setIsBackendConnected(res.ok && data.status === 'ok');
+    } catch {
+      setIsBackendConnected(false);
+    }
+  };
 
   // Sync cache with localStorage on initial mount and when online
   useEffect(() => {
@@ -60,27 +76,33 @@ export default function NetworkStatusBadge({ className = '', inline = false }) {
     }
 
     cacheData();
+    checkBackendHealth();
 
     function handleOnline() {
       setIsOnline(true);
       setLastSyncTime(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
       cacheData();
+      checkBackendHealth();
     }
 
     function handleOffline() {
       setIsOnline(false);
+      setIsBackendConnected(false);
     }
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    const interval = setInterval(checkBackendHealth, 30000);
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      clearInterval(interval);
     };
   }, []);
 
-  const activeOnline = isOnline && !simulatedOffline;
+  const activeOnline = isOnline && isBackendConnected && !simulatedOffline;
 
   const toggleSimulate = (e) => {
     e.stopPropagation();

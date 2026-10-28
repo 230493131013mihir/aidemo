@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useLanguage } from '../context/LanguageContext';
 import DigitalGatePassModal from '../components/transport/DigitalGatePassModal';
 import EscrowPaymentModal from '../components/transport/EscrowPaymentModal';
 import DriverRatingModal from '../components/transport/DriverRatingModal';
@@ -35,7 +36,7 @@ import SharedTransportFarmerWidget from '../components/dashboard/SharedTransport
 import TransporterDashboard from '../components/dashboard/TransporterDashboard';
 import apiClient from '../services/apiClient';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+import { API_BASE_URL } from '../config/apiConfig';
 
 function formatINR(value) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
@@ -54,6 +55,7 @@ export default function TransportPage() {
   const location = useLocation();
   const { user, token, updateLocalUser } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const isUserTransporter = user?.role === 'transporter';
   const [activeTab, setActiveTab] = useState(isUserTransporter ? 'transporter' : 'farmer');
@@ -87,11 +89,11 @@ export default function TransportPage() {
   const [vehicleForm, setVehicleForm] = useState({
     driverName: user?.name || '',
     phone: user?.phone || '',
-    vehicleType: 'Mahindra Bolero Maxi Truck',
-    vehicleNumber: 'MH-12-RN-4921',
-    capacityKg: '2200',
-    baseMandi: 'Pune APMC',
-    ratePerKm: '25',
+    vehicleType: user?.TransporterProfile?.vehicleType || 'Tata 407 Agri LCV',
+    vehicleNumber: user?.TransporterProfile?.vehicleNumber || '',
+    capacityKg: user?.TransporterProfile?.capacityKg ? String(user.TransporterProfile.capacityKg) : '2500',
+    baseMandi: user?.TransporterProfile?.baseMandi || 'Pune APMC',
+    ratePerKm: user?.TransporterProfile?.ratePerKm ? String(user.TransporterProfile.ratePerKm) : '25',
   });
   const [savingVehicle, setSavingVehicle] = useState(false);
 
@@ -123,29 +125,22 @@ export default function TransportPage() {
   // Modal for Driver 5-Star Rating & Review
   const [ratingBooking, setRatingBooking] = useState(null);
 
-  // Active or latest farmer booking for live tracking card
+  // Selected booking ID for farmer multi-booking tracking toggle
+  const [selectedBookingId, setSelectedBookingId] = useState(null);
+
+  // Active or selected farmer booking for live tracking card (strictly from real database records)
   const activeFarmerBooking = useMemo(() => {
+    if (!myRequests || myRequests.length === 0) return null;
+    if (selectedBookingId) {
+      const match = myRequests.find((r) => String(r.id) === String(selectedBookingId));
+      if (match) return match;
+    }
     return (
-      myRequests.find((r) => ['accepted', 'driver_assigned', 'in_transit', 'delivered'].includes(r.status)) ||
-      (myRequests.length > 0 ? myRequests[0] : null) || {
-        id: 'DEMO-9421',
-        gatePassCode: 'MH-APMC-9421',
-        farmerName: user?.name || 'Varun Patil',
-        farmerPhone: user?.phone || '9822994411',
-        cropName: 'Tomato',
-        weightKg: 1200,
-        pickupLocation: 'Nashik Rural Farm #4',
-        destinationMarket: 'Mumbai Vashi Mega APMC',
-        pickupDate: new Date().toISOString().slice(0, 10),
-        driverName: 'Dnyaneshwar Shinde',
-        driverPhone: '9822044120',
-        vehicleType: 'Tata 407 (Agri Freight)',
-        vehicleNumber: 'MH-12-RN-4120',
-        status: 'in_transit',
-        estimatedDurationMinutes: 102
-      }
+      myRequests.find((r) => ['in_transit', 'driver_assigned', 'accepted'].includes(r.status)) ||
+      myRequests.find((r) => r.status === 'delivered') ||
+      myRequests[0]
     );
-  }, [myRequests, user]);
+  }, [myRequests, selectedBookingId]);
 
   // Apply selected highway corridor to booking form
   const handleApplyCorridor = (data) => {
@@ -188,9 +183,18 @@ export default function TransportPage() {
     }
   }, [user]);
 
-  // Auto-fill booking form when navigating from Smart Harvest Simulator
+  // Auto-fill booking form & parse activeTab from URL search params (PART 15 SPA Routing)
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      if (['farmer', 'my-bookings', 'tracking'].includes(tabParam)) {
+        setActiveTab('farmer');
+      } else if (['transporter', 'requests', 'fleet', 'shared', 'active', 'gatepass', 'notifications', 'history'].includes(tabParam)) {
+        setActiveTab('transporter');
+      }
+    }
+
     const targetDest = location.state?.destination || searchParams.get('destination');
     const targetWeight = location.state?.weightKg || location.state?.weight || searchParams.get('weight');
     const targetCrop = location.state?.crop || searchParams.get('crop');
@@ -233,6 +237,18 @@ export default function TransportPage() {
     };
     window.addEventListener('harvestmitra:logout', handleLogout);
     return () => window.removeEventListener('harvestmitra:logout', handleLogout);
+  }, []);
+
+  // Auto-refresh farmer bookings and switch tracking when new booking is created
+  useEffect(() => {
+    const handleBookingCreated = (e) => {
+      loadMyRequests();
+      if (e.detail?.id) {
+        setSelectedBookingId(e.detail.id);
+      }
+    };
+    window.addEventListener('harvestmitra:booking-created', handleBookingCreated);
+    return () => window.removeEventListener('harvestmitra:booking-created', handleBookingCreated);
   }, []);
 
   async function loadMyRequests() {
@@ -709,14 +725,14 @@ export default function TransportPage() {
   // Transporters strictly see their dedicated Fleet Console and Assigned Cargo Trips (Issue #176)
   if (user?.role === 'transporter') {
     return (
-      <div className="space-y-6 max-w-7xl mx-auto py-6 px-4 animate-in fade-in pb-12">
+      <div className="space-y-6 w-full max-w-full 2xl:max-w-[1720px] mx-auto py-4 sm:py-6 px-2 sm:px-4 animate-in fade-in pb-12">
         <TransporterDashboard />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto py-6 px-4">
+    <div className="space-y-6 w-full max-w-full 2xl:max-w-[1720px] mx-auto py-4 sm:py-6 px-2 sm:px-4">
       {/* Digital Mandi Gate Pass Modal */}
       <DigitalGatePassModal
         isOpen={!!selectedGatePass}
@@ -757,21 +773,21 @@ export default function TransportPage() {
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
               <Truck className="w-3.5 h-3.5 text-amber-400" />
-              <span>Smart Agritech Logistics & Pooling</span>
+              <span>{t('farmerTransport.badge', 'Smart Agritech Logistics & Pooling')}</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
-              Shared Vehicle Pooling & Freight Logistics
+              {t('farmerTransport.heroTitle', 'Shared Vehicle Pooling & Freight Logistics')}
             </h1>
             <p className="text-xs sm:text-sm text-amber-100 font-medium leading-relaxed drop-shadow-xs">
-              Find verified trucks and save up to 40% with shared freight pooling.
+              {t('farmerTransport.heroSubtitle', 'Find verified trucks and save up to 40% with shared freight pooling.')}
             </p>
           </div>
 
           {/* Mode Switcher Tabs - Locked to admin role (Issue #173) */}
           {user?.role === 'admin' && (
             <div className="p-1.5 rounded-2xl bg-slate-900/70 backdrop-blur-md border border-white/20 flex items-center gap-1.5 shrink-0 shadow-lg">
-              <button type="button" onClick={() => setActiveTab('farmer')} className={`py-2 px-4 rounded-xl text-xs font-bold ${activeTab === 'farmer' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300'}`}>Farmer Booking</button>
-              <button type="button" onClick={() => setActiveTab('transporter')} className={`py-2 px-4 rounded-xl text-xs font-bold ${activeTab === 'transporter' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300'}`}>Transporter Console</button>
+              <button type="button" onClick={() => setActiveTab('farmer')} className={`py-2 px-4 rounded-xl text-xs font-bold ${activeTab === 'farmer' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300'}`}>{t('farmerTransport.farmerBookingBtn', 'Farmer Booking')}</button>
+              <button type="button" onClick={() => setActiveTab('transporter')} className={`py-2 px-4 rounded-xl text-xs font-bold ${activeTab === 'transporter' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300'}`}>{t('farmerTransport.transporterConsoleBtn', 'Transporter Console')}</button>
             </div>
           )}
         </div>
@@ -789,8 +805,29 @@ export default function TransportPage() {
             />
           </section>
 
+          {/* Multi-Booking Selector (When Farmer has multiple bookings) */}
+          {myRequests && myRequests.length > 1 && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+              <span className="text-slate-400 font-bold shrink-0 text-[11px]">Select Booking:</span>
+              {myRequests.map((req) => (
+                <button
+                  key={req.id}
+                  type="button"
+                  onClick={() => setSelectedBookingId(req.id)}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all text-xs shrink-0 cursor-pointer ${
+                    activeFarmerBooking?.id === req.id
+                      ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
+                      : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
+                  }`}
+                >
+                  #{req.id} • {req.cropName} ({req.weightKg}kg) - {req.status?.toUpperCase().replace(/_/g, ' ')}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Farmer Live Tracking Card with Driver Details, Phone, Plate, ETA & 4-Step Stepper */}
-          {activeFarmerBooking && (
+          {activeFarmerBooking ? (
             <section className="rounded-3xl border-2 border-primary/30 bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950 text-white p-6 sm:p-7 shadow-xl space-y-5 animate-in fade-in">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
                 <div className="flex items-center gap-3">
@@ -800,10 +837,10 @@ export default function TransportPage() {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                        🛰️ Farmer Live Tracking Card
+                        {t('farmerTransport.liveTrackingCard', '🛰️ Farmer Live Tracking Card')}
                       </span>
                       <span className="text-xs text-slate-300 font-mono">
-                        Pass: {activeFarmerBooking.gatePassCode || `GJ-APMC-${activeFarmerBooking.id}`}
+                        Pass: {activeFarmerBooking.gatePassCode || `MH-APMC-${activeFarmerBooking.id}`}
                       </span>
                     </div>
                     <h2 className="text-lg sm:text-xl font-black text-white mt-0.5">
@@ -825,12 +862,12 @@ export default function TransportPage() {
                     }`}
                   >
                     {['delivered', 'completed'].includes(activeFarmerBooking.status)
-                      ? '🏁 Delivered at Mandi'
+                      ? t('farmerTransport.statusDeliveredBadge', '🏁 Delivered at Mandi')
                       : activeFarmerBooking.status === 'in_transit'
-                      ? '🛣️ In Transit to APMC'
+                      ? t('farmerTransport.statusInTransitBadge', '🛣️ In Transit to APMC')
                       : ['accepted', 'driver_assigned'].includes(activeFarmerBooking.status)
-                      ? '🚚 Driver Assigned & En Route'
-                      : '⏳ Requested (Awaiting Transporter)'}
+                      ? t('farmerTransport.statusDriverAssignedBadge', '🚚 Driver Assigned & En Route')
+                      : t('farmerTransport.statusAwaitingTransporterBadge', '⏳ Requested (Awaiting Transporter)')}
                   </span>
 
                   {activeFarmerBooking.status === 'delivered' && (
@@ -840,7 +877,7 @@ export default function TransportPage() {
                       className="px-3 py-1.5 rounded-xl border border-emerald-400 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Confirm Received</span>
+                      <span>{t('farmerTransport.confirmReceivedBtn', 'Confirm Received')}</span>
                     </button>
                   )}
 
@@ -850,7 +887,7 @@ export default function TransportPage() {
                     className="px-3 py-1.5 rounded-xl border border-blue-400/30 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
                   >
                     <Navigation className="w-3.5 h-3.5" />
-                    <span>{showGpsMap ? 'Hide GPS Radar' : '🛰️ Live Driver GPS Map'}</span>
+                    <span>{showGpsMap ? t('farmerTransport.hideGpsRadar', 'Hide GPS Radar') : t('farmerTransport.liveDriverGpsMap', '🛰️ Live Driver GPS Map')}</span>
                   </button>
 
                   <button
@@ -859,7 +896,7 @@ export default function TransportPage() {
                     className="px-3 py-1.5 rounded-xl border border-emerald-400/30 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition-colors"
                   >
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Digital Mandi Gate Pass</span>
+                    <span>{t('farmerTransport.digitalGatePassBtn', 'Digital Mandi Gate Pass')}</span>
                   </button>
                 </div>
               </div>
@@ -867,9 +904,9 @@ export default function TransportPage() {
               {/* Driver, Vehicle, ETA Information Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
                 <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
-                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Assigned Driver</span>
+                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">{t('farmerTransport.assignedDriver', 'Assigned Driver')}</span>
                   <p className="font-extrabold text-sm text-white">
-                    {activeFarmerBooking.driverName || 'Driver Assignment in Progress'}
+                    {activeFarmerBooking.driverName || t('farmerTransport.driverNotAssignedYet', 'Driver not assigned yet')}
                   </p>
                   {activeFarmerBooking.driverPhone ? (
                     <a
@@ -880,31 +917,41 @@ export default function TransportPage() {
                       <span>+91 {activeFarmerBooking.driverPhone}</span>
                     </a>
                   ) : (
-                    <span className="text-slate-400 text-[11px]">Phone shared on dispatch</span>
+                    <span className="text-slate-400 text-[11px]">{t('farmerTransport.driverPhoneShared', 'Contact shared once driver assigned')}</span>
                   )}
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
-                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Vehicle Plate Number</span>
+                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">{t('farmerTransport.vehiclePlateNumber', 'Vehicle Plate Number')}</span>
                   <p className="font-bold text-white">
-                    {activeFarmerBooking.vehicleType || 'Commercial Farm Truck'}
+                    {activeFarmerBooking.vehicleType || (activeFarmerBooking.vehicleNumber ? 'Commercial Freight Carrier' : t('farmerTransport.vehicleNotAssignedYet', 'Vehicle not assigned yet'))}
                   </p>
                   <span className="font-mono text-[11px] font-bold text-emerald-300 bg-white/10 px-2.5 py-0.5 rounded border border-white/15 inline-block mt-0.5">
-                    {activeFarmerBooking.vehicleNumber || 'Plate Assigned on Pickup'}
+                    {activeFarmerBooking.vehicleNumber || t('farmerTransport.vehicleNotAssignedYet', 'Vehicle not assigned yet')}
                   </span>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
-                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Estimated Arrival Time (ETA)</span>
+                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">{t('farmerTransport.estimatedArrivalEta', 'Estimated Arrival Time (ETA)')}</span>
                   <p className="font-mono font-extrabold text-sm text-amber-300 flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5" />
-                    <span>~{liveTelemetry?.etaMinutes || activeFarmerBooking.estimatedDurationMinutes || 120} Minutes</span>
+                    <span>
+                      {['delivered', 'completed'].includes(activeFarmerBooking.status)
+                        ? t('farmerTransport.statusDelivered', 'Delivered at Mandi')
+                        : ['open', 'pending'].includes(activeFarmerBooking.status)
+                        ? t('farmerTransport.awaitingTransporterAcceptance', 'Awaiting Transporter Acceptance')
+                        : `~${liveTelemetry?.etaMinutes || activeFarmerBooking.estimatedDurationMinutes || 120} ${t('farmerTransport.minutes', 'Minutes')}`}
+                    </span>
                   </p>
-                  <span className="text-[11px] text-slate-400">Scheduled: {activeFarmerBooking.pickupDate}</span>
+                  <span className="text-[11px] text-slate-400">
+                    {activeFarmerBooking.status === 'in_transit'
+                      ? (liveTelemetry?.hasLiveGps ? '🟢 Real-time GPS' : '🛣️ Corridor est. @ 45 km/h')
+                      : `${t('farmerTransport.scheduled', 'Scheduled:')} ${activeFarmerBooking.pickupDate}`}
+                  </span>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
-                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Pickup & Mandi Route</span>
+                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">{t('farmerTransport.pickupMandiRoute', 'Pickup & Mandi Route')}</span>
                   <p className="font-bold text-white truncate">{activeFarmerBooking.pickupLocation}</p>
                   <p className="text-[11px] text-emerald-400 flex items-center gap-1">
                     <ArrowRight className="w-3 h-3 shrink-0" />
@@ -913,29 +960,29 @@ export default function TransportPage() {
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
-                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Freight Escrow</span>
+                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">{t('farmerTransport.freightEscrow', 'Freight Escrow')}</span>
                   {activeFarmerBooking.paymentStatus === 'in_escrow' ? (
                     <div>
                       <p className="font-extrabold text-sm text-amber-300 font-mono">
-                        ₹{Number(activeFarmerBooking.escrowAmount || activeFarmerBooking.estimatedSharedCost || 1200).toLocaleString('en-IN')}
+                        ₹{Number(activeFarmerBooking.escrowAmount || activeFarmerBooking.finalCost || activeFarmerBooking.estimatedSharedCost || 0).toLocaleString('en-IN')}
                       </p>
                       <span className="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-400/30 inline-block mt-0.5">
-                        🛡️ Locked in Escrow
+                        {t('farmerTransport.lockedInEscrow', '🛡️ Locked in Escrow')}
                       </span>
                     </div>
                   ) : activeFarmerBooking.paymentStatus === 'paid' ? (
                     <div>
                       <p className="font-extrabold text-sm text-emerald-400 font-mono">
-                        ₹{Number(activeFarmerBooking.escrowAmount || activeFarmerBooking.estimatedSharedCost || 1200).toLocaleString('en-IN')}
+                        ₹{Number(activeFarmerBooking.finalCost || activeFarmerBooking.escrowAmount || activeFarmerBooking.estimatedSharedCost || 0).toLocaleString('en-IN')}
                       </p>
                       <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-400/30 inline-block mt-0.5">
-                        ✅ Payout Released
+                        {t('farmerTransport.payoutReleased', '✅ Payout Released')}
                       </span>
                     </div>
                   ) : (
                     <div>
                       <p className="font-extrabold text-sm text-slate-300 font-mono">
-                        ₹{Number(activeFarmerBooking.estimatedSharedCost || 1200).toLocaleString('en-IN')}
+                        ₹{Number(activeFarmerBooking.estimatedSharedCost || activeFarmerBooking.finalCost || 0).toLocaleString('en-IN')}
                       </p>
                       <button
                         type="button"
@@ -943,7 +990,7 @@ export default function TransportPage() {
                         className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 hover:bg-emerald-500/30 px-2 py-0.5 rounded border border-emerald-400/40 inline-flex items-center gap-1 mt-0.5 cursor-pointer transition-colors"
                       >
                         <ShieldCheck className="w-3 h-3" />
-                        <span>Lock Escrow</span>
+                        <span>{t('farmerTransport.lockEscrowBtn', 'Lock Escrow')}</span>
                       </button>
                     </div>
                   )}
@@ -973,7 +1020,7 @@ export default function TransportPage() {
                     <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xs shadow-md">
                       ✓
                     </div>
-                    <span className="text-[11px] font-bold text-white mt-1.5">(1) Requested</span>
+                    <span className="text-[11px] font-bold text-white mt-1.5">{t('farmerTransport.stepRequested', '(1) Requested')}</span>
                     <span className="text-[10px] text-slate-400">{activeFarmerBooking.pickupDate}</span>
                   </div>
 
@@ -995,10 +1042,10 @@ export default function TransportPage() {
                           : 'text-slate-400'
                       }`}
                     >
-                      (2) Driver Assigned
+                      {t('farmerTransport.stepDriverAssigned', '(2) Driver Assigned')}
                     </span>
                     <span className="text-[10px] text-slate-400 truncate max-w-[110px]">
-                      {activeFarmerBooking.driverName ? activeFarmerBooking.driverName.split(' ')[0] : 'Pending'}
+                      {activeFarmerBooking.driverName ? activeFarmerBooking.driverName.split(' ')[0] : t('farmerTransport.pending', 'Pending')}
                     </span>
                   </div>
 
@@ -1018,10 +1065,10 @@ export default function TransportPage() {
                         ['in_transit', 'delivered'].includes(activeFarmerBooking.status) ? 'text-white' : 'text-slate-400'
                       }`}
                     >
-                      (3) In Transit
+                      {t('farmerTransport.stepInTransit', '(3) In Transit')}
                     </span>
                     <span className="text-[10px] text-slate-400">
-                      {activeFarmerBooking.status === 'in_transit' ? 'On Highway 🛣️' : 'Awaiting Dispatch'}
+                      {activeFarmerBooking.status === 'in_transit' ? t('farmerTransport.onHighway', 'On Highway 🛣️') : t('farmerTransport.awaitingDispatch', 'Awaiting Dispatch')}
                     </span>
                   </div>
 
@@ -1041,7 +1088,7 @@ export default function TransportPage() {
                         activeFarmerBooking.status === 'delivered' ? 'text-emerald-300 font-extrabold' : 'text-slate-400'
                       }`}
                     >
-                      (4) Delivered at Mandi
+                      {t('farmerTransport.stepDeliveredMandi', '(4) Delivered at Mandi')}
                     </span>
                     <span className="text-[10px] text-slate-400">
                       {(activeFarmerBooking.destinationMarket || 'APMC').split(' ')[0]} Mandi
@@ -1075,7 +1122,7 @@ export default function TransportPage() {
                   </div>
                   <span className="text-[10px] font-mono text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-400/30 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>Dynamic Radar Stream Sync Active</span>
+                    <span>{liveTelemetry?.hasLiveGps ? 'Live GPS Stream Active' : 'Route Corridor Simulation Active'}</span>
                   </span>
                 </div>
 
@@ -1091,7 +1138,7 @@ export default function TransportPage() {
                     <p className="text-[11px] text-slate-300">
                       {activeFarmerBooking.status === 'delivered'
                         ? 'Produce unloaded at destination APMC'
-                        : `Truck moving at ~${liveTelemetry?.speedKmh || 58} km/h • ${liveTelemetry?.isSimulatingRain ? '🌧️ Rain Alert Active' : 'Tarp secured & verified'}`}
+                        : `Truck moving at ~${liveTelemetry?.speedKmh || (activeFarmerBooking.status === 'in_transit' ? 45 : 0)} km/h • ${liveTelemetry?.isSimulatingRain ? '🌧️ Rain Alert Active' : 'Tarp secured & verified'}`}
                     </p>
                   </div>
 
@@ -1100,7 +1147,7 @@ export default function TransportPage() {
                     <p className="text-xs font-mono font-extrabold text-emerald-400">
                       {activeFarmerBooking.status === 'delivered'
                         ? '100% Completed (Reached APMC)'
-                        : `${liveTelemetry?.distanceCoveredKm || 54.2} km covered • ~${liveTelemetry?.distanceRemainingKm || 89.8} km remaining (${liveTelemetry?.progressPct || 38}%)`}
+                        : `${liveTelemetry?.distanceCoveredKm || 0} km covered • ~${liveTelemetry?.distanceRemainingKm || 0} km remaining (${liveTelemetry?.progressPct || 0}%)`}
                     </p>
                     <p className="text-[11px] text-slate-300 truncate">
                       Pickup: {activeFarmerBooking.pickupLocation}
@@ -1120,6 +1167,29 @@ export default function TransportPage() {
                   </div>
                 </div>
               </div>
+            </section>
+          ) : (
+            <section className="rounded-3xl border-2 border-dashed border-white/15 bg-slate-900/50 p-7 sm:p-8 text-center text-white space-y-3.5 animate-in fade-in">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <Truck className="w-7 h-7 opacity-75" />
+              </div>
+              <div className="max-w-md mx-auto space-y-1">
+                <h3 className="text-base sm:text-lg font-bold text-white">No Active Transport Bookings</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  You currently have no transport requests in transit. Create a transport request below or book shared transport to track your assigned driver and vehicle live.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById('crop-shared-transport-suite') || document.getElementById('booking-dispatch-form');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg transition-colors cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Book Farm Transport Now</span>
+              </button>
             </section>
           )}
 

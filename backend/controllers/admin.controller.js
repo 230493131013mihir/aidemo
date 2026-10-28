@@ -1,21 +1,23 @@
-const { User, FarmerProfile, Crop, Market, MarketPrice, TransportRequest, Report, AuditLog } = require("../models");
+const { Op } = require("sequelize");
+const { User, FarmerProfile, Crop, Market, MarketPrice, TransportRequest, Report, AuditLog, Vehicle } = require("../models");
 const { recordAudit } = require("../services/auditService");
 
 const overview = async (req, res) => {
     try {
-        const [users, farmers, transporters, markets, marketPrices, transportRequests, auditLogs] = await Promise.all([
+        const [users, farmers, transporters, markets, marketPrices, transportRequests, auditLogs, totalVehicles] = await Promise.all([
             User.count(),
             FarmerProfile.count(),
             User.count({ where: { role: "transporter" } }),
             Market.count(),
             MarketPrice.count(),
             TransportRequest.count(),
-            AuditLog.count()
+            AuditLog.count(),
+            Vehicle.count()
         ]);
 
         return res.json({
             success: true,
-            data: { users, farmers, transporters, markets, marketPrices, transportRequests, auditLogs }
+            data: { users, farmers, transporters, markets, marketPrices, transportRequests, auditLogs, vehicles: totalVehicles }
         });
     } catch (error) {
         console.error("Admin overview error:", error.message);
@@ -365,6 +367,152 @@ const reports = async (req, res) => {
     }
 };
 
+const listVehicles = async (req, res) => {
+    try {
+        const {
+            registrationNumber,
+            vehicleType,
+            transporter,
+            availability,
+            status,
+            page = 1,
+            limit = 20
+        } = req.query;
+
+        const where = {};
+
+        if (registrationNumber && registrationNumber.trim()) {
+            where.registrationNumber = { [Op.like]: `%${registrationNumber.trim()}%` };
+        }
+
+        if (vehicleType && vehicleType.trim()) {
+            where.vehicleType = { [Op.like]: `%${vehicleType.trim()}%` };
+        }
+
+        if (availability === "available") {
+            where.isAvailable = true;
+        } else if (availability === "unavailable") {
+            where.isAvailable = false;
+        }
+
+        if (status && status !== "all") {
+            where.status = status;
+        }
+
+        const userWhere = {};
+        if (transporter && transporter.trim()) {
+            userWhere[Op.or] = [
+                { name: { [Op.like]: `%${transporter.trim()}%` } },
+                { phone: { [Op.like]: `%${transporter.trim()}%` } }
+            ];
+        }
+
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const pageSize = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+        const offset = (pageNum - 1) * pageSize;
+
+        const { count, rows } = await Vehicle.findAndCountAll({
+            where,
+            include: [{
+                model: User,
+                attributes: ["id", "name", "phone", "email"],
+                where: Object.keys(userWhere).length > 0 ? userWhere : undefined
+            }],
+            order: [["id", "DESC"]],
+            limit: pageSize,
+            offset
+        });
+
+        // Determine active trip status for each vehicle without double counting
+        const activeTripBookings = await TransportRequest.findAll({
+            where: {
+                status: { [Op.in]: ["in_transit", "accepted", "driver_assigned", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed"] }
+            },
+            attributes: ["id", "vehicleId", "vehicleNumber", "bookingId", "status", "farmerName", "cropName", "destinationMarket"]
+        });
+
+        const activeByVehicleId = new Map();
+        const activeByVehicleNum = new Map();
+        for (const b of activeTripBookings) {
+            if (b.vehicleId && !activeByVehicleId.has(b.vehicleId)) {
+                activeByVehicleId.set(b.vehicleId, b);
+            }
+            if (b.vehicleNumber && !activeByVehicleNum.has(b.vehicleNumber.toUpperCase())) {
+                activeByVehicleNum.set(b.vehicleNumber.toUpperCase(), b);
+            }
+        }
+
+        const enrichedVehicles = rows.map(v => {
+            const vData = v.toJSON();
+            const activeBooking = activeByVehicleId.get(v.id) || (v.registrationNumber ? activeByVehicleNum.get(v.registrationNumber.toUpperCase()) : null);
+            vData.hasActiveTrip = Boolean(activeBooking);
+            vData.activeTrip = activeBooking || null;
+            return vData;
+        });
+
+        return res.json({
+            success: true,
+            total: count,
+            page: pageNum,
+            totalPages: Math.ceil(count / pageSize) || 1,
+            data: enrichedVehicles
+        });
+    } catch (error) {
+        console.error("Admin listVehicles error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to load fleet vehicles" });
+    }
+};
+
+const vehicleMetrics = async (req, res) => {
+    try {
+        const [
+            totalRegisteredVehicles,
+            activeAndAvailableVehicles,
+            vehiclesUnavailable,
+            activeTripBookings,
+            tripsInProgress,
+            completedTrips,
+            pendingRequests
+        ] = await Promise.all([
+            Vehicle.count(),
+            Vehicle.count({ where: { isAvailable: true } }),
+            Vehicle.count({ where: { isAvailable: false } }),
+            TransportRequest.findAll({
+                where: {
+                    status: { [Op.in]: ["in_transit", "accepted", "driver_assigned", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed"] }
+                },
+                attributes: ["vehicleId", "vehicleNumber"]
+            }),
+            TransportRequest.count({ where: { status: "in_transit" } }),
+            TransportRequest.count({ where: { status: { [Op.in]: ["delivered", "delivery_confirmed", "completed"] } } }),
+            TransportRequest.count({ where: { status: { [Op.in]: ["pending", "open", "request_received"] } } })
+        ]);
+
+        // Distinct vehicles assigned to active trips
+        const distinctActiveVehicleIds = new Set();
+        for (const b of activeTripBookings) {
+            if (b.vehicleId) distinctActiveVehicleIds.add(b.vehicleId);
+            else if (b.vehicleNumber) distinctActiveVehicleIds.add(b.vehicleNumber.toUpperCase());
+        }
+
+        return res.json({
+            success: true,
+            data: {
+                totalRegisteredVehicles,
+                activeAndAvailableVehicles,
+                vehiclesAssignedToActiveTrips: distinctActiveVehicleIds.size,
+                vehiclesUnavailable,
+                tripsInProgress,
+                completedTrips,
+                pendingRequests
+            }
+        });
+    } catch (error) {
+        console.error("Admin vehicleMetrics error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to load vehicle metrics" });
+    }
+};
+
 module.exports = {
     overview,
     listUsers,
@@ -377,5 +525,7 @@ module.exports = {
     listAuditLogs,
     listMarkets,
     listCrops,
-    reports
+    reports,
+    listVehicles,
+    vehicleMetrics
 };

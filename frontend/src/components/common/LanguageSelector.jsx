@@ -86,6 +86,7 @@ export default function LanguageSelector({ variant = 'dropdown', className = '' 
                 <button
                   key={lang.code}
                   type="button"
+                  id={`language-option-${lang.code}`}
                   role="menuitem"
                   onClick={() => {
                     setLanguage(lang.code);

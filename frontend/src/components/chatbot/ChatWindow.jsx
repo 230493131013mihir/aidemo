@@ -51,32 +51,40 @@ const WELCOME_MESSAGES = {
 
 const SUGGESTED_QUERIES = {
   mr: [
-    "माझ्या टोमॅटोसाठी चांगला भाव कुठे मिळेल?",
-    "हवामानाचा माझ्या काढणीवर काय परिणाम होईल?",
-    "मला किती वाहतूक क्षमता (गाडी) लागेल?",
-    "माझ्या अंदाजे नफ्याची गणना करा",
-    "पीएम-किसान (PM-KISAN) योजना पात्रता व लाभ"
+    "माझे पीक मी कुठे विकावे?",
+    "माझा अंदाजित नफा मोजा.",
+    "माझ्या शेतीमालासाठी वाहतूक शोधा.",
+    "माझ्या बुकिंगची सद्यस्थिती तपासा.",
+    "हवामानाचा धोका काय आहे?",
+    "पिकावरील रोगाची किंवा समस्येची माहिती द्या.",
+    "माझ्यासाठी उपयुक्त सरकारी योजना शोधा."
   ],
   hi: [
-    "मुझे टमाटर का बेहतर भाव कहां मिलेगा?",
-    "क्या मौसम मेरी कटाई को प्रभावित करेगा?",
-    "मुझे कितनी परिवहन क्षमता की आवश्यकता है?",
-    "मेरी अनुमानित कमाई की गणना करें",
-    "पीएम-किसान (PM-KISAN) योजना पात्रता एवं लाभ"
+    "मैं अपनी फसल कहाँ बेचूँ?",
+    "मेरा अनुमानित मुनाफा कैलकुलेट करें।",
+    "मेरी फसल के लिए ट्रांसपोर्ट खोजें।",
+    "मेरी बुकिंग का स्टेटस चेक करें।",
+    "मौसम का क्या जोखिम है?",
+    "फसल की समस्या और बीमारी समझने में मदद करें।",
+    "मेरे लिए उपयुक्त सरकारी योजना खोजें।"
   ],
   gu: [
-    "મારા ટામેટાં માટે સારો ભાવ ક્યાં મળશે?",
-    "શું હવામાન મારી લણણીને અસર કરશે?",
-    "મને કેટલી વાહન ક્ષમતાની જરૂર પડશે?",
-    "મારી અંદાજિત કમાણીની ગણતરી કરો",
-    "પીએમ-કિસાન (PM-KISAN) યોજનાની પાત્રતા"
+    "મારું પાક હું ક્યાં વેચું?",
+    "મારો અંદાજિત નફો ગણો.",
+    "મારા પાક માટે પરિવહન શોધો.",
+    "મારી બુકિંગ સ્થિતિ તપાસો.",
+    "હવામાનનું જોખમ શું છે?",
+    "પાકના રોગ અને સમસ્યા વિશે જણાવો.",
+    "મારા માટે યોગ્ય સરકારી યોજના શોધો."
   ],
   en: [
-    "Where can I get a better price for my tomatoes?",
-    "Will the weather affect my harvest?",
-    "How much transport capacity do I need?",
-    "Calculate my estimated earnings.",
-    "PM-KISAN eligibility & subsidy rules"
+    "Where should I sell my crop?",
+    "Calculate my estimated profit.",
+    "Find transport for my harvest.",
+    "Check my booking status.",
+    "What is the weather risk?",
+    "Help me understand a crop problem.",
+    "Find a relevant government scheme."
   ]
 };
 
@@ -139,9 +147,11 @@ export default function ChatWindow({
   onClose = null,
   contextData = {},
   initialLanguage = null,
-  isTransporter = false
+  isTransporter = false,
+  initialPrompt = null
 }) {
   const { language: globalLanguage, setLanguage: setGlobalLanguage } = useLanguage?.() || {};
+  const initialPromptHandledRef = useRef(false);
 
   // 1. Language state: restore from initialLanguage, globalLanguage, localStorage or default to 'mr'
   const [selectedLanguage, setSelectedLanguage] = useState(() => {
@@ -364,6 +374,7 @@ export default function ChatWindow({
         disclaimer: response.source_disclaimer,
         mode: response.mode,
         provider: response.provider,
+        actions: response.actions || [],
         timestamp: Date.now()
       };
 
@@ -389,6 +400,14 @@ export default function ChatWindow({
       setIsLoading(false);
     }
   };
+
+  // Automatic execution of initialPrompt from navigation
+  useEffect(() => {
+    if (initialPrompt && !initialPromptHandledRef.current) {
+      initialPromptHandledRef.current = true;
+      handleSendMessage(initialPrompt);
+    }
+  }, [initialPrompt]);
 
   // Reset conversation to fresh state
   const handleResetChat = () => {

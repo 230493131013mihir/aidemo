@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Calculator, TrendingUp, Truck, AlertCircle, RefreshCw, CheckCircle2, Store } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+import { API_BASE_URL } from '../../config/apiConfig';
 
 export default function RecentActivity() {
   const { t } = useLanguage();

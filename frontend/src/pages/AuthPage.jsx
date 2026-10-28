@@ -874,6 +874,7 @@ message: `Welcome, ${form.name.trim()}! Your profile is active. Opening dashboar
 
               <button
                 type="button"
+                id="password-login-tab-btn"
                 onClick={() => {
                   setAuthMethod('password');
                   setError('');
@@ -1758,6 +1759,7 @@ message: `Welcome, ${form.name.trim()}! Your profile is active. Opening dashboar
               {/* Submit Action Button */}
               <button
                 type="submit"
+                id="password-login-submit-btn"
                 disabled={loading}
                 className="btn-primary w-full py-3 mt-2 flex items-center justify-center gap-2 rounded-xl shadow-sm text-sm font-bold"
               >

@@ -42,7 +42,10 @@ const I18N = {
     demoNoticeSub: 'Live weather service is not configured. Information shown is for demonstration only.',
     lastUpdated: 'Last Updated:',
     loading: 'Fetching district weather data...',
-    errorTitle: 'Unable to retrieve weather data'
+    errorTitle: 'Unable to retrieve weather data',
+    useLiveLocation: '📍 Use Live Location',
+    gpsActive: 'GPS Active',
+    locatingGps: 'Locating GPS...',
   },
   hi: {
     title: 'मौसम एवं जिला वर्षा परामर्श',
@@ -57,12 +60,15 @@ const I18N = {
     advisoryActive: 'जिला वर्षा परामर्श जारी',
     advisoryClear: 'अनुकूल मौसम स्थिति',
     actionTipsTitle: 'किसानों के लिए अनुशंसित सुझाव:',
-    simulatorAction: 'Apply to Simulator',
+    simulatorAction: 'सिम्युलेटर में लागू करें',
     demoNotice: 'डेमो मौसम डेटा',
     demoNoticeSub: 'लाइव मौसम सेवा कॉन्फ़िगर नहीं है। दिखाई गई जानकारी केवल डेमो उद्देश्य के लिए है।',
     lastUpdated: 'अंतिम अपडेट:',
     loading: 'जिले का मौसम डेटा लोड हो रहा है...',
-    errorTitle: 'मौसम डेटा प्राप्त करने में असमर्थ'
+    errorTitle: 'मौसम डेटा प्राप्त करने में असमर्थ',
+    useLiveLocation: '📍 लाइव लोकेशन का उपयोग करें',
+    gpsActive: 'GPS सक्रिय',
+    locatingGps: 'GPS खोजा जा रहा है...',
   },
   gu: {
     title: 'હવામાન અને જિલ્લા વરસાદી સલાહકાર',
@@ -77,12 +83,15 @@ const I18N = {
     advisoryActive: 'જિલ્લા વરસાદી સલાહ સક્રિય',
     advisoryClear: 'લણણી માટે અનુકૂળ હવામાન',
     actionTipsTitle: 'ખેડૂતો માટે મહત્વપૂર્ણ સૂચનો:',
-    simulatorAction: 'Apply to Simulator',
+    simulatorAction: 'સિમ્યુલેટરમાં લાગુ કરો',
     demoNotice: 'ડેમો હવામાન ડેટા',
     demoNoticeSub: 'લાઈવ હવામાન સેવા ઉપલબ્ધ છે. માહિતી ખેડૂત માર્ગદર્શન માટે છે.',
     lastUpdated: 'છેલ્લું અપડેટ:',
     loading: 'જિલ્લાનું હવામાન ડેટા લોડ થઈ રહ્યું છે...',
-    errorTitle: 'હવામાન ડેટા મેળવવામાં નિષ્ફળ'
+    errorTitle: 'હવામાન ડેટા મેળવવામાં નિષ્ફળ',
+    useLiveLocation: '📍 લાઈવ લોકેશન વાપરો',
+    gpsActive: 'GPS સક્રિય',
+    locatingGps: 'GPS શોધી રહ્યું છે...',
   },
   mr: {
     title: 'हवामान आणि जिल्हा पाऊस सल्लागार',
@@ -97,12 +106,15 @@ const I18N = {
     advisoryActive: 'जिल्हा पाऊस सतर्कता सल्ला',
     advisoryClear: 'काढणीसाठी अनुकूल हवामान',
     actionTipsTitle: 'शेतकऱ्यांसाठी महत्त्वाच्या कृती:',
-    simulatorAction: 'Apply to Simulator',
+    simulatorAction: 'सिम्युलेटरमध्ये वापरा',
     demoNotice: 'डेमो हवामान डेटा',
     demoNoticeSub: 'थेट हवामान सेवा कॉन्फिगर केलेली नाही. माहिती केवळ प्रात्यक्षिकासाठी आहे.',
     lastUpdated: 'शेवटचे अपडेट:',
     loading: 'जिल्ह्याची हवामान माहिती लोड होत आहे...',
-    errorTitle: 'हवामान माहिती मिळवण्यात अडचण'
+    errorTitle: 'हवामान माहिती मिळवण्यात अडचण',
+    useLiveLocation: '📍 थेट स्थान वापरा',
+    gpsActive: 'GPS सक्रिय',
+    locatingGps: 'GPS शोधत आहे...',
   }
 };
 
@@ -286,12 +298,12 @@ export default function WeatherAdvisoryWidget({
             {detectingGps ? (
               <>
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                <span>Locating GPS...</span>
+                <span>{t.locatingGps || 'Locating GPS...'}</span>
               </>
             ) : (
               <>
-                <span>📍 Use Live Location</span>
-                {isUsingGps && <span className="text-[10px] bg-emerald-950/40 px-1.5 py-0.5 rounded-full font-mono">GPS Active</span>}
+                <span>{t.useLiveLocation || '📍 Use Live Location'}</span>
+                {isUsingGps && <span className="text-[10px] bg-emerald-950/40 px-1.5 py-0.5 rounded-full font-mono">{t.gpsActive || 'GPS Active'}</span>}
               </>
             )}
           </button>

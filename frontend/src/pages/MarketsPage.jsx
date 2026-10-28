@@ -15,7 +15,7 @@ export default function MarketsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto py-6 px-4">
+    <div className="space-y-6 w-full max-w-full 2xl:max-w-[1720px] mx-auto py-4 sm:py-6 px-2 sm:px-4">
       {/* Module Hero Banner — Emerald / Teal Identity with Fresh Agricultural Market Visual */}
       <section className="relative rounded-3xl overflow-hidden shadow-xl border border-teal-800/40 text-white animate-fade-slide-up">
         {/* Photographic Mandi Produce Background with cover & responsive overlay */}
@@ -30,13 +30,13 @@ export default function MarketsPage() {
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/20 text-teal-300 border border-teal-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
               <TrendingUp className="w-3.5 h-3.5 text-teal-400" />
-              <span>Mandi Price Intelligence</span>
+              <span>{t('markets.badge', 'Mandi Price Intelligence')}</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
               {t('markets.title', 'Maharashtra APMC Mandi Rates')}
             </h1>
             <p className="text-xs sm:text-sm text-teal-100 font-medium leading-relaxed drop-shadow-xs">
-              Compare available crop prices before deciding where to sell.
+              {t('markets.subtitle', 'Compare available crop prices before deciding where to sell.')}
             </p>
           </div>
 
@@ -51,7 +51,7 @@ export default function MarketsPage() {
                   placeholder={t('markets.voiceSearchPlaceholder', 'Speak or search crop...')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 pr-3 py-2 text-xs sm:text-sm bg-slate-900/80 border border-teal-500/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-teal-400 w-44 sm:w-56"
+                  className="pl-9 pr-3 py-2 text-xs sm:text-sm bg-slate-900/80 border border-teal-500/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-teal-400 w-44 sm:w-56 font-medium"
                 />
               </div>
               <VoiceSearchButton
