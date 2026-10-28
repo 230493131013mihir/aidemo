@@ -13,7 +13,9 @@ const {
     listMarkets,
     listCrops,
     reports,
-    listAuditLogs
+    listAuditLogs,
+    listVehicles,
+    vehicleMetrics
 } = require("../controllers/admin.controller");
 
 const router = express.Router();
@@ -23,6 +25,9 @@ router.get("/overview", overview);
 router.get("/users", listUsers);
 router.put("/users/:id", updateUser);
 router.delete("/users/:id", deleteUser);
+
+router.get("/vehicles", listVehicles);
+router.get("/vehicle-metrics", vehicleMetrics);
 
 router.get("/market-prices", listMarketPrices);
 router.post("/market-prices", createMarketPrice);
