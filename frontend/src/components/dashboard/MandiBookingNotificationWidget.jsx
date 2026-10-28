@@ -73,6 +73,7 @@ export default function MandiBookingNotificationWidget() {
   }, [isAuthenticated, user?.id]);
 
   const handleUpdateStatus = async (bookingId, newStatus) => {
+    if (updatingId) return;
     try {
       setUpdatingId(bookingId);
       const token = sessionStorage.getItem('harvestmitra_token') || localStorage.getItem('harvestmitra_token');

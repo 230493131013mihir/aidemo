@@ -37,7 +37,12 @@ async function runTests() {
       mainCrop: 'Cotton',
       currentHarvestKg: 500
     });
+  } else {
+    await ContactRequest.destroy({ where: { receiverId: farmer.id } });
   }
+
+  // Clean up prior test requests for this isolated test farmer so test runs are idempotent
+  await ContactRequest.destroy({ where: { receiverId: farmer.id } });
 
   // 2. Create or retrieve test mandi official
   let mandiUser = await User.findOne({ where: { email: 'test_mandi_official@harvestmitra.test' } });

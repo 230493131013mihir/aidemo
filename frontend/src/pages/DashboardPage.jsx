@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { 
   Sprout, 
   Scale, 
@@ -13,7 +13,9 @@ import {
   Sparkles,
   ArrowRight,
   ShieldCheck,
-  FileText
+  FileText,
+  Truck,
+  Bot
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -27,6 +29,8 @@ import { useAuth } from '../context/AuthContext';
 
 // Dashboard Components
 import DashboardHeader from '../components/dashboard/DashboardHeader';
+import FarmerActionCards from '../components/dashboard/FarmerActionCards';
+import FarmerSummarySection from '../components/dashboard/FarmerSummarySection';
 import ProfileSummary from '../components/dashboard/ProfileSummary';
 import TransporterDashboard from '../components/dashboard/TransporterDashboard';
 import MandiDashboard from '../components/dashboard/MandiDashboard';
@@ -38,6 +42,7 @@ import PlanningHistoryChart from '../components/dashboard/PlanningHistoryChart';
 import RecentActivity from '../components/dashboard/RecentActivity';
 import TransportSummary from '../components/dashboard/TransportSummary';
 import MitraAssistantCard from '../components/dashboard/MitraAssistantCard';
+import MitraFarmerCopilotWidget from '../components/dashboard/MitraFarmerCopilotWidget';
 import QuickActions from '../components/dashboard/QuickActions';
 import PrintableReportModal from '../components/common/PrintableReportModal';
 import RegisteredCropsManager from '../components/dashboard/RegisteredCropsManager';
@@ -281,14 +286,35 @@ function FarmerDashboard({ user, t }) {
     : `Net Take-Home (${(activeCropData?.expectedYieldKg || 0).toLocaleString('en-IN')} kg @ ₹${activeCropData?.mandiRatePerKg || 0}/kg)`;
 
   return (
-    <div className="space-y-6 sm:space-y-8 w-full max-w-7xl mx-auto pb-12">
-      {/* 1. Dashboard Header */}
+    <div className="space-y-6 sm:space-y-8 w-full max-w-full 2xl:max-w-[1720px] mx-auto pb-12">
+      {/* 1. Dashboard Header (Top Greeting, Simple Location & Ask Mitra AI) */}
       <DashboardHeader />
 
-      {/* 2. Farmer Profile Summary */}
+      {/* 2. Four Clear, Large Main Action Cards */}
+      <FarmerActionCards 
+        primaryCrop={crops.length ? crops[0].cropName : 'Tomato'}
+        primaryPrice={primaryPrice || 28.50}
+        marketName={primaryMarketName}
+        estimatedProceeds={currentStatRevenue || 35138}
+        quantityKg={totalCombinedHarvestKg || 1500}
+      />
+
+      {/* 2.1 Mitra AI Farmer Copilot (Prominent One-Click Access & Suggested Questions) */}
+      <MitraFarmerCopilotWidget />
+
+      {/* 2.2 Farmer Profile Summary */}
       <ProfileSummary />
 
-      {/* 2.2 Live APMC Mandi Booking & Procurement Inquiries */}
+      {/* 3. Operational Farmer Summary (Crops listed, Active bookings, Upcoming tasks, Local weather) */}
+      <FarmerSummarySection 
+        crops={crops} 
+        onAddCropClick={() => {
+          const el = document.getElementById('registered-crops');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }}
+      />
+
+      {/* 4. Live APMC Mandi Procurement Inquiries */}
       <MandiBookingNotificationWidget />
 
       {/* 2.5 Action Bar: Printable Kisan Farm Decision Report Banner */}
@@ -439,14 +465,16 @@ function FarmerDashboard({ user, t }) {
         </div>
       </section>
 
-      {/* 3.1 NEW: My Registered Crops (STEP 8 Layout & STEP 3-6 Dynamic Calculations) */}
-      <RegisteredCropsManager
-        crops={crops}
-        loading={loadingCrops}
-        onRefresh={fetchFarmerCrops}
-        district={farmerDistrict}
-        state={farmerState}
-      />
+      {/* 3.1 My Registered Crops */}
+      <div id="registered-crops" className="scroll-mt-20">
+        <RegisteredCropsManager
+          crops={crops}
+          loading={loadingCrops}
+          onRefresh={fetchFarmerCrops}
+          district={farmerDistrict}
+          state={farmerState}
+        />
+      </div>
 
       {/* 3.5 Multi-Crop Farm Profile Switcher with Interactive Recharts Acreage Distribution Chart */}
       <section aria-labelledby="multi-crop-heading" className="space-y-4">

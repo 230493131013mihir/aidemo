@@ -42,8 +42,23 @@ export default function MitraAssistantCard() {
             {t('dashboard.mitraAssistant.promptTitle')}
           </h4>
           <p className="text-xs leading-relaxed font-normal" style={{ color: '#F1F5F9' }}>
-            Ask questions in Gujarati, Hindi, Marathi, or English about crop harvesting timing, pesticide remedies, or today&apos;s APMC mandi rates.
+            Ask questions in Marathi, English, Hindi, or Gujarati about crop selling, profit calculations, real transport, or weather risks.
           </p>
+
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            <Link
+              to="/chat?prompt=Where+should+I+sell+my+crop%3F"
+              className="text-[11px] px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-emerald-200 border border-white/15 transition-all"
+            >
+              Where should I sell my crop?
+            </Link>
+            <Link
+              to="/chat?prompt=Calculate+my+estimated+profit."
+              className="text-[11px] px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-amber-200 border border-white/15 transition-all"
+            >
+              Calculate my estimated profit
+            </Link>
+          </div>
         </div>
 
         {/* Action CTA */}

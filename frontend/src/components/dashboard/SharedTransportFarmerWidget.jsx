@@ -170,8 +170,6 @@ export default function SharedTransportFarmerWidget({
   const [showAllCommodities, setShowAllCommodities] = useState(false);
   const [isOtherCropSelected, setIsOtherCropSelected] = useState(false);
   const [customCropName, setCustomCropName] = useState('');
-  const [isOtherVehicleSelected, setIsOtherVehicleSelected] = useState(false);
-  const [customVehicleType, setCustomVehicleType] = useState('');
 
   // Clean initial crop string to single commodity if passed with commas
   const cleanInitialCrop = useMemo(() => {
@@ -210,9 +208,10 @@ export default function SharedTransportFarmerWidget({
   const [isSharedPooling, setIsSharedPooling] = useState(true);
   const [sharingFarmersCount, setSharingFarmersCount] = useState(2);
 
-  // Available vehicles from backend
+  // Available vehicles from backend (Database source of truth)
   const [availableVehicles, setAvailableVehicles] = useState([]);
   const [loadingVehicles, setLoadingVehicles] = useState(false);
+  const [vehicleFetchError, setVehicleFetchError] = useState(null);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
 
   // My Bookings
@@ -235,6 +234,37 @@ export default function SharedTransportFarmerWidget({
   const totalWeightKg = useMemo(() => {
     return convertToKg(quantity, quantityUnit);
   }, [quantity, quantityUnit]);
+
+  // Active booking statuses indicating ongoing reservation
+  const ACTIVE_BOOKING_STATUSES = useMemo(() => [
+    'open', 'pending', 'confirmed', 'accepted', 'driver_assigned',
+    'vehicle_assigned', 'awaiting_pickup', 'pickup_confirmed', 'in_transit', 'arrived_destination'
+  ], []);
+
+  // Helper to determine if the currently logged-in farmer already has an active booking on a vehicle
+  const getUserBookingForVehicle = React.useCallback((vehicle) => {
+    if (!vehicle) return null;
+    if (vehicle.userActiveBooking) return vehicle.userActiveBooking;
+    return (
+      myBookings.find(
+        (b) => Number(b.vehicleId) === Number(vehicle.id) &&
+               ACTIVE_BOOKING_STATUSES.includes(b.status) &&
+               (!selectedCrop || b.cropName?.toLowerCase() === selectedCrop?.toLowerCase()) &&
+               (!pickupDate || b.pickupDate === pickupDate)
+      ) ||
+      myBookings.find(
+        (b) => Number(b.vehicleId) === Number(vehicle.id) &&
+               ACTIVE_BOOKING_STATUSES.includes(b.status)
+      ) ||
+      null
+    );
+  }, [myBookings, selectedCrop, pickupDate, ACTIVE_BOOKING_STATUSES]);
+
+  // Existing booking on currently selected vehicle for this requirement
+  const selectedVehicleBooking = useMemo(() => {
+    if (!selectedVehicle) return null;
+    return getUserBookingForVehicle(selectedVehicle);
+  }, [selectedVehicle, getUserBookingForVehicle]);
 
   // Sync initial props if changed externally
   useEffect(() => {
@@ -281,7 +311,6 @@ export default function SharedTransportFarmerWidget({
   const handleSelectCrop = (cropName) => {
     setSelectedCrop(cropName);
     setIsOtherCropSelected(false);
-    setIsOtherVehicleSelected(false);
 
     // Auto-fetch and sync the farmer's registered harvest weight for this specific crop
     const match = farmerCropsList.find(
@@ -299,6 +328,7 @@ export default function SharedTransportFarmerWidget({
   // Fetch verified vehicles matching crop & route from backend API
   const fetchVehicles = async () => {
     setLoadingVehicles(true);
+    setVehicleFetchError(null);
     try {
       const params = new URLSearchParams({
         crop: selectedCrop,
@@ -312,8 +342,8 @@ export default function SharedTransportFarmerWidget({
       const res = await fetch(`${API_BASE_URL}/api/transport/vehicles?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token || 'guest'}` }
       });
-      const data = await res.json();
-      if (data.success && Array.isArray(data.data)) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && Array.isArray(data.data)) {
         setAvailableVehicles(data.data);
         if (data.data.length > 0) {
           const matchingVehicle =
@@ -325,9 +355,16 @@ export default function SharedTransportFarmerWidget({
         } else {
           setSelectedVehicle(null);
         }
+      } else {
+        setVehicleFetchError(data.message || 'Unable to connect to vehicle availability database');
+        setAvailableVehicles([]);
+        setSelectedVehicle(null);
       }
     } catch (err) {
       console.warn('Could not fetch vehicles:', err.message);
+      setVehicleFetchError(err.message || 'Network error fetching verified transport vehicles');
+      setAvailableVehicles([]);
+      setSelectedVehicle(null);
     } finally {
       setLoadingVehicles(false);
     }
@@ -482,6 +519,38 @@ export default function SharedTransportFarmerWidget({
       return;
     }
 
+    if (!selectedVehicle || !selectedVehicle.id) {
+      showToast({ type: 'warning', title: 'Vehicle Required', message: 'Please select an available vehicle from the verified database list.' });
+      return;
+    }
+
+    if (selectedVehicleBooking) {
+      showToast({
+        type: 'warning',
+        title: 'Already Booked',
+        message: `You already have an active booking (#${selectedVehicleBooking.bookingId || selectedVehicleBooking.id}) on this vehicle. Check My Bookings.`
+      });
+      return;
+    }
+
+    if (selectedVehicle.isFullyBooked || (selectedVehicle.remainingCapacityKg !== undefined && selectedVehicle.remainingCapacityKg <= 0)) {
+      showToast({
+        type: 'error',
+        title: 'Vehicle Fully Booked',
+        message: 'This vehicle is fully booked for this date. Please select another vehicle.'
+      });
+      return;
+    }
+
+    if (selectedVehicle.remainingCapacityKg !== undefined && totalWeightKg > selectedVehicle.remainingCapacityKg) {
+      showToast({
+        type: 'error',
+        title: 'Insufficient Vehicle Capacity',
+        message: `Requested ${totalWeightKg} kg exceeds remaining capacity of ${selectedVehicle.remainingCapacityKg} kg.`
+      });
+      return;
+    }
+
     setSubmittingBooking(true);
 
     try {
@@ -514,14 +583,24 @@ export default function SharedTransportFarmerWidget({
         body: JSON.stringify(payload)
       });
 
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || 'Booking submission failed');
+      const json = await res.json().catch(() => ({}));
+      if (res.status === 409 || !res.ok || !json.success) {
+        // Authoritative reload of vehicles and bookings on conflict
+        await Promise.all([fetchVehicles(), fetchMyBookings()]);
+        const isDuplicate = json.code === 'DUPLICATE_BOOKING';
+        const isFull = json.code === 'VEHICLE_FULLY_BOOKED';
+        showToast({
+          type: 'error',
+          title: isDuplicate ? 'Duplicate Booking Prevented' : isFull ? 'Vehicle Fully Booked' : 'Booking Error',
+          message: json.message || 'Server rejected booking due to existing active reservation or capacity limits.'
+        });
+        return;
       }
 
       setConfirmedBooking(json.data);
       setIsGatePassModalOpen(true);
       setSelectedVehicle(null);
+      await Promise.all([fetchMyBookings(), fetchVehicles()]);
       setActiveTab('my-bookings');
 
       showToast({
@@ -531,8 +610,6 @@ export default function SharedTransportFarmerWidget({
         duration: 5000
       });
 
-      fetchMyBookings();
-      fetchVehicles();
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('harvestmitra:booking-created', { detail: json.data }));
       }
@@ -568,21 +645,30 @@ export default function SharedTransportFarmerWidget({
     }
   };
 
-  // Status Badge Helper
+  // Semantic Status Badge Helper adhering to Transport Color System
   const getStatusBadge = (status) => {
     switch (status) {
       case 'confirmed':
+      case 'accepted':
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">✓ Confirmed</span>;
       case 'driver_assigned':
-        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">{t('farmerTransport.statusDriverAssignedBadge', 'Confirmed • Driver Assigned')}</span>;
+      case 'vehicle_assigned':
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200">🚚 Driver Assigned</span>;
+      case 'awaiting_pickup':
+      case 'pickup_confirmed':
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-300">📦 Awaiting Pickup</span>;
       case 'in_transit':
-        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200 animate-pulse">{t('farmerTransport.statusInTransitBadge', '🛣️ In Transit')}</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-800 border border-purple-200 animate-pulse">🛣️ In Transit</span>;
       case 'delivered':
       case 'completed':
-        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">{t('farmerTransport.statusDeliveredMandi', '✓ Delivered at Mandi')}</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">✓ Delivered at Mandi</span>;
       case 'cancelled':
-        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">{t('farmerTransport.statusCancelled', 'Cancelled')}</span>;
+      case 'rejected':
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-300">✕ Cancelled</span>;
+      case 'pending':
+      case 'open':
       default:
-        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">{t('farmerTransport.statusPendingReview', 'Pending Review')}</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-300">⏳ Pending Confirmation</span>;
     }
   };
 
@@ -599,11 +685,11 @@ export default function SharedTransportFarmerWidget({
 
       {/* Pool Join Confirmation Modal (Feature 4 Requirement F4.5) */}
       {poolToConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg p-6 space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <span className="p-2 rounded-xl bg-emerald-100 text-emerald-800">
+                <span className="p-2 rounded-xl bg-purple-100 text-purple-800">
                   <Users className="w-5 h-5" />
                 </span>
                 <h3 className="text-base font-black text-slate-900">
@@ -613,15 +699,15 @@ export default function SharedTransportFarmerWidget({
               <button
                 type="button"
                 onClick={() => setPoolToConfirm(null)}
-                className="p-1 rounded-xl text-slate-400 hover:text-slate-600"
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-3 text-xs text-slate-700">
-              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-1.5">
-                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+              <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-200 space-y-1.5">
+                <span className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block">
                   Trip & Route Verification
                 </span>
                 <p className="font-bold text-slate-900">
@@ -647,11 +733,11 @@ export default function SharedTransportFarmerWidget({
                   <span>Solo Booking Fare:</span>
                   <span className="line-through text-slate-400">{formatINR(poolToConfirm.soloCost)}</span>
                 </div>
-                <div className="flex justify-between text-emerald-800 font-extrabold text-sm border-t border-slate-200 pt-1">
+                <div className="flex justify-between text-blue-900 font-extrabold text-sm border-t border-slate-200 pt-1">
                   <span>Your Pooled Fare:</span>
                   <span>{formatINR(poolToConfirm.sharedCost)}</span>
                 </div>
-                <div className="flex justify-between text-emerald-600 font-bold text-[11px]">
+                <div className="flex justify-between text-purple-700 font-bold text-[11px]">
                   <span>Total Savings:</span>
                   <span>+{formatINR(poolToConfirm.savings)} ({poolToConfirm.savingsPercent}%)</span>
                 </div>
@@ -675,7 +761,7 @@ export default function SharedTransportFarmerWidget({
                 type="button"
                 disabled={joiningPool}
                 onClick={handleConfirmJoinPool}
-                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
               >
                 {joiningPool ? 'Booking Pool...' : 'Confirm & Issue Gate Pass'}
               </button>
@@ -684,51 +770,51 @@ export default function SharedTransportFarmerWidget({
         </div>
       )}
 
-      {/* Header with Dual Navigation Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+      {/* Main Logistics Dashboard Header with Deep Navy Styling */}
+      <div className="rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 p-5 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm border border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/20">
-            <Truck className="w-5 h-5" />
+          <div className="w-11 h-11 rounded-2xl bg-blue-600/30 text-blue-400 border border-blue-500/40 flex items-center justify-center shadow-inner">
+            <Truck className="w-6 h-6 text-blue-400" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-slate-900 tracking-tight">
-                {t('farmerTransport.widgetTitle', 'Shared Transport & Crop Vehicle Booking')}
+              <h2 className="text-lg font-black text-white tracking-tight">
+                {t('farmerTransport.widgetTitle', 'Logistics & Shared Freight Dispatch')}
               </h2>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                {t('farmerTransport.savingsBadge', '50% Freight Savings')}
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/30">
+                Shared Freight Pooling
               </span>
             </div>
-            <p className="text-xs text-muted">
-              {t('farmerTransport.widgetSubtitle', 'Select your crop, choose a verified vehicle suited for your harvest, and book solo or pooled transport.')}
+            <p className="text-xs text-slate-300">
+              Verified crop-specific transport matching, real database availability, and guaranteed zero-duplicate booking.
             </p>
           </div>
         </div>
 
         {/* View Switcher: Book vs My Bookings */}
-        <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-bold shrink-0">
+        <div className="inline-flex rounded-xl bg-slate-800/80 p-1 text-xs font-bold border border-slate-700/80 shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab('book')}
             className={`py-1.5 px-3.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'book'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-black'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-300 hover:text-white'
             }`}
           >
-            <Truck className="w-3.5 h-3.5 text-primary" />
-            <span>{t('farmerTransport.bookTransportTab', 'Book Transport')}</span>
+            <Truck className="w-3.5 h-3.5" />
+            <span>{t('farmerTransport.bookTransportTab', 'Find Transport')}</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('my-bookings')}
             className={`py-1.5 px-3.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'my-bookings'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-black'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-300 hover:text-white'
             }`}
           >
-            <Clock className="w-3.5 h-3.5 text-emerald-600" />
+            <Clock className="w-3.5 h-3.5" />
             <span>{t('farmerTransport.myBookingsTab', 'My Bookings')} ({myBookings.length})</span>
           </button>
         </div>
@@ -810,7 +896,6 @@ export default function SharedTransportFarmerWidget({
                     onClick={() => {
                       setIsOtherCropSelected(true);
                       setSelectedCrop(customCropName.trim() || 'Other');
-                      setIsOtherVehicleSelected(false);
                     }}
                     className={`p-2.5 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
                       isOtherCropSelected
@@ -906,7 +991,6 @@ export default function SharedTransportFarmerWidget({
                           } else {
                             handleSelectCrop(crop.name);
                           }
-                          setIsOtherVehicleSelected(false);
                         }}
                         className={`p-2.5 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
                           isSelected
@@ -1066,34 +1150,34 @@ export default function SharedTransportFarmerWidget({
                 </p>
               </div>
 
-              {/* Shared Transport Toggle */}
-              <div className="flex items-center gap-2 p-1.5 rounded-xl bg-emerald-50 border border-emerald-300">
+              {/* Shared Transport Toggle - Semantic Purple */}
+              <div className="flex items-center gap-2 p-1.5 rounded-xl bg-purple-50 border border-purple-200">
                 <input
                   type="checkbox"
                   id="shared-pooling-toggle"
                   checked={isSharedPooling}
                   onChange={(e) => setIsSharedPooling(e.target.checked)}
-                  className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                  className="w-4 h-4 accent-purple-600 rounded cursor-pointer"
                 />
-                <label htmlFor="shared-pooling-toggle" className="text-xs font-bold text-emerald-950 cursor-pointer flex items-center gap-1">
-                  <Users className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>{t('farmerTransport.sharedPoolingDiscount', 'Shared Pooling (~50% Off Fare)')}</span>
+                <label htmlFor="shared-pooling-toggle" className="text-xs font-bold text-purple-950 cursor-pointer flex items-center gap-1">
+                  <Users className="w-3.5 h-3.5 text-purple-700" />
+                  <span>{t('farmerTransport.sharedPoolingDiscount', 'Shared Pooling (Split Freight)')}</span>
                 </label>
               </div>
             </div>
 
-            {/* FEATURE 4: Active Shared Pooling Match Suggestions */}
+            {/* FEATURE 4: Active Shared Pooling Match Suggestions - Semantic Purple */}
             {isSharedPooling && (
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/90 via-teal-50/70 to-slate-50 border border-emerald-300 shadow-sm space-y-3">
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-50/90 via-indigo-50/70 to-slate-50 border border-purple-200 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="p-1.5 rounded-lg bg-emerald-600 text-white shadow-xs">
+                    <span className="p-1.5 rounded-lg bg-purple-600 text-white shadow-xs">
                       <Users className="w-4 h-4" />
                     </span>
                     <div>
                       <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-2">
                         <span>Compatible Shared Pooling Matches</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200/80 text-emerald-900 border border-emerald-300">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-900 border border-purple-200">
                           {poolMatches.length} Matches Found
                         </span>
                       </h4>
@@ -1103,7 +1187,7 @@ export default function SharedTransportFarmerWidget({
                     </div>
                   </div>
                   {loadingPoolMatches && (
-                    <RefreshCw className="w-4 h-4 animate-spin text-emerald-600" />
+                    <RefreshCw className="w-4 h-4 animate-spin text-purple-600" />
                   )}
                 </div>
 
@@ -1115,7 +1199,7 @@ export default function SharedTransportFarmerWidget({
                     return (
                       <div
                         key={match.id}
-                        className="p-3.5 rounded-xl bg-white border border-emerald-200/90 shadow-2xs hover:shadow-sm transition-all space-y-2.5 flex flex-col justify-between"
+                        className="p-3.5 rounded-xl bg-white border border-purple-200/90 shadow-2xs hover:shadow-sm transition-all space-y-2.5 flex flex-col justify-between"
                       >
                         <div className="space-y-1">
                           <div className="flex items-center justify-between gap-1">
@@ -1129,7 +1213,7 @@ export default function SharedTransportFarmerWidget({
                           <div className="flex items-center gap-2 text-[11px] text-slate-600">
                             <span>Driver: <strong>{match.driverName}</strong></span>
                             <span>•</span>
-                            <span className="text-emerald-700 font-bold">Departs: {match.departureTime}</span>
+                            <span className="text-purple-700 font-bold">Departs: {match.departureTime}</span>
                           </div>
                           
                           {/* Co-Farmers List */}
@@ -1157,12 +1241,12 @@ export default function SharedTransportFarmerWidget({
                           <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
                             <div 
                               className={`h-full rounded-full transition-all ${
-                                capacityPercent > 90 ? 'bg-amber-500' : 'bg-emerald-600'
+                                capacityPercent > 90 ? 'bg-amber-500' : 'bg-purple-600'
                               }`}
                               style={{ width: `${capacityPercent}%` }}
                             />
                           </div>
-                          <span className="text-[10px] text-emerald-700 font-bold block text-right">
+                          <span className="text-[10px] text-purple-700 font-bold block text-right">
                             Space Remaining: {Math.max(0, match.capacity - combinedWeight)} kg free
                           </span>
                         </div>
@@ -1174,10 +1258,10 @@ export default function SharedTransportFarmerWidget({
                               Solo: {formatINR(match.soloCost)}
                             </span>
                             <div className="flex items-baseline gap-1.5">
-                              <span className="text-sm font-black text-emerald-800">
+                              <span className="text-sm font-black text-purple-900">
                                 {formatINR(match.sharedCost)}
                               </span>
-                              <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded">
+                              <span className="text-[10px] font-extrabold text-purple-700 bg-purple-100 px-1.5 py-0.2 rounded">
                                 Save {formatINR(match.savings)} ({match.savingsPercent}%)
                               </span>
                             </div>
@@ -1186,7 +1270,7 @@ export default function SharedTransportFarmerWidget({
                           <button
                             type="button"
                             onClick={() => setPoolToConfirm(match)}
-                            className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1"
+                            className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1"
                           >
                             <span>Join Pool</span>
                             <ArrowRight className="w-3.5 h-3.5" />
@@ -1205,24 +1289,48 @@ export default function SharedTransportFarmerWidget({
                 <RefreshCw className="w-5 h-5 animate-spin mx-auto text-primary" />
                 <span>{t('farmerTransport.checkingVehicles', 'Checking verified vehicle availability across APMC corridors...')}</span>
               </div>
+            ) : vehicleFetchError ? (
+              <div className="p-6 rounded-2xl bg-rose-50 border border-rose-200 text-center space-y-3">
+                <AlertCircle className="w-6 h-6 text-rose-600 mx-auto" />
+                <h4 className="text-sm font-bold text-rose-900">Transport Database Unavailable</h4>
+                <p className="text-xs text-rose-800">{vehicleFetchError}</p>
+                <button
+                  type="button"
+                  onClick={fetchVehicles}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 cursor-pointer transition-colors"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Retry Connection</span>
+                </button>
+              </div>
             ) : availableVehicles.length === 0 ? (
-              <div className="p-6 rounded-2xl bg-amber-50 border border-amber-200 text-center space-y-2">
+              <div className="p-6 rounded-2xl bg-amber-50 border border-amber-200 text-center space-y-3">
                 <AlertCircle className="w-6 h-6 text-amber-600 mx-auto" />
                 <h4 className="text-sm font-bold text-amber-900">{t('farmerTransport.noVehiclesTitle', 'No Vehicles Directly Available for {weight} kg', { weight: totalWeightKg })}</h4>
                 <p className="text-xs text-amber-800">
                   {t('farmerTransport.noVehiclesDesc', 'Try reducing quantity, adjusting pickup date, or switching from shared to solo carrier.')}
                 </p>
+                <button
+                  type="button"
+                  onClick={fetchVehicles}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-400 bg-white hover:bg-amber-100 text-amber-900 text-xs font-bold cursor-pointer transition-colors"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Refresh Availability</span>
+                </button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {availableVehicles.map((vehicle) => {
                   const isSelected = selectedVehicle?.id === vehicle.id;
                   const estimatedFare = isSharedPooling ? vehicle.estimatedSharedFare : vehicle.estimatedSoloFare;
-                  const savings = vehicle.estimatedSoloFare - vehicle.estimatedSharedFare;
+                  const savings = Math.max(0, (vehicle.estimatedSoloFare || 0) - (vehicle.estimatedSharedFare || 0));
+                  const savingsPercent = vehicle.estimatedSoloFare > 0 ? Math.round((savings / vehicle.estimatedSoloFare) * 100) : 0;
 
-                  const userActiveBooking = myBookings.find(
-                    (b) => Number(b.vehicleId) === Number(vehicle.id) && !['delivered', 'completed', 'cancelled', 'rejected'].includes(b.status)
-                  );
+                  const userActiveBooking = getUserBookingForVehicle(vehicle);
+                  const isAlreadyBooked = Boolean(userActiveBooking);
+                  const isFullyBooked = vehicle.isFullyBooked || (vehicle.remainingCapacityKg !== undefined && vehicle.remainingCapacityKg <= 0);
+                  const isCapacityInsufficient = !isFullyBooked && vehicle.remainingCapacityKg !== undefined && totalWeightKg > vehicle.remainingCapacityKg;
 
                   return (
                     <div
@@ -1231,21 +1339,55 @@ export default function SharedTransportFarmerWidget({
                         setSelectedVehicle(vehicle);
                       }}
                       className={`p-4 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between space-y-3 ${
-                        userActiveBooking
-                          ? 'border-emerald-500 bg-emerald-50/60 shadow-xs ring-1 ring-emerald-400'
+                        isAlreadyBooked
+                          ? userActiveBooking?.status === 'pending'
+                            ? 'border-amber-400 bg-amber-50/50 shadow-xs ring-1 ring-amber-300'
+                            : ['in_transit'].includes(userActiveBooking?.status)
+                            ? 'border-purple-400 bg-purple-50/50 shadow-xs ring-1 ring-purple-300'
+                            : 'border-emerald-500 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-300'
+                          : isFullyBooked
+                          ? 'border-rose-300 bg-rose-50/40 opacity-80 shadow-2xs'
                           : isSelected
-                          ? 'border-primary bg-emerald-50/50 shadow-md ring-2 ring-primary/20'
-                          : 'border-slate-200 bg-white hover:border-slate-300 shadow-2xs'
+                          ? 'border-blue-600 bg-blue-50/30 shadow-md ring-2 ring-blue-500/20'
+                          : 'border-slate-200 bg-white hover:border-blue-400 shadow-2xs'
                       }`}
                     >
-                      {userActiveBooking ? (
-                        <div className="absolute -top-2.5 right-4 px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center gap-1 shadow-xs">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-200" />
-                          <span>Booked by You ({userActiveBooking.weightKg} kg)</span>
+                      {/* Top Badges */}
+                      {isAlreadyBooked ? (
+                        <div
+                          className={`absolute -top-2.5 right-4 px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs ${
+                            userActiveBooking?.status === 'pending'
+                              ? 'bg-amber-500 text-white'
+                              : ['in_transit'].includes(userActiveBooking?.status)
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-emerald-600 text-white'
+                          }`}
+                        >
+                          {userActiveBooking?.status === 'pending' ? (
+                            <>
+                              <Clock className="w-3 h-3 text-amber-100" />
+                              <span>ALREADY BOOKED • PENDING ({userActiveBooking.weightKg} kg)</span>
+                            </>
+                          ) : ['in_transit'].includes(userActiveBooking?.status) ? (
+                            <>
+                              <Truck className="w-3 h-3 text-purple-100" />
+                              <span>ALREADY BOOKED • IN TRANSIT</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="w-3 h-3 text-emerald-100" />
+                              <span>ALREADY BOOKED • CONFIRMED ({userActiveBooking.weightKg} kg)</span>
+                            </>
+                          )}
+                        </div>
+                      ) : isFullyBooked ? (
+                        <div className="absolute -top-2.5 right-4 px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center gap-1 shadow-xs">
+                          <AlertCircle className="w-3 h-3 text-rose-100" />
+                          <span>FULLY BOOKED (0 kg free)</span>
                         </div>
                       ) : isSelected ? (
-                        <div className="absolute -top-2.5 right-4 px-2 py-0.5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center gap-1 shadow-xs">
-                          <Check className="w-3 h-3" /> {t('farmerTransport.selectedVehicleBadge', 'Selected Vehicle')}
+                        <div className="absolute -top-2.5 right-4 px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center gap-1 shadow-xs">
+                          <Check className="w-3 h-3" /> Selected Vehicle
                         </div>
                       ) : null}
 
@@ -1260,8 +1402,8 @@ export default function SharedTransportFarmerWidget({
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                           {vehicle.isRecommended && (
-                            <span className="text-[9.5px] font-black text-emerald-800 bg-emerald-100/90 border border-emerald-300/80 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
-                              {t('farmerTransport.recommendedFor', '⭐️ Recommended for {crop}', { crop: selectedCrop })}
+                            <span className="text-[9.5px] font-black text-blue-800 bg-blue-100/90 border border-blue-300/80 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                              ⭐️ Recommended for {selectedCrop}
                             </span>
                           )}
                           <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md inline-block">
@@ -1273,25 +1415,33 @@ export default function SharedTransportFarmerWidget({
                       {/* Specs Matrix */}
                       <div className="grid grid-cols-2 gap-1.5 text-[11px] bg-white p-2.5 rounded-xl border border-slate-200/90">
                         <div>
-                          <span className="text-muted block text-[10px]">{t('farmerTransport.totalCapacity', 'Total Capacity:')}</span>
+                          <span className="text-slate-500 block text-[10px]">Total Capacity:</span>
                           <span className="font-bold text-slate-900 font-mono">
                             {vehicle.capacityKg.toLocaleString('en-IN')} kg
                           </span>
                         </div>
                         <div>
-                          <span className="text-muted block text-[10px]">{t('farmerTransport.spaceAvailable', 'Space Available:')}</span>
-                          <span className="font-bold text-emerald-700 font-mono">
-                            {vehicle.remainingCapacityKg.toLocaleString('en-IN')} kg {t('farmerTransport.free', 'free')}
+                          <span className="text-slate-500 block text-[10px]">Space Available:</span>
+                          <span
+                            className={`font-bold font-mono ${
+                              isFullyBooked
+                                ? 'text-rose-600'
+                                : isCapacityInsufficient
+                                ? 'text-amber-600'
+                                : 'text-blue-700'
+                            }`}
+                          >
+                            {isFullyBooked ? '0 kg (Full)' : `${vehicle.remainingCapacityKg.toLocaleString('en-IN')} kg free`}
                           </span>
                         </div>
                         <div>
-                          <span className="text-muted block text-[10px]">{t('farmerTransport.driver', 'Driver:')}</span>
+                          <span className="text-slate-500 block text-[10px]">Driver:</span>
                           <span className="font-semibold text-slate-800 block truncate">
                             {vehicle.driverName}
                           </span>
                         </div>
                         <div>
-                          <span className="text-muted block text-[10px]">{t('farmerTransport.route', 'Route:')}</span>
+                          <span className="text-slate-500 block text-[10px]">Route:</span>
                           <span className="font-semibold text-slate-800 block truncate">
                             {vehicle.baseLocation || 'Pune'} ➔ APMC
                           </span>
@@ -1301,8 +1451,8 @@ export default function SharedTransportFarmerWidget({
                       {/* Pricing Details */}
                       <div className="pt-2 border-t border-slate-100 flex items-baseline justify-between">
                         <div>
-                          <span className="text-[10px] text-muted block">
-                            {isSharedPooling ? t('farmerTransport.estimatedSharedFare', 'Estimated Shared Fare:') : t('farmerTransport.soloTruckFare', 'Solo Truck Fare:')}
+                          <span className="text-[10px] text-slate-500 block">
+                            {isSharedPooling ? 'Estimated Shared Fare:' : 'Solo Truck Fare:'}
                           </span>
                           <span className="text-base font-black text-slate-900">
                             {formatINR(estimatedFare)}
@@ -1311,177 +1461,63 @@ export default function SharedTransportFarmerWidget({
 
                         {isSharedPooling && (
                           <div className="text-right">
-                            <span className="text-[10px] text-emerald-700 font-bold block">
-                              {t('farmerTransport.saveBadge', 'Save +{amount}!', { amount: formatINR(savings) })}
-                            </span>
-                            <span className="text-[9px] text-muted font-mono">{t('farmerTransport.poolDiscountBadge', '~50% Pool Discount')}</span>
+                            {savings > 0 ? (
+                              <>
+                                <span className="text-[10px] text-purple-700 font-bold block">
+                                  Save +{formatINR(savings)}!
+                                </span>
+                                <span className="text-[9px] text-slate-500 font-mono">{savingsPercent}% Pool Savings</span>
+                              </>
+                            ) : (
+                              <span className="text-[10px] text-slate-500 font-bold block">
+                                Shared Fare
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>
                     </div>
                   );
                 })}
-
-                {/* NEW 'Other' Transport Truck / Custom Fleet Option Card */}
-                <div
-                  onClick={() => {
-                    setIsOtherVehicleSelected(true);
-                    const customType = customVehicleType.trim() || 'Custom Specialized Transport Truck';
-                    const customVeh = {
-                      id: 'custom-vehicle-other',
-                      vehicleType: customType,
-                      registrationNumber: 'CUSTOM-FLEET',
-                      capacityKg: Math.max(3000, totalWeightKg * 2),
-                      remainingCapacityKg: Math.max(3000, totalWeightKg * 2),
-                      driverName: 'Assigned Transporter on Dispatch',
-                      baseLocation: pickupLocation || 'Maharashtra APMC Corridor',
-                      ratePerKm: 28,
-                      estimatedSoloFare: Math.round(Math.max(1200, totalWeightKg * 3.2)),
-                      estimatedSharedFare: Math.round(Math.max(650, totalWeightKg * 1.7)),
-                      cropSuitabilityReason: `Custom specialized transport tailored for ${selectedCrop}`,
-                      isCropSuitable: true,
-                      isRecommended: true
-                    };
-                    setSelectedVehicle(customVeh);
-                  }}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between space-y-3 ${
-                    isOtherVehicleSelected
-                      ? 'border-primary bg-emerald-50/70 shadow-md ring-2 ring-primary/20'
-                      : 'border-dashed border-emerald-300 bg-emerald-50/30 hover:border-emerald-400 hover:bg-emerald-50/60 shadow-2xs'
-                  }`}
-                >
-                  {isOtherVehicleSelected && (
-                    <div className="absolute -top-2.5 right-4 px-2 py-0.5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center gap-1 shadow-xs">
-                      <Check className="w-3 h-3" /> {t('farmerTransport.selectedVehicleBadge', 'Selected Vehicle')}
-                    </div>
-                  )}
-
-                  <div className="space-y-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="text-sm font-black text-slate-900 leading-snug flex items-center gap-1.5">
-                        <span>{t('farmerTransport.otherTransportTruck', '🚛 Other Transport Truck')}</span>
-                      </h4>
-                      <span className="text-[10px] font-mono font-bold bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded border border-teal-300">
-                        {t('farmerTransport.otherOption', '➕ Other Option')}
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-bold text-teal-900 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md inline-block">
-                      {t('farmerTransport.customCarrierDesc', 'Custom carrier: Flatbed, Tractor-Trolley, 14-Wheeler, or Custom Dispatch')}
-                    </span>
-
-                    {/* Custom Truck Type Input */}
-                    {isOtherVehicleSelected && (
-                      <div className="pt-2 space-y-1" onClick={(e) => e.stopPropagation()}>
-                        <label className="text-[10.5px] font-bold text-slate-700 block">
-                          {t('farmerTransport.specifyTruckType', 'Specify Truck Type / Trailer:')}
-                        </label>
-                        <input
-                          type="text"
-                          value={customVehicleType}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setCustomVehicleType(val);
-                            setSelectedVehicle((prev) => ({
-                              ...prev,
-                              vehicleType: val.trim() || 'Custom Specialized Transport Truck'
-                            }));
-                          }}
-                          placeholder="e.g. Tractor Trolley, 14-Wheeler Flatbed, Eicher 19-ft, Open Body Carrier..."
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold outline-none focus:border-primary shadow-2xs"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Specs Matrix */}
-                  <div className="grid grid-cols-2 gap-1.5 text-[11px] bg-white p-2.5 rounded-xl border border-slate-200/90">
-                    <div>
-                      <span className="text-muted block text-[10px]">{t('farmerTransport.totalCapacity', 'Capacity:')}</span>
-                      <span className="font-bold text-slate-900 font-mono">
-                        {t('farmerTransport.onDemandFlexible', 'On-Demand Flexible')}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted block text-[10px]">{t('farmerTransport.spaceAvailable', 'Space:')}</span>
-                      <span className="font-bold text-emerald-700 font-mono">
-                        {t('farmerTransport.guaranteedSpace', 'Guaranteed for {weight} kg', { weight: totalWeightKg })}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted block text-[10px]">{t('farmerTransport.driver', 'Driver:')}</span>
-                      <span className="font-semibold text-slate-800 block truncate">
-                        {t('farmerTransport.assignedTransporter', 'Assigned Transporter')}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted block text-[10px]">{t('farmerTransport.corridor', 'Corridor:')}</span>
-                      <span className="font-semibold text-slate-800 block truncate">
-                        {pickupLocation || 'Local Farm'} ➔ {destination}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Pricing Details */}
-                  <div className="pt-2 border-t border-slate-200/80 flex items-baseline justify-between">
-                    <div>
-                      <span className="text-[10px] text-muted block">
-                        {isSharedPooling ? t('farmerTransport.estimatedSharedFare', 'Estimated Shared Fare:') : t('farmerTransport.soloTruckFare', 'Solo Truck Fare:')}
-                      </span>
-                      <span className="text-base font-black text-slate-900">
-                        {formatINR(isSharedPooling ? Math.round(Math.max(650, totalWeightKg * 1.7)) : Math.round(Math.max(1200, totalWeightKg * 3.2)))}
-                      </span>
-                    </div>
-                    {isSharedPooling && (
-                      <div className="text-right">
-                        <span className="text-[10px] text-emerald-700 font-bold block">
-                          {t('farmerTransport.poolSavingsBadge', '~50% Pool Savings')}
-                        </span>
-                        <span className="text-[9px] text-muted font-mono">{t('farmerTransport.specializedTransit', 'Specialized Transit')}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
               </div>
             )}
           </div>
 
-          {/* SHARED TRANSPORT POOLING SUMMARY BREAKDOWN */}
+          {/* SHARED TRANSPORT POOLING SUMMARY BREAKDOWN - DEEP NAVY LOGISTICS STYLING */}
           {isSharedPooling && selectedVehicle && (
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-slate-50 border border-emerald-300 space-y-2">
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border border-slate-800 text-white space-y-2 shadow-sm">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>{t('farmerTransport.poolTransparencyTitle', 'Shared Pooling Cost & Space Transparency')}</span>
+                <span className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Shared Pooling Cost & Space Transparency</span>
                 </span>
-                <span className="text-xs font-bold text-emerald-800 bg-white px-2.5 py-0.5 rounded-full border border-emerald-200">
-                  {t('farmerTransport.totalFareSplit', 'Total Fare: {fare} (Split Proportionally)', { fare: formatINR(selectedVehicle.estimatedSoloFare) })}
+                <span className="text-xs font-bold text-blue-300 bg-blue-950/80 px-2.5 py-0.5 rounded-full border border-blue-800/80 font-mono">
+                  Total Trip Fare: {formatINR(selectedVehicle.estimatedSoloFare)} (Split Proportionally)
                 </span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-1">
-                <div className="bg-white p-2.5 rounded-xl border border-emerald-200">
-                  <span className="text-[10px] text-muted block">{t('farmerTransport.yourCargoShare', 'Your Cargo Share')}</span>
-                  <span className="font-black text-slate-900 font-mono">
+                <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/80">
+                  <span className="text-[10px] text-slate-400 block">Your Cargo Share</span>
+                  <span className="font-black text-white font-mono">
                     {totalWeightKg.toLocaleString('en-IN')} kg
                   </span>
                 </div>
-                <div className="bg-white p-2.5 rounded-xl border border-emerald-200">
-                  <span className="text-[10px] text-muted block">{t('farmerTransport.remainingTruckSpace', 'Remaining Truck Space')}</span>
-                  <span className="font-black text-emerald-700 font-mono">
-                    {(selectedVehicle.remainingCapacityKg - totalWeightKg >= 0 
-                      ? selectedVehicle.remainingCapacityKg - totalWeightKg 
-                      : 0).toLocaleString('en-IN')} kg
+                <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/80">
+                  <span className="text-[10px] text-slate-400 block">Remaining Truck Space</span>
+                  <span className="font-black text-blue-400 font-mono">
+                    {Math.max(0, selectedVehicle.remainingCapacityKg - totalWeightKg).toLocaleString('en-IN')} kg
                   </span>
                 </div>
-                <div className="bg-white p-2.5 rounded-xl border border-emerald-200">
-                  <span className="text-[10px] text-muted block">{t('farmerTransport.yourEstimatedFare', 'Your Estimated Fare')}</span>
-                  <span className="font-black text-primary font-mono text-sm">
+                <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/80">
+                  <span className="text-[10px] text-slate-400 block">Your Pooled Fare</span>
+                  <span className="font-black text-emerald-400 font-mono text-sm">
                     {formatINR(selectedVehicle.estimatedSharedFare)}
                   </span>
                 </div>
-                <div className="bg-white p-2.5 rounded-xl border border-emerald-200">
-                  <span className="text-[10px] text-muted block">{t('farmerTransport.yourCashSavings', 'Your Cash Savings')}</span>
-                  <span className="font-black text-emerald-600 font-mono text-sm">
+                <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/80">
+                  <span className="text-[10px] text-slate-400 block">Your Freight Savings</span>
+                  <span className="font-black text-purple-400 font-mono text-sm">
                     +{formatINR(selectedVehicle.estimatedSoloFare - selectedVehicle.estimatedSharedFare)}
                   </span>
                 </div>
@@ -1489,32 +1525,144 @@ export default function SharedTransportFarmerWidget({
             </div>
           )}
 
-          {/* SUBMIT BUTTON */}
-          <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-200">
-            <div className="flex items-center gap-2 text-xs text-muted">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>{t('farmerTransport.qrPassNotice', 'Verifiable Digital Mandi Gate Pass with QR code generated immediately upon confirmation.')}</span>
-            </div>
+          {/* ACTION BAR: PREVENT DUPLICATE SUBMISSION AND SHOW AUTHORITATIVE STATUS */}
+          <div className="pt-3 border-t border-slate-200">
+            {selectedVehicleBooking ? (
+              <div
+                className={`w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border shadow-xs ${
+                  selectedVehicleBooking.status === 'pending'
+                    ? 'bg-amber-50 border-amber-300 text-amber-900'
+                    : ['in_transit'].includes(selectedVehicleBooking.status)
+                    ? 'bg-purple-50 border-purple-300 text-purple-900'
+                    : 'bg-emerald-50 border-emerald-300 text-emerald-950'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      selectedVehicleBooking.status === 'pending'
+                        ? 'bg-amber-500 text-white'
+                        : ['in_transit'].includes(selectedVehicleBooking.status)
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-emerald-600 text-white'
+                    }`}
+                  >
+                    {selectedVehicleBooking.status === 'pending' ? (
+                      <Clock className="w-5 h-5" />
+                    ) : ['in_transit'].includes(selectedVehicleBooking.status) ? (
+                      <Truck className="w-5 h-5" />
+                    ) : (
+                      <CheckCircle2 className="w-5 h-5" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-xs sm:text-sm">
+                        Already Booked by You
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/80 border">
+                        {selectedVehicleBooking.status?.toUpperCase().replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    <p className="text-[11px] opacity-90">
+                      Booking #{selectedVehicleBooking.bookingId || selectedVehicleBooking.id} • {selectedVehicleBooking.weightKg} kg {selectedVehicleBooking.cropName} on {selectedVehicleBooking.pickupDate || pickupDate}.
+                      Repeated bookings for this requirement are disabled.
+                    </p>
+                  </div>
+                </div>
 
-            <button
-              type="submit"
-              disabled={submittingBooking || availableVehicles.length === 0}
-              className={`btn-primary py-3 px-6 rounded-2xl text-xs font-bold inline-flex items-center justify-center gap-2 shadow-md cursor-pointer ${
-                submittingBooking || availableVehicles.length === 0 ? 'opacity-60 cursor-not-allowed' : ''
-              }`}
-            >
-              {submittingBooking ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>{t('farmerTransport.securingVehicle', 'Securing Vehicle & Space...')}</span>
-                </>
-              ) : (
-                <>
-                  <span>{t('farmerTransport.confirmTransportBooking', 'Confirm Transport Booking ({fare})', { fare: formatINR(isSharedPooling ? selectedVehicle?.estimatedSharedFare || 1200 : selectedVehicle?.estimatedSoloFare || 2400) })}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmedBooking(selectedVehicleBooking);
+                      setIsGatePassModalOpen(true);
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <QrCode className="w-3.5 h-3.5 text-blue-600" />
+                    <span>View Gate Pass</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('my-bookings')}
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1"
+                  >
+                    <span>My Bookings</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ) : selectedVehicle?.isFullyBooked || (selectedVehicle?.remainingCapacityKg !== undefined && selectedVehicle.remainingCapacityKg <= 0) ? (
+              <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 shadow-xs">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-6 h-6 text-rose-600 shrink-0" />
+                  <div>
+                    <span className="text-xs sm:text-sm font-black block">VEHICLE FULLY BOOKED</span>
+                    <span className="text-[11px] text-rose-700">
+                      All {selectedVehicle?.capacityKg} kg capacity has been reserved for {pickupDate}. Please choose another vehicle.
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled
+                  className="px-4 py-2.5 rounded-xl bg-rose-200 text-rose-800 text-xs font-bold cursor-not-allowed shrink-0"
+                >
+                  Fully Booked (0 kg free)
+                </button>
+              </div>
+            ) : selectedVehicle?.remainingCapacityKg !== undefined && totalWeightKg > selectedVehicle.remainingCapacityKg ? (
+              <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 shadow-xs">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-6 h-6 text-rose-600 shrink-0" />
+                  <div>
+                    <span className="text-xs sm:text-sm font-black block">INSUFFICIENT VEHICLE SPACE</span>
+                    <span className="text-[11px] text-rose-700">
+                      Requested cargo load ({totalWeightKg} kg) exceeds remaining capacity of {selectedVehicle.remainingCapacityKg} kg.
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled
+                  className="px-4 py-2.5 rounded-xl bg-rose-200 text-rose-800 text-xs font-bold cursor-not-allowed shrink-0"
+                >
+                  Exceeds Capacity ({selectedVehicle.remainingCapacityKg} kg left)
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>Verifiable Digital Mandi Gate Pass with QR code generated immediately upon confirmation.</span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submittingBooking || availableVehicles.length === 0}
+                  className={`py-3 px-6 rounded-2xl text-xs font-bold inline-flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all ${
+                    submittingBooking || availableVehicles.length === 0
+                      ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 active:scale-[0.99]'
+                  }`}
+                >
+                  {submittingBooking ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Securing Vehicle & Space...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>
+                        Confirm Transport Booking ({formatINR(isSharedPooling ? selectedVehicle?.estimatedSharedFare || 1200 : selectedVehicle?.estimatedSoloFare || 2400)})
+                      </span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         </form>
       ) : (

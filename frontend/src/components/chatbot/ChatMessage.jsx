@@ -5,7 +5,11 @@
  */
 
 import React from 'react';
-import { Volume2, VolumeX, Bot, User, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { 
+  Volume2, VolumeX, Bot, User, Sparkles, CheckCircle2,
+  TrendingUp, Calculator, Truck, CloudSunRain, Landmark, Store, Users, ArrowRight 
+} from 'lucide-react';
 
 export default function ChatMessage({
   message,
@@ -21,7 +25,7 @@ export default function ChatMessage({
 
   if (isUser) {
     return (
-      <div className="flex justify-end mb-4 group">
+      <div className="flex justify-end mb-4 group animate-fade-slide-up">
         <div className="max-w-[85%] sm:max-w-[75%] flex flex-col items-end">
           <div className="flex items-center gap-1.5 mb-1 text-[11px] text-emerald-800 font-medium px-1">
             <span>You</span>
@@ -40,7 +44,7 @@ export default function ChatMessage({
 
   // Assistant Message
   return (
-    <div className="flex justify-start mb-4 group">
+    <div className="flex justify-start mb-4 group animate-fade-slide-up">
       <div className="max-w-[90%] sm:max-w-[82%] flex flex-col items-start">
         {/* Header with Mitra Avatar and Tags */}
         <div className="flex items-center gap-2 mb-1 px-1">
@@ -61,8 +65,36 @@ export default function ChatMessage({
         </div>
 
         {/* Bubble */}
-        <div className="bg-white border border-emerald-100/80 text-gray-800 px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm text-sm sm:text-base leading-relaxed break-words font-normal relative">
+        <div className="bg-white border border-emerald-200 text-slate-900 px-4 py-3.5 rounded-2xl rounded-tl-sm shadow-xs text-base sm:text-lg leading-relaxed break-words font-medium relative space-y-2">
           <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>
+
+          {/* Action-Oriented Copilot Buttons (PART 10.7 One-question-to-action) */}
+          {Array.isArray(message.actions) && message.actions.length > 0 && (
+            <div className="mt-3 pt-2.5 border-t border-emerald-100 flex flex-wrap gap-2">
+              {message.actions.map((act, idx) => {
+                const IconComp = act.icon === 'TrendingUp' ? TrendingUp :
+                  act.icon === 'Calculator' ? Calculator :
+                  act.icon === 'Truck' ? Truck :
+                  act.icon === 'CloudSunRain' ? CloudSunRain :
+                  act.icon === 'Landmark' ? Landmark :
+                  act.icon === 'Store' ? Store :
+                  act.icon === 'Users' ? Users :
+                  ArrowRight;
+
+                return (
+                  <Link
+                    key={idx}
+                    to={act.route || act.url}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-all shadow-2xs hover:shadow-xs hover:border-emerald-300"
+                  >
+                    <IconComp className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{act.label}</span>
+                    <ArrowRight className="w-3 h-3 text-emerald-400" />
+                  </Link>
+                );
+              })}
+            </div>
+          )}
 
           {/* Source disclaimer */}
           {message.disclaimer && (

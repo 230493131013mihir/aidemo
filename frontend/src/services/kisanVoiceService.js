@@ -22,6 +22,11 @@ export const WAKE_WORD_PATTERNS = {
     /(?:हे|ऐक|नमस्कार|मित्रा\s*दादा|भाऊ|मित्रा\s*सहाय्यक)\s*(?:मित्रा|मित्र)?/i,
     /(?:नमस्ते|हे|हेलो)\s*मित्रा/i,
     /\bhey\s+mitra\b/i
+  ],
+  gu: [
+    /(?:નમસ્તે|હે|હેલો|ઓ\s*કે|સાંભળો)\s*(?:મિત્રા|મિત્ર)/i,
+    /(?:મિત્રા\s*સહાયક)/i,
+    /\bhey\s+mitra\b/i
   ]
 };
 
@@ -29,11 +34,12 @@ export const WAKE_WORD_PATTERNS = {
 export const SENSITIVITY_CONFIGS = {
   low: {
     id: 'low',
-    label: { mr: 'कमी (मंडी गोंधळ)', hi: 'कम (शोरगुल)', en: 'Low (Noisy Mandi)' },
+    label: { mr: 'कमी (मंडी गोंधळ)', hi: 'कम (शोरगुल)', en: 'Low (Noisy Mandi)', gu: 'ઓછી (મંડી ઘોંઘાટ)' },
     description: {
       mr: 'आवाज जास्त असलेल्या बाजार समित्यांसाठी योग्य (उच्च अचूकता)',
       hi: 'शोरगुल वाली मंडियों के लिए उपयुक्त (उच्च सटीकता)',
-      en: 'Best for loud APMC mandi yards with background machinery noise'
+      en: 'Best for loud APMC mandi yards with background machinery noise',
+      gu: 'વધારે અવાજવાળા એપીએમસી યાર્ડ માટે યોગ્ય (ઉચ્ચ ચોકસાઈ)'
     },
     minConfidence: 0.70,
     silenceDelayMs: 2200,
@@ -41,11 +47,12 @@ export const SENSITIVITY_CONFIGS = {
   },
   medium: {
     id: 'medium',
-    label: { mr: 'मध्यम (सामान्य)', hi: 'मध्यम (सामान्य)', en: 'Medium (Balanced)' },
+    label: { mr: 'मध्यम (सामान्य)', hi: 'मध्यम (सामान्य)', en: 'Medium (Balanced)', gu: 'મધ્યમ (સામાન્ય)' },
     description: {
       mr: 'दैनंदिन शेत परिसर आणि घरासाठी संतुलित',
       hi: 'दैनिक खेत व घर के लिए संतुलित',
-      en: 'Standard balanced sensitivity for field and everyday farm use'
+      en: 'Standard balanced sensitivity for field and everyday farm use',
+      gu: 'રોજિંદા ખેતર અને ઘર વપરાશ માટે સંતુલિત'
     },
     minConfidence: 0.50,
     silenceDelayMs: 1600,
@@ -53,11 +60,12 @@ export const SENSITIVITY_CONFIGS = {
   },
   high: {
     id: 'high',
-    label: { mr: 'जास्त (संवेदनशील)', hi: 'उच्च (संवेदनशील)', en: 'High (Whisper)' },
+    label: { mr: 'जास्त (संवेदनशील)', hi: 'उच्च (संवेदनशील)', en: 'High (Whisper)', gu: 'વધારે (સંવેદનશીલ)' },
     description: {
       mr: 'शांत खोलीसाठी - हलक्या आवाजातील हाक त्वरित ओळखते',
       hi: 'शांत कमरे के लिए - हल्की आवाज भी तुरंत पकड़ता है',
-      en: 'High sensitivity for quiet rooms - captures soft speech or whisper'
+      en: 'High sensitivity for quiet rooms - captures soft speech or whisper',
+      gu: 'શાંત ઓરડા માટે - હળવો અવાજ પણ તરત પારખે છે'
     },
     minConfidence: 0.30,
     silenceDelayMs: 1100,

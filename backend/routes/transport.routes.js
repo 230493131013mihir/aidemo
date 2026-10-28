@@ -16,6 +16,27 @@ const {
 } = require("../services/cropTransportCompatibility");
 const { findMatchingTransport, calculateSharedTransportCost } = require("../services/transportMatcher");
 
+const ACTIVE_BOOKING_STATUSES = [
+    "open",
+    "pending",
+    "confirmed",
+    "accepted",
+    "driver_assigned",
+    "vehicle_assigned",
+    "awaiting_pickup",
+    "pickup_confirmed",
+    "in_transit",
+    "arrived_destination"
+];
+
+const TERMINAL_BOOKING_STATUSES = [
+    "delivered",
+    "delivery_confirmed",
+    "completed",
+    "cancelled",
+    "rejected"
+];
+
 const router = express.Router();
 
 function normalizeTransportInput(body, reqUser = {}) {
@@ -127,6 +148,189 @@ const { handleGetTelemetry, handleUpdateTelemetry } = require("../controllers/tr
 router.get("/telemetry", handleGetTelemetry);
 router.get("/telemetry/:passCode", handleGetTelemetry);
 router.post("/telemetry/update", handleUpdateTelemetry);
+
+// Secure Gate Pass Verification (PART 9)
+// Public verification returns only non-sensitive verification status
+// Authorized operators (mandi, admin, assigned transporter, booking farmer) receive verified cargo & check-in details
+router.get("/gatepass/verify/:code", async (req, res) => {
+    try {
+        const rawCode = String(req.params.code || "").trim();
+        if (!rawCode) {
+            return res.status(400).json({ success: false, message: "Gate pass token or code is required" });
+        }
+
+        const booking = await TransportRequest.findOne({
+            where: {
+                [Op.or]: [
+                    { gatePassCode: rawCode },
+                    { bookingId: rawCode }
+                ]
+            },
+            include: [
+                { model: Vehicle, attributes: ["registrationNumber", "vehicleType", "driverName", "driverPhone"] }
+            ]
+        });
+
+        if (!booking) {
+            return res.status(404).json({
+                success: false,
+                valid: false,
+                message: "Gate pass record not found or token has expired."
+            });
+        }
+
+        // Determine caller's identity if Authorization header was provided
+        let caller = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+            const token = authHeader.slice(7).trim();
+            const jwt = require("jsonwebtoken");
+            try {
+                caller = jwt.verify(token, process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon");
+            } catch (_) {}
+        }
+
+        const isAuthorizedOperator = caller && (
+            caller.role === "admin" ||
+            caller.role === "mandi" ||
+            caller.role === "transporter" ||
+            caller.id === booking.userId ||
+            caller.id === booking.transporterId
+        );
+
+        // If caller is NOT an authorized operator or account owner, return minimal secure validation without private contact details
+        if (!isAuthorizedOperator) {
+            return res.json({
+                success: true,
+                valid: true,
+                passId: booking.gatePassCode || booking.bookingId,
+                status: booking.status,
+                destinationMarket: booking.destinationMarket,
+                cropName: booking.cropName,
+                isAuthorized: false,
+                message: "Valid electronic transit gate pass. Sign in with APMC Mandi or Transporter credentials to view weighing & check-in controls."
+            });
+        }
+
+        // Return authorized operational details
+        return res.json({
+            success: true,
+            valid: true,
+            isAuthorized: true,
+            data: {
+                passId: booking.gatePassCode,
+                bookingId: booking.bookingId,
+                status: booking.status,
+                farmerName: booking.farmerName,
+                farmerPhone: booking.farmerPhone || "Registered on Agristack",
+                cropName: booking.cropName,
+                weightKg: booking.weightKg,
+                quantityUnit: booking.quantityUnit || "kg",
+                pickupLocation: booking.pickupLocation,
+                destinationMarket: booking.destinationMarket,
+                pickupDate: booking.pickupDate,
+                driverName: booking.driverName || booking.Vehicle?.driverName || "Assigned Driver",
+                driverPhone: booking.driverPhone || booking.Vehicle?.driverPhone || "—",
+                vehicleNumber: booking.vehicleNumber || booking.Vehicle?.registrationNumber || "—",
+                vehicleType: booking.vehicleType || booking.Vehicle?.vehicleType || "Commercial Freight",
+                actualPickupTime: booking.actualPickupTime,
+                actualDeliveryTime: booking.actualDeliveryTime,
+                issuedAt: booking.createdAt
+            }
+        });
+    } catch (err) {
+        console.error("Gate pass verify error:", err.message);
+        return res.status(500).json({ success: false, message: "Error verifying gate pass." });
+    }
+});
+
+// Authorized Gate Operator Check-in / Arrival Action
+router.post("/gatepass/checkin", async (req, res) => {
+    // Requires authorization
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ success: false, message: "Authentication required for gate check-in." });
+    }
+    const token = authHeader.slice(7).trim();
+    const jwt = require("jsonwebtoken");
+    let caller;
+    try {
+        caller = jwt.verify(token, process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon");
+    } catch (_) {
+        return res.status(401).json({ success: false, message: "Invalid or expired session." });
+    }
+
+    if (caller.role !== "admin" && caller.role !== "mandi" && caller.role !== "transporter") {
+        return res.status(403).json({ success: false, message: "Access denied: Gate check-in is restricted to Mandi officials, administrators, and transporters." });
+    }
+
+    const { gatePassCode, checkInNotes, arrivalWeightKg } = req.body;
+    if (!gatePassCode) {
+        return res.status(400).json({ success: false, message: "gatePassCode is required." });
+    }
+
+    const booking = await TransportRequest.findOne({
+        where: {
+            [Op.or]: [
+                { gatePassCode: String(gatePassCode).trim() },
+                { bookingId: String(gatePassCode).trim() }
+            ]
+        }
+    });
+
+    if (!booking) {
+        return res.status(404).json({ success: false, message: "Gate pass not found." });
+    }
+
+    if (booking.status === "completed" || booking.status === "delivered" || booking.status === "delivery_confirmed") {
+        return res.status(400).json({
+            success: false,
+            message: `Consignment has already completed check-in on ${booking.actualDeliveryTime || "record"}. Duplicate check-in prevented.`
+        });
+    }
+
+    const now = new Date();
+    booking.actualDeliveryTime = now;
+    booking.status = "arrived_destination";
+    if (arrivalWeightKg) booking.deliveredQuantity = Number(arrivalWeightKg);
+    if (checkInNotes) {
+        booking.deliveryNotes = (booking.deliveryNotes ? `${booking.deliveryNotes}\n` : "") + `[Gate Check-in by ${caller.name}]: ${checkInNotes}`;
+    }
+    await booking.save();
+
+    // Log in AuditLog if model exists
+    try {
+        const { AuditLog } = require("../models");
+        if (AuditLog) {
+            await AuditLog.create({
+                actorId: caller.id,
+                actorName: caller.name,
+                actorRole: caller.role,
+                action: "GATE_PASS_CHECKIN",
+                targetType: "transport_request",
+                targetId: booking.id,
+                details: JSON.stringify({
+                    gatePassCode: booking.gatePassCode,
+                    bookingId: booking.bookingId,
+                    destination: booking.destinationMarket,
+                    weightKg: booking.weightKg,
+                    timestamp: now.toISOString()
+                })
+            });
+        }
+    } catch (_) {}
+
+    return res.json({
+        success: true,
+        message: `Arrival verified at ${booking.destinationMarket}! Consignment marked as arrived at Mandi.`,
+        data: {
+            bookingId: booking.bookingId,
+            gatePassCode: booking.gatePassCode,
+            status: booking.status,
+            actualDeliveryTime: now
+        }
+    });
+});
 
 router.use(authMiddleware);
 
@@ -316,9 +520,37 @@ router.get("/vehicles", async (req, res) => {
             order: [["capacityKg", "ASC"]]
         });
 
-        // Filter out vehicles that do not belong to a transporter or admin account (or include if user role not set)
-        const transporterVehicles = vehicles.filter(v => !v.User || v.User.role === "transporter" || v.User.role === "admin");
+        const includeDemo = req.query.includeDemo === "true";
 
+        // Filter out vehicles that do not belong to a real verified transporter or admin account
+        // And do not mix seed/demo records (transporter@harvestmitra.local) into production results unless explicitly requested
+        const seenVehicleIds = new Set();
+        const transporterVehicles = vehicles.filter(v => {
+            if (!v.User) return false;
+            if (v.User.role && v.User.role !== "transporter" && v.User.role !== "admin") return false;
+            if (!includeDemo) {
+                const email = String(v.User?.email || "").toLowerCase();
+                if (email === "transporter@harvestmitra.local") return false;
+            }
+            if (seenVehicleIds.has(v.id)) return false;
+            seenVehicleIds.add(v.id);
+            return true;
+        });
+        // Determine caller identity from auth header if available
+        let callerId = req.user?.id || null;
+        if (!callerId) {
+            const authHeader = req.headers.authorization;
+            if (authHeader && authHeader.startsWith("Bearer ")) {
+                const token = authHeader.slice(7).trim();
+                if (token && token !== "guest") {
+                    const jwt = require("jsonwebtoken");
+                    try {
+                        const decoded = jwt.verify(token, process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon");
+                        callerId = decoded?.id || null;
+                    } catch (_) {}
+                }
+            }
+        }
 
         // If specific crop requested, get its handling profile
         const cropProfile = crop ? getCropProfile(crop) : null;
@@ -327,17 +559,22 @@ router.get("/vehicles", async (req, res) => {
         const augmented = await Promise.all(transporterVehicles.map(async (v) => {
             const vehicleData = v.toJSON();
 
-            // Calculate active ongoing bookings and assignments for this vehicle
+            // Calculate active ongoing bookings and assignments for this vehicle using authoritative statuses
             const activeBookings = await TransportRequest.findAll({
                 where: {
                     vehicleId: v.id,
-                    status: { [Op.in]: ["confirmed", "accepted", "driver_assigned", "in_transit"] }
+                    ...(date && date.trim() ? { pickupDate: date.trim() } : {}),
+                    status: { [Op.in]: ACTIVE_BOOKING_STATUSES }
                 }
             });
 
-            const bookedWeightKg = activeBookings.reduce((sum, b) => sum + (b.weightKg || 0), 0);
+            const bookedWeightKg = activeBookings.reduce((sum, b) => sum + (Number(b.weightKg) || 0), 0);
             const remainingCapacityKg = Math.max(0, v.capacityKg - bookedWeightKg);
+            const isFullyBooked = remainingCapacityKg <= 0;
             const isCurrentlyInTransit = activeBookings.some(b => ["in_transit", "driver_assigned"].includes(b.status));
+
+            // Check if caller has an active booking on this vehicle
+            const userActiveBooking = callerId ? activeBookings.find(b => Number(b.userId) === Number(callerId)) : null;
 
             // Check route compatibility if destination is provided
             let isRouteEligible = true;
@@ -350,7 +587,6 @@ router.get("/vehicles", async (req, res) => {
                 const isBroadRoute = !v.supportedRoutes || routesStr.includes("all") || routesStr.includes("any") || routesStr.includes("maharashtra") || routesStr.includes("gujarat");
                 isRouteEligible = isBroadRoute || matchesKeyword || routesStr.includes(destNorm) || destNorm.includes(routesStr) || baseLocStr.includes(destNorm);
             }
-
 
             // Crop suitability & smart matching score
             let isCropSuitable = true;
@@ -428,8 +664,21 @@ router.get("/vehicles", async (req, res) => {
                 ...vehicleData,
                 transporterId: v.userId,
                 transporterName: v.User?.name || v.driverName,
+                totalCapacityKg: v.capacityKg,
                 bookedWeightKg,
                 remainingCapacityKg,
+                isFullyBooked,
+                isBookedByCurrentUser: Boolean(userActiveBooking),
+                userActiveBooking: userActiveBooking ? {
+                    id: userActiveBooking.id,
+                    bookingId: userActiveBooking.bookingId,
+                    status: userActiveBooking.status,
+                    weightKg: userActiveBooking.weightKg,
+                    cropName: userActiveBooking.cropName,
+                    pickupDate: userActiveBooking.pickupDate,
+                    pickupLocation: userActiveBooking.pickupLocation,
+                    destinationMarket: userActiveBooking.destinationMarket
+                } : null,
                 isCurrentlyInTransit,
                 isRouteEligible,
                 isCropSuitable,
@@ -439,16 +688,23 @@ router.get("/vehicles", async (req, res) => {
                 estimatedSoloFare,
                 estimatedSharedFare,
                 estimatedDurationMinutes: distanceKm > 100 ? 210 : 90,
-                canAccommodateCargo: effectiveKg > 0 ? (remainingCapacityKg >= effectiveKg) : (remainingCapacityKg > 0),
+                canAccommodateCargo: !isFullyBooked && !userActiveBooking && (effectiveKg > 0 ? (remainingCapacityKg >= effectiveKg) : (remainingCapacityKg > 0)),
                 hasActiveSharedPool: activeBookings.length > 0,
                 activeBookingsCount: activeBookings.length
             };
         }));
 
-        // Apply filters: must not be in transit, must have remaining capacity, must be route eligible
-        let result = augmented.filter(v => !v.isCurrentlyInTransit && v.remainingCapacityKg > 0 && v.isRouteEligible);
+        // Apply filters: must not be in transit and must be route eligible
+        let result = augmented.filter(v => !v.isCurrentlyInTransit && v.isRouteEligible);
 
-        if (effectiveKg > 0) {
+        if (req.query.availableOnly === "true") {
+            result = result.filter(v => v.remainingCapacityKg > 0 && !v.isBookedByCurrentUser);
+        } else {
+            // Keep vehicles with remaining capacity OR already booked by this farmer (to display their ALREADY BOOKED status)
+            result = result.filter(v => v.remainingCapacityKg > 0 || v.isBookedByCurrentUser);
+        }
+
+        if (effectiveKg > 0 && req.query.strictCapacity === "true") {
             result = result.filter(v => v.remainingCapacityKg >= effectiveKg);
         }
         if (vehicleType && vehicleType !== "any") {
@@ -458,7 +714,7 @@ router.get("/vehicles", async (req, res) => {
             result = result.filter(v => v.hasActiveSharedPool || v.remainingCapacityKg > 500);
         }
 
-        // Prioritize vehicles tailored for the selected crop
+        // Prioritize vehicles: available matches first, then crop match score
         result.sort((a, b) => {
             if ((b.cropMatchScore || 0) !== (a.cropMatchScore || 0)) {
                 return (b.cropMatchScore || 0) - (a.cropMatchScore || 0);
@@ -648,66 +904,154 @@ router.post("/bookings", requireRole("farmer", "fpo_leader"), async (req, res) =
 
     try {
         await ensureTransportSchema();
+        const bookingUserId = await resolveBookingUserId(req.user);
 
-        let vehicle = null;
-        if (fields.vehicleId) {
-            vehicle = await Vehicle.findByPk(fields.vehicleId);
-        } else if (req.body.transporterId) {
-            vehicle = await Vehicle.findOne({ where: { userId: Number(req.body.transporterId), isAvailable: true } });
-        }
-
-        // If specific vehicle chosen, validate capacity and compatibility
-        if (vehicle) {
-            if (!vehicle.isAvailable || vehicle.status === "maintenance") {
-                return res.status(400).json({ success: false, message: "The chosen vehicle is currently not available." });
-            }
-
-            // Check live capacity on chosen vehicle for that pickup date
-            const existingBookings = await TransportRequest.findAll({
+        // Optional Idempotency key check
+        const idempotencyKey = req.headers["x-idempotency-key"] || req.body.idempotencyKey;
+        if (idempotencyKey) {
+            const existingByKey = await TransportRequest.findOne({
                 where: {
-                    vehicleId: vehicle.id,
-                    pickupDate: fields.pickupDate,
-                    status: { [Op.in]: ["confirmed", "accepted", "driver_assigned", "in_transit"] }
+                    userId: bookingUserId,
+                    [Op.or]: [{ bookingId: idempotencyKey }, { gatePassCode: idempotencyKey }]
                 }
             });
+            if (existingByKey) {
+                return res.status(200).json({
+                    success: true,
+                    data: existingByKey,
+                    bookingId: existingByKey.bookingId,
+                    gatePassCode: existingByKey.gatePassCode,
+                    message: `Booking #${existingByKey.bookingId} verified via idempotency key.`
+                });
+            }
+        }
 
-            const currentBookedKg = existingBookings.reduce((sum, b) => sum + (b.weightKg || 0), 0);
-            const remainingCapacityKg = vehicle.capacityKg - currentBookedKg;
-
-            if (fields.weightKg > remainingCapacityKg) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Vehicle capacity is ${vehicle.capacityKg} kg (${currentBookedKg} kg already booked). Only ${remainingCapacityKg} kg space remains.`
+        // Execute booking creation inside an atomic database transaction
+        const booking = await sequelize.transaction(async (t) => {
+            let vehicle = null;
+            if (fields.vehicleId) {
+                vehicle = await Vehicle.findByPk(fields.vehicleId, { transaction: t, lock: t.LOCK.UPDATE });
+            } else if (req.body.transporterId) {
+                vehicle = await Vehicle.findOne({
+                    where: { userId: Number(req.body.transporterId), isAvailable: true },
+                    transaction: t,
+                    lock: t.LOCK.UPDATE
                 });
             }
 
-            // Check crop handling compatibility with already booked cargo
-            if (existingBookings.length > 0 && fields.bookingType === "shared") {
-                for (const existing of existingBookings) {
-                    if (!areCropsCompatibleForSharedTransport(existing.cropName, fields.cropName)) {
-                        return res.status(400).json({
-                            success: false,
-                            message: `Incompatible cargo: Cannot pool ${fields.cropName} with already booked ${existing.cropName} due to hygiene/storage requirements.`
-                        });
+            if (vehicle) {
+                if (!vehicle.isAvailable || vehicle.status === "maintenance") {
+                    const err = new Error("The chosen vehicle is currently not available.");
+                    err.statusCode = 400;
+                    err.code = "VEHICLE_UNAVAILABLE";
+                    throw err;
+                }
+
+                // 1. Check if THIS farmer already has an active booking on this vehicle for this crop and date
+                const existingUserBooking = await TransportRequest.findOne({
+                    where: {
+                        userId: bookingUserId,
+                        vehicleId: vehicle.id,
+                        pickupDate: fields.pickupDate,
+                        cropName: fields.cropName,
+                        status: { [Op.in]: ACTIVE_BOOKING_STATUSES }
+                    },
+                    transaction: t
+                });
+
+                if (existingUserBooking) {
+                    const err = new Error(
+                        `You already have an active booking (#${existingUserBooking.bookingId || existingUserBooking.id}) for ${fields.cropName} on vehicle ${vehicle.registrationNumber} (Status: ${existingUserBooking.status.toUpperCase()}). Please manage your existing booking instead of creating a duplicate.`
+                    );
+                    err.statusCode = 409;
+                    err.code = "DUPLICATE_BOOKING";
+                    err.data = existingUserBooking;
+                    throw err;
+                }
+
+                // 2. Rapid double-submission protection (within 10 seconds for same shipment requirement)
+                const recentDuplicate = await TransportRequest.findOne({
+                    where: {
+                        userId: bookingUserId,
+                        cropName: fields.cropName,
+                        pickupDate: fields.pickupDate,
+                        destinationMarket: fields.destinationMarket,
+                        status: { [Op.in]: ACTIVE_BOOKING_STATUSES }
+                    },
+                    order: [["createdAt", "DESC"]],
+                    transaction: t
+                });
+
+                if (recentDuplicate && (Date.now() - new Date(recentDuplicate.createdAt).getTime()) < 10000) {
+                    const err = new Error(
+                        `Duplicate booking prevented: A booking request (#${recentDuplicate.bookingId || recentDuplicate.id}) for ${fields.cropName} was just created. Please check My Bookings.`
+                    );
+                    err.statusCode = 409;
+                    err.code = "DUPLICATE_BOOKING";
+                    err.data = recentDuplicate;
+                    throw err;
+                }
+
+                // 3. Authoritative remaining capacity check: total capacity - all active reservations
+                const existingBookings = await TransportRequest.findAll({
+                    where: {
+                        vehicleId: vehicle.id,
+                        pickupDate: fields.pickupDate,
+                        status: { [Op.in]: ACTIVE_BOOKING_STATUSES }
+                    },
+                    transaction: t
+                });
+
+                const currentBookedKg = existingBookings.reduce((sum, b) => sum + (Number(b.weightKg) || 0), 0);
+                const remainingCapacityKg = Math.max(0, vehicle.capacityKg - currentBookedKg);
+
+                if (remainingCapacityKg <= 0) {
+                    const err = new Error(`Vehicle ${vehicle.registrationNumber} is FULLY BOOKED for ${fields.pickupDate}. No capacity remaining.`);
+                    err.statusCode = 409;
+                    err.code = "VEHICLE_FULLY_BOOKED";
+                    throw err;
+                }
+
+                if (fields.weightKg > remainingCapacityKg) {
+                    const err = new Error(
+                        `Vehicle capacity is ${vehicle.capacityKg} kg (${currentBookedKg} kg already booked). Only ${remainingCapacityKg} kg space remains, but ${fields.weightKg} kg was requested.`
+                    );
+                    err.statusCode = 409;
+                    err.code = "INSUFFICIENT_CAPACITY";
+                    throw err;
+                }
+
+                // 4. Check crop handling compatibility with already booked cargo for shared pooling
+                if (existingBookings.length > 0 && fields.bookingType === "shared") {
+                    for (const existing of existingBookings) {
+                        if (!areCropsCompatibleForSharedTransport(existing.cropName, fields.cropName)) {
+                            const err = new Error(
+                                `Incompatible cargo: Cannot pool ${fields.cropName} with already booked ${existing.cropName} due to hygiene/storage requirements.`
+                            );
+                            err.statusCode = 400;
+                            err.code = "INCOMPATIBLE_CARGO";
+                            throw err;
+                        }
                     }
                 }
+
+                // Assign vehicle details to the booking
+                fields.vehicleId = vehicle.id;
+                fields.transporterId = vehicle.userId;
+                fields.vehicleType = vehicle.vehicleType;
+                fields.vehicleNumber = vehicle.registrationNumber;
+                fields.driverName = vehicle.driverName;
+                fields.driverPhone = vehicle.driverPhone;
+                fields.status = "confirmed";
             }
 
-            // Assign vehicle details to the booking
-            fields.vehicleId = vehicle.id;
-            fields.transporterId = vehicle.userId;
-            fields.vehicleType = vehicle.vehicleType;
-            fields.vehicleNumber = vehicle.registrationNumber;
-            fields.driverName = vehicle.driverName;
-            fields.driverPhone = vehicle.driverPhone;
-            fields.status = "confirmed";
-        }
+            // Create booking in database atomically
+            const newBooking = await TransportRequest.create({
+                ...fields,
+                userId: bookingUserId
+            }, { transaction: t });
 
-        // Create booking in database
-        const bookingUserId = await resolveBookingUserId(req.user);
-        const booking = await TransportRequest.create({
-            ...fields,
-            userId: bookingUserId
+            return newBooking;
         });
 
         return res.status(201).json({
@@ -718,6 +1062,14 @@ router.post("/bookings", requireRole("farmer", "fpo_leader"), async (req, res) =
             message: `Booking #${booking.bookingId} confirmed! Digital APMC Gate Pass generated.`
         });
     } catch (err) {
+        if (err.statusCode) {
+            return res.status(err.statusCode).json({
+                success: false,
+                code: err.code || "BOOKING_ERROR",
+                message: err.message,
+                data: err.data || null
+            });
+        }
         console.error("Create booking error:", err.message);
         return res.status(500).json({ success: false, message: err.message || "Unable to create booking" });
     }
@@ -1431,12 +1783,18 @@ router.post("/requests", requireRole("farmer", "fpo_leader"), async (req, res) =
 router.get("/transporters", requireRole("farmer"), async (req, res) => {
     try {
         await ensureTransportSchema();
+        const includeDemo = req.query.includeDemo === "true";
         const transporters = await TransporterProfile.findAll({
             where: { isAvailable: true, userId: { [Op.ne]: req.user.id } },
-            include: [{ model: User, attributes: ["id", "name"] }],
+            include: [{ model: User, attributes: ["id", "name", "email", "role"] }],
             order: [["createdAt", "DESC"]]
         });
-        return res.json({ success: true, data: transporters });
+        const filtered = transporters.filter(t => {
+            if (!t.User) return false;
+            if (!includeDemo && String(t.User.email || "").toLowerCase() === "transporter@harvestmitra.local") return false;
+            return true;
+        });
+        return res.json({ success: true, data: filtered });
     } catch (error) {
         console.error("Transporters error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to load transporters" });
@@ -2198,10 +2556,31 @@ router.post("/match", async (req, res) => {
         const effectiveKg = convertToKg(quantity, quantityUnit);
         const reqDate = requiredDate || new Date().toISOString().slice(0, 10);
 
-        // Fetch real vehicles from DB
+        const includeDemo = req.body.includeDemo === true || req.query.includeDemo === "true";
+
+        // Fetch real vehicles from DB with verified transporter associations
         const vehicles = await Vehicle.findAll({
-            where: { isAvailable: true },
+            where: { isAvailable: true, status: "available" },
+            include: [
+                {
+                    model: User,
+                    attributes: ["id", "name", "email", "phone", "role"]
+                }
+            ],
             order: [["capacityKg", "ASC"]]
+        });
+
+        const seenMatchIds = new Set();
+        const activeVehicles = vehicles.filter(v => {
+            if (!v.User) return false;
+            if (v.User.role && v.User.role !== "transporter" && v.User.role !== "admin") return false;
+            if (!includeDemo) {
+                const email = String(v.User.email || "").toLowerCase();
+                if (email === "transporter@harvestmitra.local") return false;
+            }
+            if (seenMatchIds.has(v.id)) return false;
+            seenMatchIds.add(v.id);
+            return true;
         });
 
         // Fetch active requests in DB that could be shared (status open, pending, confirmed, matched)
@@ -2213,7 +2592,7 @@ router.post("/match", async (req, res) => {
 
         const matches = [];
 
-        for (const v of vehicles) {
+        for (const v of activeVehicles) {
             const vData = v.toJSON ? v.toJSON() : { ...v };
             const vCapacity = Number(vData.capacityKg) || 2000;
             
@@ -2298,8 +2677,8 @@ router.post("/match", async (req, res) => {
             });
         }
 
-        // Fallback default Maharashtra APMC demo pools if DB vehicles had 0 matches
-        if (matches.length === 0) {
+        // Only include demo pools when explicitly requested (demo mode) and DB has 0 matches
+        if (matches.length === 0 && includeDemo) {
             const defaultPools = [
                 {
                     id: 991,

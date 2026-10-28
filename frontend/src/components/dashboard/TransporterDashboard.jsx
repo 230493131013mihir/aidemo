@@ -169,9 +169,9 @@ export default function TransporterDashboard() {
     escrowLockedEarnings: 0,
     rating: 4.8,
     totalRatings: 1,
-    vehicleType: 'Mahindra Bolero Maxi Truck',
-    vehicleNumber: 'MH-12-RN-4921',
-    capacityKg: 2200,
+    vehicleType: user?.TransporterProfile?.vehicleType || '',
+    vehicleNumber: user?.TransporterProfile?.vehicleNumber || '',
+    capacityKg: user?.TransporterProfile?.capacityKg || 0,
     isAvailable: true,
     activeTrip: null
   });
@@ -786,21 +786,22 @@ export default function TransporterDashboard() {
   );
 
   return (
-    <div className="space-y-6 sm:space-y-8 w-full max-w-7xl mx-auto pb-16 animate-in fade-in">
-      {/* 1. Transporter Header Banner */}
-      <section className="relative rounded-3xl overflow-hidden shadow-xl border border-primary/20 text-white">
+    <div className="space-y-6 sm:space-y-8 w-full max-w-full 2xl:max-w-[1720px] mx-auto pb-16 animate-in fade-in">
+      {/* 1. Transporter Header Banner — Orange / Slate Logistics Hub */}
+      <section className="relative rounded-3xl overflow-hidden shadow-xl border border-orange-500/30 text-white animate-fade-slide-up">
         <div 
           className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
           style={{ backgroundImage: `url('/images/transport-hero.jpg')` }}
         />
         <div className="absolute inset-0 bg-slate-950/80" />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-900/90 to-emerald-950/80 backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-900/90 to-orange-950/85 backdrop-blur-[1px]" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
-              <Truck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>{t('transporter.headerBadge') || "Transporter Logistics & Shared Transport Hub"}</span>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/20 text-orange-300 border border-orange-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+              <Truck className="w-3.5 h-3.5 text-orange-400" />
+              <span>{t('transporter.headerBadge') || "Transporter Logistics & Shared Fleet Hub"}</span>
             </div>
 
             <h1 
@@ -822,7 +823,7 @@ export default function TransporterDashboard() {
             <button
               type="button"
               onClick={() => setShowAddVehicleModal(true)}
-              className="py-2.5 px-4 rounded-xl bg-primary hover:bg-primary-dark text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+              className="py-2.5 px-4 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer btn-press"
             >
               <PlusCircle className="w-4 h-4" />
               <span>{t('transporter.registerVehicleBtn') || "Register Fleet Vehicle"}</span>
@@ -1823,7 +1824,7 @@ export default function TransporterDashboard() {
                     ))
                   ) : (
                     <option value="primary">
-                      {stats.vehicleType || 'Commercial Goods Carrier'} ({stats.vehicleNumber || 'MH-12-RN-4921'}) • {stats.capacityKg || 2200} kg [Primary Profile]
+                      {stats.vehicleType || user?.TransporterProfile?.vehicleType || 'Commercial Goods Carrier'}{(stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber) ? ` (${stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber})` : ''}{(stats.capacityKg || user?.TransporterProfile?.capacityKg) ? ` • ${stats.capacityKg || user?.TransporterProfile?.capacityKg} kg` : ''} [Primary Profile]
                     </option>
                   )}
                 </select>
@@ -2622,7 +2623,7 @@ export default function TransporterDashboard() {
                       ))
                     ) : (
                       <option value="primary">
-                        {stats.vehicleType || user?.TransporterProfile?.vehicleType || 'Commercial Agri Carrier'} ({stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber || 'MH-12-RN-4921'}) • Capacity {stats.capacityKg || 2200} kg [Primary Profile]
+                        {stats.vehicleType || user?.TransporterProfile?.vehicleType || 'Commercial Agri Carrier'}{(stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber) ? ` (${stats.vehicleNumber || user?.TransporterProfile?.vehicleNumber})` : ''}{(stats.capacityKg || user?.TransporterProfile?.capacityKg) ? ` • Capacity ${stats.capacityKg || user?.TransporterProfile?.capacityKg} kg` : ''} [Primary Profile]
                       </option>
                     )}
                   </select>

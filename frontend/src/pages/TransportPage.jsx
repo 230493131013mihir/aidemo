@@ -89,11 +89,11 @@ export default function TransportPage() {
   const [vehicleForm, setVehicleForm] = useState({
     driverName: user?.name || '',
     phone: user?.phone || '',
-    vehicleType: 'Mahindra Bolero Maxi Truck',
-    vehicleNumber: 'MH-12-RN-4921',
-    capacityKg: '2200',
-    baseMandi: 'Pune APMC',
-    ratePerKm: '25',
+    vehicleType: user?.TransporterProfile?.vehicleType || 'Tata 407 Agri LCV',
+    vehicleNumber: user?.TransporterProfile?.vehicleNumber || '',
+    capacityKg: user?.TransporterProfile?.capacityKg ? String(user.TransporterProfile.capacityKg) : '2500',
+    baseMandi: user?.TransporterProfile?.baseMandi || 'Pune APMC',
+    ratePerKm: user?.TransporterProfile?.ratePerKm ? String(user.TransporterProfile.ratePerKm) : '25',
   });
   const [savingVehicle, setSavingVehicle] = useState(false);
 
@@ -183,9 +183,18 @@ export default function TransportPage() {
     }
   }, [user]);
 
-  // Auto-fill booking form when navigating from Smart Harvest Simulator
+  // Auto-fill booking form & parse activeTab from URL search params (PART 15 SPA Routing)
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      if (['farmer', 'my-bookings', 'tracking'].includes(tabParam)) {
+        setActiveTab('farmer');
+      } else if (['transporter', 'requests', 'fleet', 'shared', 'active', 'gatepass', 'notifications', 'history'].includes(tabParam)) {
+        setActiveTab('transporter');
+      }
+    }
+
     const targetDest = location.state?.destination || searchParams.get('destination');
     const targetWeight = location.state?.weightKg || location.state?.weight || searchParams.get('weight');
     const targetCrop = location.state?.crop || searchParams.get('crop');
@@ -716,14 +725,14 @@ export default function TransportPage() {
   // Transporters strictly see their dedicated Fleet Console and Assigned Cargo Trips (Issue #176)
   if (user?.role === 'transporter') {
     return (
-      <div className="space-y-6 max-w-7xl mx-auto py-6 px-4 animate-in fade-in pb-12">
+      <div className="space-y-6 w-full max-w-full 2xl:max-w-[1720px] mx-auto py-4 sm:py-6 px-2 sm:px-4 animate-in fade-in pb-12">
         <TransporterDashboard />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto py-6 px-4">
+    <div className="space-y-6 w-full max-w-full 2xl:max-w-[1720px] mx-auto py-4 sm:py-6 px-2 sm:px-4">
       {/* Digital Mandi Gate Pass Modal */}
       <DigitalGatePassModal
         isOpen={!!selectedGatePass}
@@ -751,24 +760,25 @@ export default function TransportPage() {
         }}
       />
 
-      {/* Top Banner with Photographic Background */}
-      <section className="relative rounded-3xl overflow-hidden shadow-xl border border-emerald-900/30 text-white">
+      {/* Module Hero Banner — Warm Amber / Orange Identity with Logistics & Pooling Visual */}
+      <section className="relative rounded-3xl overflow-hidden shadow-xl border border-amber-800/40 text-white animate-fade-slide-up">
         <div 
           className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
           style={{ backgroundImage: `url('/images/transport-hero.jpg')` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-900/80 to-emerald-950/70 backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/92 via-amber-950/88 to-orange-950/80 backdrop-blur-[1px]" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
-              <Truck className="w-3.5 h-3.5 text-emerald-400" />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+              <Truck className="w-3.5 h-3.5 text-amber-400" />
               <span>{t('farmerTransport.badge', 'Smart Agritech Logistics & Pooling')}</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
-              {t('farmerTransport.heroTitle', 'Shared Vehicle Pooling & Transporter Portal')}
+              {t('farmerTransport.heroTitle', 'Shared Vehicle Pooling & Freight Logistics')}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
+            <p className="text-xs sm:text-sm text-amber-100 font-medium leading-relaxed drop-shadow-xs">
               {t('farmerTransport.heroSubtitle', 'Split freight expenses by sharing trucks to APMC mandis. Includes automatic verifiable Digital Mandi Gate Passes with QR verification.')}
             </p>
           </div>
@@ -776,8 +786,8 @@ export default function TransportPage() {
           {/* Mode Switcher Tabs - Locked to admin role (Issue #173) */}
           {user?.role === 'admin' && (
             <div className="p-1.5 rounded-2xl bg-slate-900/70 backdrop-blur-md border border-white/20 flex items-center gap-1.5 shrink-0 shadow-lg">
-              <button type="button" onClick={() => setActiveTab('farmer')} className={`py-2 px-4 rounded-xl text-xs font-bold ${activeTab === 'farmer' ? 'bg-primary text-white shadow-md' : 'text-slate-300'}`}>{t('farmerTransport.farmerBookingBtn', 'Farmer Booking')}</button>
-              <button type="button" onClick={() => setActiveTab('transporter')} className={`py-2 px-4 rounded-xl text-xs font-bold ${activeTab === 'transporter' ? 'bg-primary text-white shadow-md' : 'text-slate-300'}`}>{t('farmerTransport.transporterConsoleBtn', 'Transporter Console')}</button>
+              <button type="button" onClick={() => setActiveTab('farmer')} className={`py-2 px-4 rounded-xl text-xs font-bold ${activeTab === 'farmer' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300'}`}>{t('farmerTransport.farmerBookingBtn', 'Farmer Booking')}</button>
+              <button type="button" onClick={() => setActiveTab('transporter')} className={`py-2 px-4 rounded-xl text-xs font-bold ${activeTab === 'transporter' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300'}`}>{t('farmerTransport.transporterConsoleBtn', 'Transporter Console')}</button>
             </div>
           )}
         </div>
