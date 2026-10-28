@@ -56,26 +56,37 @@ export default function DashboardHeader() {
     : "Check today's market rates, find verified transport, or ask Mitra AI for guidance.";
 
   return (
-    <header className="rounded-3xl bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 text-white p-6 sm:p-8 shadow-xl border border-emerald-700/50 relative overflow-hidden">
-      {/* Subtle background glow */}
-      <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+    <header className="relative rounded-3xl overflow-hidden shadow-xl border border-emerald-800/40 text-white animate-fade-slide-up">
+      {/* High-Quality Indian Farmland Background with cover positioning & responsive overlay */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
+        style={{ backgroundImage: `url('/images/dashboard-hero.jpg')` }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/92 via-emerald-950/88 to-teal-950/80 backdrop-blur-[1px]" />
+      <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="relative z-10 p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
         {/* Left: Greeting, Welcome Message & Simple Location */}
         <div className="space-y-2.5 max-w-2xl">
-          {/* Location indicator */}
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-white text-sm font-semibold border border-white/20">
-            <MapPin className="w-4 h-4 text-emerald-300 shrink-0" aria-hidden="true" />
-            <span>{locationDistrict}, {locationState}</span>
+          {/* Location indicator & Agri tag */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-500/20 backdrop-blur-md text-emerald-200 text-xs sm:text-sm font-semibold border border-emerald-400/30">
+              <MapPin className="w-4 h-4 text-emerald-300 shrink-0" aria-hidden="true" />
+              <span>{locationDistrict}, {locationState}</span>
+            </div>
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 text-white/90 text-xs font-medium border border-white/15 backdrop-blur-md">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
+              <span>Kisan Decision Portal</span>
+            </span>
           </div>
 
           {/* Namaste, Farmer Name */}
-          <h1 className="farmer-title text-white tracking-tight drop-shadow-xs">
+          <h1 className="farmer-title text-white tracking-tight drop-shadow-md">
             {greetingPrefix}, {farmerName}!
           </h1>
 
           {/* Simple, clear welcome text */}
-          <p className="farmer-body text-emerald-100 max-w-xl">
+          <p className="farmer-body text-emerald-100 max-w-xl drop-shadow-xs">
             {welcomeMessage}
           </p>
         </div>
@@ -86,7 +97,7 @@ export default function DashboardHeader() {
           {notificationCount > 0 && (
             <Link
               to="/dashboard#mandi-bookings"
-              className="relative p-3.5 rounded-2xl bg-amber-500/20 text-amber-200 border border-amber-400/40 hover:bg-amber-500/30 transition-all flex items-center gap-2 font-bold text-sm"
+              className="relative p-3.5 rounded-2xl bg-amber-500/20 text-amber-200 border border-amber-400/40 hover:bg-amber-500/30 transition-all flex items-center gap-2 font-bold text-sm btn-press"
               title={`${notificationCount} new procurement inquiry`}
               aria-label={`${notificationCount} new mandi procurement notices`}
             >
@@ -99,7 +110,7 @@ export default function DashboardHeader() {
           <Link
             to="/chat"
             id="header-ask-mitra-btn"
-            className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-white text-emerald-900 hover:bg-emerald-50 active:scale-98 transition-all shadow-lg font-black text-base sm:text-lg cursor-pointer"
+            className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-white text-emerald-950 hover:bg-emerald-50 hover:shadow-2xl transition-all shadow-lg font-black text-base sm:text-lg cursor-pointer btn-press ai-glow-subtle"
           >
             <Mic className="w-5 h-5 text-emerald-700" aria-hidden="true" />
             <span>Ask Mitra AI</span>

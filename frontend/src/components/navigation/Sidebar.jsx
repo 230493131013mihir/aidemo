@@ -373,10 +373,10 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
                               }}
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <Icon className="w-5 h-5 shrink-0" aria-hidden="true" />
+                                <Icon className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
                                 <span className="truncate">{item.label}</span>
                               </div>
-                              <ChevronRight className="w-4 h-4 opacity-40 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
+                              <ChevronRight className="w-4 h-4 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
                             </NavLink>
                           );
                         })}

@@ -51,34 +51,35 @@ export default function ChatPage() {
 
   return (
     <div className="space-y-6 w-full max-w-full 2xl:max-w-[1600px] mx-auto py-4 sm:py-6 px-2 sm:px-4">
-      {/* Modern AI Assistant Workspace Banner */}
-      <section className="relative rounded-3xl overflow-hidden shadow-xl border border-emerald-900/30 text-white">
+      {/* Module Hero Banner — Deep Green / Teal with Soft AI Glow */}
+      <section className="relative rounded-3xl overflow-hidden shadow-xl border border-teal-700/50 text-white animate-fade-slide-up ai-glow-subtle">
         <div 
           className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
           style={{ backgroundImage: `url('/images/dashboard-hero.jpg')` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-purple-950/80 to-emerald-950/85 backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/92 via-teal-950/88 to-emerald-950/80 backdrop-blur-[1px]" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-teal-500/15 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 text-purple-200 border border-purple-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
-              <Bot className="w-3.5 h-3.5 text-purple-300" />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/20 text-teal-300 border border-teal-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+              <Bot className="w-3.5 h-3.5 text-teal-400" />
               <span>{isTransporter ? t('chat.transporterBadge', 'Multilingual Logistics AI Dispatcher') : t('chat.farmerBadge', 'Voice & Multilingual AI Agronomist')}</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
               {isTransporter ? t('chat.transporterTitle', 'Mitra Logistics Assistant') : t('chat.title', 'Mitra AI Advisory Assistant')}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
+            <p className="text-xs sm:text-sm text-teal-100 font-medium leading-relaxed drop-shadow-xs">
               {isTransporter
-                ? t('chat.transporterSubtitle', 'Ask about your next pickup point, route corridors, remaining vehicle payload capacity, active trips, and highway weather.')
-                : t('chat.subtitle', 'Ask about live APMC mandi prices, rainfall forecast, crop harvest timing, and shared truck pooling in natural language.')}
+? t('chat.transporterSubtitle', 'Ask about your next pickup point, route corridors, remaining vehicle payload capacity, active trips, and highway weather.')
+                : t('chat.subtitle', 'Your 24/7 agricultural assistant for mandi rates, crop health, and government schemes.')}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-white">
-              <Sparkles className="w-3.5 h-3.5 text-accent animate-pulse" aria-hidden="true" />
-              <span>{isTransporter ? t('chat.transporterActiveStatus', 'Logistics Assistant Active') : t('chat.activeStatus', 'Active & Multilingual')}</span>
+            <span className="badge-tag bg-teal-500/20 text-teal-200 border border-teal-400/40 font-bold">
+              <Sparkles className="w-3.5 h-3.5 text-teal-300 animate-pulse" aria-hidden="true" />
+              <span>{isTransporter ? t('chat.transporterActiveStatus', 'Logistics Assistant Active') : t('chat.activeStatus', 'Mitra AI Active & Multilingual')}</span>
             </span>
           </div>
         </div>

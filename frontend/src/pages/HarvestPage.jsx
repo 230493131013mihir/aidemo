@@ -902,29 +902,30 @@ export default function HarvestPage() {
 
   return (
     <div className="space-y-6 w-full max-w-full 2xl:max-w-[1720px] mx-auto py-4 sm:py-6 px-2 sm:px-4">
-      {/* Header Banner with 3D Depth Card */}
-      <section className="relative rounded-3xl overflow-hidden shadow-xl border border-emerald-900/30 text-white">
+      {/* Module Hero Banner — Blue / Indigo Identity with Calculation & Harvest Planning Theme */}
+      <section className="relative rounded-3xl overflow-hidden shadow-xl border border-blue-800/40 text-white animate-fade-slide-up">
         <div 
           className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
           style={{ backgroundImage: `url('/images/harvest-hero.jpg')` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-amber-950/80 to-emerald-950/70 backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/92 via-blue-950/88 to-indigo-950/80 backdrop-blur-[1px]" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
-              <Calculator className="w-3.5 h-3.5 text-emerald-400" />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+              <Calculator className="w-3.5 h-3.5 text-blue-400" />
               <span>{t('harvest.badge', 'Maharashtra APMC Arbitrage & Profit Engine')}</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
-              {t('harvest.heroTitle', 'Smart Harvest Decision & Mandi Net Profit')}
+              {t('harvest.heroTitle', 'Harvest Simulator & Net Take-Home Earnings')}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
-              {t('harvest.heroSubtitle', 'Calculate genuine take-home cash after deducting transport logistics, statutory APMC market cess, and storage expenses across Maharashtra mandis.')}
+            <p className="text-xs sm:text-sm text-blue-100 font-medium leading-relaxed drop-shadow-xs">
+              {t('harvest.heroSubtitle', 'Estimate your earnings after transport and market expenses.')}
             </p>
             {user?.isGuest && (
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-amber-400/20 text-amber-200 border border-amber-300/40 text-xs font-semibold backdrop-blur-sm mt-1">
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-blue-400/20 text-blue-200 border border-blue-300/40 text-xs font-semibold backdrop-blur-sm mt-1">
+                <Sparkles className="w-3.5 h-3.5 text-blue-300" />
                 <span>{language === 'mr' ? 'सक्रिय अतिथी सत्र: ४.५ एकर (पुणे जिल्हा) • सिम्युलेटर सक्रिय' : 'Active Guest Session: 4.5 Acres (Pune District) • Pre-loaded Simulator Active'}</span>
               </div>
             )}
@@ -932,13 +933,13 @@ export default function HarvestPage() {
 
           {/* 3D Winning Verdict Snapshot Badge */}
           <div
-            className="rounded-2xl border-2 border-emerald-400/80 bg-gradient-to-tr from-emerald-600/90 to-primary/95 text-white p-4 shadow-2xl min-w-[260px] text-center backdrop-blur-md shrink-0"
+            className="rounded-2xl border-2 border-blue-400/80 bg-gradient-to-tr from-blue-600/90 to-indigo-700/95 text-white p-4 shadow-2xl min-w-[260px] text-center backdrop-blur-md shrink-0 card-hover-elevate"
             style={{
               transform: 'perspective(1000px) rotateX(1deg)',
-              boxShadow: '0 15px 30px -5px rgba(0, 0, 0, 0.4)',
+              boxShadow: '0 15px 30px -5px rgba(15, 23, 42, 0.4)',
             }}
           >
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-100 flex items-center justify-center gap-1">
+<span className="text-[10px] font-bold uppercase tracking-wider text-blue-100 flex items-center justify-center gap-1">
               <Sparkles className="w-3.5 h-3.5 text-amber-300" /> {t('harvest.rankedStrategy', 'Ranked #1 Selling Strategy')}
             </span>
             <p className="text-base font-black mt-1 line-clamp-1">{winningScenario.title}</p>

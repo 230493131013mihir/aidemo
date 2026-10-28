@@ -25,7 +25,7 @@ export default function ChatMessage({
 
   if (isUser) {
     return (
-      <div className="flex justify-end mb-4 group">
+      <div className="flex justify-end mb-4 group animate-fade-slide-up">
         <div className="max-w-[85%] sm:max-w-[75%] flex flex-col items-end">
           <div className="flex items-center gap-1.5 mb-1 text-[11px] text-emerald-800 font-medium px-1">
             <span>You</span>
@@ -44,7 +44,7 @@ export default function ChatMessage({
 
   // Assistant Message
   return (
-    <div className="flex justify-start mb-4 group">
+    <div className="flex justify-start mb-4 group animate-fade-slide-up">
       <div className="max-w-[90%] sm:max-w-[82%] flex flex-col items-start">
         {/* Header with Mitra Avatar and Tags */}
         <div className="flex items-center gap-2 mb-1 px-1">
@@ -64,6 +64,7 @@ export default function ChatMessage({
           )}
         </div>
 
+        {/* Bubble */}
         <div className="bg-white border border-emerald-200 text-slate-900 px-4 py-3.5 rounded-2xl rounded-tl-sm shadow-xs text-base sm:text-lg leading-relaxed break-words font-medium relative space-y-2">
           <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>
 

@@ -787,27 +787,28 @@ export default function TransporterDashboard() {
 
   return (
     <div className="space-y-6 sm:space-y-8 w-full max-w-full 2xl:max-w-[1720px] mx-auto pb-16 animate-in fade-in">
-      {/* 1. Transporter Header Banner */}
-      <section className="relative rounded-3xl overflow-hidden shadow-xl border border-primary/20 text-white">
+      {/* 1. Transporter Header Banner — Orange / Slate Logistics Hub */}
+      <section className="relative rounded-3xl overflow-hidden shadow-xl border border-orange-500/30 text-white animate-fade-slide-up">
         <div 
           className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
           style={{ backgroundImage: `url('/images/transport-hero.jpg')` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-900/90 to-emerald-950/80 backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-900/90 to-orange-950/85 backdrop-blur-[1px]" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
-              <Truck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>{t('transporter.headerBadge') || "Transporter Logistics & Shared Transport Hub"}</span>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/20 text-orange-300 border border-orange-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+              <Truck className="w-3.5 h-3.5 text-orange-400" />
+              <span>{t('transporter.headerBadge') || "Transporter Logistics & Shared Fleet Hub"}</span>
             </div>
 
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
               {t('transporter.headerTitle') || "Logistics Management Console"}
             </h1>
 
-            <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
-              {t('transporter.headerSubtitle') || "Manage agricultural cargo dispatch, group compatible farmer bookings into shared trips, assign fleet carriers, and track delivery progress across Maharashtra corridors."}
+            <p className="text-xs sm:text-sm text-orange-100 font-medium leading-relaxed drop-shadow-xs">
+              {t('transporter.headerSubtitle') || "Manage your vehicle fleet, accept transport bids, and assign drivers."}
             </p>
           </div>
 
@@ -815,7 +816,7 @@ export default function TransporterDashboard() {
             <button
               type="button"
               onClick={() => setShowAddVehicleModal(true)}
-              className="py-2.5 px-4 rounded-xl bg-primary hover:bg-primary-dark text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+              className="py-2.5 px-4 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer btn-press"
             >
               <PlusCircle className="w-4 h-4" />
               <span>{t('transporter.registerVehicleBtn') || "Register Fleet Vehicle"}</span>
