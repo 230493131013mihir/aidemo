@@ -97,10 +97,20 @@ export default function MandiDashboard() {
       const res = await apiClient('/api/auth/contact-requests');
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
+        // Filter strictly for requests sent by THIS Mandi official (or all mandi_to_farmer if admin)
         const mandiRequests = json.data.filter(
-          r => r.senderId === user?.id || r.contactType === 'mandi_to_farmer'
+          r => (r.senderId === user?.id || user?.role === 'admin') && r.contactType === 'mandi_to_farmer'
         );
-        setRecentBookings(mandiRequests);
+        // Guarantee distinct records by ID
+        const seenIds = new Set();
+        const uniqueBookings = [];
+        for (const req of mandiRequests) {
+          if (req.id && !seenIds.has(req.id)) {
+            seenIds.add(req.id);
+            uniqueBookings.push(req);
+          }
+        }
+        setRecentBookings(uniqueBookings);
       }
     } catch (err) {
       console.warn('Could not fetch recent contact requests:', err.message);
@@ -329,12 +339,14 @@ export default function MandiDashboard() {
     };
     const defaultRate = benchmarkRates[targetCrop] || 30.00;
 
+    const idempotencyKey = `proc_${user?.id || 'mandi'}_${farmer.id}_${targetCrop}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     setSelectedFarmer(farmer);
     setProcurementForm({
       cropName: targetCrop,
       quantityKg: Math.min(availableQty, 500).toString(),
       offeredRate: defaultRate.toFixed(2),
-      notes: 'Direct APMC gate inward reservation • DBT on weighment'
+      notes: 'Direct APMC gate inward reservation • DBT on weighment',
+      idempotencyKey
     });
     setProcurementModalOpen(true);
   };
@@ -342,7 +354,7 @@ export default function MandiDashboard() {
   // Submit Procurement Request via POST /api/auth/mandi-procurement-request
   const handleSubmitProcurement = async (e) => {
     e.preventDefault();
-    if (!selectedFarmer) return;
+    if (submitting || !selectedFarmer) return;
 
     const crops = getFarmerCrops(selectedFarmer);
     const selectedCropObj = crops.find(c => c.crop.toLowerCase() === procurementForm.cropName.toLowerCase());
@@ -387,27 +399,42 @@ export default function MandiDashboard() {
       return;
     }
 
+    const currentKey = procurementForm.idempotencyKey || `proc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
     try {
       setSubmitting(true);
       const res = await apiClient('/api/auth/mandi-procurement-request', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': currentKey
+        },
         body: JSON.stringify({
           farmerId: selectedFarmer.id,
           cropName: procurementForm.cropName,
           quantityKg: qty,
           offeredRate: rate,
-          notes: procurementForm.notes || ''
+          notes: procurementForm.notes || '',
+          idempotencyKey: currentKey
         })
       });
 
       const json = await res.json();
 
       if (json.success) {
-        showToast?.({
-          type: 'success',
-          title: 'Procurement Request Dispatched! 🏪',
-          message: `Booking notification sent to ${selectedFarmer.name} for ${qty} kg ${procurementForm.cropName} at ₹${rate}/kg.`
-        });
+        if (json.isExisting) {
+          showToast?.({
+            type: 'info',
+            title: 'Active Booking Found ℹ️',
+            message: json.message || 'An active procurement inquiry for this lot is already recorded.'
+          });
+        } else {
+          showToast?.({
+            type: 'success',
+            title: 'Procurement Request Dispatched! 🏪',
+            message: `Booking notification sent to ${selectedFarmer.name} for ${qty} kg ${procurementForm.cropName} at ₹${rate}/kg.`
+          });
+        }
         setProcurementModalOpen(false);
         fetchFarmers();
         fetchRecentBookings();
@@ -897,12 +924,13 @@ export default function MandiDashboard() {
               {[
                 { id: 'all', label: t('mandi.allRequests', 'All Requests'), count: recentBookings.length },
                 { id: 'pending', label: t('mandi.pendingResponse', 'Pending Response'), count: recentBookings.filter(b => b.status === 'pending').length },
-                { id: 'accepted', label: t('mandi.confirmedBookings', 'Confirmed Bookings'), count: recentBookings.filter(b => b.status === 'accepted').length },
-                { id: 'declined', label: t('mandi.declined', 'Declined'), count: recentBookings.filter(b => b.status === 'declined').length }
+                { id: 'accepted', label: t('mandi.confirmedBookings', 'Confirmed Bookings'), count: recentBookings.filter(b => b.status === 'accepted' || b.status === 'confirmed').length },
+                { id: 'declined', label: t('mandi.declined', 'Declined / Cancelled'), count: recentBookings.filter(b => b.status === 'declined' || b.status === 'cancelled' || b.status === 'rejected').length }
               ].map(f => (
                 <button
                   key={f.id}
                   type="button"
+                  id={`tab-booking-${f.id}`}
                   onClick={() => setBookingFilter(f.id)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                     bookingFilter === f.id
@@ -927,11 +955,18 @@ export default function MandiDashboard() {
           ) : (
             <div className="space-y-3">
               {recentBookings
-                .filter(req => bookingFilter === 'all' || req.status === bookingFilter)
+                .filter(req => {
+                  if (bookingFilter === 'all') return true;
+                  if (bookingFilter === 'pending') return req.status === 'pending';
+                  if (bookingFilter === 'accepted') return req.status === 'accepted' || req.status === 'confirmed';
+                  if (bookingFilter === 'declined') return req.status === 'declined' || req.status === 'cancelled' || req.status === 'rejected';
+                  return req.status === bookingFilter;
+                })
                 .map((req) => {
-                  const isAccepted = req.status === 'accepted';
-                  const isDeclined = req.status === 'declined';
+                  const isAccepted = req.status === 'accepted' || req.status === 'confirmed';
+                  const isDeclined = req.status === 'declined' || req.status === 'cancelled' || req.status === 'rejected';
                   const isPending = req.status === 'pending';
+                  const isCompleted = req.status === 'completed';
                   const qty = Number(req.quantityKg) || 0;
                   const rate = Number(req.proposedPricePerKg) || 0;
                   const totalVal = Math.round(qty * rate);
@@ -939,11 +974,14 @@ export default function MandiDashboard() {
                   return (
                     <div 
                       key={req.id}
+                      id={`booking-card-${req.id}`}
                       className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
                         isAccepted
                           ? 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
                           : isDeclined
                           ? 'bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-70'
+                          : isCompleted
+                          ? 'bg-teal-50 dark:bg-teal-950/20 border-teal-300 dark:border-teal-800'
                           : 'bg-secondary/30 border-border'
                       }`}
                     >
@@ -955,11 +993,23 @@ export default function MandiDashboard() {
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
                             isAccepted 
                               ? 'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-900 dark:text-emerald-200' 
+                              : req.status === 'cancelled'
+                              ? 'bg-slate-200 text-slate-800 border-slate-400 dark:bg-slate-800 dark:text-slate-200'
                               : isDeclined
                               ? 'bg-red-100 text-red-900 border-red-300 dark:bg-red-900 dark:text-red-200'
+                              : isCompleted
+                              ? 'bg-teal-100 text-teal-900 border-teal-300 dark:bg-teal-900 dark:text-teal-200'
                               : 'bg-amber-100 text-amber-950 border-amber-300 dark:bg-amber-900 dark:text-amber-200'
                           }`}>
-                            {isAccepted ? `✅ ${t('mandi.confirmedByFarmer', 'Confirmed by Farmer')}` : isDeclined ? t('mandi.declined', 'Declined') : `⏳ ${t('mandi.pendingFarmerReview', 'Pending Farmer Review')}`}
+                            {isAccepted 
+                              ? `✅ ${t('mandi.confirmedByFarmer', 'Confirmed by Farmer')}` 
+                              : req.status === 'cancelled'
+                              ? '⚪ Cancelled'
+                              : isDeclined 
+                              ? `❌ ${t('mandi.declined', 'Declined')}` 
+                              : isCompleted
+                              ? '🏁 Fulfilled / Completed'
+                              : `⏳ ${t('mandi.pendingFarmerReview', 'Pending Farmer Review')}`}
                           </span>
                           <span className="text-[11px] text-muted">
                             {req.createdAt ? new Date(req.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : t('common.live', 'Live')}

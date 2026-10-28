@@ -1257,6 +1257,19 @@ const createContactRequest = async (req, res) => {
  * Allows Mandi Officials or Admins to issue a produce procurement booking inquiry to a farmer.
  * Dispatches and records a persistent notification alert in database.
  */
+// In-memory idempotency cache for procurement requests (TTL: 5 minutes)
+const procurementIdempotencyMap = new Map();
+const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000;
+
+const cleanupIdempotencyMap = () => {
+    const now = Date.now();
+    for (const [key, item] of procurementIdempotencyMap.entries()) {
+        if (now - item.timestamp > IDEMPOTENCY_TTL_MS) {
+            procurementIdempotencyMap.delete(key);
+        }
+    }
+};
+
 const mandiProcurementRequest = async (req, res) => {
     try {
         if (!req.user || (req.user.role !== 'mandi' && req.user.role !== 'admin')) {
@@ -1264,6 +1277,14 @@ const mandiProcurementRequest = async (req, res) => {
                 success: false,
                 message: "Access denied. Only Mandi officials and administrators can issue procurement requests."
             });
+        }
+
+        cleanupIdempotencyMap();
+
+        const idempotencyKey = req.headers["idempotency-key"] || req.body?.idempotencyKey;
+        if (idempotencyKey && procurementIdempotencyMap.has(String(idempotencyKey))) {
+            const cached = procurementIdempotencyMap.get(String(idempotencyKey));
+            return res.status(cached.status || 200).json(cached.payload);
         }
 
         const { farmerId, cropName, quantityKg, offeredRate, notes } = req.body;
@@ -1304,9 +1325,83 @@ const mandiProcurementRequest = async (req, res) => {
             });
         }
 
+        const normalizedCrop = String(cropName).trim().toLowerCase();
+        const sixtySecondsAgo = new Date(Date.now() - 60 * 1000);
+
+        // Anti-Double-Click / Re-submission Protection: Check if identical request (same qty & rate) was created within the last 60 seconds
+        const recentDuplicate = await ContactRequest.findOne({
+            where: {
+                senderId: req.user.id,
+                receiverId: farmer.id,
+                contactType: "mandi_to_farmer",
+                cropName: { [Op.like]: cropName.trim() },
+                quantityKg: qty,
+                proposedPricePerKg: rate,
+                createdAt: { [Op.gte]: sixtySecondsAgo }
+            },
+            order: [["createdAt", "DESC"]]
+        });
+
+        if (recentDuplicate) {
+            const dupPayload = {
+                success: true,
+                isExisting: true,
+                message: `Procurement booking request already processed (Request #${recentDuplicate.id}).`,
+                alert: {
+                    id: recentDuplicate.id,
+                    farmerId: farmer.id,
+                    farmerName: farmer.name,
+                    cropName,
+                    quantityKg: recentDuplicate.quantityKg,
+                    offeredRate: recentDuplicate.proposedPricePerKg,
+                    message: recentDuplicate.message,
+                    createdAt: recentDuplicate.createdAt
+                },
+                data: recentDuplicate
+            };
+            if (idempotencyKey) {
+                procurementIdempotencyMap.set(String(idempotencyKey), { status: 200, payload: dupPayload, timestamp: Date.now() });
+            }
+            return res.status(200).json(dupPayload);
+        }
+
+        // Active Pending Booking Protection: Check if this Mandi already has an active pending request for this farmer & crop
+        const existingPending = await ContactRequest.findOne({
+            where: {
+                senderId: req.user.id,
+                receiverId: farmer.id,
+                contactType: "mandi_to_farmer",
+                cropName: { [Op.like]: cropName.trim() },
+                status: "pending"
+            },
+            order: [["createdAt", "DESC"]]
+        });
+
+        if (existingPending) {
+            const pendingPayload = {
+                success: true,
+                isExisting: true,
+                message: `An active procurement inquiry for ${farmer.name}'s ${cropName} is already pending farmer confirmation (Request #${existingPending.id}).`,
+                alert: {
+                    id: existingPending.id,
+                    farmerId: farmer.id,
+                    farmerName: farmer.name,
+                    cropName,
+                    quantityKg: existingPending.quantityKg,
+                    offeredRate: existingPending.proposedPricePerKg,
+                    message: existingPending.message,
+                    createdAt: existingPending.createdAt
+                },
+                data: existingPending
+            };
+            if (idempotencyKey) {
+                procurementIdempotencyMap.set(String(idempotencyKey), { status: 200, payload: pendingPayload, timestamp: Date.now() });
+            }
+            return res.status(200).json(pendingPayload);
+        }
+
         // Determine original listed quantity for this crop
         let originalLotKg = 0;
-        const normalizedCrop = String(cropName).trim().toLowerCase();
         if (farmer.FarmerProfile?.productQuantities) {
             try {
                 const pq = typeof farmer.FarmerProfile.productQuantities === 'string'
@@ -1368,23 +1463,26 @@ const mandiProcurementRequest = async (req, res) => {
         const noteText = notes && String(notes).trim() ? ` [Note: ${String(notes).trim()}]` : "";
         const notificationText = `🏪 ${mandiName} placed a procurement inquiry for ${qty} kg ${cropName} at ₹${formattedRate}/kg${noteText}`;
 
-        const contactReq = await ContactRequest.create({
-            senderId: req.user.id,
-            senderName: mandiName,
-            senderRole: req.user.role,
-            senderContact: mandiProfile?.contactPhone || req.user.phone || mandiProfile?.contactEmail || req.user.email,
-            receiverId: farmer.id,
-            receiverName: farmer.name,
-            receiverRole: farmer.role,
-            cropName: String(cropName).trim(),
-            quantityKg: qty,
-            proposedPricePerKg: formattedRate,
-            message: notificationText,
-            status: "pending",
-            contactType: "mandi_to_farmer"
+        // Create procurement request inside transaction
+        const contactReq = await sequelize.transaction(async (t) => {
+            return await ContactRequest.create({
+                senderId: req.user.id,
+                senderName: mandiName,
+                senderRole: req.user.role,
+                senderContact: mandiProfile?.contactPhone || req.user.phone || mandiProfile?.contactEmail || req.user.email,
+                receiverId: farmer.id,
+                receiverName: farmer.name,
+                receiverRole: farmer.role,
+                cropName: String(cropName).trim(),
+                quantityKg: qty,
+                proposedPricePerKg: formattedRate,
+                message: notificationText,
+                status: "pending",
+                contactType: "mandi_to_farmer"
+            }, { transaction: t });
         });
 
-        return res.status(201).json({
+        const successPayload = {
             success: true,
             message: `Procurement booking request sent to ${farmer.name} successfully.`,
             alert: {
@@ -1399,7 +1497,13 @@ const mandiProcurementRequest = async (req, res) => {
                 createdAt: contactReq.createdAt
             },
             data: contactReq
-        });
+        };
+
+        if (idempotencyKey) {
+            procurementIdempotencyMap.set(String(idempotencyKey), { status: 201, payload: successPayload, timestamp: Date.now() });
+        }
+
+        return res.status(201).json(successPayload);
     } catch (error) {
         console.error("Mandi procurement request error:", error);
         return res.status(500).json({
@@ -1420,13 +1524,23 @@ const getContactRequests = async (req, res) => {
                     { receiverId: userId }
                 ]
             },
-            order: [["createdAt", "DESC"]]
+            order: [["createdAt", "DESC"], ["id", "DESC"]]
         });
+
+        // Deduplicate records by ID to guarantee distinct rows
+        const uniqueRequests = [];
+        const seenIds = new Set();
+        for (const r of requests) {
+            if (r.id && !seenIds.has(r.id)) {
+                seenIds.add(r.id);
+                uniqueRequests.push(r);
+            }
+        }
 
         return res.json({
             success: true,
-            count: requests.length,
-            data: requests
+            count: uniqueRequests.length,
+            data: uniqueRequests
         });
     } catch (error) {
         console.error("Get Contact Requests error:", error);
