@@ -90,19 +90,22 @@ export default function FpoDashboardPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto py-6 px-4">
-      {/* FPO Header Banner */}
-      <section className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-900 via-teal-900 to-slate-900 text-white p-6 sm:p-8 shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* FPO Header Banner — Green / Purple Cooperative Identity */}
+      <section className="rounded-3xl border border-purple-500/30 bg-gradient-to-br from-emerald-950 via-slate-900 to-purple-950/80 text-white p-6 sm:p-8 shadow-xl relative overflow-hidden animate-fade-slide-up">
+        <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold uppercase tracking-wider">
-              <ShieldCheck className="w-4 h-4" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-xs font-bold uppercase tracking-wider">
+              <ShieldCheck className="w-4 h-4 text-purple-300" />
               <span>Certified Farmer Producer Organization</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-sm">
               {fpo.name || user?.name || 'Kisan Samruddhi FPO'}
             </h1>
-            <p className="text-xs sm:text-sm text-emerald-200/80 max-w-2xl leading-relaxed">
+            <p className="text-xs sm:text-sm text-purple-100 font-medium leading-relaxed drop-shadow-xs">
+              Aggregate farmer member yields, coordinate bulk transport, and maximize returns.
+            </p>
+            <p className="text-xs text-emerald-200/80 max-w-2xl leading-relaxed">
               Agristack Registration: <span className="font-mono font-bold text-white">{fpo.registrationNumber}</span> • Operational Jurisdiction: <span className="font-semibold text-white">{fpo.district}, {fpo.state}</span> • Member Landholdings: <span className="font-semibold text-white">{fpo.collectiveAcres} Acres</span>
             </p>
           </div>

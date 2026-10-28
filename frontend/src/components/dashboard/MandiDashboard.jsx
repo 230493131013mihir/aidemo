@@ -347,32 +347,41 @@ export default function MandiDashboard() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12 animate-in fade-in duration-300">
-      {/* 1. APMC Mandi Official Banner Header */}
+      {/* 1. APMC Mandi Official Banner Header — Muted Gold / Emerald Wholesale Market Identity */}
       <div 
         id="mandi-header-banner"
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-900 via-teal-900 to-slate-900 text-white p-6 sm:p-8 shadow-xl border border-emerald-700/50"
+        className="relative overflow-hidden rounded-3xl text-white p-6 sm:p-8 shadow-xl border border-amber-700/40 animate-fade-slide-up"
       >
-        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-80 h-80 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-12 w-64 h-64 rounded-full bg-teal-400/10 blur-2xl pointer-events-none" />
+        {/* Wholesale Agricultural Produce Market Background */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
+          style={{ backgroundImage: `url('/images/mandi-hero.jpg')` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/92 via-amber-950/85 to-emerald-950/80 backdrop-blur-[1px]" />
+        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-80 h-80 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 -mb-12 w-64 h-64 rounded-full bg-emerald-400/10 blur-2xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-3 max-w-3xl">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-400/30 uppercase tracking-wider backdrop-blur-md">
                 <Building2 className="w-3.5 h-3.5" />
                 {t('mandi.portalBadge', 'Dedicated APMC Mandi Portal')}
               </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 backdrop-blur-md">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 {t('mandi.license', 'License')}: {licenseNumber}
               </span>
             </div>
 
             <div>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3 drop-shadow-md">
                 {mandiName}
               </h1>
-              <p className="text-emerald-200/90 text-sm sm:text-base mt-1 flex items-center gap-2">
+              <p className="text-amber-100 font-medium text-xs sm:text-sm mt-1 drop-shadow-xs">
+                Procure crops from verified local farmers and manage gate pass receipts.
+              </p>
+              <p className="text-emerald-200/90 text-xs sm:text-sm mt-0.5 flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>{district} {t('mandi.marketYard', 'District APMC Market Yard')} • {state}</span>
               </p>

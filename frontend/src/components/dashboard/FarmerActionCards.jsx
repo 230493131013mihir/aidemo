@@ -42,11 +42,11 @@ export default function FarmerActionCards({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-        {/* CARD 1: Check Market Prices */}
-        <div className="farmer-action-card border-emerald-200/80 bg-white hover:border-emerald-500">
+        {/* CARD 1: Check Market Prices (Emerald / Teal) */}
+        <div className="farmer-action-card border-emerald-300 bg-gradient-to-br from-white via-emerald-50/25 to-teal-50/30 hover:border-emerald-500 card-hover-elevate animate-fade-slide-up animate-stagger-1 focus-within:ring-2 focus-within:ring-emerald-500/50">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shadow-xs">
                 <TrendingUp className="w-6 h-6 text-emerald-700" aria-hidden="true" />
               </div>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
@@ -65,7 +65,7 @@ export default function FarmerActionCards({
             </div>
 
             {/* Price Preview Highlight */}
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div className="p-3.5 rounded-2xl bg-white/80 border border-emerald-100/80 flex items-center justify-between shadow-2xs">
               <div>
                 <span className="farmer-subtext block text-slate-500">{marketName}</span>
                 <span className="farmer-price-value text-emerald-800 font-bold block mt-0.5">
@@ -82,11 +82,11 @@ export default function FarmerActionCards({
             </div>
           </div>
 
-          <div className="pt-4 mt-2 border-t border-slate-100">
+          <div className="pt-4 mt-2 border-t border-emerald-100/60">
             <Link
               to="/markets"
               id="action-card-view-prices"
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-base transition-colors shadow-xs"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-base transition-colors shadow-xs btn-press"
             >
               <span>View Prices</span>
               <ArrowRight className="w-5 h-5" aria-hidden="true" />
@@ -94,11 +94,11 @@ export default function FarmerActionCards({
           </div>
         </div>
 
-        {/* CARD 2: Where Should I Sell? */}
-        <div className="farmer-action-card border-blue-200/80 bg-white hover:border-blue-500">
+        {/* CARD 2: Where Should I Sell? (Blue / Indigo) */}
+        <div className="farmer-action-card border-blue-300 bg-gradient-to-br from-white via-blue-50/25 to-indigo-50/30 hover:border-blue-500 card-hover-elevate animate-fade-slide-up animate-stagger-2 focus-within:ring-2 focus-within:ring-blue-500/50">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-800 flex items-center justify-center font-bold">
+              <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-800 flex items-center justify-center font-bold shadow-xs">
                 <Calculator className="w-6 h-6 text-blue-700" aria-hidden="true" />
               </div>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-800 border border-blue-200 text-xs font-bold">
@@ -117,7 +117,7 @@ export default function FarmerActionCards({
             </div>
 
             {/* Earnings Estimate Preview */}
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div className="p-3.5 rounded-2xl bg-white/80 border border-blue-100/80 flex items-center justify-between shadow-2xs">
               <div>
                 <span className="farmer-subtext block text-slate-500">Estimated Take-Home</span>
                 <span className="farmer-price-value text-blue-800 font-bold block mt-0.5">
@@ -131,11 +131,11 @@ export default function FarmerActionCards({
             </div>
           </div>
 
-          <div className="pt-4 mt-2 border-t border-slate-100">
+          <div className="pt-4 mt-2 border-t border-blue-100/60">
             <Link
               to="/harvest"
               id="action-card-compare-mandis"
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-base transition-colors shadow-xs"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-base transition-colors shadow-xs btn-press"
             >
               <span>Compare Mandis</span>
               <ArrowRight className="w-5 h-5" aria-hidden="true" />
@@ -143,11 +143,11 @@ export default function FarmerActionCards({
           </div>
         </div>
 
-        {/* CARD 3: Find Transport */}
-        <div className="farmer-action-card border-amber-200/80 bg-white hover:border-amber-500">
+        {/* CARD 3: Find Transport (Warm Amber / Orange) */}
+        <div className="farmer-action-card border-amber-300 bg-gradient-to-br from-white via-amber-50/25 to-orange-50/30 hover:border-amber-500 card-hover-elevate animate-fade-slide-up animate-stagger-3 focus-within:ring-2 focus-within:ring-amber-500/50">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold shadow-xs">
                 <Truck className="w-6 h-6 text-amber-700" aria-hidden="true" />
               </div>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200 text-xs font-bold">
@@ -165,7 +165,7 @@ export default function FarmerActionCards({
             </div>
 
             {/* Transport Availability Preview */}
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div className="p-3.5 rounded-2xl bg-white/80 border border-amber-100/80 flex items-center justify-between shadow-2xs">
               <div>
                 <span className="farmer-subtext block text-slate-500">Available Corridor</span>
                 <span className="font-bold text-base text-slate-900 flex items-center gap-1 mt-0.5">
@@ -174,7 +174,7 @@ export default function FarmerActionCards({
                 </span>
               </div>
               <div className="text-right">
-                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200 block">
+                <span className="text-xs font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200 block">
                   ~40% Shared Savings
                 </span>
                 <span className="text-xs text-slate-500 block mt-0.5">Verified Drivers</span>
@@ -182,11 +182,11 @@ export default function FarmerActionCards({
             </div>
           </div>
 
-          <div className="pt-4 mt-2 border-t border-slate-100">
+          <div className="pt-4 mt-2 border-t border-amber-100/60">
             <Link
               to="/transport"
               id="action-card-find-transport"
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-bold text-base transition-colors shadow-xs"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-bold text-base transition-colors shadow-xs btn-press"
             >
               <span>Find Transport</span>
               <ArrowRight className="w-5 h-5" aria-hidden="true" />
@@ -194,15 +194,15 @@ export default function FarmerActionCards({
           </div>
         </div>
 
-        {/* CARD 4: Ask Mitra AI */}
-        <div className="farmer-action-card border-purple-200/80 bg-white hover:border-purple-500">
+        {/* CARD 4: Ask Mitra AI (Deep Green / Teal with Soft AI Glow) */}
+        <div className="farmer-action-card border-teal-300 bg-gradient-to-br from-white via-teal-50/30 to-emerald-50/40 hover:border-teal-500 card-hover-elevate animate-fade-slide-up animate-stagger-4 ai-glow-subtle focus-within:ring-2 focus-within:ring-teal-500/50">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-800 flex items-center justify-center font-bold">
-                <Bot className="w-6 h-6 text-purple-700" aria-hidden="true" />
+              <div className="w-12 h-12 rounded-2xl bg-teal-100 text-teal-800 flex items-center justify-center font-bold shadow-xs">
+                <Bot className="w-6 h-6 text-teal-700" aria-hidden="true" />
               </div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-purple-900 border border-purple-200 text-xs font-bold">
-                <Mic className="w-3.5 h-3.5 text-purple-600" />
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 text-teal-900 border border-teal-200 text-xs font-bold">
+                <Mic className="w-3.5 h-3.5 text-teal-600" />
                 <span>Voice & Text AI</span>
               </span>
             </div>
@@ -217,19 +217,19 @@ export default function FarmerActionCards({
             </div>
 
             {/* AI Prompt Example */}
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-              <span className="text-xs font-bold text-purple-800 uppercase tracking-wider block">Example Question:</span>
+            <div className="p-3.5 rounded-2xl bg-white/80 border border-teal-100/80 shadow-2xs">
+              <span className="text-xs font-bold text-teal-800 uppercase tracking-wider block">Example Question:</span>
               <p className="text-sm font-semibold text-slate-800 italic mt-1">
                 &ldquo;Where can I get a better price for my tomatoes today?&rdquo;
               </p>
             </div>
           </div>
 
-          <div className="pt-4 mt-2 border-t border-slate-100">
+          <div className="pt-4 mt-2 border-t border-teal-100/60">
             <Link
               to="/chat"
               id="action-card-ask-mitra"
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-base transition-colors shadow-xs"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-base transition-colors shadow-xs btn-press"
             >
               <Mic className="w-5 h-5" aria-hidden="true" />
               <span>Ask Mitra AI</span>

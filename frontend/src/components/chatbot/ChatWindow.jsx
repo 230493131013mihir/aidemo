@@ -526,13 +526,20 @@ export default function ChatWindow({
           />
         ))}
 
-        {/* Loading Indicator */}
+        {/* Lightweight Typing Indicator while response is pending */}
         {isLoading && (
-          <div className="flex items-center gap-2 mb-3 px-1 text-emerald-800 text-xs font-medium animate-pulse">
-            <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-xs">
+          <div className="flex items-center gap-2 mb-3 px-1 animate-fade-slide-up">
+            <div className="w-6 h-6 rounded-full bg-teal-100 border border-teal-300 flex items-center justify-center text-xs shadow-2xs">
               🌱
             </div>
-            <span>Mitra is analyzing market data...</span>
+            <div className="bg-white border border-teal-200/80 rounded-2xl rounded-tl-sm px-3.5 py-2 flex items-center gap-2 shadow-2xs">
+              <span className="text-xs text-teal-900 font-medium">Mitra is analyzing</span>
+              <div className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-600 typing-dot-1" />
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-600 typing-dot-2" />
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-600 typing-dot-3" />
+              </div>
+            </div>
           </div>
         )}
 

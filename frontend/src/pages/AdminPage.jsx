@@ -754,18 +754,18 @@ export default function AdminPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto py-6 px-4">
-      {/* Admin Header with Real-Time Greeting */}
-      <section className="rounded-3xl border border-border bg-white p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Admin Header with Navy / Slate Operations Identity */}
+      <section className="rounded-3xl border border-slate-700/60 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white p-6 sm:p-8 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-slide-up">
         <div>
-          <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary uppercase tracking-wider mb-1">
-            <Shield className="w-4 h-4 text-emerald-600" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold uppercase tracking-wider mb-2">
+            <Shield className="w-4 h-4 text-emerald-400" />
             <span>APMC Central Regulatory Console</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-text">
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-sm">
             {token ? `${greeting}, Administrator! ${icon}` : 'APMC Regulatory Access'}
           </h1>
-          <p className="text-xs sm:text-sm text-muted mt-1 max-w-2xl">
-            Authorize daily mandi benchmark rates across Indian states, monitor farm registries, and oversee transport operations.
+          <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl font-medium">
+            Platform health monitoring, user role management, and operational analytics.
           </p>
         </div>
 

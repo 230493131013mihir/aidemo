@@ -744,33 +744,34 @@ export default function TransportPage() {
         }}
       />
 
-      {/* Top Banner with Photographic Background */}
-      <section className="relative rounded-3xl overflow-hidden shadow-xl border border-emerald-900/30 text-white">
+      {/* Module Hero Banner — Warm Amber / Orange Identity with Logistics & Pooling Visual */}
+      <section className="relative rounded-3xl overflow-hidden shadow-xl border border-amber-800/40 text-white animate-fade-slide-up">
         <div 
           className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
           style={{ backgroundImage: `url('/images/transport-hero.jpg')` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-900/80 to-emerald-950/70 backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/92 via-amber-950/88 to-orange-950/80 backdrop-blur-[1px]" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
-              <Truck className="w-3.5 h-3.5 text-emerald-400" />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+              <Truck className="w-3.5 h-3.5 text-amber-400" />
               <span>Smart Agritech Logistics & Pooling</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
-              Shared Vehicle Pooling & Transporter Portal
+              Shared Vehicle Pooling & Freight Logistics
             </h1>
-            <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
-              Split freight expenses by sharing trucks to APMC mandis. Includes automatic verifiable Digital Mandi Gate Passes with QR verification.
+            <p className="text-xs sm:text-sm text-amber-100 font-medium leading-relaxed drop-shadow-xs">
+              Find verified trucks and save up to 40% with shared freight pooling.
             </p>
           </div>
 
           {/* Mode Switcher Tabs - Locked to admin role (Issue #173) */}
           {user?.role === 'admin' && (
             <div className="p-1.5 rounded-2xl bg-slate-900/70 backdrop-blur-md border border-white/20 flex items-center gap-1.5 shrink-0 shadow-lg">
-              <button type="button" onClick={() => setActiveTab('farmer')} className={`py-2 px-4 rounded-xl text-xs font-bold ${activeTab === 'farmer' ? 'bg-primary text-white shadow-md' : 'text-slate-300'}`}>Farmer Booking</button>
-              <button type="button" onClick={() => setActiveTab('transporter')} className={`py-2 px-4 rounded-xl text-xs font-bold ${activeTab === 'transporter' ? 'bg-primary text-white shadow-md' : 'text-slate-300'}`}>Transporter Console</button>
+              <button type="button" onClick={() => setActiveTab('farmer')} className={`py-2 px-4 rounded-xl text-xs font-bold ${activeTab === 'farmer' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300'}`}>Farmer Booking</button>
+              <button type="button" onClick={() => setActiveTab('transporter')} className={`py-2 px-4 rounded-xl text-xs font-bold ${activeTab === 'transporter' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300'}`}>Transporter Console</button>
             </div>
           )}
         </div>
