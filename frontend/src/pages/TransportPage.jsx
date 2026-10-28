@@ -778,7 +778,7 @@ export default function TransportPage() {
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
               {t('farmerTransport.heroTitle', 'Shared Vehicle Pooling & Freight Logistics')}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
+            <p className="text-xs sm:text-sm text-amber-100 font-medium leading-relaxed drop-shadow-xs">
               {t('farmerTransport.heroSubtitle', 'Split freight expenses by sharing trucks to APMC mandis. Includes automatic verifiable Digital Mandi Gate Passes with QR verification.')}
             </p>
           </div>

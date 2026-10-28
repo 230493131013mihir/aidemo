@@ -807,7 +807,7 @@ export default function TransporterDashboard() {
               {t('transporter.headerTitle') || "Logistics Management Console"}
             </h1>
 
-            <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
+            <p className="text-xs sm:text-sm text-orange-100 font-medium leading-relaxed drop-shadow-xs">
               {t('transporter.headerSubtitle') || "Manage agricultural cargo dispatch, group compatible farmer bookings into shared trips, assign fleet carriers, and track delivery progress across Maharashtra corridors."}
             </p>
           </div>

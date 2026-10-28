@@ -97,7 +97,7 @@ export default function ChatPage() {
             )}
             <span className="badge-tag bg-teal-500/20 text-teal-200 border border-teal-400/40 font-bold">
               <Sparkles className="w-3.5 h-3.5 text-teal-300 animate-pulse" aria-hidden="true" />
-              <span>{isTransporter ? t('chat.transporterActiveStatus', 'Logistics Assistant Active') : t('chat.activeStatus', 'Active & Multilingual')}</span>
+              <span>{isTransporter ? t('chat.transporterActiveStatus', 'Logistics Assistant Active') : t('chat.activeStatus', 'Mitra AI Active & Multilingual')}</span>
             </span>
           </div>
         </div>

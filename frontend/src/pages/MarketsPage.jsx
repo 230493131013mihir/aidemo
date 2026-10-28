@@ -35,7 +35,7 @@ export default function MarketsPage() {
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
               {t('markets.title', 'Maharashtra APMC Mandi Rates')}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow-sm">
+            <p className="text-xs sm:text-sm text-teal-100 font-medium leading-relaxed drop-shadow-xs">
               {t('markets.subtitle', 'Live wholesale price discovery across Maharashtra APMC yards (Pune, Nashik, Vashi, Kolhapur, Nagpur).')}
             </p>
           </div>
@@ -51,7 +51,7 @@ export default function MarketsPage() {
                   placeholder={t('markets.voiceSearchPlaceholder', 'Speak or search crop...')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 pr-3 py-2 text-xs sm:text-sm bg-slate-900/80 border border-teal-500/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-teal-400 w-44 sm:w-56"
+                  className="pl-9 pr-3 py-2 text-xs sm:text-sm bg-slate-900/80 border border-teal-500/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-teal-400 w-44 sm:w-56 font-medium"
                 />
               </div>
               <VoiceSearchButton

@@ -119,6 +119,14 @@ assert.ok(
 );
 console.log('  ✅ [PASS] NetworkStatusBadge offset away from sidebar on desktop.');
 
+// 7. Auditing Sidebar Navigation Link Handlers (handleLinkClick Definition)
+console.log('\n7. Auditing Sidebar Link Click Handlers:');
+assert.ok(
+  sidebarCode.includes('const handleLinkClick ='),
+  'Sidebar.jsx must define handleLinkClick to prevent runtime ReferenceError'
+);
+console.log('  ✅ [PASS] handleLinkClick is properly defined and scoped.');
+
 console.log('\n======================================================');
-console.log('🎉 ALL SIDEBAR SCROLLING & LAYOUT TESTS PASSED (6/6)!');
+console.log('🎉 ALL SIDEBAR SCROLLING & LAYOUT TESTS PASSED (7/7)!');
 console.log('======================================================\n');
