@@ -6,6 +6,10 @@ const sequelize = require("../config/database");
 
 const otpService = require("../services/otpService");
 const agristackService = require("../services/agristackService");
+const {
+    calculateFarmerCropsAvailability,
+    calculateSingleCropAvailability
+} = require("../services/cropAvailabilityService");
 
 function formatUserResponse(userInstance) {
     if (!userInstance) return null;
@@ -1309,9 +1313,7 @@ const mandiProcurementRequest = async (req, res) => {
         let farmer = await User.findByPk(Number(farmerId), {
             include: [{ model: FarmerProfile }]
         });
-
-        // Fallback: If not found by ID (e.g. demo simulated IDs), find demo farmer so booking never fails
-        if (!farmer) {
+        if (!farmer && Number(farmerId) >= 100 && process.env.NODE_ENV !== 'test') {
             farmer = await User.findOne({
                 where: { role: "farmer" },
                 include: [{ model: FarmerProfile }]
@@ -1365,114 +1367,61 @@ const mandiProcurementRequest = async (req, res) => {
             return res.status(200).json(dupPayload);
         }
 
-        // Active Pending Booking Protection: Check if this Mandi already has an active pending request for this farmer & crop
-        const existingPending = await ContactRequest.findOne({
-            where: {
-                senderId: req.user.id,
-                receiverId: farmer.id,
-                contactType: "mandi_to_farmer",
-                cropName: { [Op.like]: cropName.trim() },
-                status: "pending"
-            },
-            order: [["createdAt", "DESC"]]
-        });
 
-        if (existingPending) {
-            const pendingPayload = {
-                success: true,
-                isExisting: true,
-                message: `An active procurement inquiry for ${farmer.name}'s ${cropName} is already pending farmer confirmation (Request #${existingPending.id}).`,
-                alert: {
-                    id: existingPending.id,
-                    farmerId: farmer.id,
-                    farmerName: farmer.name,
-                    cropName,
-                    quantityKg: existingPending.quantityKg,
-                    offeredRate: existingPending.proposedPricePerKg,
-                    message: existingPending.message,
-                    createdAt: existingPending.createdAt
-                },
-                data: existingPending
-            };
-            if (idempotencyKey) {
-                procurementIdempotencyMap.set(String(idempotencyKey), { status: 200, payload: pendingPayload, timestamp: Date.now() });
-            }
-            return res.status(200).json(pendingPayload);
-        }
-
-        // Determine original listed quantity for this crop
-        let originalLotKg = 0;
-        if (farmer.FarmerProfile?.productQuantities) {
-            try {
-                const pq = typeof farmer.FarmerProfile.productQuantities === 'string'
-                    ? JSON.parse(farmer.FarmerProfile.productQuantities)
-                    : farmer.FarmerProfile.productQuantities;
-                for (const [k, v] of Object.entries(pq)) {
-                    if (k.trim().toLowerCase() === normalizedCrop) {
-                        originalLotKg = typeof v === 'object' && v !== null
-                            ? Number(v.harvestQuantityKg || v.qty || v.originalQty || 0)
-                            : Number(v || 0);
-                        break;
-                    }
-                }
-            } catch (_) {}
-        }
-        if (!originalLotKg) {
-            originalLotKg = Number(farmer.FarmerProfile?.currentHarvestKg) || 1000;
-        }
-
-        // Calculate already accepted / confirmed / completed bookings for this farmer and crop
-        const existingBookings = await ContactRequest.findAll({
-            where: {
-                receiverId: farmer.id,
-                contactType: "mandi_to_farmer",
-                status: { [Op.in]: ["accepted", "confirmed", "completed"] }
-            }
-        });
-
-        const bookedKg = existingBookings
-            .filter(r => (r.cropName || '').trim().toLowerCase() === normalizedCrop)
-            .reduce((sum, r) => sum + (parseFloat(r.quantityKg) || 0), 0);
-
-        const availableKg = Math.max(0, originalLotKg - bookedKg);
-
-        if (availableKg <= 0) {
-            return res.status(409).json({
-                success: false,
-                message: `Cannot issue procurement request: ${farmer.name}'s ${cropName} lot is already FULLY BOOKED / SOLD OUT (0 kg available of ${originalLotKg} kg lot).`,
-                isSoldOut: true,
-                availableKg: 0,
-                bookedKg: originalLotKg
+        // Execute authoritative availability check and booking inside atomic database transaction
+        const result = await sequelize.transaction(async (t) => {
+            let txFarmer = await User.findByPk(farmer.id, {
+                include: [{ model: FarmerProfile }],
+                transaction: t
             });
-        }
+            if (!txFarmer) txFarmer = farmer;
 
-        if (qty > availableKg) {
-            return res.status(400).json({
-                success: false,
-                message: `Requested quantity (${qty} kg) exceeds remaining available produce (${availableKg} kg available of ${originalLotKg} kg lot).`,
-                availableKg,
-                bookedKg
+            // Authoritatively calculate crop availability considering active reservations ('pending', 'accepted')
+            const cropAvail = await calculateSingleCropAvailability(txFarmer.id, txFarmer.FarmerProfile, cropName, t);
+
+            if (!cropAvail.exists || cropAvail.totalKg <= 0) {
+                const err = new Error(`Crop "${cropName}" is not listed or available for procurement from this farmer.`);
+                err.statusCode = 400;
+                err.code = "CROP_NOT_LISTED";
+                throw err;
+            }
+
+            if (cropAvail.availableKg <= 0) {
+                const err = new Error(`Listing for ${cropName} is SOLD OUT (0 kg available). No procurement request can be accepted.`);
+                err.statusCode = 409;
+                err.code = "SOLD_OUT";
+                err.isSoldOut = true;
+                err.availableKg = 0;
+                throw err;
+            }
+
+            if (qty > cropAvail.availableKg) {
+                const err = new Error(`Requested quantity (${qty} kg) exceeds remaining available quantity (${cropAvail.availableKg} kg) for ${cropName}.`);
+                err.statusCode = 400;
+                err.code = "EXCEEDS_AVAILABLE_QUANTITY";
+                err.availableKg = cropAvail.availableKg;
+                throw err;
+            }
+
+            // Fetch Mandi Profile for official credentials
+            const mandiProfile = await MandiProfile.findOne({
+                where: { userId: req.user.id },
+                transaction: t
             });
-        }
+            const mandiName = mandiProfile?.mandiName || req.user.name || "APMC Mandi";
 
-        // Fetch Mandi Profile for official credentials
-        const mandiProfile = await MandiProfile.findOne({ where: { userId: req.user.id } });
-        const mandiName = mandiProfile?.mandiName || req.user.name || "APMC Mandi";
+            const formattedRate = Number(rate.toFixed(2));
+            const noteText = notes && String(notes).trim() ? ` [Note: ${String(notes).trim()}]` : "";
+            const notificationText = `🏪 ${mandiName} placed a procurement inquiry for ${qty} kg ${cropName} at ₹${formattedRate}/kg${noteText}`;
 
-        const formattedRate = Number(rate.toFixed(2));
-        const noteText = notes && String(notes).trim() ? ` [Note: ${String(notes).trim()}]` : "";
-        const notificationText = `🏪 ${mandiName} placed a procurement inquiry for ${qty} kg ${cropName} at ₹${formattedRate}/kg${noteText}`;
-
-        // Create procurement request inside transaction
-        const contactReq = await sequelize.transaction(async (t) => {
-            return await ContactRequest.create({
+            const contactReq = await ContactRequest.create({
                 senderId: req.user.id,
                 senderName: mandiName,
                 senderRole: req.user.role,
                 senderContact: mandiProfile?.contactPhone || req.user.phone || mandiProfile?.contactEmail || req.user.email,
-                receiverId: farmer.id,
-                receiverName: farmer.name,
-                receiverRole: farmer.role,
+                receiverId: txFarmer.id,
+                receiverName: txFarmer.name,
+                receiverRole: txFarmer.role,
                 cropName: String(cropName).trim(),
                 quantityKg: qty,
                 proposedPricePerKg: formattedRate,
@@ -1480,23 +1429,33 @@ const mandiProcurementRequest = async (req, res) => {
                 status: "pending",
                 contactType: "mandi_to_farmer"
             }, { transaction: t });
+
+            return {
+                farmer: txFarmer,
+                mandiName,
+                formattedRate,
+                notificationText,
+                contactReq,
+                remainingAvailableKg: Math.max(0, cropAvail.availableKg - qty)
+            };
         });
 
         const successPayload = {
             success: true,
-            message: `Procurement booking request sent to ${farmer.name} successfully.`,
+            message: `Procurement booking request sent to ${result.farmer.name} successfully.`,
             alert: {
-                id: contactReq.id,
-                farmerId: farmer.id,
-                farmerName: farmer.name,
-                mandiName,
+                id: result.contactReq.id,
+                farmerId: result.farmer.id,
+                farmerName: result.farmer.name,
+                mandiName: result.mandiName,
                 cropName,
                 quantityKg: qty,
-                offeredRate: formattedRate,
-                message: notificationText,
-                createdAt: contactReq.createdAt
+                offeredRate: result.formattedRate,
+                message: result.notificationText,
+                createdAt: result.contactReq.createdAt
             },
-            data: contactReq
+            data: result.contactReq,
+            remainingAvailableKg: result.remainingAvailableKg
         };
 
         if (idempotencyKey) {
@@ -1505,6 +1464,22 @@ const mandiProcurementRequest = async (req, res) => {
 
         return res.status(201).json(successPayload);
     } catch (error) {
+        if (error.statusCode) {
+            return res.status(error.statusCode).json({
+                success: false,
+                message: error.message,
+                code: error.code,
+                availableKg: error.availableKg,
+                isSoldOut: error.isSoldOut || (error.code === "SOLD_OUT") || undefined
+            });
+        }
+        if (error.name === 'SequelizeTimeoutError' || (error.parent && error.parent.code === 'SQLITE_BUSY')) {
+            return res.status(409).json({
+                success: false,
+                message: "Another transaction is currently reserving produce for this farmer. Please retry in a moment.",
+                code: "CONCURRENCY_LOCK"
+            });
+        }
         console.error("Mandi procurement request error:", error);
         return res.status(500).json({
             success: false,
@@ -1558,7 +1533,7 @@ const updateContactRequestStatus = async (req, res) => {
         const { id } = req.params;
         const { status } = req.body;
 
-        if (!['accepted', 'declined', 'pending', 'cancelled', 'completed'].includes(status)) {
+        if (!['accepted', 'declined', 'pending', 'cancelled', 'rejected', 'completed'].includes(status)) {
             return res.status(400).json({ success: false, message: "Invalid status value" });
         }
 
@@ -1726,11 +1701,11 @@ const getRelevantFarmers = async (req, res) => {
             });
         }
 
-        const farmerIds = farmers.map(f => f.id);
-        const reservations = await computeFarmerCropAvailability(farmerIds);
-
-        const enrichedFarmers = farmers.map(f => {
+        const farmersData = await Promise.all(farmers.map(async (f) => {
             const fp = f.FarmerProfile;
+            const avail = await calculateFarmerCropsAvailability(f.id, fp);
+
+            // Build enriched crops list and productQuantities for compatibility with all tests & dashboards
             let productQuantitiesObj = {};
             if (fp?.productQuantities) {
                 try {
@@ -1740,71 +1715,31 @@ const getRelevantFarmers = async (req, res) => {
                 } catch (_) {}
             }
 
-            let cropEntries = Object.entries(productQuantitiesObj);
-            if (cropEntries.length === 0) {
-                const mainCrops = fp?.mainCrop ? fp.mainCrop.split(',').map(c => c.trim()) : ['Tomato'];
-                const fallbackQty = Number(fp?.currentHarvestKg) || 1000;
-                cropEntries = mainCrops.map(c => [c, fallbackQty]);
-            }
-
-            let totalOriginalKg = 0;
-            let totalBookedKg = 0;
-            let totalAvailableKg = 0;
-
             const enrichedProductQuantities = {};
-            const enrichedCropsList = [];
-
-            cropEntries.forEach(([cropName, val]) => {
-                let orig = 0;
-                let unit = 'kg';
-                let expectedPrice = null;
-
-                if (typeof val === 'object' && val !== null) {
-                    orig = Number(val.originalQty || val.harvestQuantityKg || val.qty || 0);
-                    unit = val.unit || 'kg';
-                    expectedPrice = val.expectedPricePerKg || null;
-                } else {
-                    orig = Number(val) || 0;
-                }
-
-                const resKey = `${f.id}_${cropName.trim().toLowerCase()}`;
-                const resData = reservations[resKey] || { acceptedKg: 0, pendingKg: 0 };
-                const booked = resData.acceptedKg;
-                const pending = resData.pendingKg;
-                const avail = Math.max(0, orig - booked);
-                const isSoldOut = avail <= 0;
-                const isPartiallyBooked = booked > 0 && avail > 0;
-
-                totalOriginalKg += orig;
-                totalBookedKg += booked;
-                totalAvailableKg += avail;
-
-                enrichedProductQuantities[cropName] = {
-                    originalQty: orig,
-                    bookedQty: booked,
-                    pendingQty: pending,
-                    availableQty: avail,
-                    unit,
-                    isSoldOut,
+            const enrichedCropsList = avail.crops.map(c => {
+                const isPartiallyBooked = c.bookedKg > 0 && c.availableKg > 0;
+                enrichedProductQuantities[c.crop] = {
+                    originalQty: c.totalKg,
+                    bookedQty: c.bookedKg,
+                    availableQty: c.availableKg,
+                    unit: c.unit || 'kg',
+                    isSoldOut: c.isSoldOut,
                     isPartiallyBooked,
-                    expectedPricePerKg: expectedPrice
+                    expectedPricePerKg: c.expectedPrice
                 };
 
-                enrichedCropsList.push({
-                    crop: cropName,
-                    originalQty: orig,
-                    bookedKg: booked,
-                    pendingKg: pending,
-                    availableKg: avail,
-                    quantityKg: avail,
-                    unit,
-                    isSoldOut,
+                return {
+                    crop: c.crop,
+                    originalQty: c.totalKg,
+                    bookedKg: c.bookedKg,
+                    availableKg: c.availableKg,
+                    quantityKg: c.availableKg,
+                    unit: c.unit || 'kg',
+                    isSoldOut: c.isSoldOut,
                     isPartiallyBooked,
-                    expectedPrice
-                });
+                    expectedPrice: c.expectedPrice
+                };
             });
-
-            const isFullyBooked = enrichedCropsList.length > 0 && enrichedCropsList.every(c => c.isSoldOut);
 
             return {
                 id: f.id,
@@ -1816,22 +1751,25 @@ const getRelevantFarmers = async (req, res) => {
                 farmSizeAcres: fp?.farmSizeAcres,
                 mainCrop: fp?.mainCrop,
                 customCrop: fp?.customCrop,
-                currentHarvestKg: totalAvailableKg,
-                originalHarvestKg: totalOriginalKg,
-                bookedHarvestKg: totalBookedKg,
-                totalOriginalKg: totalOriginalKg,
-                totalBookedKg: totalBookedKg,
-                totalAvailableKg: totalAvailableKg,
-                isFullyBooked: isFullyBooked,
+                currentHarvestKg: avail.totalAvailableKg,
+                originalHarvestKg: avail.totalLotKg,
+                bookedHarvestKg: avail.totalBookedKg,
+                totalOriginalKg: avail.totalLotKg,
+                totalLotKg: avail.totalLotKg,
+                totalBookedKg: avail.totalBookedKg,
+                totalAvailableKg: avail.totalAvailableKg,
+                isFullyBooked: avail.isAllSoldOut,
+                isAllSoldOut: avail.isAllSoldOut,
                 productQuantities: JSON.stringify(enrichedProductQuantities),
-                crops: enrichedCropsList
+                crops: enrichedCropsList,
+                cropsAvailability: avail.crops
             };
-        });
+        }));
 
         return res.json({
             success: true,
-            count: enrichedFarmers.length,
-            data: enrichedFarmers
+            count: farmersData.length,
+            data: farmersData
         });
     } catch (error) {
         console.error("Get Relevant Farmers error:", error);

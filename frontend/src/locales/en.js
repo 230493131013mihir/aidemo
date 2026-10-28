@@ -541,6 +541,8 @@ export const en = {
     issueDirectBooking: "Issue APMC Procurement Request",
     availableHarvestLots: "Ready Harvest Lots & Expected Rates:",
     expectedRate: "Exp",
+    availableProduceLot: "Available Produce",
+    soldOutStatus: "SOLD OUT — 0 kg Available",
     totalProduceLot: "Total Produce Lot",
     procurementTitle: "APMC Mandi Procurement Offers & Gate Passes",
     procurementSubtitle: "Track direct purchase inquiries dispatched to farmers, confirmation decisions, and gate inward slips.",
