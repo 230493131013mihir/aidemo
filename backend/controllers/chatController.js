@@ -90,11 +90,41 @@ async function handleChatMessage(req, res) {
           mode: 'transporter_live',
           message: transporterReply,
           reply: transporterReply,
+          actions: [
+            { label: resolvedLang === 'mr' ? 'सक्रिय फेऱ्या पहा' : 'View Active Trips', route: '/transport?tab=active', icon: 'Navigation' },
+            { label: resolvedLang === 'mr' ? 'फ्लीट व्यवस्थापन' : 'Fleet Management', route: '/transport?tab=fleet', icon: 'Truck' }
+          ],
           metadata: {
             session_id: session_id || null,
             intent: 'transporter_logistics',
             language: resolvedLang,
             model: 'HarvestMitra-Logistics-v2'
+          },
+          source_disclaimer: SOURCE_DISCLAIMERS.live[resolvedLang] || SOURCE_DISCLAIMERS.live.en
+        });
+      }
+    }
+
+    // Authenticated Farmer: Check My Farm queries (booking status, mandi offers, saved crops, FPO status, next action)
+    if (req.user) {
+      const myFarmResult = await handleFarmerMyFarmAssistant({
+        user: req.user,
+        message: cleanMessage,
+        language: resolvedLang
+      });
+      if (myFarmResult) {
+        return res.status(200).json({
+          success: true,
+          provider: 'mitra_farm_engine',
+          mode: 'my_farm_live',
+          message: myFarmResult.message,
+          reply: myFarmResult.message,
+          actions: myFarmResult.actions || [],
+          metadata: {
+            session_id: session_id || null,
+            intent: 'my_farm',
+            language: resolvedLang,
+            model: 'HarvestMitra-FarmCopilot-v2'
           },
           source_disclaimer: SOURCE_DISCLAIMERS.live[resolvedLang] || SOURCE_DISCLAIMERS.live.en
         });
@@ -234,6 +264,8 @@ async function handleChatMessage(req, res) {
     const disclaimers = isDemo ? SOURCE_DISCLAIMERS.demo : SOURCE_DISCLAIMERS.live;
     const disclaimer = disclaimers[resolvedLang] || disclaimers.en;
 
+    const actions = buildIntentActions(detectedIntent, cropMention, quantityInfo, resolvedLang);
+
     // 7. Format normalized response
     return res.status(200).json({
       success: true,
@@ -241,6 +273,7 @@ async function handleChatMessage(req, res) {
       mode: aiResult.mode,
       message: aiResult.message,
       reply: aiResult.message, // for backward-compatibility with API_DOCUMENTATION.md
+      actions,
       metadata: {
         session_id: session_id || null,
         intent: detectedIntent,
@@ -510,8 +543,261 @@ async function handleTransporterLogisticsAssistant({ user, message, language }) 
   return null;
 }
 
+function buildIntentActions(intent, cropMention, quantityInfo, language = 'en') {
+  const crop = cropMention || 'Tomato';
+  const qty = quantityInfo || 500;
+  const isMr = language === 'mr';
+  const isHi = language === 'hi';
+
+  switch (intent) {
+    case 'market_price':
+      return [
+        { label: isMr ? 'थेट बाजार भाव' : isHi ? 'मंडी भाव देखें' : 'View Mandi Prices', route: `/markets?crop=${encodeURIComponent(crop)}`, icon: 'TrendingUp' },
+        { label: isMr ? 'नफा मोजा' : isHi ? 'मुनाफा कैलकुलेट करें' : 'Calculate Profit', route: `/harvest?crop=${encodeURIComponent(crop)}&weight=${qty}`, icon: 'Calculator' },
+        { label: isMr ? 'वाहतूक शोधा' : isHi ? 'ट्रांसपोर्ट खोजें' : 'Find Transport', route: `/transport?crop=${encodeURIComponent(crop)}&weight=${qty}`, icon: 'Truck' }
+      ];
+    case 'harvest_decision':
+    case 'revenue_calculation':
+      return [
+        { label: isMr ? 'नफा सिम्युलेटर उघडा' : isHi ? 'प्रॉफिट सिमुलेटर' : 'Open Profit Simulator', route: `/harvest?crop=${encodeURIComponent(crop)}&weight=${qty}`, icon: 'Calculator' },
+        { label: isMr ? 'वाहतूक बुक करा' : isHi ? 'वाहन बुक करें' : 'Book Transportation', route: `/transport?crop=${encodeURIComponent(crop)}&weight=${qty}`, icon: 'Truck' }
+      ];
+    case 'transport':
+      return [
+        { label: isMr ? 'सामायिक वाहने पहा' : isHi ? 'शेयर्ड वाहन देखें' : 'View Available Vehicles', route: `/transport?crop=${encodeURIComponent(crop)}&weight=${qty}`, icon: 'Truck' },
+        { label: isMr ? 'माझ्या बुकिंग्स' : isHi ? 'मेरी बुकिंग्स' : 'My Bookings', route: `/transport?tab=my-bookings`, icon: 'ShieldCheck' }
+      ];
+    case 'weather':
+      return [
+        { label: isMr ? 'हवामान अंदाज पहा' : isHi ? 'मौसम अलर्ट देखें' : 'View Weather Alerts', route: '/weather', icon: 'CloudSunRain' },
+        { label: isMr ? 'संरक्षित वाहतूक बुक करा' : isHi ? 'कवर्ड ट्रांसपोर्ट बुक करें' : 'Book Covered Transport', route: '/transport', icon: 'Truck' }
+      ];
+    case 'government_scheme':
+      return [
+        { label: isMr ? 'सरकारी योजना तपासा' : isHi ? 'सरकारी योजनाएं देखें' : 'Explore Govt Schemes', route: '/schemes', icon: 'Landmark' }
+      ];
+    default:
+      return [
+        { label: isMr ? 'बाजार भाव' : isHi ? 'मंडी भाव' : 'Check Prices', route: '/markets', icon: 'TrendingUp' },
+        { label: isMr ? 'नफा मोजा' : isHi ? 'मुनाफा कैलकुलेटर' : 'Calculate Profit', route: '/harvest', icon: 'Calculator' },
+        { label: isMr ? 'वाहतूक' : isHi ? 'परिवहन' : 'Book Transport', route: '/transport', icon: 'Truck' }
+      ];
+  }
+}
+
+async function handleFarmerMyFarmAssistant({ user, message, language }) {
+  if (!user || !user.id) return null;
+  const text = String(message || '').toLowerCase();
+  const { TransportRequest, ContactRequest, FarmerProfile, FpoMembership, User } = require('../models');
+
+  // 1. Where is my booking? Has transporter accepted?
+  if (
+    text.includes('my booking') || text.includes('where is my booking') ||
+    text.includes('transporter accepted') || text.includes('booking status') ||
+    text.includes('माझी बुकिंग') || text.includes('बुकिंग कुठे') || text.includes('मेरी बुकिंग') || text.includes('बुकिंग स्थिति')
+  ) {
+    const latestBooking = await TransportRequest.findOne({
+      where: { userId: user.id },
+      order: [['updatedAt', 'DESC']]
+    });
+
+    if (!latestBooking) {
+      const msg = language === 'mr'
+        ? "आपल्याकडे सध्या कोणतीही सक्रिय वाहतूक बुकिंग नाही. नवीन बुकिंग करण्यासाठी 'Book Transportation' पर्यायाचा वापर करा."
+        : language === 'hi'
+        ? "आपके पास वर्तमान में कोई सक्रिय परिवहन बुकिंग नहीं है। नई बुकिंग करने के लिए 'Book Transportation' चुनें।"
+        : "You currently have no active transport bookings. You can book a vehicle using the 'Book Transportation' option.";
+      return {
+        message: msg,
+        actions: [{ label: language === 'mr' ? 'वाहतूक बुक करा' : 'Book Transportation', route: '/transport', icon: 'Truck' }]
+      };
+    }
+
+    const statusUpper = (latestBooking.status || 'PENDING').toUpperCase().replace(/_/g, ' ');
+    const isAccepted = ['accepted', 'driver_assigned', 'vehicle_assigned', 'in_transit', 'delivered', 'completed'].includes(latestBooking.status);
+
+    let msg = "";
+    if (language === 'mr') {
+      msg = `आपली बुकिंग #${latestBooking.bookingId || latestBooking.id} (${latestBooking.cropName}, ${latestBooking.weightKg} kg ➔ ${latestBooking.destinationMarket}): सद्यस्थिती '${statusUpper}'. ` +
+        (isAccepted
+          ? `वाहतूकदाराने स्वीकारली आहे! नियुक्त चालक: ${latestBooking.driverName || 'Verified Driver'} (${latestBooking.vehicleNumber || 'MH Vehicle'}).`
+          : `वाहतूकदार पडताळणी प्रलंबित आहे.`);
+    } else if (language === 'hi') {
+      msg = `आपकी बुकिंग #${latestBooking.bookingId || latestBooking.id} (${latestBooking.cropName}, ${latestBooking.weightKg} kg ➔ ${latestBooking.destinationMarket}): वर्तमान स्थिति '${statusUpper}'. ` +
+        (isAccepted
+          ? `ट्रांसपोर्टर ने स्वीकार कर लिया है! नियुक्त चालक: ${latestBooking.driverName || 'Verified Driver'} (${latestBooking.vehicleNumber || 'MH Vehicle'}).`
+          : `ट्रांसपोर्टर स्वीकृति प्रतीक्षारत है।`);
+    } else {
+      msg = `Booking #${latestBooking.bookingId || latestBooking.id} (${latestBooking.cropName}, ${latestBooking.weightKg} kg to ${latestBooking.destinationMarket}): Current status is '${statusUpper}'. ` +
+        (isAccepted
+          ? `Transporter has accepted! Assigned driver: ${latestBooking.driverName || 'Verified Driver'} (${latestBooking.vehicleNumber || 'MH Vehicle'}).`
+          : `Awaiting transporter acceptance.`);
+    }
+
+    return {
+      message: msg,
+      actions: [
+        { label: language === 'mr' ? 'माझ्या बुकिंग्स पहा' : 'View My Bookings', route: '/transport?tab=my-bookings', icon: 'Truck' },
+        { label: language === 'mr' ? 'डिजिटल गेट पास' : 'Digital Gate Pass', route: `/transport?tab=gatepass&showpass=true`, icon: 'ShieldCheck' }
+      ]
+    };
+  }
+
+  // 2. Do I have a mandi offer? Mandi inquiries
+  if (
+    text.includes('mandi offer') || text.includes('buyer offer') || text.includes('procurement offer') ||
+    text.includes('मंडी ऑफर') || text.includes('व्यापारी ऑफर') || text.includes('मंडी खरेदी')
+  ) {
+    const offers = await ContactRequest.findAll({
+      where: { receiverId: user.id, contactType: 'mandi_to_farmer' },
+      order: [['createdAt', 'DESC']],
+      limit: 3
+    });
+
+    const pendingOffers = offers.filter(o => o.status === 'pending');
+    if (pendingOffers.length === 0) {
+      const msg = language === 'mr'
+        ? "सध्या आपल्याकडे कोणताही प्रलंबित मंडी खरेदी प्रस्ताव (Mandi Offer) नाही. नवीन ऑफर आल्यास डॅशबोर्डवर तात्काळ दिसेल."
+        : language === 'hi'
+        ? "वर्तमान में आपके पास कोई लंबित मंडी खरीद प्रस्ताव नहीं है। नया प्रस्ताव आने पर तुरंत सूचित किया जाएगा।"
+        : "You currently have no pending mandi procurement offers. Any new buyer inquiry will appear on your dashboard.";
+      return {
+        message: msg,
+        actions: [{ label: language === 'mr' ? 'बाजार भाव तपासा' : 'Check Market Prices', route: '/markets', icon: 'TrendingUp' }]
+      };
+    }
+
+    const first = pendingOffers[0];
+    const msg = language === 'mr'
+      ? `आपल्याकडे ${pendingOffers.length} प्रलंबित मंडी खरेदी प्रस्ताव आहेत! ताज्या प्रस्तावानुसार ${first.senderName || 'APMC Mandi'} ने ₹${first.proposedPricePerKg}/kg दराने ${first.quantityKg} kg ${first.cropName} खरेदीसाठी विचारणा केली आहे.`
+      : language === 'hi'
+      ? `आपके पास ${pendingOffers.length} लंबित मंडी खरीद प्रस्ताव हैं! ${first.senderName || 'APMC Mandi'} ने ₹${first.proposedPricePerKg}/kg की दर से ${first.quantityKg} kg ${first.cropName} खरीदने का प्रस्ताव भेजा है।`
+      : `You have ${pendingOffers.length} pending mandi procurement offer(s)! ${first.senderName || 'APMC Mandi'} has offered ₹${first.proposedPricePerKg}/kg for ${first.quantityKg} kg of ${first.cropName}.`;
+
+    return {
+      message: msg,
+      actions: [{ label: language === 'mr' ? 'ऑफर स्वीकारा / तपासा' : 'Review Mandi Offers', route: '/dashboard#mandi-bookings', icon: 'Store' }]
+    };
+  }
+
+  // 3. What crops have I saved?
+  if (
+    text.includes('crops have i saved') || text.includes('saved crops') || text.includes('my crops') ||
+    text.includes('माझी पिके') || text.includes('माझे पीक') || text.includes('मेरी फसलें')
+  ) {
+    const profile = await FarmerProfile.findOne({ where: { userId: user.id } });
+    const mainCrop = profile?.mainCrop || 'Tomato';
+    let qMap = {};
+    if (typeof profile?.productQuantities === 'string') {
+      try { qMap = JSON.parse(profile.productQuantities); } catch (_) {}
+    } else if (typeof profile?.productQuantities === 'object' && profile?.productQuantities) {
+      qMap = profile.productQuantities;
+    }
+
+    const cropNames = mainCrop.split(',').map(c => c.trim()).filter(Boolean);
+    const summaryList = cropNames.map(c => {
+      const q = qMap[c]?.qty || qMap[c]?.harvestQuantityKg || 500;
+      const u = qMap[c]?.unit || 'kg';
+      return `${c}: ${q} ${u}`;
+    }).join(', ');
+
+    const msg = language === 'mr'
+      ? `आपल्या शेतात नोंदवलेली पिके (${profile?.district || 'पुणे'} जिल्हा, ${profile?.farmSizeAcres || 4.5} एकर): ${summaryList || mainCrop}.`
+      : language === 'hi'
+      ? `आपके खेत में पंजीकृत फसलें (${profile?.district || 'पुणे'} जिला, ${profile?.farmSizeAcres || 4.5} एकड़): ${summaryList || mainCrop}.`
+      : `Your registered farm crops (${profile?.district || 'Pune'} district, ${profile?.farmSizeAcres || 4.5} Acres): ${summaryList || mainCrop}.`;
+
+    return {
+      message: msg,
+      actions: [
+        { label: language === 'mr' ? 'नफा मोजा' : 'Calculate Profit', route: `/harvest?crop=${cropNames[0] || 'Tomato'}`, icon: 'Calculator' },
+        { label: language === 'mr' ? 'बाजार भाव पहा' : 'Check Prices', route: `/markets?crop=${cropNames[0] || 'Tomato'}`, icon: 'TrendingUp' }
+      ]
+    };
+  }
+
+  // 4. What is my FPO membership status?
+  if (
+    text.includes('fpo membership') || text.includes('fpo status') ||
+    text.includes('एफपीओ स्थिती') || text.includes('एफपीओ सदस्यता') || text.includes('एफपीओ स्टेटस')
+  ) {
+    const membership = await FpoMembership.findOne({
+      where: { farmerId: user.id },
+      include: [{ model: User, as: 'Fpo', attributes: ['id', 'name'], include: [{ model: FarmerProfile }] }],
+      order: [['updatedAt', 'DESC']]
+    });
+
+    if (!membership) {
+      const msg = language === 'mr'
+        ? "आपण अद्याप कोणत्याही शेतकरी उत्पादक कंपनीचे (FPO) सदस्य नाही. सामायिक विक्री व अनुदानासाठी FPO शोधा व अर्ज करा."
+        : language === 'hi'
+        ? "आप अभी तक किसी किसान उत्पादक संगठन (FPO) के सदस्य नहीं हैं। सामूहिक बिक्री लाभ के लिए FPO से जुड़ें।"
+        : "You are not currently enrolled in any Farmer Producer Organization (FPO). Join an FPO for collective bargaining and shared freight.";
+      return {
+        message: msg,
+        actions: [{ label: language === 'mr' ? 'FPO शोधा व अर्ज करा' : 'Find & Join FPO', route: '/fpo', icon: 'Users' }]
+      };
+    }
+
+    const fpoName = membership.Fpo?.FarmerProfile?.fpoName || membership.Fpo?.name || "Kisan Samruddhi FPO";
+    const statusUpper = (membership.status || 'PENDING').toUpperCase();
+
+    let msg = "";
+    if (language === 'mr') {
+      msg = `आपली FPO सदस्यता: ${fpoName}. सद्यस्थिती: '${statusUpper}'. ` +
+        (membership.status === 'active'
+          ? "आपण सक्रिय सदस्य आहात! आपण सामूहिक विक्री लॉटमध्ये माल जमा करू शकता."
+          : "आपला अर्ज FPO व्यवस्थापनाकडे मंजुरीसाठी प्रलंबित आहे.");
+    } else if (language === 'hi') {
+      msg = `आपकी FPO सदस्यता: ${fpoName}. वर्तमान स्थिति: '${statusUpper}'. ` +
+        (membership.status === 'active'
+          ? "आप सक्रिय सदस्य हैं! आप सामूहिक बिक्री में भाग ले सकते हैं।"
+          : "आपका आवेदन FPO प्रबंधन के अनुमोदन हेतु लंबित है।");
+    } else {
+      msg = `Your FPO membership with ${fpoName}: Current status is '${statusUpper}'. ` +
+        (membership.status === 'active'
+          ? "You are an active verified member! You can participate in collective pooling and bulk mandi contracts."
+          : "Your membership application is currently pending FPO approval.");
+    }
+
+    return {
+      message: msg,
+      actions: [{ label: language === 'mr' ? 'FPO डॅशबोर्ड उघडा' : 'View FPO Workspace', route: '/fpo', icon: 'Users' }]
+    };
+  }
+
+  // 5. What action should I take next?
+  if (
+    text.includes('action should i take') || text.includes('what should i do next') ||
+    text.includes('मी पुढे काय करावे') || text.includes('पुढील पाऊल') || text.includes('अगला कदम')
+  ) {
+    const profile = await FarmerProfile.findOne({ where: { userId: user.id } });
+    const crop = profile?.mainCrop?.split(',')[0]?.trim() || 'Tomato';
+    const dist = profile?.district || 'Pune';
+
+    const msg = language === 'mr'
+      ? `शेतकरी मित्रा, आजचे ४ मुख्य निर्णय:\n1. 📊 ${dist} व वाशी APMC मधील ${crop} चा थेट बाजार भाव तपासा.\n2. 🧮 वाहतूक खर्च व कमिशन वजा करून निव्वळ नफा मोजा.\n3. 🚚 कमी खर्चात माल पाठवण्यासाठी सामायिक वाहन (Shared Transport) बुक करा.\n4. 🏛️ पीएम-किसान व पीक विमा योजनांची पात्रता तपासा.`
+      : language === 'hi'
+      ? `किसान मित्र, आज के 4 प्रमुख कार्य:\n1. 📊 ${dist} व वाशी APMC में ${crop} का मंडी भाव देखें।\n2. 🧮 परिवहन खर्च घटाकर शुद्ध मुनाफा कैलकुलेट करें।\n3. 🚚 कम भाड़े के लिए साझा वाहन (Shared Transport) बुक करें।\n4. 🏛️ पीएम-किसान और फसल बीमा पात्रता देखें।`
+      : `Farmer friend, here are 4 high-value actions to take today:\n1. 📊 Compare live ${crop} benchmark rates in ${dist} APMC vs Mumbai Vashi APMC.\n2. 🧮 Run the Profit Calculator deducting transport freight to see true take-home proceeds.\n3. 🚚 Reserve a shared transport slot to cut highway freight expenses.\n4. 🏛️ Check eligibility for active government schemes.`;
+
+    return {
+      message: msg,
+      actions: [
+        { label: language === 'mr' ? 'बाजार भाव तपासा' : 'Check Market Prices', route: `/markets?crop=${crop}`, icon: 'TrendingUp' },
+        { label: language === 'mr' ? 'नफा मोजा' : 'Calculate Profit', route: `/harvest?crop=${crop}`, icon: 'Calculator' },
+        { label: language === 'mr' ? 'वाहतूक बुक करा' : 'Book Transportation', route: `/transport?crop=${crop}`, icon: 'Truck' }
+      ]
+    };
+  }
+
+  return null;
+}
+
 module.exports = {
   handleChatMessage,
   handleChatStatus,
-  handleTransporterLogisticsAssistant
+  handleTransporterLogisticsAssistant,
+  handleFarmerMyFarmAssistant,
+  buildIntentActions
 };

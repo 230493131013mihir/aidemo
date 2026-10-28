@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { 
   Sprout, 
   Scale, 
@@ -13,7 +13,9 @@ import {
   Sparkles,
   ArrowRight,
   ShieldCheck,
-  FileText
+  FileText,
+  Truck,
+  Bot
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -284,6 +286,105 @@ function FarmerDashboard({ user, t }) {
     <div className="space-y-6 sm:space-y-8 w-full max-w-7xl mx-auto pb-12">
       {/* 1. Dashboard Header */}
       <DashboardHeader />
+
+      {/* PART 2.1 — 4 Primary Action Cards immediately obvious to the Farmer */}
+      <section aria-label="Primary Farmer Actions" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Action 1: Check Market Prices */}
+        <Link 
+          to="/markets"
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 p-5 text-white shadow-lg shadow-emerald-950/20 hover:shadow-xl hover:scale-[1.02] transition-all flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between">
+            <span className="p-3 rounded-xl bg-white/15 backdrop-blur-sm">
+              <TrendingUp className="w-6 h-6 text-white" />
+            </span>
+            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-white/20 text-emerald-100">
+              Live Mandi
+            </span>
+          </div>
+          <div className="mt-4">
+            <h3 className="text-base font-black tracking-tight flex items-center gap-1.5">
+              <span>Check Market Prices</span>
+              <ArrowRight className="w-4 h-4 opacity-70 group-hover:translate-x-1 transition-transform" />
+            </h3>
+            <p className="text-xs text-emerald-100/90 mt-1">
+              Live APMC mandi rates across Maharashtra & major crop benchmarks.
+            </p>
+          </div>
+        </Link>
+
+        {/* Action 2: Calculate My Profit */}
+        <Link 
+          to="/harvest"
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-5 text-white shadow-lg shadow-blue-950/20 hover:shadow-xl hover:scale-[1.02] transition-all flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between">
+            <span className="p-3 rounded-xl bg-white/15 backdrop-blur-sm">
+              <Calculator className="w-6 h-6 text-white" />
+            </span>
+            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-white/20 text-blue-100">
+              Simulation
+            </span>
+          </div>
+          <div className="mt-4">
+            <h3 className="text-base font-black tracking-tight flex items-center gap-1.5">
+              <span>Calculate My Profit</span>
+              <ArrowRight className="w-4 h-4 opacity-70 group-hover:translate-x-1 transition-transform" />
+            </h3>
+            <p className="text-xs text-blue-100/90 mt-1">
+              Estimate net take-home earnings with transport and mandi fees.
+            </p>
+          </div>
+        </Link>
+
+        {/* Action 3: Book Transportation */}
+        <Link 
+          to="/transport"
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-600 to-orange-700 p-5 text-white shadow-lg shadow-amber-950/20 hover:shadow-xl hover:scale-[1.02] transition-all flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between">
+            <span className="p-3 rounded-xl bg-white/15 backdrop-blur-sm">
+              <Truck className="w-6 h-6 text-white" />
+            </span>
+            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-white/20 text-amber-100">
+              Shared Fleet
+            </span>
+          </div>
+          <div className="mt-4">
+            <h3 className="text-base font-black tracking-tight flex items-center gap-1.5">
+              <span>Book Transportation</span>
+              <ArrowRight className="w-4 h-4 opacity-70 group-hover:translate-x-1 transition-transform" />
+            </h3>
+            <p className="text-xs text-amber-100/90 mt-1">
+              Reserve verified transporters and share loads to save freight cost.
+            </p>
+          </div>
+        </Link>
+
+        {/* Action 4: Ask Mitra AI */}
+        <Link 
+          to="/chat"
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-700 p-5 text-white shadow-lg shadow-purple-950/20 hover:shadow-xl hover:scale-[1.02] transition-all flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between">
+            <span className="p-3 rounded-xl bg-white/15 backdrop-blur-sm">
+              <Bot className="w-6 h-6 text-white" />
+            </span>
+            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-white/20 text-purple-100">
+              Voice & Chat
+            </span>
+          </div>
+          <div className="mt-4">
+            <h3 className="text-base font-black tracking-tight flex items-center gap-1.5">
+              <span>Ask Mitra AI</span>
+              <ArrowRight className="w-4 h-4 opacity-70 group-hover:translate-x-1 transition-transform" />
+            </h3>
+            <p className="text-xs text-purple-100/90 mt-1">
+              Ask in Marathi or English for crop prices, doctor diagnosis, and advice.
+            </p>
+          </div>
+        </Link>
+      </section>
 
       {/* 2. Farmer Profile Summary */}
       <ProfileSummary />

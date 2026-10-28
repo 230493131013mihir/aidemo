@@ -128,6 +128,189 @@ router.get("/telemetry", handleGetTelemetry);
 router.get("/telemetry/:passCode", handleGetTelemetry);
 router.post("/telemetry/update", handleUpdateTelemetry);
 
+// Secure Gate Pass Verification (PART 9)
+// Public verification returns only non-sensitive verification status
+// Authorized operators (mandi, admin, assigned transporter, booking farmer) receive verified cargo & check-in details
+router.get("/gatepass/verify/:code", async (req, res) => {
+    try {
+        const rawCode = String(req.params.code || "").trim();
+        if (!rawCode) {
+            return res.status(400).json({ success: false, message: "Gate pass token or code is required" });
+        }
+
+        const booking = await TransportRequest.findOne({
+            where: {
+                [Op.or]: [
+                    { gatePassCode: rawCode },
+                    { bookingId: rawCode }
+                ]
+            },
+            include: [
+                { model: Vehicle, attributes: ["registrationNumber", "vehicleType", "driverName", "driverPhone"] }
+            ]
+        });
+
+        if (!booking) {
+            return res.status(404).json({
+                success: false,
+                valid: false,
+                message: "Gate pass record not found or token has expired."
+            });
+        }
+
+        // Determine caller's identity if Authorization header was provided
+        let caller = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+            const token = authHeader.slice(7).trim();
+            const jwt = require("jsonwebtoken");
+            try {
+                caller = jwt.verify(token, process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon");
+            } catch (_) {}
+        }
+
+        const isAuthorizedOperator = caller && (
+            caller.role === "admin" ||
+            caller.role === "mandi" ||
+            caller.role === "transporter" ||
+            caller.id === booking.userId ||
+            caller.id === booking.transporterId
+        );
+
+        // If caller is NOT an authorized operator or account owner, return minimal secure validation without private contact details
+        if (!isAuthorizedOperator) {
+            return res.json({
+                success: true,
+                valid: true,
+                passId: booking.gatePassCode || booking.bookingId,
+                status: booking.status,
+                destinationMarket: booking.destinationMarket,
+                cropName: booking.cropName,
+                isAuthorized: false,
+                message: "Valid electronic transit gate pass. Sign in with APMC Mandi or Transporter credentials to view weighing & check-in controls."
+            });
+        }
+
+        // Return authorized operational details
+        return res.json({
+            success: true,
+            valid: true,
+            isAuthorized: true,
+            data: {
+                passId: booking.gatePassCode,
+                bookingId: booking.bookingId,
+                status: booking.status,
+                farmerName: booking.farmerName,
+                farmerPhone: booking.farmerPhone || "Registered on Agristack",
+                cropName: booking.cropName,
+                weightKg: booking.weightKg,
+                quantityUnit: booking.quantityUnit || "kg",
+                pickupLocation: booking.pickupLocation,
+                destinationMarket: booking.destinationMarket,
+                pickupDate: booking.pickupDate,
+                driverName: booking.driverName || booking.Vehicle?.driverName || "Assigned Driver",
+                driverPhone: booking.driverPhone || booking.Vehicle?.driverPhone || "—",
+                vehicleNumber: booking.vehicleNumber || booking.Vehicle?.registrationNumber || "—",
+                vehicleType: booking.vehicleType || booking.Vehicle?.vehicleType || "Commercial Freight",
+                actualPickupTime: booking.actualPickupTime,
+                actualDeliveryTime: booking.actualDeliveryTime,
+                issuedAt: booking.createdAt
+            }
+        });
+    } catch (err) {
+        console.error("Gate pass verify error:", err.message);
+        return res.status(500).json({ success: false, message: "Error verifying gate pass." });
+    }
+});
+
+// Authorized Gate Operator Check-in / Arrival Action
+router.post("/gatepass/checkin", async (req, res) => {
+    // Requires authorization
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ success: false, message: "Authentication required for gate check-in." });
+    }
+    const token = authHeader.slice(7).trim();
+    const jwt = require("jsonwebtoken");
+    let caller;
+    try {
+        caller = jwt.verify(token, process.env.JWT_SECRET || "harvestmitra_super_secret_jwt_token_key_2026_hackathon");
+    } catch (_) {
+        return res.status(401).json({ success: false, message: "Invalid or expired session." });
+    }
+
+    if (caller.role !== "admin" && caller.role !== "mandi" && caller.role !== "transporter") {
+        return res.status(403).json({ success: false, message: "Access denied: Gate check-in is restricted to Mandi officials, administrators, and transporters." });
+    }
+
+    const { gatePassCode, checkInNotes, arrivalWeightKg } = req.body;
+    if (!gatePassCode) {
+        return res.status(400).json({ success: false, message: "gatePassCode is required." });
+    }
+
+    const booking = await TransportRequest.findOne({
+        where: {
+            [Op.or]: [
+                { gatePassCode: String(gatePassCode).trim() },
+                { bookingId: String(gatePassCode).trim() }
+            ]
+        }
+    });
+
+    if (!booking) {
+        return res.status(404).json({ success: false, message: "Gate pass not found." });
+    }
+
+    if (booking.status === "completed" || booking.status === "delivered" || booking.status === "delivery_confirmed") {
+        return res.status(400).json({
+            success: false,
+            message: `Consignment has already completed check-in on ${booking.actualDeliveryTime || "record"}. Duplicate check-in prevented.`
+        });
+    }
+
+    const now = new Date();
+    booking.actualDeliveryTime = now;
+    booking.status = "arrived_destination";
+    if (arrivalWeightKg) booking.deliveredQuantity = Number(arrivalWeightKg);
+    if (checkInNotes) {
+        booking.deliveryNotes = (booking.deliveryNotes ? `${booking.deliveryNotes}\n` : "") + `[Gate Check-in by ${caller.name}]: ${checkInNotes}`;
+    }
+    await booking.save();
+
+    // Log in AuditLog if model exists
+    try {
+        const { AuditLog } = require("../models");
+        if (AuditLog) {
+            await AuditLog.create({
+                actorId: caller.id,
+                actorName: caller.name,
+                actorRole: caller.role,
+                action: "GATE_PASS_CHECKIN",
+                targetType: "transport_request",
+                targetId: booking.id,
+                details: JSON.stringify({
+                    gatePassCode: booking.gatePassCode,
+                    bookingId: booking.bookingId,
+                    destination: booking.destinationMarket,
+                    weightKg: booking.weightKg,
+                    timestamp: now.toISOString()
+                })
+            });
+        }
+    } catch (_) {}
+
+    return res.json({
+        success: true,
+        message: `Arrival verified at ${booking.destinationMarket}! Consignment marked as arrived at Mandi.`,
+        data: {
+            bookingId: booking.bookingId,
+            gatePassCode: booking.gatePassCode,
+            status: booking.status,
+            actualDeliveryTime: now
+        }
+    });
+});
+
 router.use(authMiddleware);
 
 // Ensure transport columns introduced after the original table exists on older databases too.

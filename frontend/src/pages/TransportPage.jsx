@@ -183,9 +183,18 @@ export default function TransportPage() {
     }
   }, [user]);
 
-  // Auto-fill booking form when navigating from Smart Harvest Simulator
+  // Auto-fill booking form & parse activeTab from URL search params (PART 15 SPA Routing)
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      if (['farmer', 'my-bookings', 'tracking'].includes(tabParam)) {
+        setActiveTab('farmer');
+      } else if (['transporter', 'requests', 'fleet', 'shared', 'active', 'gatepass', 'notifications', 'history'].includes(tabParam)) {
+        setActiveTab('transporter');
+      }
+    }
+
     const targetDest = location.state?.destination || searchParams.get('destination');
     const targetWeight = location.state?.weightKg || location.state?.weight || searchParams.get('weight');
     const targetCrop = location.state?.crop || searchParams.get('crop');
