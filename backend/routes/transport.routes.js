@@ -696,7 +696,33 @@ function requireRole(...roles) {
 }
 
 async function getTransporterWhereCondition(user) {
-    return { transporterId: user.id };
+    if (!user || !user.id) return { transporterId: null };
+
+    const transporterIds = [Number(user.id)];
+    try {
+        const profile = await TransporterProfile.findOne({ where: { userId: user.id } });
+        if (profile && profile.id && !transporterIds.includes(Number(profile.id))) {
+            transporterIds.push(Number(profile.id));
+        }
+    } catch (_) {}
+
+    let vehicleIds = [];
+    try {
+        const vehicles = await Vehicle.findAll({
+            where: { userId: user.id },
+            attributes: ["id"]
+        });
+        vehicleIds = vehicles.map(v => v.id);
+    } catch (_) {}
+
+    const orClauses = [
+        { transporterId: { [Op.in]: transporterIds } }
+    ];
+    if (vehicleIds.length > 0) {
+        orClauses.push({ vehicleId: { [Op.in]: vehicleIds } });
+    }
+
+    return { [Op.or]: orClauses };
 }
 
 async function resolveBookingUserId(user) {
@@ -1754,7 +1780,10 @@ router.put(["/bookings/:id/accept", "/requests/:id/accept"], requireRole("transp
             return res.status(400).json({ success: false, message: statusErr });
         }
 
-        if (!["open", "pending", "request_received", "requested"].includes(String(booking.status || "").toLowerCase().trim())) {
+        const isOpenOrPending = ["open", "pending", "request_received", "requested"].includes(String(booking.status || "").toLowerCase().trim());
+        const isAwaitingVehicleAssignment = (booking.status === "confirmed" || booking.status === "accepted") && (!booking.vehicleId || Number(booking.transporterId) === Number(req.user.id));
+
+        if (!isOpenOrPending && !isAwaitingVehicleAssignment) {
             return res.status(409).json({ success: false, message: "Already taken or no longer open." });
         }
 
@@ -1839,7 +1868,7 @@ router.put(["/bookings/:id/accept", "/requests/:id/accept"], requireRole("transp
         }, {
             where: {
                 id: req.params.id,
-                status: { [Op.in]: ["open", "pending", "request_received", "requested"] }
+                status: { [Op.in]: ["open", "pending", "request_received", "requested", "confirmed", "accepted"] }
             }
         });
 

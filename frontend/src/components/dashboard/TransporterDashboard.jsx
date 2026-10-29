@@ -930,7 +930,7 @@ export default function TransporterDashboard() {
 
   const activeTrip = stats.activeTrip;
   const activeBookings = myBookings.filter((b) =>
-    ['accepted', 'vehicle_assigned', 'driver_assigned', 'awaiting_pickup', 'pickup_confirmed', 'in_transit', 'arrived_destination'].includes(b.status)
+    ['confirmed', 'accepted', 'vehicle_assigned', 'driver_assigned', 'awaiting_pickup', 'pickup_confirmed', 'in_transit', 'arrived_destination'].includes(b.status)
   );
 
   return (
@@ -1533,22 +1533,44 @@ export default function TransporterDashboard() {
                             <Navigation className="w-3.5 h-3.5" />
                             <span>Start Transit (Depart)</span>
                           </button>
-                        ) : trip.status === 'in_transit' ? (
+                        ) : ['in_transit', 'arrived_destination'].includes(trip.status) ? (
+                          <div className="flex items-center gap-1.5">
+                            {trip.status === 'in_transit' && (
+                              <button
+                                type="button"
+                                onClick={() => handleProgressTrip(trip.id, 'arrived_destination')}
+                                className="bg-sky-600 hover:bg-sky-700 text-white py-1.5 px-3 rounded-xl text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                                title="Record arrival at destination APMC"
+                              >
+                                <Truck className="w-3.5 h-3.5" />
+                                <span>Arrived</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedTripForDelivery(trip);
+                                setDeliveryFormData({
+                                  actualDeliveryTime: new Date().toISOString().slice(0, 16),
+                                  deliveredQuantity: String(trip.weightKg || ''),
+                                  deliveryNotes: '',
+                                  recipientAcknowledgment: 'Consignee received and verified at APMC Weighbridge'
+                                });
+                              }}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 px-3.5 rounded-xl text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <CheckCheck className="w-3.5 h-3.5" />
+                              <span>{t('transporter.deliveryAction') || "Confirm Mandi Delivery"}</span>
+                            </button>
+                          </div>
+                        ) : trip.status === 'delivered' ? (
                           <button
                             type="button"
-                            onClick={() => {
-                              setSelectedTripForDelivery(trip);
-                              setDeliveryFormData({
-                                actualDeliveryTime: new Date().toISOString().slice(0, 16),
-                                deliveredQuantity: String(trip.weightKg || ''),
-                                deliveryNotes: '',
-                                recipientAcknowledgment: 'Consignee received and verified at APMC Weighbridge'
-                              });
-                            }}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 px-3.5 rounded-xl text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                            onClick={() => handleProgressTrip(trip.id, 'completed')}
+                            className="bg-emerald-700 hover:bg-emerald-800 text-white py-1.5 px-3.5 rounded-xl text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
                           >
-                            <CheckCheck className="w-3.5 h-3.5" />
-                            <span>{t('transporter.deliveryAction') || "Confirm Mandi Delivery"}</span>
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Complete</span>
                           </button>
                         ) : null}
                       </div>
@@ -1822,7 +1844,7 @@ export default function TransporterDashboard() {
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs text-slate-500">
                       <span className="text-[11px] font-medium flex items-center gap-1.5">
                         {['delivered', 'completed', 'delivery_confirmed'].includes(req.status?.toLowerCase().trim()) ? (
                           <>
@@ -1841,9 +1863,57 @@ export default function TransporterDashboard() {
                           </>
                         )}
                       </span>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
-                        {['delivered', 'completed', 'delivery_confirmed'].includes(req.status?.toLowerCase().trim()) ? 'Delivered' : ['cancelled', 'rejected'].includes(req.status?.toLowerCase().trim()) ? 'Closed' : 'Active Trip'}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {['confirmed', 'accepted', 'driver_assigned', 'vehicle_assigned', 'awaiting_pickup', 'pickup_confirmed'].includes(req.status?.toLowerCase().trim()) && (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedGatePass(req)}
+                              className="px-2.5 py-1 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-700 text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                              title="View Gate Pass (QR)"
+                            >
+                              <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                              <span>QR Pass</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedTripForPickup(req);
+                                setPickupFormData({
+                                  actualPickupTime: new Date().toISOString().slice(0, 16),
+                                  loadedQuantity: String(req.weightKg || ''),
+                                  pickupNotes: ''
+                                });
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
+                              title="Confirm Farm Pickup"
+                            >
+                              <Scale className="w-3 h-3" />
+                              <span>Confirm Pickup</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleProgressTrip(req.id, 'in_transit')}
+                              className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
+                              title="Start Transit (Depart)"
+                            >
+                              <Navigation className="w-3 h-3" />
+                              <span>Depart</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('active')}
+                              className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                              title="Open Active Workspace"
+                            >
+                              <span>Active Trips ➔</span>
+                            </button>
+                          </div>
+                        )}
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                          {['delivered', 'completed', 'delivery_confirmed'].includes(req.status?.toLowerCase().trim()) ? 'Delivered' : ['cancelled', 'rejected'].includes(req.status?.toLowerCase().trim()) ? 'Closed' : 'Active Trip'}
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2406,22 +2476,47 @@ export default function TransporterDashboard() {
                           </button>
                         )}
 
-                        {trip.status === 'in_transit' && (
+                        {['in_transit', 'arrived_destination'].includes(trip.status) && (
+                          <div className="flex items-center gap-1.5">
+                            {trip.status === 'in_transit' && (
+                              <button
+                                type="button"
+                                onClick={() => handleProgressTrip(trip.id, 'arrived_destination')}
+                                className="bg-sky-600 hover:bg-sky-700 text-white py-1.5 px-3 rounded-xl text-xs font-bold inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                                title="Record arrival at destination APMC weighbridge gate"
+                              >
+                                <Truck className="w-3.5 h-3.5" />
+                                <span>Arrived at Mandi</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedTripForDelivery(trip);
+                                setDeliveryFormData({
+                                  actualDeliveryTime: new Date().toISOString().slice(0, 16),
+                                  deliveredQuantity: String(trip.weightKg || ''),
+                                  deliveryNotes: '',
+                                  recipientAcknowledgment: 'Consignee received and verified at APMC Weighbridge'
+                                });
+                              }}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            >
+                              <CheckCheck className="w-3.5 h-3.5" />
+                              <span>Confirm Mandi Delivery</span>
+                            </button>
+                          </div>
+                        )}
+
+                        {trip.status === 'delivered' && (
                           <button
                             type="button"
-                            onClick={() => {
-                              setSelectedTripForDelivery(trip);
-                              setDeliveryFormData({
-                                actualDeliveryTime: new Date().toISOString().slice(0, 16),
-                                deliveredQuantity: String(trip.weightKg || ''),
-                                deliveryNotes: '',
-                                recipientAcknowledgment: 'Consignee received and verified at APMC Weighbridge'
-                              });
-                            }}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            onClick={() => handleProgressTrip(trip.id, 'completed')}
+                            className="bg-emerald-700 hover:bg-emerald-800 text-white py-1.5 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            title="Complete and settle this delivery"
                           >
-                            <CheckCheck className="w-3.5 h-3.5" />
-                            <span>Confirm Mandi Delivery</span>
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Complete & Settle</span>
                           </button>
                         )}
                       </div>
