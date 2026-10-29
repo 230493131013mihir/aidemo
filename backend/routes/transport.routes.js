@@ -645,6 +645,8 @@ async function ensureTransportSchema() {
                 delivered_quantity: { type: sequelize.Sequelize.FLOAT, allowNull: true },
                 pickup_notes: { type: sequelize.Sequelize.TEXT, allowNull: true },
                 delivery_notes: { type: sequelize.Sequelize.TEXT, allowNull: true },
+                scheduled_departure_time: { type: sequelize.Sequelize.DATE, allowNull: true },
+                actual_departure_time: { type: sequelize.Sequelize.DATE, allowNull: true },
                 status_history: { type: sequelize.Sequelize.TEXT, allowNull: true }
             };
             for (const [column, definition] of Object.entries(requiredColumns)) {
@@ -660,6 +662,8 @@ async function ensureTransportSchema() {
                 if (tripCols && Object.keys(tripCols).length > 0) {
                     if (!tripCols.min_load_kg) await queryInterface.addColumn("shared_trips", "min_load_kg", { type: sequelize.Sequelize.INTEGER, allowNull: true, defaultValue: 0 }).catch(() => {});
                     if (!tripCols.departure_time) await queryInterface.addColumn("shared_trips", "departure_time", { type: sequelize.Sequelize.STRING(64), allowNull: true }).catch(() => {});
+                    if (!tripCols.scheduled_departure_time) await queryInterface.addColumn("shared_trips", "scheduled_departure_time", { type: sequelize.Sequelize.DATE, allowNull: true }).catch(() => {});
+                    if (!tripCols.actual_departure_time) await queryInterface.addColumn("shared_trips", "actual_departure_time", { type: sequelize.Sequelize.DATE, allowNull: true }).catch(() => {});
                     if (!tripCols.booking_cutoff) await queryInterface.addColumn("shared_trips", "booking_cutoff", { type: sequelize.Sequelize.STRING(64), allowNull: true }).catch(() => {});
                     if (!tripCols.min_viable_fare) await queryInterface.addColumn("shared_trips", "min_viable_fare", { type: sequelize.Sequelize.INTEGER, allowNull: true, defaultValue: 0 }).catch(() => {});
                 }
@@ -1371,6 +1375,9 @@ router.post("/bookings", requireRole("farmer", "fpo_leader"), async (req, res) =
                     });
                     if (openTrip) {
                         fields.sharedTripId = openTrip.id;
+                        if (openTrip.scheduledDepartureTime && !fields.scheduledDepartureTime) {
+                            fields.scheduledDepartureTime = openTrip.scheduledDepartureTime;
+                        }
                         const newBookedKg = (Number(openTrip.bookedWeightKg) || 0) + fields.weightKg;
                         const newRemainingKg = Math.max(0, openTrip.totalCapacityKg - newBookedKg);
                         const isMinLoadReached = newBookedKg >= (openTrip.minLoadKg || 0);
@@ -1446,17 +1453,27 @@ router.get("/my-bookings", async (req, res) => {
             where: whereCondition,
             order: [["createdAt", "DESC"]],
             include: [
-                { model: Vehicle, required: false }
+                { model: Vehicle, required: false },
+                { model: SharedTrip, required: false }
             ]
         });
 
-        // Resolve driver and vehicle details (phone, name, reg number, model) from existing database relationships
+        // Resolve driver and vehicle details (phone, name, reg number, model) and scheduled departure times
         const enrichedBookings = await Promise.all(bookings.map(async (b) => {
-            const bJson = b.toJSON();
+            const bJson = b.toJSON ? b.toJSON() : b;
             let driverPhone = bJson.driverPhone || bJson.Vehicle?.driverPhone || null;
             let driverName = bJson.driverName || bJson.Vehicle?.driverName || null;
             let vehicleNumber = bJson.vehicleNumber || bJson.Vehicle?.registrationNumber || null;
             let vehicleType = bJson.vehicleType || bJson.Vehicle?.vehicleType || null;
+
+            let scheduledDepartureTime = bJson.scheduledDepartureTime;
+            let actualDepartureTime = bJson.actualDepartureTime;
+            if (!scheduledDepartureTime && bJson.SharedTrip?.scheduledDepartureTime) {
+                scheduledDepartureTime = bJson.SharedTrip.scheduledDepartureTime;
+            }
+            if (!actualDepartureTime && bJson.SharedTrip?.actualDepartureTime) {
+                actualDepartureTime = bJson.SharedTrip.actualDepartureTime;
+            }
 
             // 1. Resolve from Vehicle by registration number if phone or vehicleType is missing
             if ((!driverPhone || !vehicleType) && vehicleNumber) {
@@ -1504,7 +1521,9 @@ router.get("/my-bookings", async (req, res) => {
                 driverPhone,
                 vehicleNumber,
                 vehicleType,
-                vehicleModel: vehicleType
+                vehicleModel: vehicleType,
+                scheduledDepartureTime,
+                actualDepartureTime
             };
         }));
 
@@ -1958,12 +1977,39 @@ router.put(["/bookings/:id/status", "/requests/:id/status", "/requests/:id/progr
             notes: req.body.notes || null
         });
 
+        const departureTimestamp = booking.actualDepartureTime || new Date();
+
         await booking.update({
             status: nextStatus,
             statusHistory: JSON.stringify(history),
-            ...(nextStatus === "in_transit" ? { tripStartTime: new Date() } : {}),
+            ...(nextStatus === "in_transit" ? {
+                tripStartTime: booking.tripStartTime || departureTimestamp,
+                actualDepartureTime: departureTimestamp
+            } : {}),
             ...(!booking.transporterId ? { transporterId: req.user.id } : {})
         });
+
+        // Step 4 & 5: If part of a shared trip and departing, sync actualDepartureTime and in_transit status across shared trip
+        if (booking.sharedTripId && nextStatus === "in_transit") {
+            await SharedTrip.update(
+                { status: "in_transit", actualDepartureTime: departureTimestamp },
+                { where: { id: booking.sharedTripId } }
+            ).catch(() => {});
+
+            await TransportRequest.update(
+                {
+                    status: "in_transit",
+                    actualDepartureTime: departureTimestamp,
+                    tripStartTime: departureTimestamp
+                },
+                {
+                    where: {
+                        sharedTripId: booking.sharedTripId,
+                        status: { [Op.in]: ["confirmed", "accepted", "driver_assigned", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed"] }
+                    }
+                }
+            ).catch(() => {});
+        }
 
         if (["delivered", "completed", "cancelled"].includes(nextStatus)) {
             await TransporterProfile.update(
@@ -1981,11 +2027,142 @@ router.put(["/bookings/:id/status", "/requests/:id/status", "/requests/:id/progr
         return res.json({
             success: true,
             data: booking,
+            actualDepartureTime: nextStatus === "in_transit" ? departureTimestamp.toISOString() : booking.actualDepartureTime,
             message: `Trip status advanced to ${nextStatus.toUpperCase()}!`
         });
     } catch (error) {
         console.error("Update status error:", error.message);
         return res.status(500).json({ success: false, message: "Failed to update booking status" });
+    }
+});
+
+/**
+ * PUT /api/transport/bookings/:id/schedule-departure
+ * (and /requests/:id/schedule-departure)
+ * Authorized transporter sets or updates the scheduled departure date & time.
+ * Validates permissions, trip status, date/time format, and syncs across shared trips.
+ */
+router.put(["/bookings/:id/schedule-departure", "/requests/:id/schedule-departure"], requireRole("transporter", "admin"), async (req, res) => {
+    try {
+        await ensureTransportSchema();
+        const lookup = req.params.id;
+        const isNumeric = /^\d+$/.test(String(lookup));
+        let booking = isNumeric ? await TransportRequest.findByPk(lookup) : null;
+        if (!booking) {
+            booking = await TransportRequest.findOne({ where: { bookingId: lookup } });
+        }
+        if (!booking) return res.status(404).json({ success: false, message: "Booking/Trip not found." });
+
+        if (req.user.role !== "admin") {
+            if (booking.transporterId && Number(booking.transporterId) !== Number(req.user.id)) {
+                return res.status(403).json({ success: false, message: "Not authorized to schedule departure for this trip." });
+            }
+        }
+
+        // Prohibit scheduling on departed or terminal trips
+        if (["in_transit", "arrived_destination", "delivered", "delivery_confirmed", "completed", "cancelled", "rejected"].includes(booking.status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot schedule departure for a trip with status '${booking.status}'.`
+            });
+        }
+
+        const { scheduledDepartureTime, notes } = req.body;
+        if (!scheduledDepartureTime) {
+            return res.status(400).json({ success: false, message: "Scheduled departure date and time is required." });
+        }
+
+        const departureDate = new Date(scheduledDepartureTime);
+        if (isNaN(departureDate.getTime())) {
+            return res.status(400).json({ success: false, message: "Invalid scheduled departure date and time format." });
+        }
+
+        let history = [];
+        try {
+            history = booking.statusHistory ? JSON.parse(booking.statusHistory) : [];
+            if (!Array.isArray(history)) history = [];
+        } catch (_) {
+            history = [];
+        }
+        history.push({
+            action: "departure_scheduled",
+            fromSchedule: booking.scheduledDepartureTime ? new Date(booking.scheduledDepartureTime).toISOString() : null,
+            toSchedule: departureDate.toISOString(),
+            timestamp: new Date().toISOString(),
+            userId: req.user.id,
+            notes: notes || null
+        });
+
+        await booking.update({
+            scheduledDepartureTime: departureDate,
+            statusHistory: JSON.stringify(history),
+            ...(!booking.transporterId ? { transporterId: req.user.id } : {})
+        });
+
+        // Step 5: If part of a shared trip, synchronize authoritative schedule to parent SharedTrip and all sibling bookings
+        if (booking.sharedTripId) {
+            await SharedTrip.update(
+                { scheduledDepartureTime: departureDate },
+                { where: { id: booking.sharedTripId } }
+            ).catch(() => {});
+
+            await TransportRequest.update(
+                { scheduledDepartureTime: departureDate },
+                { where: { sharedTripId: booking.sharedTripId } }
+            ).catch(() => {});
+        }
+
+        return res.json({
+            success: true,
+            data: booking,
+            scheduledDepartureTime: departureDate.toISOString(),
+            message: "Scheduled departure date and time confirmed successfully."
+        });
+    } catch (error) {
+        console.error("Schedule departure error:", error.message);
+        return res.status(500).json({ success: false, message: "Failed to schedule departure." });
+    }
+});
+
+/**
+ * PUT /api/transport/shared-trips/:id/schedule-departure
+ * Authoritatively schedule departure for a shared transport pool
+ */
+router.put("/shared-trips/:id/schedule-departure", requireRole("transporter", "admin"), async (req, res) => {
+    try {
+        await ensureTransportSchema();
+        const trip = await SharedTrip.findByPk(req.params.id);
+        if (!trip) return res.status(404).json({ success: false, message: "Shared trip not found." });
+        if (req.user.role !== "admin" && Number(trip.transporterId) !== Number(req.user.id)) {
+            return res.status(403).json({ success: false, message: "Not authorized to schedule departure for this trip." });
+        }
+        if (["in_transit", "arrived_destination", "delivered", "completed", "cancelled"].includes(trip.status)) {
+            return res.status(400).json({ success: false, message: `Cannot schedule departure for trip in status '${trip.status}'.` });
+        }
+        const { scheduledDepartureTime } = req.body;
+        if (!scheduledDepartureTime) {
+            return res.status(400).json({ success: false, message: "Scheduled departure date and time is required." });
+        }
+        const departureDate = new Date(scheduledDepartureTime);
+        if (isNaN(departureDate.getTime())) {
+            return res.status(400).json({ success: false, message: "Invalid scheduled departure date and time format." });
+        }
+
+        await trip.update({ scheduledDepartureTime: departureDate });
+        await TransportRequest.update(
+            { scheduledDepartureTime: departureDate },
+            { where: { sharedTripId: trip.id } }
+        );
+
+        return res.json({
+            success: true,
+            data: trip,
+            scheduledDepartureTime: departureDate.toISOString(),
+            message: "Shared trip departure schedule confirmed successfully."
+        });
+    } catch (error) {
+        console.error("Shared trip schedule departure error:", error.message);
+        return res.status(500).json({ success: false, message: "Failed to schedule departure." });
     }
 });
 
@@ -2190,6 +2367,9 @@ router.post("/shared-trips/group", requireRole("transporter", "admin"), async (r
             farmers: bookings.map((b) => ({ id: b.id, weightKg: Number(b.weightKg) }))
         });
 
+        const depTime = req.body.scheduledDepartureTime ? new Date(req.body.scheduledDepartureTime) : null;
+        const validDepTime = depTime && !isNaN(depTime.getTime()) ? depTime : null;
+
         // Use database transaction for atomic trip creation
         const sharedTrip = await sequelize.transaction(async (t) => {
             const trip = await SharedTrip.create({
@@ -2204,6 +2384,7 @@ router.post("/shared-trips/group", requireRole("transporter", "admin"), async (r
                 remainingCapacityKg: Math.max(0, vehicle.capacityKg - totalWeightKg),
                 totalFare,
                 compatibleCategory: bookings[0].cropCategory || "general",
+                scheduledDepartureTime: validDepTime,
                 status: "confirmed"
             }, { transaction: t });
 
@@ -2223,6 +2404,7 @@ router.post("/shared-trips/group", requireRole("transporter", "admin"), async (r
                     estimatedSharedCost: share,
                     bookingType: "shared",
                     sharingFarmersCount: bookings.length,
+                    ...(validDepTime ? { scheduledDepartureTime: validDepTime } : {}),
                     status: "confirmed"
                 }, { transaction: t });
             }
@@ -2334,9 +2516,12 @@ router.put("/shared-trips/:id/departure", requireRole("transporter", "admin"), a
             return res.status(400).json({ success: false, message: `Trip cannot depart from status '${trip.status}'.` });
         }
 
+        const departureTimestamp = trip.actualDepartureTime || new Date();
+
         await sequelize.transaction(async (t) => {
             await trip.update({
-                status: "in_transit"
+                status: "in_transit",
+                actualDepartureTime: departureTimestamp
             }, { transaction: t });
 
             if (trip.Bookings && trip.Bookings.length > 0) {
@@ -2344,7 +2529,8 @@ router.put("/shared-trips/:id/departure", requireRole("transporter", "admin"), a
                     if (["confirmed", "accepted", "driver_assigned", "awaiting_pickup", "pickup_confirmed"].includes(b.status)) {
                         await b.update({
                             status: "in_transit",
-                            tripStartTime: new Date()
+                            tripStartTime: b.tripStartTime || departureTimestamp,
+                            actualDepartureTime: b.actualDepartureTime || departureTimestamp
                         }, { transaction: t });
                     }
                 }

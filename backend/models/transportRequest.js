@@ -79,6 +79,16 @@ const TransportRequest = sequelize.define(
             allowNull: true,
             field: "actual_delivery_time"
         },
+        scheduledDepartureTime: {
+            type: DataTypes.DATE,
+            allowNull: true,
+            field: "scheduled_departure_time"
+        },
+        actualDepartureTime: {
+            type: DataTypes.DATE,
+            allowNull: true,
+            field: "actual_departure_time"
+        },
         loadedQuantity: {
             type: DataTypes.FLOAT,
             allowNull: true,

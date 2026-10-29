@@ -240,6 +240,15 @@ export default function TransporterDashboard() {
   });
   const [submittingDelivery, setSubmittingDelivery] = useState(false);
 
+  // Departure Scheduling Modal
+  const [selectedTripForSchedule, setSelectedTripForSchedule] = useState(null);
+  const [scheduleFormData, setScheduleFormData] = useState({
+    date: '',
+    time: '',
+    notes: ''
+  });
+  const [submittingSchedule, setSubmittingSchedule] = useState(false);
+
   // Trip History & Earnings (Phase 14)
   const [tripHistory, setTripHistory] = useState([]);
   const [historySummary, setHistorySummary] = useState({});
@@ -814,6 +823,92 @@ export default function TransporterDashboard() {
     }
   }
 
+  // Format Indian Standard Time (IST) Date and Time string
+  function formatISTDateTime(dateValue) {
+    if (!dateValue) return '';
+    const d = new Date(dateValue);
+    if (isNaN(d.getTime())) return '';
+    const datePart = d.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'Asia/Kolkata'
+    });
+    const timePart = d.toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Asia/Kolkata'
+    });
+    return `${datePart}, ${timePart} IST`;
+  }
+
+  function openScheduleModal(trip) {
+    let defaultDate = '';
+    let defaultTime = '10:00';
+    if (trip.scheduledDepartureTime) {
+      const d = new Date(trip.scheduledDepartureTime);
+      if (!isNaN(d.getTime())) {
+        defaultDate = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+        defaultTime = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' });
+      }
+    } else if (trip.pickupDate) {
+      defaultDate = trip.pickupDate;
+      defaultTime = '10:00';
+    } else {
+      defaultDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      defaultTime = '10:00';
+    }
+    setScheduleFormData({
+      date: defaultDate,
+      time: defaultTime,
+      notes: ''
+    });
+    setSelectedTripForSchedule(trip);
+  }
+
+  async function handleSubmitSchedule(e) {
+    e.preventDefault();
+    if (!selectedTripForSchedule) return;
+    if (!scheduleFormData.date || !scheduleFormData.time) {
+      showToast({ type: 'error', title: 'Schedule Incomplete', message: 'Please select both departure date and departure time.' });
+      return;
+    }
+
+    setSubmittingSchedule(true);
+    try {
+      // Formatted ISO interpreted strictly in IST (UTC+05:30)
+      const isoString = new Date(`${scheduleFormData.date}T${scheduleFormData.time}:00+05:30`).toISOString();
+      const res = await fetch(`${API_BASE_URL}/api/transport/bookings/${selectedTripForSchedule.id}/schedule-departure`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          scheduledDepartureTime: isoString,
+          notes: scheduleFormData.notes
+        })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message || 'Failed to schedule departure');
+
+      showToast({
+        type: 'success',
+        title: '📅 Departure Scheduled!',
+        message: `Scheduled departure set for ${formatISTDateTime(isoString)}.`
+      });
+
+      setSelectedTripForSchedule(null);
+      loadMyBookings();
+      loadTransporterStats();
+    } catch (err) {
+      showToast({ type: 'error', title: 'Scheduling Error', message: err.message });
+    } finally {
+      setSubmittingSchedule(false);
+    }
+  }
+
   const activeTrip = stats.activeTrip;
   const activeBookings = myBookings.filter((b) =>
     ['accepted', 'vehicle_assigned', 'driver_assigned', 'awaiting_pickup', 'pickup_confirmed', 'in_transit', 'arrived_destination'].includes(b.status)
@@ -1322,9 +1417,32 @@ export default function TransporterDashboard() {
                         <h4 className="text-sm sm:text-base font-black text-white mt-1">
                           {trip.cropName} ({trip.weightKg} kg) ➔ {trip.destinationMarket}
                         </h4>
+
+                        {/* Scheduled Departure and Actual Departure Indicator */}
+                        <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
+                          <span className="text-[11px] text-slate-400">Scheduled Departure:</span>
+                          {trip.scheduledDepartureTime ? (
+                            <span className="font-mono font-bold text-sky-300 bg-sky-950/70 border border-sky-500/40 px-2 py-0.5 rounded text-[11px]">
+                              {formatISTDateTime(trip.scheduledDepartureTime)}
+                            </span>
+                          ) : (
+                            <span className="font-semibold text-amber-300 bg-amber-950/70 border border-amber-500/40 px-2 py-0.5 rounded text-[11px]">
+                              Departure not scheduled
+                            </span>
+                          )}
+                          {trip.actualDepartureTime ? (
+                            <span className="text-[11px] font-bold text-purple-300 bg-purple-950/70 border border-purple-500/40 px-2 py-0.5 rounded">
+                              Departed: {formatISTDateTime(trip.actualDepartureTime)}
+                            </span>
+                          ) : ['in_transit', 'arrived_destination', 'delivered', 'completed'].includes(trip.status) ? (
+                            <span className="text-[11px] font-bold text-purple-300 bg-purple-950/70 border border-purple-500/40 px-2 py-0.5 rounded">
+                              Departed • In Transit
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
                           onClick={() => setSelectedGatePass(trip)}
@@ -1333,6 +1451,18 @@ export default function TransporterDashboard() {
                           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                           <span>{t('transporter.viewGatePass') || "Gate Pass (QR)"}</span>
                         </button>
+
+                        {!['in_transit', 'arrived_destination', 'delivered', 'completed', 'cancelled'].includes(trip.status) && (
+                          <button
+                            type="button"
+                            onClick={() => openScheduleModal(trip)}
+                            className="px-2.5 py-1.5 rounded-xl border border-sky-400/40 bg-sky-950/30 hover:bg-sky-500/20 text-sky-200 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                            title="Set or update scheduled departure date/time"
+                          >
+                            <Calendar className="w-3.5 h-3.5 text-sky-400" />
+                            <span>{trip.scheduledDepartureTime ? 'Edit Schedule' : 'Schedule Departure'}</span>
+                          </button>
+                        )}
 
                         {['awaiting_pickup', 'accepted', 'vehicle_assigned', 'driver_assigned', 'confirmed'].includes(trip.status) ? (
                           <div className="flex items-center gap-1.5">
@@ -2190,6 +2320,18 @@ export default function TransporterDashboard() {
                           <span>View Gate Pass (QR)</span>
                         </button>
 
+                        {!['in_transit', 'arrived_destination', 'delivered', 'delivery_confirmed', 'completed', 'cancelled', 'rejected'].includes(trip.status) && (
+                          <button
+                            type="button"
+                            onClick={() => openScheduleModal(trip)}
+                            className="px-3 py-1.5 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-blue-800 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                            title="Set or update scheduled departure date & time"
+                          >
+                            <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                            <span>{trip.scheduledDepartureTime ? 'Edit Schedule' : 'Schedule Departure'}</span>
+                          </button>
+                        )}
+
                         {/* Action buttons based on current state */}
                         {['accepted', 'vehicle_assigned', 'driver_assigned', 'awaiting_pickup', 'confirmed'].includes(trip.status) && (
                           <div className="flex items-center gap-1.5">
@@ -2282,6 +2424,77 @@ export default function TransporterDashboard() {
                           );
                         })}
                       </div>
+                    </div>
+
+                    {/* Departure Schedule & Transit Status Banner */}
+                    <div className={`p-4 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-3 ${
+                      trip.actualDepartureTime || ['in_transit', 'arrived_destination', 'delivered', 'completed'].includes(trip.status)
+                        ? 'bg-purple-50/80 border-purple-200'
+                        : trip.scheduledDepartureTime
+                        ? 'bg-blue-50/80 border-blue-200'
+                        : 'bg-amber-50/80 border-amber-200'
+                    }`}>
+                      <div className="flex items-start sm:items-center gap-3">
+                        <div className={`p-2.5 rounded-xl shrink-0 ${
+                          trip.actualDepartureTime || ['in_transit', 'arrived_destination', 'delivered', 'completed'].includes(trip.status)
+                            ? 'bg-purple-100 text-purple-700'
+                            : trip.scheduledDepartureTime
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          <Clock className="w-4 h-4" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                              Scheduled Departure:
+                            </span>
+                            {trip.scheduledDepartureTime ? (
+                              <span className="text-xs font-extrabold text-slate-900 font-mono bg-white px-2 py-0.5 rounded border border-blue-200 shadow-2xs">
+                                {formatISTDateTime(trip.scheduledDepartureTime)}
+                              </span>
+                            ) : (
+                              <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200">
+                                Departure not scheduled
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+                            {trip.actualDepartureTime ? (
+                              <span className="font-bold text-purple-800 flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+                                Actual Departure: {formatISTDateTime(trip.actualDepartureTime)} • (Departed)
+                              </span>
+                            ) : ['in_transit', 'arrived_destination', 'delivered', 'completed'].includes(trip.status) ? (
+                              <span className="font-bold text-purple-800 flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+                                Status: Vehicle Departed & In Transit
+                              </span>
+                            ) : (
+                              <span className="text-slate-500">
+                                Status: <strong className="text-slate-700 uppercase">{trip.status.replace(/_/g, ' ')}</strong> (Awaiting Departure)
+                              </span>
+                            )}
+
+                            <span className="text-slate-400">•</span>
+                            <span className="text-slate-500">
+                              Farm Pickup Date: <strong className="text-slate-700 font-mono">{trip.pickupDate || 'Today'}</strong>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {!['in_transit', 'arrived_destination', 'delivered', 'delivery_confirmed', 'completed', 'cancelled'].includes(trip.status) && (
+                        <button
+                          type="button"
+                          onClick={() => openScheduleModal(trip)}
+                          className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0 self-start md:self-auto"
+                        >
+                          <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                          <span>{trip.scheduledDepartureTime ? 'Update Schedule' : 'Schedule Departure'}</span>
+                        </button>
+                      )}
                     </div>
 
                     {/* Trip Details Strip */}
@@ -3213,6 +3426,125 @@ export default function TransporterDashboard() {
                   className="btn-primary py-2 px-5 rounded-xl font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   {submittingDelivery ? (t('transporter.recording') || 'Recording...') : (t('transporter.confirmDelivery') || 'Confirm Delivery Clearance')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: SCHEDULE DEPARTURE DATE & TIME */}
+      {selectedTripForSchedule && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                <span>{selectedTripForSchedule.scheduledDepartureTime ? 'Update Scheduled Departure' : 'Set Scheduled Departure'}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSelectedTripForSchedule(null)}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitSchedule} className="space-y-4 text-xs">
+              {/* Trip Context Card */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="font-mono text-[11px] font-black bg-slate-900 text-white px-2 py-0.5 rounded">
+                    {selectedTripForSchedule.gatePassCode || `PASS-${selectedTripForSchedule.id}`}
+                  </span>
+                  <span className="text-[10px] font-bold uppercase text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                    {selectedTripForSchedule.bookingType === 'shared' ? 'Shared Transport Pool' : 'Individual Cargo'}
+                  </span>
+                </div>
+                <div className="font-bold text-slate-900 text-sm">
+                  {selectedTripForSchedule.cropName} ({selectedTripForSchedule.weightKg} kg) ➔ {selectedTripForSchedule.destinationMarket}
+                </div>
+                <div className="flex justify-between text-slate-600 text-[11px]">
+                  <span>Pickup Origin: <strong className="text-slate-800">{selectedTripForSchedule.pickupLocation}</strong></span>
+                  <span>Farm Pickup Date: <strong className="text-slate-800 font-mono">{selectedTripForSchedule.pickupDate || 'Today'}</strong></span>
+                </div>
+              </div>
+
+              {/* Date & Time Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700 flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Departure Date *</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={scheduleFormData.date}
+                    onChange={(e) => setScheduleFormData({ ...scheduleFormData, date: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono font-bold outline-none focus:border-blue-500 bg-white"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Departure Time *</span>
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={scheduleFormData.time}
+                    onChange={(e) => setScheduleFormData({ ...scheduleFormData, time: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono font-bold outline-none focus:border-blue-500 bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Timezone & Live Preview Notice */}
+              <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200 text-blue-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-[11px]">
+                  <span className="w-2 h-2 rounded-full bg-blue-600" />
+                  <span>Departure Schedule Preview (Indian Standard Time):</span>
+                </div>
+                <p className="font-mono font-black text-xs text-blue-950">
+                  {scheduleFormData.date && scheduleFormData.time
+                    ? formatISTDateTime(new Date(`${scheduleFormData.date}T${scheduleFormData.time}:00+05:30`))
+                    : 'Select date and time above'}
+                </p>
+                <p className="text-[10px] text-blue-700">
+                  All dates and times are scheduled and displayed in Indian Standard Time (IST, UTC+05:30). Sibling bookings on this trip will receive this authoritative schedule.
+                </p>
+              </div>
+
+              {/* Operational Notes */}
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Operational Notes (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Departing yard after morning mandi gate clearance."
+                  value={scheduleFormData.notes}
+                  onChange={(e) => setScheduleFormData({ ...scheduleFormData, notes: e.target.value })}
+                  className="w-full rounded-xl border border-slate-300 p-2.5 font-medium outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTripForSchedule(null)}
+                  className="py-2 px-4 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingSchedule}
+                  className="py-2 px-5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white inline-flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>{submittingSchedule ? 'Saving...' : 'Confirm Scheduled Departure'}</span>
                 </button>
               </div>
             </form>

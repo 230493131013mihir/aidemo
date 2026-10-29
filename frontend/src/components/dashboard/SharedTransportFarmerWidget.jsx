@@ -39,6 +39,25 @@ function formatINR(value) {
   }).format(Number(value) || 0);
 }
 
+function formatISTDateTime(dateValue) {
+  if (!dateValue) return '';
+  const d = new Date(dateValue);
+  if (isNaN(d.getTime())) return '';
+  const datePart = d.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Kolkata'
+  });
+  const timePart = d.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Kolkata'
+  });
+  return `${datePart}, ${timePart} IST`;
+}
+
 // Unit conversion helpers
 function convertToKg(quantity, unit = 'kg') {
   const q = Number(quantity) || 0;
@@ -2047,6 +2066,32 @@ export default function SharedTransportFarmerWidget({
                         {formatINR(booking.estimatedSharedCost || 1200)}
                       </span>
                     </div>
+                  </div>
+
+                  {/* Authoritative Departure Schedule Strip */}
+                  <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs gap-2">
+                    <div className="flex items-center gap-1.5 text-slate-700">
+                      <Clock className="w-3.5 h-3.5 text-blue-600" />
+                      <span className="text-[11px] font-bold">Scheduled Departure:</span>
+                      {booking.scheduledDepartureTime ? (
+                        <span className="font-mono font-bold text-slate-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                          {formatISTDateTime(booking.scheduledDepartureTime)}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                          Departure not scheduled
+                        </span>
+                      )}
+                    </div>
+                    {booking.actualDepartureTime ? (
+                      <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                        Departed: {formatISTDateTime(booking.actualDepartureTime)}
+                      </span>
+                    ) : ['in_transit', 'arrived_destination', 'delivered', 'completed'].includes(booking.status) ? (
+                      <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                        🚚 Vehicle Departed & In Transit
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               ))}

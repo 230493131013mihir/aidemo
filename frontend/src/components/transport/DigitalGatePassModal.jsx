@@ -293,8 +293,27 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
               <span className="font-bold text-slate-800">{booking.destinationMarket || booking.destinationLocation || 'Pune APMC'}</span>
             </div>
             <div className="flex justify-between py-0.5 border-b border-slate-200/60">
-              <span className="text-slate-500 font-medium">Scheduled Date:</span>
+              <span className="text-slate-500 font-medium">Farm Pickup Date:</span>
               <span className="font-semibold text-slate-800">{booking.pickupDate || 'Today'}</span>
+            </div>
+            <div className="flex justify-between py-0.5 border-b border-slate-200/60">
+              <span className="text-slate-500 font-medium">Scheduled Departure:</span>
+              <span className={`font-semibold ${booking.scheduledDepartureTime ? 'text-slate-900 font-mono' : 'text-amber-700'}`}>
+                {booking.scheduledDepartureTime ? (
+                  new Date(booking.scheduledDepartureTime).toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                    timeZone: 'Asia/Kolkata'
+                  }) + ', ' +
+                  new Date(booking.scheduledDepartureTime).toLocaleTimeString('en-IN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true,
+                    timeZone: 'Asia/Kolkata'
+                  }) + ' IST'
+                ) : 'Departure not scheduled'}
+              </span>
             </div>
             <div className="flex justify-between py-0.5">
               <span className="text-slate-500 font-medium">Privacy Status:</span>

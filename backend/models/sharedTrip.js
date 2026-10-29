@@ -70,6 +70,16 @@ const SharedTrip = sequelize.define(
             allowNull: true,
             field: "departure_time"
         },
+        scheduledDepartureTime: {
+            type: DataTypes.DATE,
+            allowNull: true,
+            field: "scheduled_departure_time"
+        },
+        actualDepartureTime: {
+            type: DataTypes.DATE,
+            allowNull: true,
+            field: "actual_departure_time"
+        },
         bookingCutoff: {
             type: DataTypes.STRING(64),
             allowNull: true,
