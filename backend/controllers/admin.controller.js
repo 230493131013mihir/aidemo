@@ -1,10 +1,10 @@
 const { Op } = require("sequelize");
-const { User, FarmerProfile, Crop, Market, MarketPrice, TransportRequest, Report, AuditLog, Vehicle } = require("../models");
+const { User, FarmerProfile, TransporterProfile, Crop, Market, MarketPrice, TransportRequest, Report, AuditLog, Vehicle, Scheme } = require("../models");
 const { recordAudit } = require("../services/auditService");
 
 const overview = async (req, res) => {
     try {
-        const [users, farmers, transporters, markets, marketPrices, transportRequests, auditLogs, totalVehicles] = await Promise.all([
+        const [users, farmers, transporters, markets, marketPrices, transportRequests, auditLogs, totalVehicles, totalSchemes] = await Promise.all([
             User.count(),
             FarmerProfile.count(),
             User.count({ where: { role: "transporter" } }),
@@ -12,12 +12,13 @@ const overview = async (req, res) => {
             MarketPrice.count(),
             TransportRequest.count(),
             AuditLog.count(),
-            Vehicle.count()
+            Vehicle.count(),
+            Scheme.count()
         ]);
 
         return res.json({
             success: true,
-            data: { users, farmers, transporters, markets, marketPrices, transportRequests, auditLogs, vehicles: totalVehicles }
+            data: { users, farmers, transporters, markets, marketPrices, transportRequests, auditLogs, vehicles: totalVehicles, schemes: totalSchemes }
         });
     } catch (error) {
         console.error("Admin overview error:", error.message);
@@ -29,11 +30,15 @@ const listUsers = async (req, res) => {
     try {
         const users = await User.findAll({
             attributes: { exclude: ["password"] },
-            include: [{ model: FarmerProfile }],
+            include: [
+                { model: FarmerProfile },
+                { model: TransporterProfile },
+                { model: Vehicle, as: "Vehicles" }
+            ],
             order: [["createdAt", "DESC"]],
-            limit: 200
+            limit: 300
         });
-        return res.json({ success: true, data: users });
+        return res.json({ success: true, count: users.length, data: users });
     } catch (error) {
         console.error("Admin user listing error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to load users" });
@@ -332,12 +337,68 @@ const listAuditLogs = async (req, res) => {
 const listMarkets = async (req, res) => {
     try {
         const markets = await Market.findAll({
+            include: [
+                {
+                    model: MarketPrice,
+                    attributes: ["id", "pricePerQuintal", "pricePerKg", "priceDate"],
+                    limit: 1,
+                    order: [["priceDate", "DESC"], ["id", "DESC"]]
+                }
+            ],
             order: [["state", "ASC"], ["name", "ASC"]]
         });
-        return res.json({ success: true, data: markets });
+        return res.json({ success: true, count: markets.length, data: markets });
     } catch (error) {
         console.error("Admin list markets error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to load markets" });
+    }
+};
+
+const listFarmers = async (req, res) => {
+    try {
+        const farmers = await FarmerProfile.findAll({
+            include: [
+                {
+                    model: User,
+                    attributes: ["id", "name", "email", "phone", "role", "status", "createdAt"]
+                }
+            ],
+            order: [["createdAt", "DESC"]]
+        });
+        return res.json({ success: true, count: farmers.length, data: farmers });
+    } catch (error) {
+        console.error("Admin listFarmers error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to load farmer profiles" });
+    }
+};
+
+const listTransporters = async (req, res) => {
+    try {
+        const transporters = await User.findAll({
+            where: { role: "transporter" },
+            attributes: { exclude: ["password"] },
+            include: [
+                { model: TransporterProfile },
+                { model: Vehicle, as: "Vehicles" }
+            ],
+            order: [["createdAt", "DESC"]]
+        });
+        return res.json({ success: true, count: transporters.length, data: transporters });
+    } catch (error) {
+        console.error("Admin listTransporters error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to load transporters" });
+    }
+};
+
+const listSchemes = async (req, res) => {
+    try {
+        const schemes = await Scheme.findAll({
+            order: [["lastVerifiedDate", "DESC"], ["id", "ASC"]]
+        });
+        return res.json({ success: true, count: schemes.length, data: schemes });
+    } catch (error) {
+        console.error("Admin listSchemes error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to load schemes" });
     }
 };
 
@@ -527,5 +588,8 @@ module.exports = {
     listCrops,
     reports,
     listVehicles,
-    vehicleMetrics
+    vehicleMetrics,
+    listFarmers,
+    listTransporters,
+    listSchemes
 };

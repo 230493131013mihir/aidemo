@@ -168,6 +168,14 @@ export default function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/admin/:view"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminPage />
+            </ProtectedRoute>
+          }
+        />
       </Route>
 
       {/* Catch-all 404 Not Found */}
