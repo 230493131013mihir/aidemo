@@ -44,22 +44,59 @@ function normalizeTransportInput(body, reqUser = {}) {
     if (!effectiveFarmerName || String(effectiveFarmerName).trim() === "") {
         return { error: "farmerName is required" };
     }
-    const required = ["cropName", "pickupLocation", "destinationMarket", "pickupDate"];
+    const required = ["pickupLocation", "destinationMarket", "pickupDate"];
     for (const key of required) {
         if (body[key] === undefined || body[key] === "") {
             return { error: `${key} is required` };
         }
     }
 
-    const quantityUnit = String(body.quantityUnit || "kg").toLowerCase();
-    const rawQty = Number(body.quantity !== undefined ? body.quantity : body.weightKg);
-    if (Number.isNaN(rawQty) || rawQty <= 0) {
-        return { error: "Quantity must be a positive number" };
+    let cropName = "";
+    let weightKg = 0;
+    let quantityUnit = "kg";
+    let rawQty = 0;
+
+    if (Array.isArray(body.selectedCrops) && body.selectedCrops.length > 0) {
+        const cropItems = [];
+        let totalSumKg = 0;
+        for (const item of body.selectedCrops) {
+            const cName = String(item.cropName || item.name || "").trim();
+            const cQty = Number(item.quantity !== undefined ? item.quantity : item.weightKg);
+            const cUnit = String(item.quantityUnit || item.unit || "kg").toLowerCase();
+            if (!cName) continue;
+            if (Number.isNaN(cQty) || cQty <= 0) {
+                return { error: `Quantity for crop ${cName} must be a positive number` };
+            }
+            const itemKg = convertToKg(cQty, cUnit);
+            if (itemKg <= 0) {
+                return { error: `Weight for crop ${cName} must be greater than 0 kg` };
+            }
+            totalSumKg += itemKg;
+            cropItems.push({ cropName: cName, quantity: cQty, quantityUnit: cUnit, weightKg: itemKg });
+        }
+        if (cropItems.length === 0) {
+            return { error: "At least one selected crop is required" };
+        }
+        cropName = cropItems.map(c => c.cropName).join(", ");
+        weightKg = totalSumKg;
+        rawQty = totalSumKg;
+        quantityUnit = "kg";
+    } else {
+        cropName = String(body.cropName || "").trim();
+        if (!cropName) {
+            return { error: "cropName is required" };
+        }
+        quantityUnit = String(body.quantityUnit || "kg").toLowerCase();
+        rawQty = Number(body.quantity !== undefined ? body.quantity : body.weightKg);
+        if (Number.isNaN(rawQty) || rawQty <= 0) {
+            return { error: "Quantity must be a positive number" };
+        }
+        // Convert to standard kg: 1 quintal = 100 kg, 1 tonne = 1000 kg
+        weightKg = convertToKg(rawQty, quantityUnit);
     }
-    // Convert to standard kg: 1 quintal = 100 kg, 1 tonne = 1000 kg
-    const weightKg = convertToKg(rawQty, quantityUnit);
-    if (weightKg <= 0 || weightKg > 5000) {
-        return { error: "Weight in kg must be greater than 0 and cannot exceed 5000 kg" };
+
+    if (weightKg <= 0 || weightKg > 15000) {
+        return { error: "Weight in kg must be greater than 0 and cannot exceed vehicle capacity" };
     }
     const pickupDate = String(body.pickupDate);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(pickupDate) || Number.isNaN(Date.parse(`${pickupDate}T00:00:00Z`))) {
@@ -72,10 +109,10 @@ function normalizeTransportInput(body, reqUser = {}) {
 
     const preferredDeliveryDate = body.preferredDeliveryDate ? String(body.preferredDeliveryDate) : null;
 
-    const cropName = String(body.cropName).trim();
     const cropProfile = getCropProfile(cropName);
 
-    const bookingType = body.bookingType === "shared" ? "shared" : "individual";
+    const isDedicated = body.bookingType === "dedicated" || body.bookingType === "individual";
+    const bookingType = isDedicated ? "dedicated" : "shared";
     const sharingFarmersCount = Math.max(1, Number(body.sharingFarmersCount) || 1);
 
     // Calculate base route rate
@@ -385,6 +422,15 @@ async function ensureTransportSchema() {
                 if (!transporterCols.total_ratings) await queryInterface.addColumn("transporter_profiles", "total_ratings", { type: sequelize.Sequelize.INTEGER, allowNull: true, defaultValue: 1 }).catch(() => {});
             } catch (_) {}
             try {
+                const tripCols = await queryInterface.describeTable("shared_trips").catch(() => ({}));
+                if (tripCols && Object.keys(tripCols).length > 0) {
+                    if (!tripCols.min_load_kg) await queryInterface.addColumn("shared_trips", "min_load_kg", { type: sequelize.Sequelize.INTEGER, allowNull: true, defaultValue: 0 }).catch(() => {});
+                    if (!tripCols.departure_time) await queryInterface.addColumn("shared_trips", "departure_time", { type: sequelize.Sequelize.STRING(64), allowNull: true }).catch(() => {});
+                    if (!tripCols.booking_cutoff) await queryInterface.addColumn("shared_trips", "booking_cutoff", { type: sequelize.Sequelize.STRING(64), allowNull: true }).catch(() => {});
+                    if (!tripCols.min_viable_fare) await queryInterface.addColumn("shared_trips", "min_viable_fare", { type: sequelize.Sequelize.INTEGER, allowNull: true, defaultValue: 0 }).catch(() => {});
+                }
+            } catch (_) {}
+            try {
                 await sequelize.query("ALTER TABLE transport_requests MODIFY COLUMN status VARCHAR(32) NOT NULL DEFAULT 'pending'");
             } catch (_) {}
         })().catch((error) => {
@@ -568,9 +614,16 @@ router.get("/vehicles", async (req, res) => {
                 }
             });
 
-            const bookedWeightKg = activeBookings.reduce((sum, b) => sum + (Number(b.weightKg) || 0), 0);
-            const remainingCapacityKg = Math.max(0, v.capacityKg - bookedWeightKg);
+            // Check for dedicated reservations on this vehicle for this date
+            const hasDedicatedBooking = activeBookings.some(b => b.bookingType === "dedicated" || b.bookingType === "individual");
+            const bookedWeightKg = hasDedicatedBooking
+                ? v.capacityKg
+                : activeBookings.reduce((sum, b) => sum + (Number(b.weightKg) || 0), 0);
+            const remainingCapacityKg = hasDedicatedBooking
+                ? 0
+                : Math.max(0, v.capacityKg - bookedWeightKg);
             const isFullyBooked = remainingCapacityKg <= 0;
+            const isDedicatedReserved = hasDedicatedBooking;
             const isCurrentlyInTransit = activeBookings.some(b => ["in_transit", "driver_assigned"].includes(b.status));
 
             // Check if caller has an active booking on this vehicle
@@ -668,6 +721,7 @@ router.get("/vehicles", async (req, res) => {
                 bookedWeightKg,
                 remainingCapacityKg,
                 isFullyBooked,
+                isDedicatedReserved: Boolean(isDedicatedReserved),
                 isBookedByCurrentUser: Boolean(userActiveBooking),
                 userActiveBooking: userActiveBooking ? {
                     id: userActiveBooking.id,
@@ -699,9 +753,6 @@ router.get("/vehicles", async (req, res) => {
 
         if (req.query.availableOnly === "true") {
             result = result.filter(v => v.remainingCapacityKg > 0 && !v.isBookedByCurrentUser);
-        } else {
-            // Keep vehicles with remaining capacity OR already booked by this farmer (to display their ALREADY BOOKED status)
-            result = result.filter(v => v.remainingCapacityKg > 0 || v.isBookedByCurrentUser);
         }
 
         if (effectiveKg > 0 && req.query.strictCapacity === "true") {
@@ -1002,35 +1053,64 @@ router.post("/bookings", requireRole("farmer", "fpo_leader"), async (req, res) =
                     transaction: t
                 });
 
-                const currentBookedKg = existingBookings.reduce((sum, b) => sum + (Number(b.weightKg) || 0), 0);
-                const remainingCapacityKg = Math.max(0, vehicle.capacityKg - currentBookedKg);
-
-                if (remainingCapacityKg <= 0) {
-                    const err = new Error(`Vehicle ${vehicle.registrationNumber} is FULLY BOOKED for ${fields.pickupDate}. No capacity remaining.`);
+                // Check if vehicle has any active dedicated bookings on this date
+                const hasExistingDedicated = existingBookings.some(b => b.bookingType === "dedicated" || b.bookingType === "individual");
+                if (hasExistingDedicated) {
+                    const err = new Error(`Vehicle ${vehicle.registrationNumber} is already reserved for a dedicated transport trip on ${fields.pickupDate}.`);
                     err.statusCode = 409;
                     err.code = "VEHICLE_FULLY_BOOKED";
                     throw err;
                 }
 
-                if (fields.weightKg > remainingCapacityKg) {
-                    const err = new Error(
-                        `Vehicle capacity is ${vehicle.capacityKg} kg (${currentBookedKg} kg already booked). Only ${remainingCapacityKg} kg space remains, but ${fields.weightKg} kg was requested.`
-                    );
-                    err.statusCode = 409;
-                    err.code = "INSUFFICIENT_CAPACITY";
-                    throw err;
-                }
+                if (fields.bookingType === "dedicated") {
+                    if (existingBookings.length > 0) {
+                        const err = new Error(
+                            `Vehicle ${vehicle.registrationNumber} already has ${existingBookings.length} shared booking(s) on ${fields.pickupDate}. A dedicated truck cannot be booked on an active shared trip.`
+                        );
+                        err.statusCode = 409;
+                        err.code = "DEDICATED_NOT_AVAILABLE";
+                        throw err;
+                    }
+                    if (fields.weightKg > vehicle.capacityKg) {
+                        const err = new Error(
+                            `Cargo weight (${fields.weightKg} kg) exceeds vehicle total capacity (${vehicle.capacityKg} kg).`
+                        );
+                        err.statusCode = 409;
+                        err.code = "INSUFFICIENT_CAPACITY";
+                        throw err;
+                    }
+                } else {
+                    // Shared booking
+                    const currentBookedKg = existingBookings.reduce((sum, b) => sum + (Number(b.weightKg) || 0), 0);
+                    const remainingCapacityKg = Math.max(0, vehicle.capacityKg - currentBookedKg);
 
-                // 4. Check crop handling compatibility with already booked cargo for shared pooling
-                if (existingBookings.length > 0 && fields.bookingType === "shared") {
-                    for (const existing of existingBookings) {
-                        if (!areCropsCompatibleForSharedTransport(existing.cropName, fields.cropName)) {
-                            const err = new Error(
-                                `Incompatible cargo: Cannot pool ${fields.cropName} with already booked ${existing.cropName} due to hygiene/storage requirements.`
-                            );
-                            err.statusCode = 400;
-                            err.code = "INCOMPATIBLE_CARGO";
-                            throw err;
+                    if (remainingCapacityKg <= 0) {
+                        const err = new Error(`Vehicle ${vehicle.registrationNumber} is FULLY BOOKED for ${fields.pickupDate}. No capacity remaining.`);
+                        err.statusCode = 409;
+                        err.code = "VEHICLE_FULLY_BOOKED";
+                        throw err;
+                    }
+
+                    if (fields.weightKg > remainingCapacityKg) {
+                        const err = new Error(
+                            `Vehicle capacity is ${vehicle.capacityKg} kg (${currentBookedKg} kg already booked). Only ${remainingCapacityKg} kg space remains, but ${fields.weightKg} kg was requested.`
+                        );
+                        err.statusCode = 409;
+                        err.code = "INSUFFICIENT_CAPACITY";
+                        throw err;
+                    }
+
+                    // 4. Check crop handling compatibility with already booked cargo for shared pooling
+                    if (existingBookings.length > 0) {
+                        for (const existing of existingBookings) {
+                            if (!areCropsCompatibleForSharedTransport(existing.cropName, fields.cropName)) {
+                                const err = new Error(
+                                    `Incompatible cargo: Cannot pool ${fields.cropName} with already booked ${existing.cropName} due to hygiene/storage requirements.`
+                                );
+                                err.statusCode = 400;
+                                err.code = "INCOMPATIBLE_CARGO";
+                                throw err;
+                            }
                         }
                     }
                 }
@@ -1042,7 +1122,39 @@ router.post("/bookings", requireRole("farmer", "fpo_leader"), async (req, res) =
                 fields.vehicleNumber = vehicle.registrationNumber;
                 fields.driverName = vehicle.driverName;
                 fields.driverPhone = vehicle.driverPhone;
-                fields.status = "confirmed";
+                fields.status = "pending";
+
+                // If an open SharedTrip exists for this vehicle and date, link it
+                if (!fields.sharedTripId && vehicle) {
+                    const openTrip = await SharedTrip.findOne({
+                        where: {
+                            vehicleId: vehicle.id,
+                            tripDate: fields.pickupDate,
+                            status: { [Op.in]: ["open", "ready_for_departure"] }
+                        },
+                        transaction: t
+                    });
+                    if (openTrip) {
+                        fields.sharedTripId = openTrip.id;
+                        const newBookedKg = (Number(openTrip.bookedWeightKg) || 0) + fields.weightKg;
+                        const newRemainingKg = Math.max(0, openTrip.totalCapacityKg - newBookedKg);
+                        const isMinLoadReached = newBookedKg >= (openTrip.minLoadKg || 0);
+                        const isFull = newRemainingKg === 0;
+
+                        let newTripStatus = openTrip.status;
+                        if (isFull) {
+                            newTripStatus = "full";
+                        } else if (isMinLoadReached) {
+                            newTripStatus = "ready_for_departure";
+                        }
+
+                        await openTrip.update({
+                            bookedWeightKg: newBookedKg,
+                            remainingCapacityKg: newRemainingKg,
+                            status: newTripStatus
+                        }, { transaction: t });
+                    }
+                }
             }
 
             // Create booking in database atomically
@@ -1059,7 +1171,7 @@ router.post("/bookings", requireRole("farmer", "fpo_leader"), async (req, res) =
             data: booking,
             bookingId: booking.bookingId,
             gatePassCode: booking.gatePassCode,
-            message: `Booking #${booking.bookingId} confirmed! Digital APMC Gate Pass generated.`
+            message: `Booking #${booking.bookingId} submitted successfully! Awaiting transporter confirmation.`
         });
     } catch (err) {
         if (err.statusCode) {
@@ -1068,6 +1180,13 @@ router.post("/bookings", requireRole("farmer", "fpo_leader"), async (req, res) =
                 code: err.code || "BOOKING_ERROR",
                 message: err.message,
                 data: err.data || null
+            });
+        }
+        if (err.message && (err.message.includes("SQLITE_BUSY") || err.message.includes("database is locked") || err.name === "SequelizeTimeoutError")) {
+            return res.status(409).json({
+                success: false,
+                code: "CONCURRENT_ALLOCATION_CONFLICT",
+                message: "Concurrent booking conflict: another transaction was allocating capacity simultaneously. Please retry."
             });
         }
         console.error("Create booking error:", err.message);
@@ -1282,14 +1401,27 @@ router.put(["/bookings/:id/accept", "/requests/:id/accept"], requireRole("transp
     try {
         await ensureTransportSchema();
 
-        const activeTripCount = await TransportRequest.count({
-            where: {
-                transporterId: req.user.id,
-                status: { [Op.in]: ["accepted", "driver_assigned", "in_transit"] }
+        const reqVehicleId = (req.body.vehicleId && req.body.vehicleId !== 'primary' && !isNaN(Number(req.body.vehicleId))) ? Number(req.body.vehicleId) : null;
+        if (reqVehicleId) {
+            const vehicleActiveTripCount = await TransportRequest.count({
+                where: {
+                    vehicleId: reqVehicleId,
+                    status: { [Op.in]: ["accepted", "driver_assigned", "in_transit"] }
+                }
+            });
+            if (vehicleActiveTripCount > 0) {
+                return res.status(409).json({ success: false, message: "This vehicle currently has an active trip in progress." });
             }
-        });
-        if (activeTripCount > 0) {
-            return res.status(409).json({ success: false, message: "Finish your active trip first." });
+        } else {
+            const activeTripCount = await TransportRequest.count({
+                where: {
+                    transporterId: req.user.id,
+                    status: { [Op.in]: ["accepted", "driver_assigned", "in_transit"] }
+                }
+            });
+            if (activeTripCount > 0) {
+                return res.status(409).json({ success: false, message: "Finish your active trip first." });
+            }
         }
 
         const booking = await TransportRequest.findByPk(req.params.id);
@@ -1557,12 +1689,28 @@ router.get("/suggested-groups", requireRole("transporter", "admin"), async (req,
  */
 router.get("/shared-trips", async (req, res) => {
     try {
+        await ensureTransportSchema();
         const trips = await SharedTrip.findAll({
-            where: { status: { [Op.in]: ["open", "matched", "confirmed", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit"] } },
+            where: { status: { [Op.in]: ["open", "matched", "confirmed", "ready_for_departure", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit", "full"] } },
             include: [{ model: Vehicle }, { model: TransportRequest, as: "Bookings" }],
             order: [["tripDate", "ASC"]]
         });
-        return res.json({ success: true, count: trips.length, data: trips });
+        const enrichedTrips = trips.map((trip) => {
+            const bookedKg = Number(trip.bookedWeightKg) || 0;
+            const totalCap = Number(trip.totalCapacityKg) || 2000;
+            const minLoad = Number(trip.minLoadKg) || Math.round(totalCap * 0.5);
+            const loadPercentage = totalCap > 0 ? Math.round((bookedKg / totalCap) * 100) : 0;
+            const isMinLoadReached = bookedKg >= minLoad;
+            const isFull = bookedKg >= totalCap;
+            return {
+                ...trip.toJSON(),
+                loadPercentage,
+                isMinLoadReached,
+                isFull,
+                isReadyForDeparture: isMinLoadReached || trip.status === "ready_for_departure"
+            };
+        });
+        return res.json({ success: true, count: enrichedTrips.length, data: enrichedTrips });
     } catch (error) {
         console.error("Shared trips error:", error.message);
         return res.status(500).json({ success: false, message: "Failed to load shared trips" });
@@ -1731,6 +1879,127 @@ router.post("/shared-trips/group", requireRole("transporter", "admin"), async (r
     } catch (error) {
         console.error("Group shared trip error:", error.message);
         return res.status(500).json({ success: false, message: error.message || "Failed to group shared trip" });
+    }
+});
+
+/**
+ * POST /api/transport/shared-trips
+ * Transporter creates a scheduled trip with departure schedule and load policy
+ */
+router.post("/shared-trips", requireRole("transporter", "admin"), async (req, res) => {
+    try {
+        await ensureTransportSchema();
+        const {
+            vehicleId,
+            pickupLocation,
+            destinationMarket,
+            tripDate,
+            departureTime,
+            bookingCutoff,
+            minLoadKg,
+            minViableFare,
+            totalFare,
+            compatibleCategory
+        } = req.body;
+
+        if (!pickupLocation || !destinationMarket || !tripDate) {
+            return res.status(400).json({ success: false, message: "pickupLocation, destinationMarket, and tripDate are required." });
+        }
+
+        let vehicle = null;
+        if (vehicleId) {
+            vehicle = await Vehicle.findByPk(vehicleId);
+        } else {
+            vehicle = await Vehicle.findOne({ where: { userId: req.user.id, isAvailable: true } });
+        }
+
+        if (!vehicle) {
+            return res.status(404).json({ success: false, message: "Vehicle not found." });
+        }
+
+        if (req.user.role !== "admin" && Number(vehicle.userId) !== Number(req.user.id)) {
+            return res.status(403).json({ success: false, message: "You can only create trips for your own registered fleet." });
+        }
+
+        const tripCode = `TRIP-${new Date().getFullYear()}${Math.floor(1000 + Math.random() * 9000)}`;
+        const totalCapacityKg = Number(vehicle.capacityKg) || 2000;
+        const configuredMinLoadKg = minLoadKg ? Number(minLoadKg) : Math.round(totalCapacityKg * 0.5);
+
+        const newTrip = await SharedTrip.create({
+            tripCode,
+            transporterId: req.user.id,
+            vehicleId: vehicle.id,
+            pickupLocation: String(pickupLocation).trim(),
+            destinationMarket: String(destinationMarket).trim(),
+            tripDate: String(tripDate).trim(),
+            departureTime: departureTime ? String(departureTime).trim() : null,
+            bookingCutoff: bookingCutoff ? String(bookingCutoff).trim() : null,
+            totalCapacityKg,
+            bookedWeightKg: 0,
+            remainingCapacityKg: totalCapacityKg,
+            minLoadKg: configuredMinLoadKg,
+            minViableFare: minViableFare ? Number(minViableFare) : 0,
+            totalFare: totalFare ? Number(totalFare) : Math.round((vehicle.ratePerKm || 25) * 120),
+            compatibleCategory: compatibleCategory ? String(compatibleCategory).trim() : "general",
+            status: "open"
+        });
+
+        return res.status(201).json({
+            success: true,
+            data: newTrip,
+            tripCode: newTrip.tripCode,
+            message: `Scheduled Trip #${tripCode} created successfully.`
+        });
+    } catch (error) {
+        console.error("Create scheduled trip error:", error.message);
+        return res.status(500).json({ success: false, message: error.message || "Failed to create scheduled trip" });
+    }
+});
+
+/**
+ * PUT /api/transport/shared-trips/:id/departure
+ * Transporter explicitly confirms trip departure
+ */
+router.put("/shared-trips/:id/departure", requireRole("transporter", "admin"), async (req, res) => {
+    try {
+        await ensureTransportSchema();
+        const trip = await SharedTrip.findByPk(req.params.id, {
+            include: [{ model: TransportRequest, as: "Bookings" }]
+        });
+        if (!trip) return res.status(404).json({ success: false, message: "Shared trip not found." });
+        if (req.user.role !== "admin" && Number(trip.transporterId) !== Number(req.user.id)) {
+            return res.status(403).json({ success: false, message: "Not authorized to manage departure for this trip." });
+        }
+
+        if (["in_transit", "delivered", "completed", "cancelled"].includes(trip.status)) {
+            return res.status(400).json({ success: false, message: `Trip cannot depart from status '${trip.status}'.` });
+        }
+
+        await sequelize.transaction(async (t) => {
+            await trip.update({
+                status: "in_transit"
+            }, { transaction: t });
+
+            if (trip.Bookings && trip.Bookings.length > 0) {
+                for (const b of trip.Bookings) {
+                    if (["confirmed", "accepted", "driver_assigned", "awaiting_pickup", "pickup_confirmed"].includes(b.status)) {
+                        await b.update({
+                            status: "in_transit",
+                            tripStartTime: new Date()
+                        }, { transaction: t });
+                    }
+                }
+            }
+        });
+
+        return res.json({
+            success: true,
+            data: trip,
+            message: `Trip #${trip.tripCode} departure confirmed! Status updated to IN TRANSIT.`
+        });
+    } catch (error) {
+        console.error("Confirm departure error:", error.message);
+        return res.status(500).json({ success: false, message: error.message || "Failed to confirm departure" });
     }
 });
 

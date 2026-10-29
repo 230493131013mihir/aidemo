@@ -177,8 +177,8 @@ export default function SharedTransportFarmerWidget({
     return initialCrop.split(',')[0].trim();
   }, [initialCrop]);
 
-  // Form State - default to primary crop
-  const [selectedCrop, setSelectedCrop] = useState(() => {
+  // Default primary initial crop
+  const defaultInitialCrop = useMemo(() => {
     if (cleanInitialCrop) return cleanInitialCrop;
     if (Array.isArray(registeredCrops) && registeredCrops.length > 0) {
       const first = registeredCrops[0];
@@ -191,13 +191,22 @@ export default function SharedTransportFarmerWidget({
       if (first) return first;
     }
     return 'Tomato';
+  }, [cleanInitialCrop, registeredCrops, user]);
+
+  // Form State - Multiple Selected Crops Array (Part 1 requirement)
+  const [selectedCrops, setSelectedCrops] = useState(() => [defaultInitialCrop]);
+
+  // Per-Crop Quantities & Units dictionary (Part 2 requirement)
+  const [cropQuantities, setCropQuantities] = useState(() => {
+    const initQty = initialWeightKg && Number(initialWeightKg) > 0 ? Number(initialWeightKg) : 500;
+    return {
+      [defaultInitialCrop]: { quantity: initQty, unit: 'kg' }
+    };
   });
 
-  const [quantity, setQuantity] = useState(() => {
-    if (initialWeightKg && Number(initialWeightKg) > 0) return Number(initialWeightKg);
-    return 500;
-  });
-  const [quantityUnit, setQuantityUnit] = useState('kg'); // 'kg', 'quintal', 'tonne'
+  // String crop identifier for API compatibility
+  const selectedCrop = useMemo(() => selectedCrops.join(', '), [selectedCrops]);
+
   const [pickupLocation, setPickupLocation] = useState(`${defaultDistrict}, Maharashtra`);
   const [destination, setDestination] = useState(() => {
     if (initialDestination) return initialDestination;
@@ -230,10 +239,22 @@ export default function SharedTransportFarmerWidget({
   const [poolToConfirm, setPoolToConfirm] = useState(null);
   const [joiningPool, setJoiningPool] = useState(false);
 
-  // Real-time converted weight in kg
-  const totalWeightKg = useMemo(() => {
-    return convertToKg(quantity, quantityUnit);
-  }, [quantity, quantityUnit]);
+  // Combined total cargo in kg and per-crop itemized breakdown (Part 1 & 2 requirements)
+  const { totalWeightKg, cropBreakdown } = useMemo(() => {
+    let sumKg = 0;
+    const breakdown = selectedCrops.map((cName) => {
+      const item = cropQuantities[cName] || { quantity: 500, unit: 'kg' };
+      const weightInKg = convertToKg(item.quantity, item.unit);
+      sumKg += weightInKg;
+      return {
+        cropName: cName,
+        quantity: item.quantity,
+        quantityUnit: item.unit,
+        weightKg: weightInKg
+      };
+    });
+    return { totalWeightKg: sumKg, cropBreakdown: breakdown };
+  }, [selectedCrops, cropQuantities]);
 
   // Active booking statuses indicating ongoing reservation
   const ACTIVE_BOOKING_STATUSES = useMemo(() => [
@@ -268,61 +289,92 @@ export default function SharedTransportFarmerWidget({
 
   // Sync initial props if changed externally
   useEffect(() => {
-    if (cleanInitialCrop) setSelectedCrop(cleanInitialCrop);
+    if (cleanInitialCrop) {
+      setSelectedCrops((prev) => {
+        if (!prev.some((c) => c.toLowerCase() === cleanInitialCrop.toLowerCase())) {
+          return [cleanInitialCrop, ...prev];
+        }
+        return prev;
+      });
+    }
   }, [cleanInitialCrop]);
-
-  useEffect(() => {
-    if (initialWeightKg && Number(initialWeightKg) > 0) setQuantity(Number(initialWeightKg));
-  }, [initialWeightKg]);
 
   useEffect(() => {
     if (initialDestination) setDestination(initialDestination);
   }, [initialDestination]);
 
-  // Auto-fetch farmer's harvest weight for the selected crop when crops load
+  // Sync registered crop weights when farmerCropsList loads
   useEffect(() => {
-    if (farmerCropsList.length > 0 && selectedCrop && !isOtherCropSelected) {
-      const match = farmerCropsList.find(
-        (c) => (c.cropName || c.name || '').toLowerCase() === selectedCrop.toLowerCase()
-      );
-      if (match) {
-        const cropWeight = Number(match.harvestQuantityKg || match.quantity || match.enteredQuantity || 0);
-        if (cropWeight > 0) {
-          setQuantity(cropWeight);
-          if (match.unit) setQuantityUnit(match.unit);
-        }
-      }
+    if (farmerCropsList.length > 0) {
+      setCropQuantities((prev) => {
+        const next = { ...prev };
+        farmerCropsList.forEach((c) => {
+          const name = (c.cropName || c.name || '').trim();
+          if (name && !next[name]) {
+            const cropWeight = Number(c.harvestQuantityKg || c.quantity || c.enteredQuantity || 0);
+            if (cropWeight > 0) {
+              next[name] = { quantity: cropWeight, unit: c.unit || 'kg' };
+            }
+          }
+        });
+        return next;
+      });
     }
   }, [farmerCropsList]);
 
-  // Update selected crop if registeredCrops changes and ensure primary crop default
-  useEffect(() => {
-    if (cleanInitialCrop) {
-      setSelectedCrop(cleanInitialCrop);
-    } else if (userRegisteredCropNames.length > 0 && !isOtherCropSelected) {
-      const match = userRegisteredCropNames.find((c) => c.toLowerCase() === selectedCrop.toLowerCase());
-      if (!match) {
-        setSelectedCrop(userRegisteredCropNames[0]);
-      }
-    }
-  }, [userRegisteredCropNames, cleanInitialCrop, isOtherCropSelected]);
-
-  // Handler to select crop and automatically fetch & set user's weight for that specific crop
-  const handleSelectCrop = (cropName) => {
-    setSelectedCrop(cropName);
+  // Multi-crop toggle handler: Clicking an unselected crop selects it, clicking a selected crop deselects it
+  const handleToggleCrop = (cropName) => {
+    if (!cropName) return;
+    const trimmed = String(cropName).trim();
     setIsOtherCropSelected(false);
-
-    // Auto-fetch and sync the farmer's registered harvest weight for this specific crop
-    const match = farmerCropsList.find(
-      (c) => (c.cropName || c.name || '').toLowerCase() === cropName.toLowerCase()
-    );
-    if (match) {
-      const cropWeight = Number(match.harvestQuantityKg || match.quantity || match.enteredQuantity || 0);
-      if (cropWeight > 0) {
-        setQuantity(cropWeight);
-        if (match.unit) setQuantityUnit(match.unit);
+    setSelectedCrops((prev) => {
+      const exists = prev.some((c) => c.toLowerCase() === trimmed.toLowerCase());
+      if (exists) {
+        return prev.filter((c) => c.toLowerCase() !== trimmed.toLowerCase());
+      } else {
+        return [...prev, trimmed];
       }
-    }
+    });
+
+    setCropQuantities((prev) => {
+      if (prev[trimmed]) return prev;
+      const match = farmerCropsList.find(
+        (c) => (c.cropName || c.name || '').toLowerCase() === trimmed.toLowerCase()
+      );
+      const cropWeight = Number(match?.harvestQuantityKg || match?.quantity || match?.enteredQuantity || 0);
+      return {
+        ...prev,
+        [trimmed]: {
+          quantity: cropWeight > 0 ? cropWeight : 500,
+          unit: match?.unit || 'kg'
+        }
+      };
+    });
+  };
+
+  const handleUpdateCropQuantity = (cropName, val) => {
+    const qty = Math.max(0, Number(val) || 0);
+    setCropQuantities((prev) => ({
+      ...prev,
+      [cropName]: {
+        ...(prev[cropName] || { unit: 'kg' }),
+        quantity: qty
+      }
+    }));
+  };
+
+  const handleUpdateCropUnit = (cropName, unit) => {
+    setCropQuantities((prev) => ({
+      ...prev,
+      [cropName]: {
+        ...(prev[cropName] || { quantity: 500 }),
+        unit
+      }
+    }));
+  };
+
+  const handleRemoveCrop = (cropName) => {
+    setSelectedCrops((prev) => prev.filter((c) => c.toLowerCase() !== cropName.toLowerCase()));
   };
 
   // Fetch verified vehicles matching crop & route from backend API
@@ -480,13 +532,13 @@ export default function SharedTransportFarmerWidget({
 
   useEffect(() => {
     fetchVehicles();
-  }, [selectedCrop, totalWeightKg, destination, pickupDate, isSharedPooling, token]);
+  }, [selectedCrops, totalWeightKg, destination, pickupDate, isSharedPooling, token]);
 
   useEffect(() => {
     if (isSharedPooling) {
       fetchPoolMatches();
     }
-  }, [selectedCrop, totalWeightKg, destination, pickupDate, isSharedPooling]);
+  }, [selectedCrops, totalWeightKg, destination, pickupDate, isSharedPooling]);
 
   useEffect(() => {
     fetchMyBookings();
@@ -509,13 +561,18 @@ export default function SharedTransportFarmerWidget({
       return;
     }
 
-    if (!selectedCrop || !pickupLocation.trim() || !destination.trim()) {
-      showToast({ type: 'error', title: 'Missing Information', message: 'Please select crop, pickup and destination.' });
+    if (selectedCrops.length === 0) {
+      showToast({ type: 'warning', title: 'Crop Required', message: 'Please select at least one crop before submitting a booking.' });
+      return;
+    }
+
+    if (!pickupLocation.trim() || !destination.trim()) {
+      showToast({ type: 'error', title: 'Missing Information', message: 'Please enter pickup location and destination mandi.' });
       return;
     }
 
     if (totalWeightKg <= 0) {
-      showToast({ type: 'error', title: 'Invalid Quantity', message: 'Quantity must be greater than 0.' });
+      showToast({ type: 'error', title: 'Invalid Quantity', message: 'Total cargo weight must be greater than 0 kg.' });
       return;
     }
 
@@ -529,6 +586,15 @@ export default function SharedTransportFarmerWidget({
         type: 'warning',
         title: 'Already Booked',
         message: `You already have an active booking (#${selectedVehicleBooking.bookingId || selectedVehicleBooking.id}) on this vehicle. Check My Bookings.`
+      });
+      return;
+    }
+
+    if (selectedVehicle.isDedicatedReserved) {
+      showToast({
+        type: 'error',
+        title: 'Vehicle Dedicated Reserved',
+        message: 'This vehicle is reserved for dedicated transport on this date. Please select another vehicle.'
       });
       return;
     }
@@ -557,15 +623,16 @@ export default function SharedTransportFarmerWidget({
       const payload = {
         farmerName: user.name,
         farmerPhone: user.phone || '',
-        cropName: selectedCrop,
-        quantity: Number(quantity),
-        quantityUnit: quantityUnit,
+        cropName: selectedCrops.join(', '),
+        selectedCrops: cropBreakdown,
+        quantity: totalWeightKg,
+        quantityUnit: 'kg',
         weightKg: totalWeightKg,
         pickupLocation: pickupLocation.trim(),
         destinationMarket: destination.trim(),
         pickupDate: pickupDate,
         preferredDeliveryDate: preferredDeliveryDate || null,
-        bookingType: isSharedPooling ? 'shared' : 'individual',
+        bookingType: isSharedPooling ? 'shared' : 'dedicated',
         sharingFarmersCount: isSharedPooling ? sharingFarmersCount : 1,
         vehicleId: selectedVehicle?.id || null,
         vehicleType: selectedVehicle?.vehicleType || 'Tata Ace / Mini Truck',
@@ -668,7 +735,7 @@ export default function SharedTransportFarmerWidget({
       case 'pending':
       case 'open':
       default:
-        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-300">⏳ Pending Confirmation</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-300">⏳ Awaiting Transporter Confirmation</span>;
     }
   };
 
@@ -859,21 +926,25 @@ export default function SharedTransportFarmerWidget({
                       (c) => (c.cropName || c.name || '').toLowerCase() === cropName.toLowerCase()
                     );
                     const registeredWeight = Number(foundCrop?.harvestQuantityKg || foundCrop?.quantity || foundCrop?.enteredQuantity || 0);
-                    const isSelected = !isOtherCropSelected && selectedCrop?.toLowerCase() === cropName.toLowerCase();
+                    const isSelected = selectedCrops.some((c) => c.toLowerCase() === cropName.toLowerCase());
                     return (
                       <button
                         key={cropName}
                         type="button"
-                        onClick={() => handleSelectCrop(cropName)}
+                        onClick={() => handleToggleCrop(cropName)}
                         className={`p-2.5 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
                           isSelected
-                            ? 'border-primary bg-emerald-50/80 ring-2 ring-primary/20 shadow-xs'
+                            ? 'border-emerald-600 bg-emerald-50/90 ring-2 ring-emerald-500/30 shadow-xs'
                             : 'border-emerald-200/90 bg-emerald-50/30 hover:bg-emerald-50/60'
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-xl">{cropMeta.icon}</span>
-                          {isSelected && <Check className="w-4 h-4 text-primary" />}
+                          {isSelected && (
+                            <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-2xs">
+                              <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            </span>
+                          )}
                         </div>
                         <div className="mt-1.5 space-y-1">
                           <span className="text-xs font-black text-slate-900 block truncate">
@@ -895,17 +966,22 @@ export default function SharedTransportFarmerWidget({
                     type="button"
                     onClick={() => {
                       setIsOtherCropSelected(true);
-                      setSelectedCrop(customCropName.trim() || 'Other');
+                      const targetName = customCropName.trim() || 'Other';
+                      handleToggleCrop(targetName);
                     }}
                     className={`p-2.5 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
-                      isOtherCropSelected
-                        ? 'border-primary bg-emerald-50/90 ring-2 ring-primary/20 shadow-xs'
+                      selectedCrops.some((c) => c.toLowerCase() === 'other' || (customCropName && c.toLowerCase() === customCropName.trim().toLowerCase()))
+                        ? 'border-emerald-600 bg-emerald-50/90 ring-2 ring-emerald-500/30 shadow-xs'
                         : 'border-dashed border-emerald-300 bg-emerald-50/30 hover:bg-emerald-50/70'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-xl">📦</span>
-                      {isOtherCropSelected && <Check className="w-4 h-4 text-primary" />}
+                      {selectedCrops.some((c) => c.toLowerCase() === 'other' || (customCropName && c.toLowerCase() === customCropName.trim().toLowerCase())) && (
+                        <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-2xs">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        </span>
+                      )}
                     </div>
                     <div className="mt-1.5 space-y-1">
                       <span className="text-xs font-black text-slate-900 block truncate">
@@ -937,7 +1013,9 @@ export default function SharedTransportFarmerWidget({
                       onChange={(e) => {
                         const val = e.target.value;
                         setCustomCropName(val);
-                        setSelectedCrop(val.trim() || 'Other');
+                        if (val.trim()) {
+                          handleToggleCrop(val.trim());
+                        }
                       }}
                       placeholder="e.g. Maize, Sugarcane, Chana / Gram, Ginger, Turmeric, Garlic..."
                       className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-primary shadow-2xs"
@@ -950,10 +1028,10 @@ export default function SharedTransportFarmerWidget({
                           type="button"
                           onClick={() => {
                             setCustomCropName(sug);
-                            setSelectedCrop(sug);
+                            handleToggleCrop(sug);
                           }}
                           className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all border cursor-pointer ${
-                            selectedCrop === sug
+                            selectedCrops.some((c) => c.toLowerCase() === sug.toLowerCase())
                               ? 'bg-primary text-white border-primary'
                               : 'bg-white border-slate-200 text-slate-700 hover:border-primary hover:text-primary'
                           }`}
@@ -979,7 +1057,7 @@ export default function SharedTransportFarmerWidget({
                   {SUPPORTED_CROPS.filter(
                     (c) => !userRegisteredCropNames.some((rc) => rc.toLowerCase() === c.name.toLowerCase())
                   ).map((crop) => {
-                    const isSelected = !isOtherCropSelected && selectedCrop?.toLowerCase() === crop.name.toLowerCase();
+                    const isSelected = selectedCrops.some((c) => c.toLowerCase() === crop.name.toLowerCase());
                     return (
                       <button
                         key={crop.name}
@@ -987,20 +1065,24 @@ export default function SharedTransportFarmerWidget({
                         onClick={() => {
                           if (crop.name.toLowerCase() === 'other') {
                             setIsOtherCropSelected(true);
-                            setSelectedCrop(customCropName.trim() || 'Other');
+                            handleToggleCrop(customCropName.trim() || 'Other');
                           } else {
-                            handleSelectCrop(crop.name);
+                            handleToggleCrop(crop.name);
                           }
                         }}
                         className={`p-2.5 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
                           isSelected
-                            ? 'border-primary bg-emerald-50/70 ring-2 ring-primary/20 shadow-xs'
+                            ? 'border-emerald-600 bg-emerald-50/90 ring-2 ring-emerald-500/30 shadow-xs'
                             : 'border-slate-200 bg-white hover:bg-slate-50'
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-xl">{crop.icon}</span>
-                          {isSelected && <Check className="w-4 h-4 text-primary" />}
+                          {isSelected && (
+                            <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-2xs">
+                              <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            </span>
+                          )}
                         </div>
                         <div className="mt-1">
                           <span className="text-xs font-black text-slate-900 block truncate">
@@ -1018,58 +1100,107 @@ export default function SharedTransportFarmerWidget({
             )}
           </div>
 
-          {/* SECTION B: HARVEST DETAILS & UNIT CONVERTER */}
+          {/* SECTION B: HARVEST DETAILS & PER-CROP QUANTITIES (PART 1 & 2 REQUIREMENTS) */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
               <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                 <Scale className="w-3.5 h-3.5 text-primary" />
-                <span>{t('farmerTransport.step2Harvest', 'Step 2: Harvest Details & Quantities *')}</span>
+                <span>{t('farmerTransport.step2Harvest', 'Step 2: Harvest Details & Per-Crop Quantities *')}</span>
               </span>
-              <span className="text-xs font-mono font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded border border-emerald-200">
-                {t('farmerTransport.calculatedCargo', 'Calculated Cargo: {weight} kg', { weight: totalWeightKg.toLocaleString('en-IN') })}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Quantity + Unit */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700">
-                  {t('farmerTransport.harvestQtyUnit', 'Harvest Quantity & Unit *')}
-                </label>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="number"
-                    min="1"
-                    step="0.5"
-                    value={quantity}
-                    onChange={(e) => setQuantity(Number(e.target.value))}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-mono font-bold outline-none focus:border-primary"
-                  />
-                  {/* Unit buttons: kg, quintal, tonne */}
-                  <div className="inline-flex rounded-xl border border-slate-300 bg-slate-100 p-0.5 text-xs font-bold">
-                    {['kg', 'quintal', 'tonne'].map((u) => (
-                      <button
-                        key={u}
-                        type="button"
-                        onClick={() => setQuantityUnit(u)}
-                        className={`px-2 py-1 rounded-lg transition-all ${
-                          quantityUnit === u
-                            ? 'bg-primary text-white shadow-xs'
-                            : 'text-slate-600 hover:text-black'
-                        }`}
-                      >
-                        {u}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <span className="text-[10px] text-muted block font-mono">
-                  {quantityUnit === 'quintal' && `(= ${quantity} × 100 kg = ${totalWeightKg} kg)`}
-                  {quantityUnit === 'tonne' && `(= ${quantity} × 1,000 kg = ${totalWeightKg} kg)`}
-                  {quantityUnit === 'kg' && t('farmerTransport.standardKg', 'Standard metric kilograms')}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold text-emerald-800 bg-emerald-100/90 px-2.5 py-1 rounded-lg border border-emerald-300">
+                  Total Cargo: {totalWeightKg.toLocaleString('en-IN')} kg
+                  {totalWeightKg >= 100 && ` (${(totalWeightKg / 100).toFixed(1)} qtl)`}
+                  {totalWeightKg >= 1000 && ` (${(totalWeightKg / 1000).toFixed(2)} t)`}
                 </span>
               </div>
+            </div>
 
+            {selectedCrops.length === 0 ? (
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-center space-y-1">
+                <AlertCircle className="w-5 h-5 text-amber-600 mx-auto" />
+                <p className="text-xs font-bold text-amber-900">No Crops Selected</p>
+                <p className="text-[11px] text-amber-700">Please select at least one crop above to add cargo to your transport booking request.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {selectedCrops.map((cropName) => {
+                    const meta = getCropMeta(cropName);
+                    const currentItem = cropQuantities[cropName] || { quantity: 500, unit: 'kg' };
+                    const cropKg = convertToKg(currentItem.quantity, currentItem.unit);
+
+                    return (
+                      <div
+                        key={cropName}
+                        className="p-3.5 rounded-2xl border border-emerald-200/80 bg-white shadow-2xs space-y-2.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">{meta.icon}</span>
+                            <div>
+                              <h5 className="text-xs font-black text-slate-900">{cropName}</h5>
+                              <span className="text-[10px] text-muted block">{meta.vehicleHint}</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCrop(cropName)}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title={`Deselect ${cropName}`}
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              min="1"
+                              step="0.5"
+                              value={currentItem.quantity}
+                              onChange={(e) => handleUpdateCropQuantity(cropName, e.target.value)}
+                              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-mono font-bold outline-none focus:border-primary"
+                            />
+                            <div className="inline-flex rounded-xl border border-slate-300 bg-slate-100 p-0.5 text-xs font-bold shrink-0">
+                              {['kg', 'quintal', 'tonne'].map((u) => (
+                                <button
+                                  key={u}
+                                  type="button"
+                                  onClick={() => handleUpdateCropUnit(cropName, u)}
+                                  className={`px-2 py-0.5 rounded-lg text-[11px] transition-all cursor-pointer ${
+                                    currentItem.unit === u
+                                      ? 'bg-primary text-white shadow-xs'
+                                      : 'text-slate-600 hover:text-black'
+                                  }`}
+                                >
+                                  {u}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[10px] font-mono text-muted pt-0.5">
+                            <span>
+                              {currentItem.unit === 'quintal' && `= ${currentItem.quantity} × 100 kg`}
+                              {currentItem.unit === 'tonne' && `= ${currentItem.quantity} × 1,000 kg`}
+                              {currentItem.unit === 'kg' && 'Base metric kg'}
+                            </span>
+                            <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                              = {cropKg.toLocaleString('en-IN')} kg
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Route & Dates Selection */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-200/80">
               {/* Pickup Location */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
@@ -1103,10 +1234,8 @@ export default function SharedTransportFarmerWidget({
                   ))}
                 </select>
               </div>
-            </div>
 
-            {/* Date Pickers */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              {/* Pickup Date */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
                   <Calendar className="w-3 h-3 text-primary" />
@@ -1120,26 +1249,82 @@ export default function SharedTransportFarmerWidget({
                   className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-primary"
                 />
               </div>
+            </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-muted" />
-                  <span>{t('farmerTransport.preferredDelivery', 'Preferred Delivery Window (Optional)')}</span>
-                </label>
-                <input
-                  type="date"
-                  value={preferredDeliveryDate}
-                  min={pickupDate}
-                  onChange={(e) => setPreferredDeliveryDate(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-primary"
-                />
-              </div>
+            {/* Preferred Delivery Window */}
+            <div className="space-y-1.5 pt-1">
+              <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                <Clock className="w-3 h-3 text-muted" />
+                <span>{t('farmerTransport.preferredDelivery', 'Preferred Delivery Window (Optional)')}</span>
+              </label>
+              <input
+                type="date"
+                value={preferredDeliveryDate}
+                min={pickupDate}
+                onChange={(e) => setPreferredDeliveryDate(e.target.value)}
+                className="w-full sm:w-1/3 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-primary"
+              />
             </div>
           </div>
 
-          {/* SECTION C & D: CROP-BASED VEHICLE OPTIONS & SHARED TRANSPORT TOGGLE */}
+          {/* SECTION: BOOKING TYPE SELECTOR (PART 3 REQUIREMENT: SHARED VS DEDICATED) */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+              <span>Choose Transport Service Type *</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setIsSharedPooling(true)}
+                className={`p-3.5 rounded-xl text-left transition-all flex items-start gap-3 cursor-pointer ${
+                  isSharedPooling
+                    ? 'bg-purple-600 text-white shadow-md'
+                    : 'bg-white text-slate-800 hover:bg-slate-50'
+                }`}
+              >
+                <span className={`p-2 rounded-lg shrink-0 ${isSharedPooling ? 'bg-purple-700 text-white' : 'bg-purple-100 text-purple-700'}`}>
+                  <Users className="w-5 h-5" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-extrabold text-xs sm:text-sm">Shared Transport (Split Freight)</span>
+                    <span className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded-full ${isSharedPooling ? 'bg-purple-500/80 text-white' : 'bg-purple-100 text-purple-800'}`}>Save 35-50%</span>
+                  </div>
+                  <p className={`text-[11px] mt-0.5 leading-snug ${isSharedPooling ? 'text-purple-100' : 'text-slate-500'}`}>
+                    Multiple farmers share vehicle capacity along the same route and split the freight fare proportionally.
+                  </p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsSharedPooling(false)}
+                className={`p-3.5 rounded-xl text-left transition-all flex items-start gap-3 cursor-pointer ${
+                  !isSharedPooling
+                    ? 'bg-blue-700 text-white shadow-md'
+                    : 'bg-white text-slate-800 hover:bg-slate-50'
+                }`}
+              >
+                <span className={`p-2 rounded-lg shrink-0 ${!isSharedPooling ? 'bg-blue-800 text-white' : 'bg-blue-100 text-blue-700'}`}>
+                  <Truck className="w-5 h-5" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-extrabold text-xs sm:text-sm">Dedicated Truck (Full Reserve)</span>
+                    <span className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded-full ${!isSharedPooling ? 'bg-blue-600/80 text-white' : 'bg-blue-100 text-blue-800'}`}>Exclusive</span>
+                  </div>
+                  <p className={`text-[11px] mt-0.5 leading-snug ${!isSharedPooling ? 'text-blue-100' : 'text-slate-500'}`}>
+                    Reserve the entire vehicle exclusively for your shipment. No shared pooling with other cargo.
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* SECTION: STEP 3 VEHICLE SELECTION */}
           <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
               <div>
                 <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                   <Truck className="w-3.5 h-3.5 text-primary" />
@@ -1148,21 +1333,6 @@ export default function SharedTransportFarmerWidget({
                 <p className="text-[11px] text-muted">
                   {t('farmerTransport.showingVehiclesFor', 'Showing verified vehicles suitable for {crop} ({weight} kg load).', { crop: selectedCrop, weight: totalWeightKg })}
                 </p>
-              </div>
-
-              {/* Shared Transport Toggle - Semantic Purple */}
-              <div className="flex items-center gap-2 p-1.5 rounded-xl bg-purple-50 border border-purple-200">
-                <input
-                  type="checkbox"
-                  id="shared-pooling-toggle"
-                  checked={isSharedPooling}
-                  onChange={(e) => setIsSharedPooling(e.target.checked)}
-                  className="w-4 h-4 accent-purple-600 rounded cursor-pointer"
-                />
-                <label htmlFor="shared-pooling-toggle" className="text-xs font-bold text-purple-950 cursor-pointer flex items-center gap-1">
-                  <Users className="w-3.5 h-3.5 text-purple-700" />
-                  <span>{t('farmerTransport.sharedPoolingDiscount', 'Shared Pooling (Split Freight)')}</span>
-                </label>
               </div>
             </div>
 
@@ -1329,13 +1499,30 @@ export default function SharedTransportFarmerWidget({
 
                   const userActiveBooking = getUserBookingForVehicle(vehicle);
                   const isAlreadyBooked = Boolean(userActiveBooking);
-                  const isFullyBooked = vehicle.isFullyBooked || (vehicle.remainingCapacityKg !== undefined && vehicle.remainingCapacityKg <= 0);
+                  const isDedicatedReserved = Boolean(vehicle.isDedicatedReserved);
+                  const isFullyBooked = isDedicatedReserved || vehicle.isFullyBooked || (vehicle.remainingCapacityKg !== undefined && vehicle.remainingCapacityKg <= 0);
                   const isCapacityInsufficient = !isFullyBooked && vehicle.remainingCapacityKg !== undefined && totalWeightKg > vehicle.remainingCapacityKg;
 
                   return (
                     <div
                       key={vehicle.id}
                       onClick={() => {
+                        if (isDedicatedReserved) {
+                          showToast({
+                            type: 'warning',
+                            title: 'Dedicated Reserved',
+                            message: 'This truck is reserved for a dedicated transport trip on this date.'
+                          });
+                          return;
+                        }
+                        if (isFullyBooked) {
+                          showToast({
+                            type: 'warning',
+                            title: 'Vehicle Full / Sold Out',
+                            message: 'This truck is fully booked for this date.'
+                          });
+                          return;
+                        }
                         setSelectedVehicle(vehicle);
                       }}
                       className={`p-4 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between space-y-3 ${
@@ -1345,6 +1532,8 @@ export default function SharedTransportFarmerWidget({
                             : ['in_transit'].includes(userActiveBooking?.status)
                             ? 'border-purple-400 bg-purple-50/50 shadow-xs ring-1 ring-purple-300'
                             : 'border-emerald-500 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-300'
+                          : isDedicatedReserved
+                          ? 'border-amber-400 bg-amber-50/40 opacity-80 shadow-2xs'
                           : isFullyBooked
                           ? 'border-rose-300 bg-rose-50/40 opacity-80 shadow-2xs'
                           : isSelected
@@ -1380,10 +1569,15 @@ export default function SharedTransportFarmerWidget({
                             </>
                           )}
                         </div>
+                      ) : isDedicatedReserved ? (
+                        <div className="absolute -top-2.5 right-4 px-2.5 py-0.5 rounded-full bg-amber-600 text-white text-[10px] font-bold flex items-center gap-1 shadow-xs">
+                          <AlertCircle className="w-3 h-3 text-amber-100" />
+                          <span>DEDICATED RESERVED (Full Truck)</span>
+                        </div>
                       ) : isFullyBooked ? (
                         <div className="absolute -top-2.5 right-4 px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center gap-1 shadow-xs">
                           <AlertCircle className="w-3 h-3 text-rose-100" />
-                          <span>FULLY BOOKED (0 kg free)</span>
+                          <span>FULL / SOLD OUT (0 kg free)</span>
                         </div>
                       ) : isSelected ? (
                         <div className="absolute -top-2.5 right-4 px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center gap-1 shadow-xs">
@@ -1424,14 +1618,20 @@ export default function SharedTransportFarmerWidget({
                           <span className="text-slate-500 block text-[10px]">Space Available:</span>
                           <span
                             className={`font-bold font-mono ${
-                              isFullyBooked
+                              isDedicatedReserved
+                                ? 'text-amber-700'
+                                : isFullyBooked
                                 ? 'text-rose-600'
                                 : isCapacityInsufficient
                                 ? 'text-amber-600'
                                 : 'text-blue-700'
                             }`}
                           >
-                            {isFullyBooked ? '0 kg (Full)' : `${vehicle.remainingCapacityKg.toLocaleString('en-IN')} kg free`}
+                            {isDedicatedReserved
+                              ? '0 kg (Dedicated Reserved)'
+                              : isFullyBooked
+                              ? '0 kg (Full / Sold Out)'
+                              : `${vehicle.remainingCapacityKg.toLocaleString('en-IN')} kg free`}
                           </span>
                         </div>
                         <div>
@@ -1761,9 +1961,15 @@ export default function SharedTransportFarmerWidget({
                     </div>
                     <div>
                       <span className="text-muted block text-[10px]">{t('farmerTransport.vehicleAndDriver', 'Vehicle & Driver')}</span>
-                      <span className="font-bold text-slate-800 block truncate">
-                        {booking.driverName || 'Verified Driver'} ({booking.vehicleNumber || 'MH-APMC'})
-                      </span>
+                      {booking.status === 'pending' || !booking.driverName ? (
+                        <span className="font-semibold text-amber-700 block truncate">
+                          ⏳ Awaiting transporter confirmation
+                        </span>
+                      ) : (
+                        <span className="font-bold text-slate-800 block truncate">
+                          {booking.driverName} ({booking.vehicleNumber || 'MH-APMC'})
+                        </span>
+                      )}
                     </div>
                     <div>
                       <span className="text-muted block text-[10px]">{t('farmerTransport.fare', 'Fare')}</span>

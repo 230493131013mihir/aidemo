@@ -2191,10 +2191,15 @@ export default function TransporterDashboard() {
               >
                 <div className="space-y-1">
                   <div className="flex items-start justify-between gap-2">
-                    <h4 className="font-black text-slate-900 text-sm">
-                      {vehicle.vehicleType}
-                    </h4>
-                    <span className="font-mono font-bold text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className="font-black text-slate-900 text-sm">
+                        {vehicle.vehicleType}
+                      </h4>
+                      <span className="font-mono text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">
+                        ID #{vehicle.id}
+                      </span>
+                    </div>
+                    <span className="font-mono font-bold text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200 shrink-0">
                       {vehicle.registrationNumber}
                     </span>
                   </div>

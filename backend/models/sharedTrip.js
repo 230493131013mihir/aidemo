@@ -60,6 +60,26 @@ const SharedTrip = sequelize.define(
             defaultValue: 0,
             field: "total_fare"
         },
+        minLoadKg: {
+            type: DataTypes.INTEGER,
+            defaultValue: 0,
+            field: "min_load_kg"
+        },
+        departureTime: {
+            type: DataTypes.STRING(64),
+            allowNull: true,
+            field: "departure_time"
+        },
+        bookingCutoff: {
+            type: DataTypes.STRING(64),
+            allowNull: true,
+            field: "booking_cutoff"
+        },
+        minViableFare: {
+            type: DataTypes.INTEGER,
+            defaultValue: 0,
+            field: "min_viable_fare"
+        },
         compatibleCategory: {
             type: DataTypes.STRING(64),
             defaultValue: "general",
@@ -69,7 +89,7 @@ const SharedTrip = sequelize.define(
             type: DataTypes.STRING(32),
             defaultValue: "open",
             validate: {
-                isIn: [["open", "matched", "confirmed", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit", "arrived_destination", "delivered", "delivery_confirmed", "completed", "cancelled", "delayed"]]
+                isIn: [["open", "matched", "confirmed", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "ready_for_departure", "departed", "in_transit", "arrived_destination", "delivered", "delivery_confirmed", "completed", "cancelled", "delayed"]]
             }
         }
     },
