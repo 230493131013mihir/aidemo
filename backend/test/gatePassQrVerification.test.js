@@ -3,6 +3,9 @@ const { User, TransportRequest, Vehicle, FarmerProfile } = require('../models');
 const QRCode = require('qrcode');
 const jwt = require('jsonwebtoken');
 const http = require('http');
+const app = require('../app');
+
+let serverPort = 5000;
 
 function apiRequest(method, path, token, body = null) {
   return new Promise((resolve, reject) => {
@@ -13,7 +16,7 @@ function apiRequest(method, path, token, body = null) {
 
     const req = http.request({
       hostname: '127.0.0.1',
-      port: 5000,
+      port: serverPort,
       path,
       method,
       headers
@@ -55,8 +58,13 @@ async function runTests() {
   console.log('📱 HarvestMitra AI — Real QR Code & Gate Pass Verification Tests');
   console.log('======================================================\n');
 
-  // Find or create test farmer
-  let testFarmer = await User.findOne({ where: { email: 'qr_test_farmer@harvestmitra.local' } });
+  const server = http.createServer(app);
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  serverPort = server.address().port;
+
+  try {
+    // Find or create test farmer
+    let testFarmer = await User.findOne({ where: { email: 'qr_test_farmer@harvestmitra.local' } });
   if (!testFarmer) {
     testFarmer = await User.create({
       name: 'Balasaheb Shinde',
@@ -290,6 +298,9 @@ async function runTests() {
   console.log('\n======================================================');
   console.log('🎉 ALL 9 QR SCANNING & GATE PASS VERIFICATION TESTS PASSED!');
   console.log('======================================================\n');
+  } finally {
+    server.close();
+  }
   process.exit(0);
 }
 
