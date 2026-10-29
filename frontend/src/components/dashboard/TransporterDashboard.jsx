@@ -134,7 +134,7 @@ export default function TransporterDashboard() {
     const tabParam = searchParams.get('tab');
     if (tabParam === 'requests') {
       setActiveTab('requests');
-    } else if (tabParam === 'shared') {
+    } else if (tabParam === 'shared' || tabParam === 'available') {
       setActiveTab('shared');
     } else if (tabParam === 'active') {
       setActiveTab('active');

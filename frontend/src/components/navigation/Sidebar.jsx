@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   TrendingUp, 
@@ -265,11 +265,81 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
   ];
 
   const isItemActive = (to) => {
-    const [path, search] = to.split('?');
-    if (search) {
-      return location.pathname === path && location.search.includes(search);
+    const currentPath = location.pathname;
+    const currentParams = new URLSearchParams(location.search);
+    const currentTab = currentParams.get('tab');
+    const currentHash = location.hash;
+
+    const [targetPathWithHash, targetSearch] = to.split('?');
+    const [targetPath, targetHash] = targetPathWithHash.split('#');
+    const targetParams = new URLSearchParams(targetSearch || '');
+    const targetTab = targetParams.get('tab');
+
+    // Transporter Dashboard exact matching
+    if (isTransporter) {
+      if (to === '/dashboard') {
+        // Logistics Dashboard: active on /dashboard OR on /transport with no sub-tab (or tab=overview)
+        return (currentPath === '/dashboard' && (!currentTab || currentTab === 'overview')) ||
+               (currentPath === '/transport' && (!currentTab || currentTab === 'overview'));
+      }
+      if (targetPath === '/transport') {
+        if (currentPath !== '/transport') return false;
+        if (targetTab === 'available') return currentTab === 'available' || currentTab === 'shared';
+        if (targetTab === 'active') return currentTab === 'active' || currentTab === 'gatepass';
+        return currentTab === targetTab;
+      }
+      if (to === '/weather') return currentPath === '/weather';
+      if (to === '/markets') return currentPath === '/markets' || currentPath === '/prices';
+      if (to === '/chat') return currentPath === '/chat' || currentPath === '/assistant';
+      return currentPath === targetPath;
     }
-    return location.pathname === path && !location.search;
+
+    // APMC Mandi Dashboard exact matching
+    if (isMandi) {
+      if (to === '/dashboard') {
+        // Mandi Dashboard: active on /dashboard with no sub-tab (or tab=overview)
+        return currentPath === '/dashboard' && (!currentTab || currentTab === 'overview');
+      }
+      if (targetPath === '/dashboard') {
+        if (currentPath !== '/dashboard') return false;
+        return currentTab === targetTab;
+      }
+      if (to === '/markets') return currentPath === '/markets' || currentPath === '/prices';
+      if (to === '/chat') return currentPath === '/chat' || currentPath === '/assistant';
+      return currentPath === targetPath;
+    }
+
+    // Admin Console exact matching
+    if (isAdmin) {
+      if (to === '/admin') return currentPath === '/admin';
+      if (to === '/markets') return currentPath === '/markets' || currentPath === '/prices';
+      if (to === '/schemes') return currentPath === '/schemes';
+      if (to === '/chat') return currentPath === '/chat' || currentPath === '/assistant';
+      return currentPath === targetPath;
+    }
+
+    // FPO Collective matching
+    if (isFpo) {
+      if (to === '/fpo/dashboard') return currentPath === '/fpo/dashboard' || currentPath === '/fpo';
+      if (to === '/chat') return currentPath === '/chat' || currentPath === '/assistant';
+      return currentPath === targetPath;
+    }
+
+    // Default / Farmer matching
+    if (targetHash) {
+      return currentPath === targetPath && currentHash === `#${targetHash}`;
+    }
+    if (targetTab) {
+      return currentPath === targetPath && currentTab === targetTab;
+    }
+    if (to === '/dashboard') {
+      return currentPath === '/dashboard' && !currentHash && (!currentTab || currentTab === 'overview');
+    }
+    if (to === '/markets') return (currentPath === '/markets' || currentPath === '/prices') && !currentHash;
+    if (to === '/harvest') return (currentPath === '/harvest' || currentPath === '/simulator') && !currentHash;
+    if (to === '/transport') return currentPath === '/transport' && !currentHash && (!currentTab || currentTab === 'overview');
+    if (to === '/chat') return (currentPath === '/chat' || currentPath === '/assistant') && !currentTab;
+    return currentPath === targetPath;
   };
 
   const renderSidebarContent = (isMobileDrawer = false) => (
@@ -351,27 +421,24 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
                       <nav className="space-y-1" aria-label={`${group.title} navigation`}>
                         {group.items.map((item) => {
                           const Icon = item.icon;
-                          const isActive = location.pathname === item.to || (item.to.includes('#') && location.pathname === item.to.split('#')[0] && location.hash === `#${item.to.split('#')[1]}`);
+                          const active = isItemActive(item.to);
                           return (
-                            <NavLink
+                            <Link
                               key={item.to}
                               to={item.to}
                               onClick={handleLinkClick}
-                              className={({ isActive: navActive }) => {
-                                const active = isActive || navActive;
-                                return `flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all group ${
-                                  active
-                                    ? 'bg-primary text-white shadow-xs font-extrabold'
-                                    : 'text-text hover:bg-emerald-50/90 hover:text-primary'
-                                }`;
-                              }}
+                              className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all group ${
+                                active
+                                  ? 'bg-primary text-white shadow-xs font-extrabold'
+                                  : 'text-text hover:bg-emerald-50/90 hover:text-primary dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300'
+                              }`}
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <Icon className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
+                                <Icon className={`w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${active ? 'text-white' : 'text-slate-600 dark:text-slate-400 group-hover:text-primary'}`} aria-hidden="true" />
                                 <span className="truncate">{item.label}</span>
                               </div>
-                              <ChevronRight className="w-4 h-4 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
-                            </NavLink>
+                              <ChevronRight className={`w-4 h-4 transition-all ${active ? 'text-white opacity-90' : 'opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5'}`} aria-hidden="true" />
+                            </Link>
                           );
                         })}
                       </nav>
@@ -391,25 +458,24 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
               <nav className="space-y-1" aria-label="Transporter navigation">
                 {transporterNavigationItems.map((item) => {
                   const Icon = item.icon;
+                  const active = isItemActive(item.to);
                   return (
-                    <NavLink
+                    <Link
                       key={item.to}
                       to={item.to}
                       onClick={handleLinkClick}
-                      className={({ isActive }) =>
-                        `flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all group ${
-                          isActive
-                            ? 'bg-primary text-white shadow-xs'
-                            : 'text-text hover:bg-emerald-50/90 hover:text-primary'
-                        }`
-                      }
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all group ${
+                        active
+                          ? 'bg-primary text-white shadow-xs font-extrabold'
+                          : 'bg-transparent text-slate-800 dark:text-slate-200 hover:bg-emerald-50/90 hover:text-primary dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300'
+                      }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <Icon className="w-5 h-5 shrink-0" aria-hidden="true" />
+                        <Icon className={`w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${active ? 'text-white' : 'text-slate-600 dark:text-slate-400 group-hover:text-primary'}`} aria-hidden="true" />
                         <span className="truncate">{item.label}</span>
                       </div>
-                      <ChevronRight className="w-4 h-4 opacity-40 group-hover:opacity-100 transition-opacity" />
-                    </NavLink>
+                      <ChevronRight className={`w-4 h-4 transition-all ${active ? 'text-white opacity-90' : 'opacity-30 group-hover:opacity-100 group-hover:translate-x-0.5'}`} />
+                    </Link>
                   );
                 })}
               </nav>
@@ -425,25 +491,24 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
               <nav className="space-y-1" aria-label="Mandi navigation">
                 {mandiNavigationItems.map((item) => {
                   const Icon = item.icon;
+                  const active = isItemActive(item.to);
                   return (
-                    <NavLink
+                    <Link
                       key={item.to}
                       to={item.to}
                       onClick={handleLinkClick}
-                      className={({ isActive }) =>
-                        `flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all group ${
-                          isActive
-                            ? 'bg-orange-600 text-white shadow-xs'
-                            : 'text-text hover:bg-orange-50 hover:text-orange-700'
-                        }`
-                      }
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all group ${
+                        active
+                          ? 'bg-orange-600 text-white shadow-xs font-extrabold'
+                          : 'bg-transparent text-slate-800 dark:text-slate-200 hover:bg-orange-50 hover:text-orange-700 dark:hover:bg-orange-950/40 dark:hover:text-orange-300'
+                      }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <Icon className="w-5 h-5 shrink-0" aria-hidden="true" />
+                        <Icon className={`w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${active ? 'text-white' : 'text-slate-600 dark:text-slate-400 group-hover:text-orange-700'}`} aria-hidden="true" />
                         <span className="truncate">{item.label}</span>
                       </div>
-                      <ChevronRight className="w-4 h-4 opacity-40 group-hover:opacity-100 transition-opacity" />
-                    </NavLink>
+                      <ChevronRight className={`w-4 h-4 transition-all ${active ? 'text-white opacity-90' : 'opacity-30 group-hover:opacity-100 group-hover:translate-x-0.5'}`} />
+                    </Link>
                   );
                 })}
               </nav>
@@ -459,25 +524,24 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
               <nav className="space-y-1" aria-label="Admin navigation">
                 {adminNavigationItems.map((item) => {
                   const Icon = item.icon;
+                  const active = isItemActive(item.to);
                   return (
-                    <NavLink
+                    <Link
                       key={item.to}
                       to={item.to}
                       onClick={handleLinkClick}
-                      className={({ isActive }) =>
-                        `flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all group ${
-                          isActive
-                            ? 'bg-primary text-white shadow-xs'
-                            : 'text-text hover:bg-emerald-50/90 hover:text-primary'
-                        }`
-                      }
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all group ${
+                        active
+                          ? 'bg-primary text-white shadow-xs font-extrabold'
+                          : 'bg-transparent text-slate-800 dark:text-slate-200 hover:bg-emerald-50/90 hover:text-primary dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300'
+                      }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <Icon className="w-5 h-5 shrink-0" aria-hidden="true" />
+                        <Icon className={`w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${active ? 'text-white' : 'text-slate-600 dark:text-slate-400 group-hover:text-primary'}`} aria-hidden="true" />
                         <span className="truncate">{item.label}</span>
                       </div>
-                      <ChevronRight className="w-4 h-4 opacity-40 group-hover:opacity-100 transition-opacity" />
-                    </NavLink>
+                      <ChevronRight className={`w-4 h-4 transition-all ${active ? 'text-white opacity-90' : 'opacity-30 group-hover:opacity-100 group-hover:translate-x-0.5'}`} />
+                    </Link>
                   );
                 })}
               </nav>
@@ -493,25 +557,24 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
               <nav className="space-y-1" aria-label="FPO navigation">
                 {fpoNavigationItems.map((item) => {
                   const Icon = item.icon;
+                  const active = isItemActive(item.to);
                   return (
-                    <NavLink
+                    <Link
                       key={item.to}
                       to={item.to}
                       onClick={handleLinkClick}
-                      className={({ isActive }) =>
-                        `flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all group ${
-                          isActive
-                            ? 'bg-primary text-white shadow-xs'
-                            : 'text-text hover:bg-emerald-50/90 hover:text-primary'
-                        }`
-                      }
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all group ${
+                        active
+                          ? 'bg-primary text-white shadow-xs font-extrabold'
+                          : 'bg-transparent text-slate-800 dark:text-slate-200 hover:bg-emerald-50/90 hover:text-primary dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300'
+                      }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <Icon className="w-5 h-5 shrink-0" aria-hidden="true" />
+                        <Icon className={`w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${active ? 'text-white' : 'text-slate-600 dark:text-slate-400 group-hover:text-primary'}`} aria-hidden="true" />
                         <span className="truncate">{item.label}</span>
                       </div>
-                      <ChevronRight className="w-4 h-4 opacity-40 group-hover:opacity-100 transition-opacity" />
-                    </NavLink>
+                      <ChevronRight className={`w-4 h-4 transition-all ${active ? 'text-white opacity-90' : 'opacity-30 group-hover:opacity-100 group-hover:translate-x-0.5'}`} />
+                    </Link>
                   );
                 })}
               </nav>
@@ -526,23 +589,35 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
           </div>
           <nav className="space-y-1" aria-label="Sidebar account navigation">
             <ThemeToggle variant="sidebar" />
-            <NavLink
+            <Link
               to="/profile"
               onClick={handleLinkClick}
-              className={({ isActive }) =>
-`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all group ${
-                  isActive
-                    ? 'bg-primary text-white shadow-xs font-extrabold'
-                    : 'text-text hover:bg-emerald-50/90 hover:text-primary'
-                }`
-              }
+              className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all group ${
+                isItemActive('/profile')
+                  ? isMandi
+                    ? 'bg-orange-600 text-white shadow-xs font-extrabold'
+                    : 'bg-primary text-white shadow-xs font-extrabold'
+                  : isMandi
+                  ? 'bg-transparent text-slate-800 dark:text-slate-200 hover:bg-orange-50 hover:text-orange-700 dark:hover:bg-orange-950/40 dark:hover:text-orange-300'
+                  : 'bg-transparent text-text hover:bg-emerald-50/90 hover:text-primary dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300'
+              }`}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <User className="w-5 h-5 shrink-0" />
+                <User className={`w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${
+                  isItemActive('/profile')
+                    ? 'text-white'
+                    : isMandi
+                    ? 'text-slate-600 dark:text-slate-400 group-hover:text-orange-700'
+                    : 'text-slate-600 dark:text-slate-400 group-hover:text-primary'
+                }`} />
                 <span className="truncate">{profileLabel}</span>
               </div>
-              <ChevronRight className="w-4 h-4 opacity-40 group-hover:opacity-100 transition-opacity" />
-            </NavLink>
+              <ChevronRight className={`w-4 h-4 transition-all ${
+                isItemActive('/profile')
+                  ? 'text-white opacity-90'
+                  : 'opacity-30 group-hover:opacity-100 group-hover:translate-x-0.5'
+              }`} />
+            </Link>
 
             {isAuthenticated ? (
               <button
