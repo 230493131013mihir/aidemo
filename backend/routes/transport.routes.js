@@ -37,7 +37,79 @@ const TERMINAL_BOOKING_STATUSES = [
     "rejected"
 ];
 
+const CONFIRMED_ACTIVE_BOOKING_STATUSES = [
+    "confirmed",
+    "accepted",
+    "driver_assigned",
+    "vehicle_assigned",
+    "awaiting_pickup",
+    "pickup_confirmed",
+    "in_transit",
+    "arrived_destination"
+];
+
 const router = express.Router();
+
+/**
+ * Authoritatively calculates Total Capacity, Confirmed Booked Load, and Remaining Capacity
+ * based on actual database records.
+ * - Dedicated reservations exclusively reserve the whole vehicle (0 kg free for shared).
+ * - Pending requests and unconfirmed selections do not reserve capacity.
+ * - Cancelled and completed bookings release capacity.
+ */
+async function calculateVehicleCapacityStats(vehicle, options = {}) {
+    const { date, transaction } = options;
+    const totalCapacityKg = Number(vehicle.capacityKg) || 0;
+
+    const where = {
+        vehicleId: vehicle.id,
+        status: { [Op.in]: CONFIRMED_ACTIVE_BOOKING_STATUSES }
+    };
+    if (date && String(date).trim() && String(date).trim() !== "all") {
+        where.pickupDate = String(date).trim();
+    }
+
+    const activeBookings = await TransportRequest.findAll({
+        where,
+        order: [["createdAt", "ASC"]],
+        transaction
+    });
+
+    const hasDedicatedBooking = activeBookings.some(b => b.bookingType === "dedicated" || b.bookingType === "individual");
+    const bookedWeightKg = hasDedicatedBooking
+        ? totalCapacityKg
+        : activeBookings.reduce((sum, b) => sum + (Number(b.weightKg) || 0), 0);
+
+    const remainingCapacityKg = hasDedicatedBooking
+        ? 0
+        : Math.max(0, totalCapacityKg - bookedWeightKg);
+
+    const isFullyBooked = remainingCapacityKg <= 0;
+    const isDedicatedReserved = Boolean(hasDedicatedBooking);
+    const isCurrentlyInTransit = activeBookings.some(b => ["in_transit", "driver_assigned"].includes(b.status));
+
+    return {
+        totalCapacityKg,
+        capacityKg: totalCapacityKg,
+        bookedWeightKg,
+        remainingCapacityKg,
+        isFullyBooked,
+        isDedicatedReserved,
+        isCurrentlyInTransit,
+        confirmedBookingsCount: activeBookings.length,
+        activeBookings: activeBookings.map(b => ({
+            id: b.id,
+            bookingId: b.bookingId,
+            farmerName: b.farmerName,
+            cropName: b.cropName,
+            weightKg: b.weightKg,
+            status: b.status,
+            bookingType: b.bookingType,
+            pickupDate: b.pickupDate,
+            destinationMarket: b.destinationMarket
+        }))
+    };
+}
 
 function normalizeTransportInput(body, reqUser = {}) {
     const effectiveFarmerName = body.farmerName || reqUser?.name;
@@ -745,7 +817,15 @@ router.get("/vehicles", async (req, res) => {
         const augmented = await Promise.all(transporterVehicles.map(async (v) => {
             const vehicleData = v.toJSON();
 
-            // Calculate active ongoing bookings and assignments for this vehicle using authoritative statuses
+            // Calculate active ongoing bookings and capacities using authoritative database records
+            const cap = await calculateVehicleCapacityStats(v, { date });
+            const bookedWeightKg = cap.bookedWeightKg;
+            const remainingCapacityKg = cap.remainingCapacityKg;
+            const isFullyBooked = cap.isFullyBooked;
+            const isDedicatedReserved = cap.isDedicatedReserved;
+            const isCurrentlyInTransit = cap.isCurrentlyInTransit;
+
+            // Check if caller has an active booking on this vehicle
             const activeBookings = await TransportRequest.findAll({
                 where: {
                     vehicleId: v.id,
@@ -753,20 +833,6 @@ router.get("/vehicles", async (req, res) => {
                     status: { [Op.in]: ACTIVE_BOOKING_STATUSES }
                 }
             });
-
-            // Check for dedicated reservations on this vehicle for this date
-            const hasDedicatedBooking = activeBookings.some(b => b.bookingType === "dedicated" || b.bookingType === "individual");
-            const bookedWeightKg = hasDedicatedBooking
-                ? v.capacityKg
-                : activeBookings.reduce((sum, b) => sum + (Number(b.weightKg) || 0), 0);
-            const remainingCapacityKg = hasDedicatedBooking
-                ? 0
-                : Math.max(0, v.capacityKg - bookedWeightKg);
-            const isFullyBooked = remainingCapacityKg <= 0;
-            const isDedicatedReserved = hasDedicatedBooking;
-            const isCurrentlyInTransit = activeBookings.some(b => ["in_transit", "driver_assigned"].includes(b.status));
-
-            // Check if caller has an active booking on this vehicle
             const userActiveBooking = callerId ? activeBookings.find(b => Number(b.userId) === Number(callerId)) : null;
 
             // Check route compatibility if destination is provided
@@ -1030,7 +1096,23 @@ router.get("/vehicles/my-fleet", requireRole("transporter", "admin"), async (req
             where: { userId: req.user.id },
             order: [["createdAt", "DESC"]]
         });
-        return res.json({ success: true, count: vehicles.length, data: vehicles });
+        const enrichedVehicles = await Promise.all(vehicles.map(async (v) => {
+            const vData = v.toJSON ? v.toJSON() : { ...v };
+            const cap = await calculateVehicleCapacityStats(v, { date: req.query.date });
+            return {
+                ...vData,
+                totalCapacityKg: cap.totalCapacityKg,
+                capacityKg: cap.totalCapacityKg,
+                bookedWeightKg: cap.bookedWeightKg,
+                remainingCapacityKg: cap.remainingCapacityKg,
+                isFullyBooked: cap.isFullyBooked,
+                isDedicatedReserved: cap.isDedicatedReserved,
+                isCurrentlyInTransit: cap.isCurrentlyInTransit,
+                confirmedBookingsCount: cap.confirmedBookingsCount,
+                activeBookings: cap.activeBookings
+            };
+        }));
+        return res.json({ success: true, count: enrichedVehicles.length, data: enrichedVehicles });
     } catch (error) {
         console.error("My fleet error:", error.message);
         return res.status(500).json({ success: false, message: "Failed to load fleet" });
@@ -1183,29 +1265,23 @@ router.post("/bookings", requireRole("farmer", "fpo_leader"), async (req, res) =
                     throw err;
                 }
 
-                // 3. Authoritative remaining capacity check: total capacity - all active reservations
-                const existingBookings = await TransportRequest.findAll({
-                    where: {
-                        vehicleId: vehicle.id,
-                        pickupDate: fields.pickupDate,
-                        status: { [Op.in]: ACTIVE_BOOKING_STATUSES }
-                    },
+                // 3. Authoritative remaining capacity check: total capacity - confirmed active reservations
+                const cap = await calculateVehicleCapacityStats(vehicle, {
+                    date: fields.pickupDate,
                     transaction: t
                 });
 
-                // Check if vehicle has any active dedicated bookings on this date
-                const hasExistingDedicated = existingBookings.some(b => b.bookingType === "dedicated" || b.bookingType === "individual");
-                if (hasExistingDedicated) {
-                    const err = new Error(`Vehicle ${vehicle.registrationNumber} is already reserved for a dedicated transport trip on ${fields.pickupDate}.`);
+                if (cap.isDedicatedReserved) {
+                    const err = new Error(`Vehicle ${vehicle.registrationNumber} is already reserved for an exclusive dedicated transport trip on ${fields.pickupDate}.`);
                     err.statusCode = 409;
                     err.code = "VEHICLE_FULLY_BOOKED";
                     throw err;
                 }
 
                 if (fields.bookingType === "dedicated") {
-                    if (existingBookings.length > 0) {
+                    if (cap.confirmedBookingsCount > 0) {
                         const err = new Error(
-                            `Vehicle ${vehicle.registrationNumber} already has ${existingBookings.length} shared booking(s) on ${fields.pickupDate}. A dedicated truck cannot be booked on an active shared trip.`
+                            `Vehicle ${vehicle.registrationNumber} already has ${cap.confirmedBookingsCount} confirmed shared booking(s) on ${fields.pickupDate}. A dedicated truck cannot be booked on an active shared trip.`
                         );
                         err.statusCode = 409;
                         err.code = "DEDICATED_NOT_AVAILABLE";
@@ -1221,28 +1297,25 @@ router.post("/bookings", requireRole("farmer", "fpo_leader"), async (req, res) =
                     }
                 } else {
                     // Shared booking
-                    const currentBookedKg = existingBookings.reduce((sum, b) => sum + (Number(b.weightKg) || 0), 0);
-                    const remainingCapacityKg = Math.max(0, vehicle.capacityKg - currentBookedKg);
-
-                    if (remainingCapacityKg <= 0) {
-                        const err = new Error(`Vehicle ${vehicle.registrationNumber} is FULLY BOOKED for ${fields.pickupDate}. No capacity remaining.`);
+                    if (cap.isFullyBooked || cap.remainingCapacityKg <= 0) {
+                        const err = new Error(`Vehicle ${vehicle.registrationNumber} is FULLY BOOKED for ${fields.pickupDate} (0 kg remaining). No additional bookings accepted.`);
                         err.statusCode = 409;
                         err.code = "VEHICLE_FULLY_BOOKED";
                         throw err;
                     }
 
-                    if (fields.weightKg > remainingCapacityKg) {
+                    if (fields.weightKg > cap.remainingCapacityKg) {
                         const err = new Error(
-                            `Vehicle capacity is ${vehicle.capacityKg} kg (${currentBookedKg} kg already booked). Only ${remainingCapacityKg} kg space remains, but ${fields.weightKg} kg was requested.`
+                            `Vehicle capacity is ${vehicle.capacityKg} kg (${cap.bookedWeightKg} kg confirmed booked). Only ${cap.remainingCapacityKg} kg space remains, but ${fields.weightKg} kg was requested.`
                         );
                         err.statusCode = 409;
                         err.code = "INSUFFICIENT_CAPACITY";
                         throw err;
                     }
 
-                    // 4. Check crop handling compatibility with already booked cargo for shared pooling
-                    if (existingBookings.length > 0) {
-                        for (const existing of existingBookings) {
+                    // 4. Check crop handling compatibility with already confirmed cargo for shared pooling
+                    if (cap.activeBookings && cap.activeBookings.length > 0) {
+                        for (const existing of cap.activeBookings) {
                             if (!areCropsCompatibleForSharedTransport(existing.cropName, fields.cropName)) {
                                 const err = new Error(
                                     `Incompatible cargo: Cannot pool ${fields.cropName} with already booked ${existing.cropName} due to hygiene/storage requirements.`
@@ -1262,7 +1335,7 @@ router.post("/bookings", requireRole("farmer", "fpo_leader"), async (req, res) =
                 fields.vehicleNumber = vehicle.registrationNumber;
                 fields.driverName = vehicle.driverName;
                 fields.driverPhone = vehicle.driverPhone;
-                fields.status = "pending";
+                fields.status = "confirmed";
 
                 // If an open SharedTrip exists for this vehicle and date, link it
                 if (!fields.sharedTripId && vehicle) {
@@ -1311,7 +1384,7 @@ router.post("/bookings", requireRole("farmer", "fpo_leader"), async (req, res) =
             data: booking,
             bookingId: booking.bookingId,
             gatePassCode: booking.gatePassCode,
-            message: `Booking #${booking.bookingId} submitted successfully! Awaiting transporter confirmation.`
+            message: `Booking #${booking.bookingId} confirmed! Digital APMC Gate Pass generated.`
         });
     } catch (err) {
         if (err.statusCode) {
@@ -1369,7 +1442,12 @@ router.get("/my-bookings", async (req, res) => {
 router.put("/bookings/:id/cancel", async (req, res) => {
     try {
         await ensureTransportSchema();
-        const booking = await TransportRequest.findByPk(req.params.id);
+        const lookup = req.params.id;
+        const isNumeric = /^\d+$/.test(String(lookup));
+        let booking = isNumeric ? await TransportRequest.findByPk(lookup) : null;
+        if (!booking) {
+            booking = await TransportRequest.findOne({ where: { bookingId: lookup } });
+        }
         if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
 
         // Authorization check: owner farmer, assigned transporter, or admin
@@ -1434,6 +1512,25 @@ router.put("/bookings/:id/cancel", async (req, res) => {
                 }
             } catch (revalErr) {
                 console.warn("Shared trip revalidation on cancel error:", revalErr.message);
+            }
+        }
+        // Release vehicle availability if no other confirmed active bookings remain on it
+        if (booking.vehicleId) {
+            try {
+                const remainingActiveCount = await TransportRequest.count({
+                    where: {
+                        vehicleId: booking.vehicleId,
+                        status: { [Op.in]: CONFIRMED_ACTIVE_BOOKING_STATUSES }
+                    }
+                });
+                if (remainingActiveCount === 0) {
+                    await Vehicle.update(
+                        { isAvailable: true, status: "available" },
+                        { where: { id: booking.vehicleId } }
+                    ).catch(() => {});
+                }
+            } catch (availErr) {
+                console.warn("Restore vehicle availability error on cancel:", availErr.message);
             }
         }
 
@@ -1585,12 +1682,34 @@ router.put(["/bookings/:id/accept", "/requests/:id/accept"], requireRole("transp
         }
 
         const transporterProfile = await TransporterProfile.findOne({ where: { userId: req.user.id } });
-        const knownCapacity = vehicle?.capacityKg || transporterProfile?.capacityKg;
-        if (knownCapacity && Number(booking.weightKg) > Number(knownCapacity)) {
-            return res.status(400).json({
-                success: false,
-                message: `Cargo weight (${booking.weightKg} kg) exceeds vehicle capacity (${knownCapacity} kg).`
-            });
+        if (vehicle) {
+            const cap = await calculateVehicleCapacityStats(vehicle, { date: booking.pickupDate });
+            if (cap.isDedicatedReserved) {
+                return res.status(409).json({
+                    success: false,
+                    message: `Vehicle ${vehicle.registrationNumber} is already dedicated reserved for an exclusive trip.`
+                });
+            }
+            if (booking.bookingType === "dedicated" && cap.confirmedBookingsCount > 0) {
+                return res.status(409).json({
+                    success: false,
+                    message: `Vehicle ${vehicle.registrationNumber} already has ${cap.confirmedBookingsCount} active shared booking(s). Cannot assign dedicated trip.`
+                });
+            }
+            if (booking.bookingType !== "dedicated" && Number(booking.weightKg) > cap.remainingCapacityKg) {
+                return res.status(409).json({
+                    success: false,
+                    message: `Vehicle ${vehicle.registrationNumber} only has ${cap.remainingCapacityKg} kg capacity remaining (${cap.bookedWeightKg} kg booked of ${cap.totalCapacityKg} kg). Cannot accept ${booking.weightKg} kg booking.`
+                });
+            }
+        } else {
+            const knownCapacity = transporterProfile?.capacityKg;
+            if (knownCapacity && Number(booking.weightKg) > Number(knownCapacity)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Cargo weight (${booking.weightKg} kg) exceeds transporter profile capacity (${knownCapacity} kg).`
+                });
+            }
         }
 
         const driverName = (vehicle && vehicle.driverName) || req.body.driverName || transporterProfile?.driverName || req.user.name || "Assigned Driver";

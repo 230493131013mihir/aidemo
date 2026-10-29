@@ -442,13 +442,28 @@ const listVehicles = async (req, res) => {
             }
         }
 
-        const enrichedVehicles = rows.map(v => {
+        const CONFIRMED_STATUSES = ["confirmed", "accepted", "driver_assigned", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit", "arrived_destination"];
+        const enrichedVehicles = await Promise.all(rows.map(async v => {
             const vData = v.toJSON();
             const activeBooking = activeByVehicleId.get(v.id) || (v.registrationNumber ? activeByVehicleNum.get(v.registrationNumber.toUpperCase()) : null);
             vData.hasActiveTrip = Boolean(activeBooking);
             vData.activeTrip = activeBooking || null;
+
+            const activeBookings = await TransportRequest.findAll({
+                where: {
+                    vehicleId: v.id,
+                    status: { [Op.in]: CONFIRMED_STATUSES }
+                }
+            });
+            const hasDedicated = activeBookings.some(b => b.bookingType === "dedicated" || b.bookingType === "individual");
+            const bookedWeightKg = hasDedicated ? v.capacityKg : activeBookings.reduce((sum, b) => sum + (Number(b.weightKg) || 0), 0);
+            vData.totalCapacityKg = v.capacityKg;
+            vData.bookedWeightKg = bookedWeightKg;
+            vData.remainingCapacityKg = hasDedicated ? 0 : Math.max(0, v.capacityKg - bookedWeightKg);
+            vData.isFullyBooked = vData.remainingCapacityKg <= 0;
+            vData.isDedicatedReserved = Boolean(hasDedicated);
             return vData;
-        });
+        }));
 
         return res.json({
             success: true,
