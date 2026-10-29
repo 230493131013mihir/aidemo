@@ -20,6 +20,7 @@ import {
   XCircle,
   Sparkles,
   ArrowUpRight,
+  ArrowRight,
   Landmark,
   BadgePercent,
   Sprout,
