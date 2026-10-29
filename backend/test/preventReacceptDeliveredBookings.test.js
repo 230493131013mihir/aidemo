@@ -161,6 +161,19 @@ async function runTests() {
       bookingId: 'BK-TEST-REJECTED-04'
     });
 
+    const confirmedBooking = await TransportRequest.create({
+      userId: farmer.id,
+      farmerName: farmer.name,
+      farmerPhone: farmer.phone,
+      cropName: 'Tomato',
+      weightKg: 400,
+      pickupLocation: 'Pune, Maharashtra',
+      destinationMarket: 'Pune APMC',
+      pickupDate: '2026-10-27',
+      status: 'confirmed',
+      bookingId: 'BK-TEST-CONFIRMED-06'
+    });
+
     const pendingBooking = await TransportRequest.create({
       userId: farmer.id,
       farmerName: farmer.name,
@@ -244,8 +257,41 @@ async function runTests() {
     }
     console.log('  ✅ [PASS] Reaccepting rejected booking safely blocked.');
 
-    // TEST 6: Accepting valid PENDING booking works normally
-    console.log('\n--- TEST 6: Accept valid PENDING booking ---');
+    // TEST 6: Reaccepting CONFIRMED booking must be rejected
+    console.log('\n--- TEST 6: Attempt to accept CONFIRMED booking ---');
+    const acceptConfirmedRes = await apiRequest(port, 'PUT', `/api/transport/bookings/${confirmedBooking.id}/accept`, transporterToken, {
+      vehicleId: vehicle.id
+    });
+    console.log(`  HTTP ${acceptConfirmedRes.status}: "${acceptConfirmedRes.body.message}"`);
+    if (acceptConfirmedRes.status !== 400 && acceptConfirmedRes.status !== 409) {
+      throw new Error(`Expected 400/409, got ${acceptConfirmedRes.status}`);
+    }
+    if (!acceptConfirmedRes.body.message.includes('already been confirmed')) {
+      throw new Error(`Expected message to mention 'already been confirmed', got: ${acceptConfirmedRes.body.message}`);
+    }
+    console.log('  ✅ [PASS] Reaccepting confirmed booking safely blocked.');
+
+    // TEST 7: Verify incoming-requests filter excludes confirmed and non-pending bookings
+    console.log('\n--- TEST 7: Verify GET /incoming-requests?status=pending excludes confirmed/delivered bookings ---');
+    const incomingRes = await apiRequest(port, 'GET', '/api/transport/incoming-requests?status=pending', transporterToken);
+    console.log(`  HTTP ${incomingRes.status}: fetched ${incomingRes.body.data?.length} incoming requests`);
+    if (incomingRes.status !== 200 || !incomingRes.body.success) {
+      throw new Error(`Expected 200 OK, got ${incomingRes.status}`);
+    }
+    const returnedIds = incomingRes.body.data.map(r => r.id);
+    if (returnedIds.includes(confirmedBooking.id)) {
+      throw new Error('Confirmed booking should NOT appear in pending incoming requests!');
+    }
+    if (returnedIds.includes(deliveredBooking.id) || returnedIds.includes(completedBooking.id)) {
+      throw new Error('Delivered/completed bookings should NOT appear in pending incoming requests!');
+    }
+    if (!returnedIds.includes(pendingBooking.id)) {
+      throw new Error('Pending booking should appear in pending incoming requests!');
+    }
+    console.log('  ✅ [PASS] GET /incoming-requests strictly filters out confirmed and terminal bookings.');
+
+    // TEST 8: Accepting valid PENDING booking works normally
+    console.log('\n--- TEST 8: Accept valid PENDING booking ---');
     const acceptPendingRes = await apiRequest(port, 'PUT', `/api/transport/bookings/${pendingBooking.id}/accept`, transporterToken, {
       vehicleId: vehicle.id
     });
@@ -256,8 +302,8 @@ async function runTests() {
     await pendingBooking.reload();
     console.log(`  ✅ [PASS] Pending booking accepted, status transitioned to: ${pendingBooking.status}`);
 
-    // TEST 7: Attempting to accept the ALREADY ACCEPTED booking again
-    console.log('\n--- TEST 7: Attempt to accept the ALREADY ACCEPTED booking again ---');
+    // TEST 9: Attempting to accept the ALREADY ACCEPTED booking again
+    console.log('\n--- TEST 9: Attempt to accept the ALREADY ACCEPTED booking again ---');
     const reacceptRes = await apiRequest(port, 'PUT', `/api/transport/bookings/${pendingBooking.id}/accept`, transporterToken, {
       vehicleId: vehicle.id
     });
@@ -271,7 +317,7 @@ async function runTests() {
     console.log('  ✅ [PASS] Double-acceptance safely rejected.');
 
     console.log('\n======================================================');
-    console.log('🎉 ALL 7 REACCEPTANCE & STATUS GUARD TESTS PASSED WITH 100% SUCCESS!');
+    console.log('🎉 ALL 9 REACCEPTANCE & STATUS GUARD TESTS PASSED WITH 100% SUCCESS!');
     console.log('======================================================\n');
   } finally {
     await TransportRequest.destroy({
