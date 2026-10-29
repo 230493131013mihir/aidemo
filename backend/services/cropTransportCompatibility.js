@@ -192,17 +192,20 @@ function getCropProfile(cropName) {
 }
 
 /**
- * Evaluate if two crops can safely share the same vehicle cargo space
+ * Evaluate if two single crops can safely share the same vehicle cargo space
  */
-function areCropsCompatibleForSharedTransport(cropA, cropB) {
-    if (!cropA || !cropB) return true;
-    const profA = getCropProfile(cropA);
-    const profB = getCropProfile(cropB);
+function areSingleCropsCompatible(singleA, singleB) {
+    if (!singleA || !singleB) return true;
+    const profA = getCropProfile(singleA);
+    const profB = getCropProfile(singleB);
 
-    if (profA.name === profB.name) return true;
+    if (profA.name.toLowerCase() === profB.name.toLowerCase()) return true;
 
     // Check forbidden mixes
-    if (profA.forbiddenMix.includes(profB.category) || profB.forbiddenMix.includes(profA.category)) {
+    if (profA.forbiddenMix && profA.forbiddenMix.includes(profB.category)) {
+        return false;
+    }
+    if (profB.forbiddenMix && profB.forbiddenMix.includes(profA.category)) {
         return false;
     }
 
@@ -212,6 +215,27 @@ function areCropsCompatibleForSharedTransport(cropA, cropB) {
     }
     if (profB.category === "fruit_delicate" && (profA.category === "cash_crop_bulk" || profA.category === "grain_bulk")) {
         return false;
+    }
+
+    return true;
+}
+
+/**
+ * Evaluate if two crops (or comma-separated multi-crop lists) can safely share the same vehicle cargo space
+ */
+function areCropsCompatibleForSharedTransport(cropA, cropB) {
+    if (!cropA || !cropB) return true;
+    const listA = String(cropA).split(/[,+&;/]/).map(s => s.trim()).filter(Boolean);
+    const listB = String(cropB).split(/[,+&;/]/).map(s => s.trim()).filter(Boolean);
+
+    if (listA.length === 0 || listB.length === 0) return true;
+
+    for (const a of listA) {
+        for (const b of listB) {
+            if (!areSingleCropsCompatible(a, b)) {
+                return false;
+            }
+        }
     }
 
     return true;
