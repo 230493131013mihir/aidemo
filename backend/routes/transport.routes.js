@@ -69,6 +69,9 @@ function getNonActionableBookingError(status, actionType = "accept") {
     if (s === "in_transit" || s === "arrived_destination") {
         return `Cannot ${action} this request because the booking is already in transit.`;
     }
+    if (s === "confirmed") {
+        return `Cannot ${action} this request because the booking has already been confirmed.`;
+    }
     return null;
 }
 
@@ -1659,14 +1662,16 @@ router.get("/incoming-requests", requireRole("transporter", "admin"), async (req
 
         const where = {};
         if (status === "pending") {
-            where.status = { [Op.in]: ["pending", "open", "confirmed"] };
+            where.status = { [Op.in]: ["pending", "open", "requested", "request_received"] };
         } else if (status === "confirmed" || status === "accepted" || status === "driver_assigned") {
             where.status = { [Op.in]: ["confirmed", "accepted", "driver_assigned"] };
+        } else if (status === "delivered" || status === "completed") {
+            where.status = { [Op.in]: ["delivered", "delivery_confirmed", "completed"] };
         } else if (status && status !== "all") {
             where.status = status;
         } else {
-            // Default: show open, pending, confirmed, accepted, driver_assigned requests
-            where.status = { [Op.in]: ["open", "pending", "confirmed", "accepted", "driver_assigned", "matched"] };
+            // Default: show open, pending, requested, request_received requests awaiting transporter assignment
+            where.status = { [Op.in]: ["open", "pending", "requested", "request_received"] };
         }
 
         if (crop) where.cropName = { [Op.like]: `%${crop.trim()}%` };
@@ -1679,7 +1684,7 @@ router.get("/incoming-requests", requireRole("transporter", "admin"), async (req
                 ...(where[Op.and] || []),
                 {
                     [Op.or]: [
-                        { status: { [Op.in]: ["open", "pending", "confirmed"] }, transporterId: null },
+                        { transporterId: null },
                         { transporterId: req.user.id }
                     ]
                 }
@@ -2645,7 +2650,7 @@ router.get("/active-trip", requireRole("transporter"), async (req, res) => {
         const activeTrip = await TransportRequest.findOne({
             where: {
                 ...transporterWhere,
-                status: { [Op.in]: ["accepted", "driver_assigned", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit", "arrived_destination"] }
+                status: { [Op.in]: ["confirmed", "accepted", "driver_assigned", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit", "arrived_destination"] }
             },
             include: [
                 { model: Vehicle, required: false },
@@ -2678,7 +2683,7 @@ router.get("/transporter-stats", requireRole("transporter"), async (req, res) =>
         const activeTrips = await TransportRequest.findAll({
             where: {
                 ...transporterWhere,
-                status: { [Op.in]: ["accepted", "driver_assigned", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit", "arrived_destination"] }
+                status: { [Op.in]: ["confirmed", "accepted", "driver_assigned", "vehicle_assigned", "awaiting_pickup", "pickup_confirmed", "in_transit", "arrived_destination"] }
             }
         });
 
