@@ -6,237 +6,213 @@ import {
   Truck, 
   Bot, 
   ArrowRight, 
-  Clock, 
   ShieldCheck, 
   Scale, 
-  MapPin, 
-  Mic 
+  Mic,
+  Sparkles
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
-export default function FarmerActionCards({ 
-  primaryCrop = 'Tomato', 
-  primaryPrice = 28.50, 
-  marketName = 'Pune APMC', 
-  verifiedDate = 'Today',
-  estimatedProceeds = 35138,
-  quantityKg = 1500
-}) {
-  const { t, language } = useLanguage();
+export default function FarmerActionCards() {
+  const { language } = useLanguage();
+
+  const cards = [
+    {
+      id: 'action-card-view-prices',
+      to: '/markets',
+      title: language === 'mr' ? 'बाजार भाव' 
+           : language === 'hi' ? 'मंडी भाव' 
+           : language === 'gu' ? 'બજાર ભાવ' 
+           : 'Market Prices',
+      badge: language === 'mr' ? 'थेट APMC' 
+           : language === 'hi' ? 'लाइव APMC' 
+           : language === 'gu' ? 'લાઈવ APMC' 
+           : 'Live APMC Rates',
+      subtitle: language === 'mr' ? 'दैनिक कृषी उत्पन्न बाजार समिती दर, चढ-उतार आणि कल पहा.' 
+              : language === 'hi' ? 'दैनिक APMC मंडी दर, मूल्य रुझान और तेजी-मंदी देखें।' 
+              : language === 'gu' ? 'દૈનિક APMC બજાર ભાવ, ભાવમાં ફેરફાર અને વલણો જુઓ.' 
+              : 'Browse real-time APMC mandi prices and commodity trends.',
+      actionText: language === 'mr' ? 'दर पहा' 
+                : language === 'hi' ? 'भाव देखें' 
+                : language === 'gu' ? 'ભાવ જુઓ' 
+                : 'View Prices',
+      icon: TrendingUp,
+      badgeIcon: ShieldCheck,
+      color: {
+        border: 'border-emerald-200/90 hover:border-emerald-500',
+        bg: 'bg-gradient-to-br from-white via-emerald-50/30 to-teal-50/20',
+        iconBg: 'bg-emerald-100 text-emerald-800',
+        badgeBg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+        badgeIconColor: 'text-emerald-600',
+        textAccent: 'text-emerald-700',
+        focusRing: 'focus-visible:ring-emerald-500',
+        arrowColor: 'text-emerald-700'
+      }
+    },
+    {
+      id: 'action-card-compare-mandis',
+      to: '/harvest',
+      title: language === 'mr' ? 'सर्वोत्तम बाजार शोधा' 
+           : language === 'hi' ? 'सर्वोत्तम मंडी खोजें' 
+           : language === 'gu' ? 'શ્રેષ્ઠ માર્કેટ શોધો' 
+           : 'Find Best Mandi',
+      badge: language === 'mr' ? 'नफा कॅल्क्युलेटर' 
+           : language === 'hi' ? 'मुनाफा कैलकुलेटर' 
+           : language === 'gu' ? 'નફો કેલ્ક્યુલેટર' 
+           : 'Net Profit Analyzer',
+      subtitle: language === 'mr' ? 'वाहतूक खर्च वजा जाता कमाल नफा मिळवण्यासाठी बाजार समित्यांची तुलना करा.' 
+              : language === 'hi' ? 'परिवहन और शुल्क घटाकर अधिकतम शुद्ध आय के लिए मंडियों की तुलना करें।' 
+              : language === 'gu' ? 'વાહનવ્યવહાર ખર્ચ બાદ કરી મહત્તમ નફો મેળવવા બજારોની સરખામણી કરો.' 
+              : 'Compare regional mandis to maximize take-home earnings after freight.',
+      actionText: language === 'mr' ? 'तुलना करा' 
+                : language === 'hi' ? 'तुलना करें' 
+                : language === 'gu' ? 'સરખામણી કરો' 
+                : 'Compare Mandis',
+      icon: Calculator,
+      badgeIcon: Scale,
+      color: {
+        border: 'border-blue-200/90 hover:border-blue-500',
+        bg: 'bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/20',
+        iconBg: 'bg-blue-100 text-blue-800',
+        badgeBg: 'bg-blue-50 text-blue-800 border-blue-200',
+        badgeIconColor: 'text-blue-600',
+        textAccent: 'text-blue-700',
+        focusRing: 'focus-visible:ring-blue-500',
+        arrowColor: 'text-blue-700'
+      }
+    },
+    {
+      id: 'action-card-find-transport',
+      to: '/transport',
+      title: language === 'mr' ? 'वाहतूक शोधा' 
+           : language === 'hi' ? 'परिवहन खोजें' 
+           : language === 'gu' ? 'પરિવહન શોધો' 
+           : 'Find Transport',
+      badge: language === 'mr' ? 'शेअर्ड बचत' 
+           : language === 'hi' ? 'साझा बचत' 
+           : language === 'gu' ? 'શેર્ડ બચત' 
+           : 'Shared Pooling',
+      subtitle: language === 'mr' ? 'सत्यापित वाहने बुक करा आणि शेअर्ड वाहतुकीने ५०% पर्यंत बचत करा.' 
+              : language === 'hi' ? 'सत्यापित ट्रक बुक करें और साझा माल ढुलाई से 50% तक बचत करें।' 
+              : language === 'gu' ? 'ચકાસાયેલ વાહનો બુક કરો અને શેર્ડ ભાડા દ્વારા 50% સુધી બચત કરો.' 
+              : 'Book verified trucks with shared capacity pooling to cut freight costs.',
+      actionText: language === 'mr' ? 'वाहतूक बुक करा' 
+                : language === 'hi' ? 'परिवहन बुक करें' 
+                : language === 'gu' ? 'પરિવહન બુક કરો' 
+                : 'Find Transport',
+      icon: Truck,
+      badgeIcon: ShieldCheck,
+      color: {
+        border: 'border-amber-200/90 hover:border-amber-500',
+        bg: 'bg-gradient-to-br from-white via-amber-50/30 to-orange-50/20',
+        iconBg: 'bg-amber-100 text-amber-900',
+        badgeBg: 'bg-amber-50 text-amber-900 border-amber-200',
+        badgeIconColor: 'text-amber-700',
+        textAccent: 'text-amber-800',
+        focusRing: 'focus-visible:ring-amber-500',
+        arrowColor: 'text-amber-700'
+      }
+    },
+    {
+      id: 'action-card-ask-mitra',
+      to: '/chat',
+      title: language === 'mr' ? 'मित्रा AI ला विचारा' 
+           : language === 'hi' ? 'मित्रा AI से पूछें' 
+           : language === 'gu' ? 'મિત્રા AI ને પૂછો' 
+           : 'Ask Mitra AI',
+      badge: language === 'mr' ? 'आवाज व मजकूर' 
+           : language === 'hi' ? 'आवाज़ और टेक्स्ट' 
+           : language === 'gu' ? 'અવાજ અને લખાણ' 
+           : 'Voice & Text AI',
+      subtitle: language === 'mr' ? 'पिके, हवामान आणि रोगांबद्दल आपल्या भाषेत तत्काळ सल्ला मिळवा.' 
+              : language === 'hi' ? 'फसलों, मौसम और बीमारियों के बारे में अपनी भाषा में सलाह पाएं।' 
+              : language === 'gu' ? 'પાક, હવામાન અને રોગો અંગે તમારી ભાષામાં સલાહ મેળવો.' 
+              : 'Voice & text guidance in your language for prices, crops and advisory.',
+      actionText: language === 'mr' ? 'मित्राला विचारा' 
+                : language === 'hi' ? 'मित्रा से पूछें' 
+                : language === 'gu' ? 'મિત્રાને પૂછો' 
+                : 'Ask Mitra AI',
+      icon: Bot,
+      badgeIcon: Mic,
+      color: {
+        border: 'border-teal-200/90 hover:border-teal-500',
+        bg: 'bg-gradient-to-br from-white via-teal-50/30 to-emerald-50/20',
+        iconBg: 'bg-teal-100 text-teal-800',
+        badgeBg: 'bg-teal-50 text-teal-900 border-teal-200',
+        badgeIconColor: 'text-teal-600',
+        textAccent: 'text-teal-700',
+        focusRing: 'focus-visible:ring-teal-500',
+        arrowColor: 'text-teal-700'
+      }
+    }
+  ];
 
   return (
-    <section aria-label="Main Farmer Actions" className="space-y-4">
+    <section aria-label="Main Farmer Actions" className="space-y-3 sm:space-y-4">
       <div className="flex items-center justify-between border-b border-border/80 pb-2">
         <div>
           <h2 className="farmer-section-heading">
             {language === 'mr' ? 'महत्त्वाच्या कृती' : language === 'hi' ? 'मुख्य कार्य' : language === 'gu' ? 'મુખ્ય કાર્યો' : 'What would you like to do?'}
           </h2>
-          <p className="farmer-subtext mt-0.5">
+          <p className="farmer-subtext mt-0.5 text-xs sm:text-sm text-slate-500">
             {language === 'mr' 
-              ? 'आपल्या पिकासाठी सर्वोत्तम दर, वाहतूक आणि सल्ला मिळवा' 
+              ? 'आपल्या पिकासाठी सर्वोत्तम दर, वाहतूक आणि सल्ला मिळवण्यासाठी खालील पर्यायांवर क्लिक करा' 
               : language === 'hi' 
-              ? 'अपनी फसल के लिए सर्वोत्तम दाम, परिवहन और सलाह पाएं'
-              : 'Choose an action to manage your crops, transport, or market decisions'}
+              ? 'अपनी फसल के लिए सर्वोत्तम दाम, परिवहन और सलाह पाने के लिए नीचे क्लिक करें'
+              : 'Click any card below to navigate directly to market prices, mandi comparison, transport, or AI assistance'}
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-        {/* CARD 1: Check Market Prices (Emerald / Teal) */}
-        <div className="farmer-action-card border-emerald-300 bg-gradient-to-br from-white via-emerald-50/25 to-teal-50/30 hover:border-emerald-500 card-hover-elevate animate-fade-slide-up animate-stagger-1 focus-within:ring-2 focus-within:ring-emerald-500/50">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shadow-xs">
-                <TrendingUp className="w-6 h-6 text-emerald-700" aria-hidden="true" />
-              </div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>Verified Source</span>
-              </span>
-            </div>
-
-            <div>
-              <h3 className="farmer-card-heading text-slate-900">
-                1. Check Market Prices
-              </h3>
-              <p className="farmer-body text-slate-600 mt-1">
-                See current daily mandi prices for {primaryCrop} and other commodities.
-              </p>
-            </div>
-
-            {/* Price Preview Highlight */}
-            <div className="p-3.5 rounded-2xl bg-white/80 border border-emerald-100/80 flex items-center justify-between shadow-2xs">
-              <div>
-                <span className="farmer-subtext block text-slate-500">{marketName}</span>
-                <span className="farmer-price-value text-emerald-800 font-bold block mt-0.5">
-                  ₹{Number(primaryPrice).toFixed(2)} <span className="text-sm font-semibold text-slate-600">/ kg</span>
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="text-xs text-slate-500 flex items-center gap-1 justify-end">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>{verifiedDate}</span>
-                </span>
-                <span className="text-xs text-emerald-700 font-semibold block mt-0.5">APMC Daily Feed</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-4 mt-2 border-t border-emerald-100/60">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+        {cards.map((card, idx) => {
+          const IconComponent = card.icon;
+          const BadgeIcon = card.badgeIcon;
+          return (
             <Link
-              to="/markets"
-              id="action-card-view-prices"
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-base transition-colors shadow-xs btn-press"
+              key={card.id}
+              to={card.to}
+              id={card.id}
+              role="link"
+              tabIndex={0}
+              aria-label={`${card.title} - ${card.subtitle}`}
+              className={`farmer-action-card group cursor-pointer block p-5 rounded-2xl border transition-all duration-200 card-hover-elevate shadow-sm hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 no-underline select-none animate-fade-slide-up animate-stagger-${idx + 1} ${card.color.border} ${card.color.bg} ${card.color.focusRing}`}
             >
-              <span>View Prices</span>
-              <ArrowRight className="w-5 h-5" aria-hidden="true" />
+              <div className="flex flex-col justify-between h-full space-y-4">
+                {/* Top Row: Icon + Badge */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold shadow-xs transition-transform duration-200 group-hover:scale-105 ${card.color.iconBg}`}>
+                    <IconComponent className="w-5 h-5" aria-hidden="true" />
+                  </div>
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-bold ${card.color.badgeBg}`}>
+                    <BadgeIcon className={`w-3.5 h-3.5 ${card.color.badgeIconColor}`} aria-hidden="true" />
+                    <span>{card.badge}</span>
+                  </span>
+                </div>
+
+                {/* Middle: Title & Subtitle */}
+                <div className="space-y-1.5 flex-1">
+                  <h3 className="farmer-card-heading text-slate-900 group-hover:text-primary transition-colors flex items-center justify-between">
+                    <span>{card.title}</span>
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                    {card.subtitle}
+                  </p>
+                </div>
+
+                {/* Bottom: Visual Action Link Indicator (Entire card is clickable Link) */}
+                <div className="pt-3 border-t border-slate-200/70 flex items-center justify-between text-xs sm:text-sm font-bold">
+                  <span className={`${card.color.textAccent}`}>
+                    {card.actionText}
+                  </span>
+                  <div className={`flex items-center gap-1 ${card.color.arrowColor} transition-transform duration-200 group-hover:translate-x-1.5`}>
+                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                  </div>
+                </div>
+              </div>
             </Link>
-          </div>
-        </div>
-
-        {/* CARD 2: Where Should I Sell? (Blue / Indigo) */}
-        <div className="farmer-action-card border-blue-300 bg-gradient-to-br from-white via-blue-50/25 to-indigo-50/30 hover:border-blue-500 card-hover-elevate animate-fade-slide-up animate-stagger-2 focus-within:ring-2 focus-within:ring-blue-500/50">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-800 flex items-center justify-center font-bold shadow-xs">
-                <Calculator className="w-6 h-6 text-blue-700" aria-hidden="true" />
-              </div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-800 border border-blue-200 text-xs font-bold">
-                <Scale className="w-4 h-4 text-blue-600" />
-                <span>Net Earnings Estimate</span>
-              </span>
-            </div>
-
-            <div>
-              <h3 className="farmer-card-heading text-slate-900">
-                2. Where Should I Sell?
-              </h3>
-              <p className="farmer-body text-slate-600 mt-1">
-                Compare local vs regional mandis to see your take-home earnings after transport and fees.
-              </p>
-            </div>
-
-            {/* Earnings Estimate Preview */}
-            <div className="p-3.5 rounded-2xl bg-white/80 border border-blue-100/80 flex items-center justify-between shadow-2xs">
-              <div>
-                <span className="farmer-subtext block text-slate-500">Estimated Take-Home</span>
-                <span className="farmer-price-value text-blue-800 font-bold block mt-0.5">
-                  ₹{estimatedProceeds.toLocaleString('en-IN')}
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="text-xs font-semibold text-slate-700 block">For {quantityKg.toLocaleString('en-IN')} kg</span>
-                <span className="text-xs text-slate-500 block mt-0.5">After freight & cess</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-4 mt-2 border-t border-blue-100/60">
-            <Link
-              to="/harvest"
-              id="action-card-compare-mandis"
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-base transition-colors shadow-xs btn-press"
-            >
-              <span>Compare Mandis</span>
-              <ArrowRight className="w-5 h-5" aria-hidden="true" />
-            </Link>
-          </div>
-        </div>
-
-        {/* CARD 3: Find Transport (Warm Amber / Orange) */}
-        <div className="farmer-action-card border-amber-300 bg-gradient-to-br from-white via-amber-50/25 to-orange-50/30 hover:border-amber-500 card-hover-elevate animate-fade-slide-up animate-stagger-3 focus-within:ring-2 focus-within:ring-amber-500/50">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold shadow-xs">
-                <Truck className="w-6 h-6 text-amber-700" aria-hidden="true" />
-              </div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200 text-xs font-bold">
-                <span>Verified Vehicles</span>
-              </span>
-            </div>
-
-            <div>
-              <h3 className="farmer-card-heading text-slate-900">
-                3. Find Transport
-              </h3>
-              <p className="farmer-body text-slate-600 mt-1">
-                Book verified trucks with transparent per-quintal rates and shared capacity savings.
-              </p>
-            </div>
-
-            {/* Transport Availability Preview */}
-            <div className="p-3.5 rounded-2xl bg-white/80 border border-amber-100/80 flex items-center justify-between shadow-2xs">
-              <div>
-                <span className="farmer-subtext block text-slate-500">Available Corridor</span>
-                <span className="font-bold text-base text-slate-900 flex items-center gap-1 mt-0.5">
-                  <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Farm to {marketName}</span>
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="text-xs font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200 block">
-                  ~40% Shared Savings
-                </span>
-                <span className="text-xs text-slate-500 block mt-0.5">Verified Drivers</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-4 mt-2 border-t border-amber-100/60">
-            <Link
-              to="/transport"
-              id="action-card-find-transport"
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-bold text-base transition-colors shadow-xs btn-press"
-            >
-              <span>Find Transport</span>
-              <ArrowRight className="w-5 h-5" aria-hidden="true" />
-            </Link>
-          </div>
-        </div>
-
-        {/* CARD 4: Ask Mitra AI (Deep Green / Teal with Soft AI Glow) */}
-        <div className="farmer-action-card border-teal-300 bg-gradient-to-br from-white via-teal-50/30 to-emerald-50/40 hover:border-teal-500 card-hover-elevate animate-fade-slide-up animate-stagger-4 ai-glow-subtle focus-within:ring-2 focus-within:ring-teal-500/50">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="w-12 h-12 rounded-2xl bg-teal-100 text-teal-800 flex items-center justify-center font-bold shadow-xs">
-                <Bot className="w-6 h-6 text-teal-700" aria-hidden="true" />
-              </div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 text-teal-900 border border-teal-200 text-xs font-bold">
-                <Mic className="w-3.5 h-3.5 text-teal-600" />
-                <span>Voice & Text AI</span>
-              </span>
-            </div>
-
-            <div>
-              <h3 className="farmer-card-heading text-slate-900">
-                4. Ask Mitra AI
-              </h3>
-              <p className="farmer-body text-slate-600 mt-1">
-                Ask questions in Marathi, Hindi, Gujarati, or English about crop prices, timing, or diseases.
-              </p>
-            </div>
-
-            {/* AI Prompt Example */}
-            <div className="p-3.5 rounded-2xl bg-white/80 border border-teal-100/80 shadow-2xs">
-              <span className="text-xs font-bold text-teal-800 uppercase tracking-wider block">Example Question:</span>
-              <p className="text-sm font-semibold text-slate-800 italic mt-1">
-                &ldquo;Where can I get a better price for my tomatoes today?&rdquo;
-              </p>
-            </div>
-          </div>
-
-          <div className="pt-4 mt-2 border-t border-teal-100/60">
-            <Link
-              to="/chat"
-              id="action-card-ask-mitra"
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-base transition-colors shadow-xs btn-press"
-            >
-              <Mic className="w-5 h-5" aria-hidden="true" />
-              <span>Ask Mitra AI</span>
-              <ArrowRight className="w-5 h-5" aria-hidden="true" />
-            </Link>
-          </div>
-        </div>
+          );
+        })}
       </div>
     </section>
   );
