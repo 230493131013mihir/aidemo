@@ -39,6 +39,28 @@ const TERMINAL_BOOKING_STATUSES = [
 
 const router = express.Router();
 
+function getNonActionableBookingError(status, actionType = "accept") {
+    const s = String(status || "").toLowerCase().trim();
+    const action = actionType === "reject" ? "reject" : "accept";
+
+    if (s === "delivered") {
+        return `Cannot ${action} this request because the booking has already been delivered.`;
+    }
+    if (s === "completed" || s === "delivery_confirmed") {
+        return `Cannot ${action} this request because the booking has already been completed.`;
+    }
+    if (s === "cancelled") {
+        return `Cannot ${action} this request because the booking has already been cancelled.`;
+    }
+    if (s === "rejected") {
+        return `Cannot ${action} this request because the booking has already been rejected.`;
+    }
+    if (s === "in_transit" || s === "arrived_destination") {
+        return `Cannot ${action} this request because the booking is already in transit.`;
+    }
+    return null;
+}
+
 function normalizeTransportInput(body, reqUser = {}) {
     const effectiveFarmerName = body.farmerName || reqUser?.name;
     if (!effectiveFarmerName || String(effectiveFarmerName).trim() === "") {
@@ -1599,6 +1621,22 @@ router.put(["/bookings/:id/accept", "/requests/:id/accept"], requireRole("transp
     try {
         await ensureTransportSchema();
 
+        const booking = await TransportRequest.findByPk(req.params.id);
+        if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
+
+        if (Number(booking.userId) === Number(req.user.id)) {
+            return res.status(403).json({ success: false, message: "You cannot accept your own booking request." });
+        }
+
+        const statusErr = getNonActionableBookingError(booking.status, "accept");
+        if (statusErr) {
+            return res.status(400).json({ success: false, message: statusErr });
+        }
+
+        if (!["open", "pending", "request_received", "requested"].includes(String(booking.status || "").toLowerCase().trim())) {
+            return res.status(409).json({ success: false, message: "Already taken or no longer open." });
+        }
+
         const reqVehicleId = (req.body.vehicleId && req.body.vehicleId !== 'primary' && !isNaN(Number(req.body.vehicleId))) ? Number(req.body.vehicleId) : null;
         if (reqVehicleId) {
             const vehicleActiveTripCount = await TransportRequest.count({
@@ -1620,17 +1658,6 @@ router.put(["/bookings/:id/accept", "/requests/:id/accept"], requireRole("transp
             if (activeTripCount > 0) {
                 return res.status(409).json({ success: false, message: "Finish your active trip first." });
             }
-        }
-
-        const booking = await TransportRequest.findByPk(req.params.id);
-        if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
-
-        if (Number(booking.userId) === Number(req.user.id)) {
-            return res.status(403).json({ success: false, message: "You cannot accept your own booking request." });
-        }
-
-        if (!["open", "pending", "confirmed"].includes(booking.status)) {
-            return res.status(409).json({ success: false, message: "Already taken or no longer open." });
         }
 
         // Locate vehicle to assign from the transporter's registered fleet
@@ -1669,12 +1696,14 @@ router.put(["/bookings/:id/accept", "/requests/:id/accept"], requireRole("transp
         }, {
             where: {
                 id: req.params.id,
-                status: { [Op.in]: ["open", "pending", "confirmed"] }
+                status: { [Op.in]: ["open", "pending", "request_received", "requested"] }
             }
         });
 
         if (affectedRows === 0) {
-            return res.status(409).json({ success: false, message: "Already taken or no longer open." });
+            await booking.reload().catch(() => {});
+            const latestErr = getNonActionableBookingError(booking.status, "accept") || "Already taken or no longer open.";
+            return res.status(409).json({ success: false, message: latestErr });
         }
 
         // Mark transporter as actively on duty so they are removed from available booking pools
@@ -1719,16 +1748,29 @@ router.put(["/bookings/:id/reject", "/requests/:id/reject"], requireRole("transp
             }
         }
 
-        if (["delivered", "completed"].includes(booking.status)) {
-            return res.status(400).json({ success: false, message: "Cannot reject delivered or completed bookings." });
+        const statusErr = getNonActionableBookingError(booking.status, "reject");
+        if (statusErr) {
+            return res.status(400).json({ success: false, message: statusErr });
         }
 
         const reason = req.body.reason ? String(req.body.reason).trim() : "Transporter capacity full / route unavailable";
-        await booking.update({
+        const [affectedRows] = await TransportRequest.update({
             status: "rejected",
             rejectionReason: reason
+        }, {
+            where: {
+                id: req.params.id,
+                status: { [Op.in]: ["open", "pending", "request_received", "requested"] }
+            }
         });
 
+        if (affectedRows === 0) {
+            await booking.reload().catch(() => {});
+            const latestErr = getNonActionableBookingError(booking.status, "reject") || "Cannot reject request because the booking is no longer open.";
+            return res.status(409).json({ success: false, message: latestErr });
+        }
+
+        await booking.reload();
         return res.json({
             success: true,
             data: booking,
@@ -2635,6 +2677,17 @@ router.get("/admin/all-requests", requireRole("admin"), async (req, res) => {
 // Driver / Transporter accepts a cargo request (Strict Single-Trip Lock)
 router.put("/requests/:id/accept", requireRole("transporter"), async (req, res) => {
     try {
+        const request = await TransportRequest.findByPk(req.params.id);
+        if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+        if (Number(request.userId) === Number(req.user.id)) {
+            return res.status(403).json({ success: false, message: "You cannot accept your own transport request." });
+        }
+
+        const statusErr = getNonActionableBookingError(request.status, "accept");
+        if (statusErr) {
+            return res.status(400).json({ success: false, message: statusErr });
+        }
+
         const activeTripCount = await TransportRequest.count({
             where: {
                 transporterId: req.user.id,
@@ -2643,12 +2696,6 @@ router.put("/requests/:id/accept", requireRole("transporter"), async (req, res) 
         });
         if (activeTripCount > 0) {
             return res.status(409).json({ success: false, message: "Finish your active trip first." });
-        }
-
-        const request = await TransportRequest.findByPk(req.params.id);
-        if (!request) return res.status(404).json({ success: false, message: "Request not found" });
-        if (Number(request.userId) === Number(req.user.id)) {
-            return res.status(403).json({ success: false, message: "You cannot accept your own transport request." });
         }
 
         const transporterProfile = await TransporterProfile.findOne({ where: { userId: req.user.id } });
@@ -2688,12 +2735,14 @@ router.put("/requests/:id/accept", requireRole("transporter"), async (req, res) 
         }, {
             where: {
                 id: req.params.id,
-                status: { [Op.in]: ["open", "pending"] }
+                status: { [Op.in]: ["open", "pending", "request_received", "requested"] }
             }
         });
 
         if (affectedRows === 0) {
-            return res.status(409).json({ success: false, message: "Already taken or no longer open." });
+            await request.reload().catch(() => {});
+            const latestErr = getNonActionableBookingError(request.status, "accept") || "Already taken or no longer open.";
+            return res.status(409).json({ success: false, message: latestErr });
         }
 
         await TransporterProfile.update(

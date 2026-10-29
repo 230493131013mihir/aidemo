@@ -502,6 +502,19 @@ export default function TransporterDashboard() {
 
   // Accept Individual Booking (Phase 6)
   async function handleAcceptBooking(bookingId) {
+    if (selectedRequestForAction?.booking) {
+      const s = String(selectedRequestForAction.booking.status || '').toLowerCase().trim();
+      if (!['open', 'pending', 'requested', 'request_received'].includes(s)) {
+        showToast({
+          type: 'error',
+          title: 'Action Not Allowed',
+          message: `Cannot accept this request because the booking has already been ${s}.`
+        });
+        setSelectedRequestForAction(null);
+        return;
+      }
+    }
+
     setActionLoading(true);
     try {
       const selectedVehicle = assignedVehicleId && assignedVehicleId !== 'primary'
@@ -545,6 +558,19 @@ export default function TransporterDashboard() {
 
   // Reject Booking Request
   async function handleRejectBooking(bookingId) {
+    if (selectedRequestForAction?.booking) {
+      const s = String(selectedRequestForAction.booking.status || '').toLowerCase().trim();
+      if (!['open', 'pending', 'requested', 'request_received'].includes(s)) {
+        showToast({
+          type: 'error',
+          title: 'Action Not Allowed',
+          message: `Cannot reject this request because the booking has already been ${s}.`
+        });
+        setSelectedRequestForAction(null);
+        return;
+      }
+    }
+
     setActionLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/transport/bookings/${bookingId}/reject`, {
@@ -1569,10 +1595,18 @@ export default function TransporterDashboard() {
                       <span className="text-xs font-bold text-slate-500 font-mono">
                         {req.pickupDate}
                       </span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                        req.status === 'accepted' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                        ['delivered', 'completed', 'delivery_confirmed'].includes(req.status?.toLowerCase().trim())
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : ['cancelled', 'rejected', 'failed_delivery'].includes(req.status?.toLowerCase().trim())
+                          ? 'bg-red-100 text-red-800 border border-red-200'
+                          : ['in_transit', 'arrived_destination'].includes(req.status?.toLowerCase().trim())
+                          ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                          : ['accepted', 'confirmed', 'driver_assigned', 'vehicle_assigned', 'awaiting_pickup', 'pickup_confirmed'].includes(req.status?.toLowerCase().trim())
+                          ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                          : 'bg-amber-100 text-amber-800 border border-amber-200'
                       }`}>
-                        {req.status}
+                        {req.status?.replace(/_/g, ' ')}
                       </span>
                     </div>
                   </div>
@@ -1598,23 +1632,49 @@ export default function TransporterDashboard() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedRequestForAction({ type: 'reject', booking: req })}
-                      className="py-1.5 px-3 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold cursor-pointer transition-colors"
-                    >
-                      Reject Request
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedRequestForAction({ type: 'accept', booking: req })}
-                      className="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold cursor-pointer inline-flex items-center gap-1.5"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Accept & Assign Vehicle</span>
-                    </button>
-                  </div>
+                  {['open', 'pending', 'request_received', 'requested'].includes(req.status?.toLowerCase().trim()) ? (
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRequestForAction({ type: 'reject', booking: req })}
+                        className="py-1.5 px-3 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold cursor-pointer transition-colors"
+                      >
+                        {t('transporter.rejectBtn') || 'Reject Request'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRequestForAction({ type: 'accept', booking: req })}
+                        className="btn-primary py-1.5 px-4 rounded-xl text-xs font-bold cursor-pointer inline-flex items-center gap-1.5"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{t('transporter.acceptAndAssignVehicle') || 'Accept & Assign Vehicle'}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500">
+                      <span className="text-[11px] font-medium flex items-center gap-1.5">
+                        {['delivered', 'completed', 'delivery_confirmed'].includes(req.status?.toLowerCase().trim()) ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span className="text-emerald-700 font-semibold">{t('transporter.deliveredNoAction', 'Booking delivered at Mandi. No further actions required.')}</span>
+                          </>
+                        ) : ['cancelled', 'rejected'].includes(req.status?.toLowerCase().trim()) ? (
+                          <>
+                            <X className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                            <span className="text-red-700 font-semibold">{t('transporter.cancelledNoAction', `Booking has been ${req.status?.toLowerCase()}. No actions available.`)}</span>
+                          </>
+                        ) : (
+                          <>
+                            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                            <span className="text-blue-700 font-semibold">{t('transporter.assignedNoAction', `Booking ${req.status?.toLowerCase().replace(/_/g, ' ')} — vehicle already assigned.`)}</span>
+                          </>
+                        )}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                        {['delivered', 'completed', 'delivery_confirmed'].includes(req.status?.toLowerCase().trim()) ? 'Delivered' : ['cancelled', 'rejected'].includes(req.status?.toLowerCase().trim()) ? 'Closed' : 'Active Trip'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
