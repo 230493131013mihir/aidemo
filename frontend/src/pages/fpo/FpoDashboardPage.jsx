@@ -105,13 +105,22 @@ export default function FpoDashboardPage() {
               <ShieldCheck className="w-4 h-4 text-purple-300" />
               <span>Certified Farmer Producer Organization</span>
             </div>
-            <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-white drop-shadow-md">
+            <h1 
+              className="text-2xl sm:text-4xl font-black tracking-tight text-white drop-shadow-md"
+              style={{ color: '#FFFFFF' }}
+            >
               {fpo.name || user?.name || 'Kisan Samruddhi FPO'}
             </h1>
-            <p className="text-xs sm:text-sm text-purple-100 font-medium leading-relaxed drop-shadow-xs">
+            <p 
+              className="text-xs sm:text-sm font-medium leading-relaxed drop-shadow-xs"
+              style={{ color: '#F1F5F9' }}
+            >
               Aggregate farmer member yields, coordinate bulk transport, and maximize returns.
             </p>
-            <p className="text-xs sm:text-sm text-emerald-200/90 max-w-2xl leading-relaxed drop-shadow-sm">
+            <p 
+              className="text-xs sm:text-sm max-w-2xl leading-relaxed drop-shadow-sm font-normal"
+              style={{ color: '#F1F5F9' }}
+            >
               Agristack Registration: <span className="font-mono font-bold text-white">{fpo.registrationNumber}</span> • Operational Jurisdiction: <span className="font-semibold text-white">{fpo.district}, {fpo.state}</span> • Member Landholdings: <span className="font-semibold text-white">{fpo.collectiveAcres} Acres</span>
             </p>
           </div>

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { 
   Building2, 
@@ -586,13 +586,22 @@ export default function MandiDashboard() {
             </div>
 
             <div>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3 drop-shadow-md">
+              <h1 
+                className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3 drop-shadow-md"
+                style={{ color: '#FFFFFF' }}
+              >
                 {mandiName}
               </h1>
-              <p className="text-amber-100 font-medium text-xs sm:text-sm mt-1 drop-shadow-xs">
+              <p 
+                className="font-medium text-xs sm:text-sm mt-1 drop-shadow-xs"
+                style={{ color: '#F1F5F9' }}
+              >
                 Procure crops from verified local farmers and manage gate pass receipts.
               </p>
-              <p className="text-emerald-200/90 text-xs sm:text-sm mt-0.5 flex items-center gap-2">
+              <p 
+                className="text-xs sm:text-sm mt-0.5 flex items-center gap-2"
+                style={{ color: '#F1F5F9' }}
+              >
                 <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>{district} {t('mandi.marketYard', 'District APMC Market Yard')} • {state}</span>
               </p>
