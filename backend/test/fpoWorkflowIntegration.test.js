@@ -2,8 +2,11 @@ const { sequelize } = require('../config/database');
 const { User, FarmerProfile, FpoMembership } = require('../models');
 const jwt = require('jsonwebtoken');
 const http = require('http');
+const app = require('../app');
 
-// Helper to make API requests to the running backend on port 5000
+let serverPort = 5000;
+
+// Helper to make API requests to the running backend
 function apiRequest(method, path, token, body = null) {
   return new Promise((resolve, reject) => {
     const postData = body ? JSON.stringify(body) : null;
@@ -19,7 +22,7 @@ function apiRequest(method, path, token, body = null) {
 
     const req = http.request({
       hostname: '127.0.0.1',
-      port: 5000,
+      port: serverPort,
       path,
       method,
       headers
@@ -64,8 +67,13 @@ function makeToken(user) {
 async function runTest() {
   console.log('--- Starting FPO Membership Request & Approval End-to-End Test ---');
 
-  // Find or create test FPO leader
-  let fpoLeader = await User.findOne({ where: { email: 'fpo_test_leader@harvestmitra.local' } });
+  const server = http.createServer(app);
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  serverPort = server.address().port;
+
+  try {
+    // Find or create test FPO leader
+    let fpoLeader = await User.findOne({ where: { email: 'fpo_test_leader@harvestmitra.local' } });
   if (!fpoLeader) {
     fpoLeader = await User.create({
       name: 'Sahyadri FPO Leader',
@@ -262,6 +270,9 @@ async function runTest() {
   }
 
   console.log('\n🎉 ALL FPO MEMBERSHIP WORKFLOW INTEGRATION TESTS PASSED PERFECTLY! 🎉\n');
+  } finally {
+    server.close();
+  }
   process.exit(0);
 }
 
