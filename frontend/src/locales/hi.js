@@ -54,6 +54,8 @@ export const hi = {
     farmerLogin: "किसान लॉगिन",
     createAccount: "खाता बनाएं",
     requestJoinFpo: "FPO में शामिल होने का अनुरोध",
+    fpoRequests: "FPO अनुरोध",
+    membershipRequests: "सदस्यता अनुरोध",
   },
   dashboard: {
     title: "किसान डैशबोर्ड",

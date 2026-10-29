@@ -69,6 +69,8 @@ export const en = {
     govtSchemes: "Government Schemes",
     fpoMembership: "FPO Membership",
     requestJoinFpo: "Request to Join FPO",
+    fpoRequests: "FPO Requests",
+    membershipRequests: "Membership Requests",
     relevantSupport: "Support Services",
     languageSelect: "Language",
     accountSettings: "Account Settings",

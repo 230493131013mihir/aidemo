@@ -35,7 +35,8 @@ import {
   BookOpen,
   Globe2,
   Building2,
-  LifeBuoy
+  LifeBuoy,
+  UserCheck
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -187,10 +188,10 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
           description: 'Subsidies & welfare checklist'
         },
         {
-          to: '/fpo',
-          label: t('nav.requestJoinFpo', 'Request to Join FPO'),
+          to: '/farmer/fpo-requests',
+          label: t('nav.fpoRequests', 'FPO Requests'),
           icon: Users,
-          description: 'Join agricultural collective'
+          description: 'View FPOs & track membership requests'
         }
       ]
     }
@@ -238,6 +239,7 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
   // FPO Navigation (Specific to Farmer Producer Organization Role)
   const fpoNavigationItems = [
     { to: '/fpo/dashboard', label: t('nav.fpoDashboard', 'FPO Dashboard'), icon: LayoutDashboard },
+    { to: '/fpo/requests', label: t('nav.membershipRequests', 'Membership Requests'), icon: UserCheck },
     { to: '/fpo/members', label: t('nav.memberRoster', 'Member Roster'), icon: Users },
     { to: '/fpo/crops', label: t('nav.cropAvailability', 'Crop Availability'), icon: Sprout },
     { to: '/fpo/aggregation', label: t('nav.collectiveLots', 'Collective Lots'), icon: Layers },
@@ -320,7 +322,9 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
 
     // FPO Collective matching
     if (isFpo) {
-      if (to === '/fpo/dashboard') return currentPath === '/fpo/dashboard' || currentPath === '/fpo';
+      if (to === '/fpo/dashboard') return currentPath === '/fpo/dashboard';
+      if (to === '/fpo/requests') return currentPath === '/fpo/requests';
+      if (to === '/fpo/members') return currentPath === '/fpo/members';
       if (to === '/chat') return currentPath === '/chat' || currentPath === '/assistant';
       return currentPath === targetPath;
     }
@@ -334,6 +338,9 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
     }
     if (to === '/dashboard') {
       return currentPath === '/dashboard' && !currentHash && (!currentTab || currentTab === 'overview');
+    }
+    if (to === '/farmer/fpo-requests' || to === '/fpo') {
+      return currentPath === '/farmer/fpo-requests' || currentPath === '/fpo';
     }
     if (to === '/markets') return (currentPath === '/markets' || currentPath === '/prices') && !currentHash;
     if (to === '/harvest') return (currentPath === '/harvest' || currentPath === '/simulator') && !currentHash;

@@ -39,11 +39,22 @@ router.get('/my-membership', authMiddleware, fpoController.getFarmerMembershipSt
 // 1. Overview Statistics
 router.get('/overview', authMiddleware, requireFpo, fpoController.getOverview);
 
-// 2. Member Farmer Management
+// 2. Member Farmer Management & Membership Requests
 router.get('/members', authMiddleware, requireFpo, fpoController.listMembers);
+router.get('/membership-requests', authMiddleware, requireFpo, fpoController.getFpoMembershipRequests);
 router.post('/members', authMiddleware, requireFpo, fpoController.inviteOrAddMember);
 router.patch('/members/:id', authMiddleware, requireFpo, fpoController.updateMemberStatus);
 router.patch('/members/:id/decision', authMiddleware, requireFpo, fpoController.decideMembershipRequest);
+router.post('/members/:id/accept', authMiddleware, requireFpo, (req, res) => {
+  req.body = req.body || {};
+  req.body.decision = 'accept';
+  return fpoController.decideMembershipRequest(req, res);
+});
+router.post('/members/:id/reject', authMiddleware, requireFpo, (req, res) => {
+  req.body = req.body || {};
+  req.body.decision = 'reject';
+  return fpoController.decideMembershipRequest(req, res);
+});
 router.get('/available-farmers', authMiddleware, requireFpo, fpoController.getAvailableFarmers);
 
 // 3. Crop Availability & Aggregation

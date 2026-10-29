@@ -69,6 +69,8 @@ export const mr = {
     govtSchemes: "सरकारी योजना",
     fpoMembership: "FPO सदस्यता",
     requestJoinFpo: "FPO मध्ये सामील होण्याची विनंती",
+    fpoRequests: "FPO विनंत्या",
+    membershipRequests: "सदस्यत्व विनंत्या",
     relevantSupport: "सहाय्य सेवा",
     languageSelect: "भाषा",
     accountSettings: "खाते सेटिंग्ज",

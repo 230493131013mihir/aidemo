@@ -28,6 +28,8 @@ export const gu = {
     menu: "મેનૂ",
     close: "બંધ કરો",
     requestJoinFpo: "FPO માં જોડાવા માટે વિનંતી",
+    fpoRequests: "FPO વિનંતીઓ",
+    membershipRequests: "સદસ્યતા વિનંતીઓ",
   },
   dashboard: {
     title: "ખેડૂત ડેશબોર્ડ",

@@ -241,7 +241,9 @@ async function listMembers(req, res) {
         consentShareCrops: m.consentShareCrops,
         consentShareContact: m.consentShareContact,
         notes: m.notes,
-        joinedAt: m.joinedAt || m.createdAt
+        joinedAt: m.joinedAt || m.createdAt,
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt
       };
     });
 
@@ -1387,7 +1389,9 @@ async function getFarmerMembershipStatus(req, res) {
         state: fp.state || "Maharashtra",
         status: m.status, // 'pending' | 'active' | 'rejected'
         invitedBy: m.invitedBy,
+        notes: m.notes,
         joinedAt: m.joinedAt || m.createdAt,
+        createdAt: m.createdAt,
         updatedAt: m.updatedAt
       };
     });
@@ -1399,27 +1403,112 @@ async function getFarmerMembershipStatus(req, res) {
   }
 }
 
+// FPO Leader: List membership requests submitted to their FPO
+async function getFpoMembershipRequests(req, res) {
+  try {
+    const fpoId = req.user.id;
+    const { status = "all", search = "" } = req.query;
+
+    const where = { fpoId };
+    if (status !== "all") {
+      where.status = status;
+    }
+
+    const memberships = await FpoMembership.findAll({
+      where,
+      include: [{
+        model: User,
+        as: "Farmer",
+        attributes: ["id", "name", "phone", "email", "status"],
+        include: [{
+          model: FarmerProfile,
+          attributes: ["district", "village", "farmSizeAcres", "mainCrop", "isGovtVerified", "productQuantities"]
+        }]
+      }],
+      order: [["createdAt", "DESC"]]
+    });
+
+    let formatted = memberships.map(m => {
+      const u = m.Farmer || {};
+      const fp = u.FarmerProfile || {};
+
+      let cropList = [];
+      if (fp.mainCrop) {
+        cropList = fp.mainCrop.split(",").map(c => c.trim()).filter(Boolean);
+      }
+
+      return {
+        id: m.id,
+        farmerId: m.farmerId,
+        farmerName: u.name || "Registered Farmer",
+        name: u.name || "Registered Farmer",
+        phone: u.phone || "—",
+        email: u.email || "—",
+        district: fp.district || "Pune",
+        village: fp.village || "—",
+        location: `${fp.village || 'Village'}, ${fp.district || 'Pune'}`,
+        farmSizeAcres: Number(fp.farmSizeAcres) || 0,
+        mainCrop: fp.mainCrop || "Produce",
+        crops: cropList,
+        isGovtVerified: Boolean(fp.isGovtVerified),
+        status: m.status, // 'pending' | 'active' | 'rejected'
+        membershipStatus: m.status,
+        invitedBy: m.invitedBy,
+        notes: m.notes,
+        submittedAt: m.createdAt,
+        createdAt: m.createdAt,
+        joinedAt: m.joinedAt,
+        updatedAt: m.updatedAt
+      };
+    });
+
+    if (search && search.trim()) {
+      const q = search.trim().toLowerCase();
+      formatted = formatted.filter(m =>
+        m.farmerName.toLowerCase().includes(q) ||
+        m.village.toLowerCase().includes(q) ||
+        m.district.toLowerCase().includes(q) ||
+        m.mainCrop.toLowerCase().includes(q) ||
+        String(m.phone).includes(q)
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: formatted
+    });
+  } catch (err) {
+    console.error("[FPO Controller] getFpoMembershipRequests error:", err);
+    return res.status(500).json({ success: false, message: "Unable to retrieve membership requests" });
+  }
+}
+
 // FPO decides on incoming membership request (Accept or Reject)
 async function decideMembershipRequest(req, res) {
   try {
     const fpoId = req.user.id;
     const { id } = req.params;
-    const { decision, reason } = req.body; // 'accept' or 'reject'
+    const rawDecision = req.body.decision || req.body.action || req.body.status || "";
+    const decision = String(rawDecision).toLowerCase();
+    const reason = req.body.reason || req.body.notes || "";
 
-    if (!decision || (decision !== "accept" && decision !== "reject")) {
+    const isAccept = decision === "accept" || decision === "active" || decision === "approve";
+    const isReject = decision === "reject" || decision === "rejected" || decision === "decline";
+
+    if (!isAccept && !isReject) {
       return res.status(400).json({ success: false, message: "decision must be either 'accept' or 'reject'" });
     }
 
     const membership = await FpoMembership.findOne({
       where: { id: Number(id), fpoId },
-      include: [{ model: User, as: "Farmer", attributes: ["id", "name"] }]
+      include: [{ model: User, as: "Farmer", attributes: ["id", "name", "phone", "email"] }]
     });
 
     if (!membership) {
-      return res.status(404).json({ success: false, message: "Membership record not found." });
+      return res.status(404).json({ success: false, message: "Membership request record not found or unauthorized." });
     }
 
-    if (decision === "accept") {
+    if (isAccept) {
       membership.status = "active";
       membership.joinedAt = new Date();
       if (reason) membership.notes = reason;
@@ -1433,7 +1522,7 @@ async function decideMembershipRequest(req, res) {
 
       return res.status(200).json({
         success: true,
-        message: `Accepted membership for ${membership.Farmer?.name || 'Farmer'}! Member is now active.`,
+        message: `Accepted membership for ${membership.Farmer?.name || 'Farmer'}! Member is now active in your roster.`,
         data: membership
       });
     } else {
@@ -1477,5 +1566,6 @@ module.exports = {
   listAllFPOs,
   farmerRequestMembership,
   getFarmerMembershipStatus,
+  getFpoMembershipRequests,
   decideMembershipRequest
 };
