@@ -768,6 +768,7 @@ export default function TransporterDashboard() {
       setSelectedTripForPickup(null);
       loadMyBookings();
       loadTransporterStats();
+      loadIncomingRequests(true);
     } catch (err) {
       showToast({ type: 'error', title: 'Pickup Action Failed', message: err.message });
     } finally {
@@ -930,7 +931,7 @@ export default function TransporterDashboard() {
 
   const activeTrip = stats.activeTrip;
   const activeBookings = myBookings.filter((b) =>
-    ['accepted', 'vehicle_assigned', 'driver_assigned', 'awaiting_pickup', 'pickup_confirmed', 'in_transit', 'arrived_destination'].includes(b.status)
+    ['confirmed', 'accepted', 'vehicle_assigned', 'driver_assigned', 'awaiting_pickup', 'pickup_confirmed', 'in_transit', 'arrived_destination'].includes(b.status)
   );
 
   return (
@@ -999,87 +1000,129 @@ export default function TransporterDashboard() {
       {/* 2. Top Summary Metrics (Phase 3: Real Database Records Only) */}
       <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
         {/* Metric 1: New Eligible Requests */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
+        <div 
+          onClick={() => { setFilterStatus('pending'); handleTabChange('requests'); }}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1 cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all group"
+          title="Click to view eligible booking requests"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">{t('transporter.metricEligibleRequests') || "Eligible Requests"}</span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted group-hover:text-emerald-700 transition-colors">{t('transporter.metricEligibleRequests') || "Eligible Requests"}</span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
               <Truck className="w-3.5 h-3.5" />
             </div>
           </div>
           <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono mt-0.5">
             {stats.newEligibleRequestsCount ?? incomingRequests.length}
           </p>
-          <span className="text-[11px] text-emerald-700 font-semibold block">{t('transporter.awaitingAcceptance') || "Awaiting Acceptance"}</span>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-emerald-700 font-semibold">{t('transporter.awaitingAcceptance') || "Awaiting Acceptance"}</span>
+            <ArrowRight className="w-3.5 h-3.5 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
         </div>
 
         {/* Metric 2: Trips Awaiting Assignment */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
+        <div 
+          onClick={() => handleTabChange('shared')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1 cursor-pointer hover:border-amber-500 hover:shadow-md transition-all group"
+          title="Click to view shared pooling and carrier matching"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">{t('transporter.metricAwaitingVehicle') || "Awaiting Vehicle"}</span>
-            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted group-hover:text-amber-700 transition-colors">{t('transporter.metricAwaitingVehicle') || "Awaiting Vehicle"}</span>
+            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors">
               <Car className="w-3.5 h-3.5" />
             </div>
           </div>
           <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono mt-0.5">
             {stats.tripsAwaitingAssignmentCount ?? 0}
           </p>
-          <span className="text-[11px] text-amber-700 font-semibold block">{t('transporter.needCarrierMatch') || "Need Carrier Match"}</span>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-amber-700 font-semibold">{t('transporter.needCarrierMatch') || "Need Carrier Match"}</span>
+            <ArrowRight className="w-3.5 h-3.5 text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
         </div>
 
         {/* Metric 3: Today's Pickups */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
+        <div 
+          onClick={() => handleTabChange('active')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1 cursor-pointer hover:border-blue-500 hover:shadow-md transition-all group"
+          title="Click to view today's active pickups"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">{t('transporter.metricTodayPickups') || "Today's Pickups"}</span>
-            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted group-hover:text-blue-700 transition-colors">{t('transporter.metricTodayPickups') || "Today's Pickups"}</span>
+            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
               <Calendar className="w-3.5 h-3.5" />
             </div>
           </div>
           <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono mt-0.5">
             {stats.todayPickupsCount ?? 0}
           </p>
-          <span className="text-[11px] text-blue-700 font-semibold block">{t('transporter.scheduledToday') || "Scheduled Today"}</span>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-blue-700 font-semibold">{t('transporter.scheduledToday') || "Scheduled Today"}</span>
+            <ArrowRight className="w-3.5 h-3.5 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
         </div>
 
         {/* Metric 4: Active Trips */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
+        <div 
+          onClick={() => handleTabChange('active')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1 cursor-pointer hover:border-purple-500 hover:shadow-md transition-all group"
+          title="Click to view active trips in transit"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">{t('transporter.metricActiveTrips') || "Active Trips"}</span>
-            <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center">
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted group-hover:text-purple-700 transition-colors">{t('transporter.metricActiveTrips') || "Active Trips"}</span>
+            <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors">
               <Navigation className="w-3.5 h-3.5" />
             </div>
           </div>
           <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono mt-0.5">
             {stats.activeTripsCount ?? activeBookings.length}
           </p>
-          <span className="text-[11px] text-purple-700 font-semibold block">{t('transporter.inTransit') || "In Progress / Transit"}</span>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-purple-700 font-semibold">{t('transporter.inTransit') || "In Progress / Transit"}</span>
+            <ArrowRight className="w-3.5 h-3.5 text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
         </div>
 
         {/* Metric 5: Deliveries Completed */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
+        <div 
+          onClick={() => { setHistoryStatusFilter('delivered'); handleTabChange('history'); }}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1 cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all group"
+          title="Click to view verified completed deliveries"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">{t('transporter.metricCompletedTrips') || "Completed Trips"}</span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted group-hover:text-emerald-700 transition-colors">{t('transporter.metricCompletedTrips') || "Completed Trips"}</span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
               <CheckCircle2 className="w-3.5 h-3.5" />
             </div>
           </div>
           <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono mt-0.5">
             {stats.deliveriesCompletedCount ?? stats.totalTripsCompleted ?? 0}
           </p>
-          <span className="text-[11px] text-emerald-700 font-semibold block">{t('transporter.verifiedDeliveries') || "Verified APMC Deliveries"}</span>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-emerald-700 font-semibold">{t('transporter.verifiedDeliveries') || "Verified APMC Deliveries"}</span>
+            <ArrowRight className="w-3.5 h-3.5 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
         </div>
 
         {/* Metric 6: Registered Fleet Availability */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
+        <div 
+          onClick={() => handleTabChange('fleet')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1 cursor-pointer hover:border-teal-500 hover:shadow-md transition-all group"
+          title="Click to view fleet and registered vehicles"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted">{t('transporter.metricFleetReady') || "Fleet Ready"}</span>
-            <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center">
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted group-hover:text-teal-700 transition-colors">{t('transporter.metricFleetReady') || "Fleet Ready"}</span>
+            <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-colors">
               <Car className="w-3.5 h-3.5" />
             </div>
           </div>
           <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono mt-0.5">
             {stats.availableVehiclesCount ?? myFleet.filter((v) => v.isAvailable !== false).length} / {stats.registeredVehiclesCount ?? myFleet.length}
           </p>
-          <span className="text-[11px] text-teal-700 font-semibold block">{t('transporter.vehiclesAvailable') || "Vehicles Available"}</span>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-teal-700 font-semibold">{t('transporter.vehiclesAvailable') || "Vehicles Available"}</span>
+            <ArrowRight className="w-3.5 h-3.5 text-teal-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
         </div>
       </section>
 
@@ -1098,32 +1141,60 @@ export default function TransporterDashboard() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
-          <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">{t('transporter.confirmedPaid') || "Confirmed Freight Paid"}</span>
+          <div 
+            onClick={() => { setHistoryStatusFilter('delivered'); handleTabChange('history'); }}
+            className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1 cursor-pointer hover:bg-white/10 hover:border-emerald-500/50 transition-all group"
+            title="Click to view confirmed paid records in Trip History"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-slate-400 group-hover:text-emerald-400 transition-colors">{t('transporter.confirmedPaid') || "Confirmed Freight Paid"}</span>
+              <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
             <span className="text-lg sm:text-xl font-black text-emerald-400 font-mono block">
               {formatINR(stats.confirmedFreightEarnings ?? 0)}
             </span>
             <span className="text-[10.5px] text-emerald-300">{t('transporter.settledDesc') || "Directly settled / paid"}</span>
           </div>
 
-          <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">{t('transporter.completedTotal') || "Completed Trips Total"}</span>
+          <div 
+            onClick={() => { setHistoryStatusFilter('delivered'); handleTabChange('history'); }}
+            className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1 cursor-pointer hover:bg-white/10 hover:border-white/30 transition-all group"
+            title="Click to view completed trip earnings in Trip History"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-slate-400 group-hover:text-slate-200 transition-colors">{t('transporter.completedTotal') || "Completed Trips Total"}</span>
+              <ArrowRight className="w-3 h-3 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
             <span className="text-lg sm:text-xl font-black text-white font-mono block">
               {formatINR(stats.completedTripTotals ?? stats.totalEarnings ?? 0)}
             </span>
             <span className="text-[10.5px] text-slate-300">{(t('transporter.verifiedTripsDesc') || "{count} verified trips").replace('{count}', stats.deliveriesCompletedCount ?? stats.totalTripsCompleted ?? 0)}</span>
           </div>
 
-          <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">{t('transporter.pendingFreight') || "Pending / Active Freight"}</span>
+          <div 
+            onClick={() => handleTabChange('active')}
+            className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1 cursor-pointer hover:bg-white/10 hover:border-amber-500/50 transition-all group"
+            title="Click to view pending active freight in Active Trips"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-slate-400 group-hover:text-amber-400 transition-colors">{t('transporter.pendingFreight') || "Pending / Active Freight"}</span>
+              <ArrowRight className="w-3 h-3 text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
             <span className="text-lg sm:text-xl font-black text-amber-400 font-mono block">
               {formatINR(stats.pendingFreightEarnings ?? 0)}
             </span>
             <span className="text-[10.5px] text-amber-300">{(t('transporter.inTransitDesc') || "{count} trips in transit").replace('{count}', stats.activeTripsCount ?? activeBookings.length)}</span>
           </div>
 
-          <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">{t('transporter.lockedEscrow') || "Locked in Escrow"}</span>
+          <div 
+            onClick={() => { setHistoryStatusFilter('all'); handleTabChange('history'); }}
+            className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1 cursor-pointer hover:bg-white/10 hover:border-blue-500/50 transition-all group"
+            title="Click to view escrow ledger"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-slate-400 group-hover:text-blue-400 transition-colors">{t('transporter.lockedEscrow') || "Locked in Escrow"}</span>
+              <ArrowRight className="w-3 h-3 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
             <span className="text-lg sm:text-xl font-black text-blue-400 font-mono block">
               {formatINR(stats.escrowLockedEarnings ?? 0)}
             </span>
@@ -1822,28 +1893,129 @@ export default function TransporterDashboard() {
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500">
-                      <span className="text-[11px] font-medium flex items-center gap-1.5">
-                        {['delivered', 'completed', 'delivery_confirmed'].includes(req.status?.toLowerCase().trim()) ? (
-                          <>
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                            <span className="text-emerald-700 font-semibold">{t('transporter.deliveredNoAction', 'Booking delivered at Mandi. No further actions required.')}</span>
-                          </>
-                        ) : ['cancelled', 'rejected'].includes(req.status?.toLowerCase().trim()) ? (
-                          <>
-                            <X className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                            <span className="text-red-700 font-semibold">{t('transporter.cancelledNoAction', `Booking has been ${req.status?.toLowerCase()}. No actions available.`)}</span>
-                          </>
-                        ) : (
-                          <>
-                            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                            <span className="text-blue-700 font-semibold">{t('transporter.assignedNoAction', `Booking ${req.status?.toLowerCase().replace(/_/g, ' ')} — vehicle already assigned.`)}</span>
-                          </>
-                        )}
-                      </span>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
-                        {['delivered', 'completed', 'delivery_confirmed'].includes(req.status?.toLowerCase().trim()) ? 'Delivered' : ['cancelled', 'rejected'].includes(req.status?.toLowerCase().trim()) ? 'Closed' : 'Active Trip'}
-                      </span>
+                    <div className="pt-2 border-t border-slate-100 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span className="text-[11px] font-medium flex items-center gap-1.5">
+                          {['delivered', 'completed', 'delivery_confirmed'].includes(req.status?.toLowerCase().trim()) ? (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span className="text-emerald-700 font-semibold">{t('transporter.deliveredNoAction', 'Booking delivered at Mandi. Consignment completed.')}</span>
+                            </>
+                          ) : ['cancelled', 'rejected'].includes(req.status?.toLowerCase().trim()) ? (
+                            <>
+                              <X className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                              <span className="text-red-700 font-semibold">{t('transporter.cancelledNoAction', `Booking has been ${req.status?.toLowerCase()}. No actions available.`)}</span>
+                            </>
+                          ) : (
+                            <>
+                              <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                              <span className="text-blue-700 font-semibold">
+                                {t('transporter.assignedActiveTrip', `Booking ${req.status?.toLowerCase().replace(/_/g, ' ')} — carrier assigned.`)}
+                              </span>
+                            </>
+                          )}
+                        </span>
+
+                        <span className="text-[10px] font-bold uppercase tracking-wider shrink-0 px-2 py-0.5 rounded border border-slate-200 bg-slate-50 text-slate-700">
+                          {['delivered', 'completed', 'delivery_confirmed'].includes(req.status?.toLowerCase().trim())
+                            ? 'Delivered'
+                            : ['cancelled', 'rejected'].includes(req.status?.toLowerCase().trim())
+                            ? 'Closed'
+                            : 'Active Trip'}
+                        </span>
+                      </div>
+
+                      {/* Progression Action Controls to advance confirmed booking to completed / delivered */}
+                      {!['delivered', 'completed', 'delivery_confirmed', 'cancelled', 'rejected'].includes(req.status?.toLowerCase().trim()) && (
+                        <div className="flex flex-wrap items-center justify-end gap-2 pt-1 border-t border-slate-100/80">
+                          {/* Next step: Confirm Farm Gate Pickup (or Depart) */}
+                          {['confirmed', 'accepted', 'driver_assigned', 'vehicle_assigned', 'awaiting_pickup'].includes(req.status?.toLowerCase().trim()) && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedTripForPickup(req);
+                                  setPickupFormData({
+                                    actualPickupTime: new Date().toISOString().slice(0, 16),
+                                    loadedQuantity: String(req.weightKg || ''),
+                                    pickupNotes: ''
+                                  });
+                                }}
+                                className="btn-primary py-1.5 px-3 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                                title="Record farm gate pickup and loaded produce"
+                              >
+                                <Scale className="w-3.5 h-3.5" />
+                                <span>Confirm Farm Pickup</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleProgressTrip(req.id, 'in_transit')}
+                                className="bg-purple-600 hover:bg-purple-700 text-white py-1.5 px-3 rounded-xl text-xs font-bold inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                                title="Direct Depart & Start Transit"
+                              >
+                                <Navigation className="w-3.5 h-3.5" />
+                                <span>Depart</span>
+                              </button>
+                            </>
+                          )}
+
+                          {/* Next step: If pickup already confirmed, Start Transit */}
+                          {req.status?.toLowerCase().trim() === 'pickup_confirmed' && (
+                            <button
+                              type="button"
+                              onClick={() => handleProgressTrip(req.id, 'in_transit')}
+                              className="bg-purple-600 hover:bg-purple-700 text-white py-1.5 px-3.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                              title="Depart and begin transit to destination Mandi"
+                            >
+                              <Navigation className="w-3.5 h-3.5" />
+                              <span>Start Transit (Depart)</span>
+                            </button>
+                          )}
+
+                          {/* Next step: If in transit or arrived, Confirm Mandi Delivery (Complete to Delivered!) */}
+                          {['in_transit', 'arrived_destination'].includes(req.status?.toLowerCase().trim()) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedTripForDelivery(req);
+                                setDeliveryFormData({
+                                  actualDeliveryTime: new Date().toISOString().slice(0, 16),
+                                  deliveredQuantity: String(req.weightKg || ''),
+                                  deliveryNotes: '',
+                                  recipientAcknowledgment: 'Consignee received and verified at APMC Weighbridge'
+                                });
+                              }}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 px-3.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                              title="Record APMC weighbridge clearance and complete delivery"
+                            >
+                              <CheckCheck className="w-3.5 h-3.5" />
+                              <span>Confirm Mandi Delivery</span>
+                            </button>
+                          )}
+
+                          {/* Digital Gate Pass Button */}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedGatePass(req)}
+                            className="px-2.5 py-1.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                            title="View APMC Digital Gate Pass QR"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Gate Pass</span>
+                          </button>
+
+                          {/* Active Trips Tab Link */}
+                          <button
+                            type="button"
+                            onClick={() => handleTabChange('active')}
+                            className="px-2.5 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                            title="Open full 9-step progression stepper in My Active Trips"
+                          >
+                            <span>Active Stepper</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2325,7 +2497,9 @@ export default function TransporterDashboard() {
           ) : (
             <div className="space-y-6">
               {activeBookings.map((trip) => {
-                const currentStepIdx = TRIP_PROGRESS_STEPS.findIndex((s) => s.key === trip.status);
+                const currentStepIdx = (trip.status === 'confirmed' || trip.status === 'driver_assigned')
+                  ? 2
+                  : (trip.status === 'delivery_confirmed' ? 7 : TRIP_PROGRESS_STEPS.findIndex((s) => s.key === trip.status));
                 return (
                   <div key={trip.id} className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
@@ -2438,7 +2612,7 @@ export default function TransporterDashboard() {
                       <div className="grid grid-cols-3 sm:grid-cols-9 gap-1.5">
                         {TRIP_PROGRESS_STEPS.map((step, idx) => {
                           const isDone = currentStepIdx >= idx;
-                          const isCurrent = trip.status === step.key;
+                          const isCurrent = trip.status === step.key || ((trip.status === 'confirmed' || trip.status === 'driver_assigned') && step.key === 'vehicle_assigned');
                           const StepIcon = step.icon;
                           return (
                             <div
