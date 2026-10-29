@@ -2,7 +2,7 @@ const express = require("express");
 const { Op } = require("sequelize");
 const authMiddleware = require("../middleware/auth.middleware");
 const adminMiddleware = require("../middleware/admin.middleware");
-const { TransportRequest, User, TransporterProfile, Vehicle, SharedTrip } = require("../models");
+const { TransportRequest, User, TransporterProfile, Vehicle, SharedTrip, FarmerProfile } = require("../models");
 const sequelize = require("../config/database");
 const {
     convertToKg,
@@ -95,8 +95,8 @@ function normalizeTransportInput(body, reqUser = {}) {
         weightKg = convertToKg(rawQty, quantityUnit);
     }
 
-    if (weightKg <= 0 || weightKg > 15000) {
-        return { error: "Weight in kg must be greater than 0 and cannot exceed vehicle capacity" };
+    if (weightKg <= 0 || weightKg > 5000) {
+        return { error: "Weight in kg must be greater than 0 and cannot exceed 5000 kg vehicle capacity" };
     }
     const pickupDate = String(body.pickupDate);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(pickupDate) || Number.isNaN(Date.parse(`${pickupDate}T00:00:00Z`))) {
@@ -186,25 +186,118 @@ router.get("/telemetry", handleGetTelemetry);
 router.get("/telemetry/:passCode", handleGetTelemetry);
 router.post("/telemetry/update", handleUpdateTelemetry);
 
-// Secure Gate Pass Verification (PART 9)
-// Public verification returns only non-sensitive verification status
-// Authorized operators (mandi, admin, assigned transporter, booking farmer) receive verified cargo & check-in details
-router.get("/gatepass/verify/:code", async (req, res) => {
+// Helper to mask farmer name for public view (protects privacy while confirming record)
+function maskFarmerName(fullName) {
+    if (!fullName || typeof fullName !== 'string') return 'Registered Farmer';
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length === 1) {
+        const name = parts[0];
+        if (name.length <= 2) return name;
+        return name[0] + '*'.repeat(name.length - 2) + name[name.length - 1];
+    }
+    return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+}
+
+// Helper to calculate official APMC Gate Pass verification status
+function calculateGatePassStatus(booking) {
+    if (!booking) {
+        return {
+            status: "INVALID",
+            isValid: false,
+            message: "Gate pass not found or invalid."
+        };
+    }
+
+    const bStatus = String(booking.status || "").toLowerCase();
+
+    // 1. Cancelled or Rejected
+    if (bStatus === "cancelled" || bStatus === "rejected") {
+        return {
+            status: "CANCELLED",
+            isValid: false,
+            message: booking.cancellationReason
+                ? `Gate pass cancelled: ${booking.cancellationReason}`
+                : "Gate pass was cancelled or rejected by logistics control."
+        };
+    }
+
+    // 2. Used / Delivered / Entry Completed
+    if (
+        bStatus === "delivered" ||
+        bStatus === "delivery_confirmed" ||
+        bStatus === "completed" ||
+        bStatus === "arrived_destination" ||
+        booking.actualDeliveryTime
+    ) {
+        return {
+            status: "USED",
+            isValid: true,
+            isUsed: true,
+            message: "Gate pass has already been used. Consignment arrival and entry recorded at Mandi."
+        };
+    }
+
+    // 3. Expired: Scheduled date was in the past (> 72 hours ago without transit completion)
+    if (booking.pickupDate) {
+        const scheduledDate = new Date(booking.pickupDate);
+        const now = new Date();
+        const diffHours = (now - scheduledDate) / (1000 * 60 * 60);
+        if (diffHours > 72 && bStatus !== "in_transit") {
+            return {
+                status: "EXPIRED",
+                isValid: false,
+                message: "Gate pass transit validity window has expired. Re-validation required at Mandi gate."
+            };
+        }
+    }
+
+    // 4. Pending Assignment / Approval
+    if (bStatus === "open" || bStatus === "pending" || bStatus === "request_received") {
+        return {
+            status: "PENDING",
+            isValid: false,
+            message: "Gate pass is pending transporter assignment and dispatch authorization."
+        };
+    }
+
+    // 5. Valid Active Pass
+    return {
+        status: "VALID",
+        isValid: true,
+        message: "Authorized Digital APMC Transit Gate Pass. Valid for gate entry & weighbridge clearance."
+    };
+}
+
+async function handleGatePassVerification(rawCode, req, res) {
     try {
-        const rawCode = String(req.params.code || "").trim();
-        if (!rawCode) {
-            return res.status(400).json({ success: false, message: "Gate pass token or code is required" });
+        const code = String(rawCode || "").trim();
+        if (!code) {
+            return res.status(400).json({ success: false, valid: false, status: "INVALID", message: "Gate pass token or code is required." });
+        }
+
+        const orClauses = [
+            { gatePassCode: code },
+            { bookingId: code }
+        ];
+        if (/^\d+$/.test(code)) {
+            orClauses.push({ id: Number(code) });
         }
 
         const booking = await TransportRequest.findOne({
-            where: {
-                [Op.or]: [
-                    { gatePassCode: rawCode },
-                    { bookingId: rawCode }
-                ]
-            },
+            where: { [Op.or]: orClauses },
             include: [
-                { model: Vehicle, attributes: ["registrationNumber", "vehicleType", "driverName", "driverPhone"] }
+                {
+                    model: Vehicle,
+                    attributes: ["registrationNumber", "vehicleType", "driverName", "driverPhone"]
+                },
+                {
+                    model: User,
+                    attributes: ["id", "name", "phone", "email"],
+                    include: [{
+                        model: FarmerProfile,
+                        attributes: ["village", "district", "state", "mainCrop", "farmSizeAcres"]
+                    }]
+                }
             ]
         });
 
@@ -212,7 +305,9 @@ router.get("/gatepass/verify/:code", async (req, res) => {
             return res.status(404).json({
                 success: false,
                 valid: false,
-                message: "Gate pass record not found or token has expired."
+                verificationStatus: "INVALID",
+                status: "INVALID",
+                message: "Gate pass not found or invalid."
             });
         }
 
@@ -227,59 +322,98 @@ router.get("/gatepass/verify/:code", async (req, res) => {
             } catch (_) {}
         }
 
-        const isAuthorizedOperator = caller && (
+        const isAuthorizedOperator = Boolean(caller && (
             caller.role === "admin" ||
             caller.role === "mandi" ||
             caller.role === "transporter" ||
             caller.id === booking.userId ||
             caller.id === booking.transporterId
-        );
+        ));
 
-        // If caller is NOT an authorized operator or account owner, return minimal secure validation without private contact details
+        const statusInfo = calculateGatePassStatus(booking);
+        const fp = booking.User?.FarmerProfile;
+        const village = fp?.village || fp?.taluka || (booking.pickupLocation ? booking.pickupLocation.split(",")[0].trim() : "Registered Farm Cluster");
+        const district = fp?.district || "Maharashtra";
+
+        const passId = booking.gatePassCode || booking.bookingId || `MH-APMC-${booking.id}`;
+
+        // Base safe verification summary for public scanning (no private PII exposed)
+        const baseData = {
+            passId,
+            bookingId: booking.bookingId || `TR-${booking.id}`,
+            verificationStatus: statusInfo.status,
+            status: statusInfo.status,
+            isValid: statusInfo.isValid,
+            isUsed: Boolean(statusInfo.isUsed),
+            statusReason: statusInfo.message,
+            transportStatus: booking.status,
+            farmerId: booking.userId,
+            farmerMaskedName: maskFarmerName(booking.farmerName || booking.User?.name),
+            village,
+            district,
+            cropName: booking.cropName,
+            weightKg: booking.weightKg,
+            quantityUnit: booking.quantityUnit || "kg",
+            destinationMarket: booking.destinationMarket,
+            pickupDate: booking.pickupDate,
+            preferredDeliveryDate: booking.preferredDeliveryDate,
+            vehicleNumber: booking.vehicleNumber || booking.Vehicle?.registrationNumber || "Assigned on Dispatch",
+            vehicleType: booking.vehicleType || booking.Vehicle?.vehicleType || "Commercial Freight",
+            weighbridgeStatus: (statusInfo.status === "USED" || booking.status === "arrived_destination" || booking.status === "delivered")
+                ? "Completed & Logged"
+                : "Pending Weighbridge Inspection",
+            entryRecordedAt: booking.actualDeliveryTime || null,
+            issuedAt: booking.createdAt,
+            isAuthorized: isAuthorizedOperator,
+            verificationUrl: `https://aidemo-c4b9.onrender.com/verify-gate-pass/${encodeURIComponent(passId)}`
+        };
+
         if (!isAuthorizedOperator) {
             return res.json({
                 success: true,
-                valid: true,
-                passId: booking.gatePassCode || booking.bookingId,
-                status: booking.status,
+                valid: statusInfo.isValid,
+                verificationStatus: statusInfo.status,
+                status: statusInfo.status,
+                passId,
                 destinationMarket: booking.destinationMarket,
                 cropName: booking.cropName,
                 isAuthorized: false,
-                message: "Valid electronic transit gate pass. Sign in with APMC Mandi or Transporter credentials to view weighing & check-in controls."
+                data: baseData,
+                message: statusInfo.message
             });
         }
 
-        // Return authorized operational details
+        // Authorized caller receives full operator details and checkin controls
         return res.json({
             success: true,
-            valid: true,
+            valid: statusInfo.isValid,
+            verificationStatus: statusInfo.status,
+            status: statusInfo.status,
+            passId,
             isAuthorized: true,
             data: {
-                passId: booking.gatePassCode,
-                bookingId: booking.bookingId,
-                status: booking.status,
-                farmerName: booking.farmerName,
-                farmerPhone: booking.farmerPhone || "Registered on Agristack",
-                cropName: booking.cropName,
-                weightKg: booking.weightKg,
-                quantityUnit: booking.quantityUnit || "kg",
+                ...baseData,
+                farmerName: booking.farmerName || booking.User?.name || "Registered Farmer",
+                farmerPhone: booking.farmerPhone || booking.User?.phone || "Registered on Agristack",
+                farmerEmail: booking.User?.email || null,
                 pickupLocation: booking.pickupLocation,
-                destinationMarket: booking.destinationMarket,
-                pickupDate: booking.pickupDate,
                 driverName: booking.driverName || booking.Vehicle?.driverName || "Assigned Driver",
                 driverPhone: booking.driverPhone || booking.Vehicle?.driverPhone || "—",
-                vehicleNumber: booking.vehicleNumber || booking.Vehicle?.registrationNumber || "—",
-                vehicleType: booking.vehicleType || booking.Vehicle?.vehicleType || "Commercial Freight",
                 actualPickupTime: booking.actualPickupTime,
                 actualDeliveryTime: booking.actualDeliveryTime,
-                issuedAt: booking.createdAt
-            }
+                deliveryNotes: booking.deliveryNotes,
+                canCheckIn: statusInfo.status === "VALID" && (caller.role === "mandi" || caller.role === "admin")
+            },
+            message: statusInfo.message
         });
     } catch (err) {
-        console.error("Gate pass verify error:", err.message);
-        return res.status(500).json({ success: false, message: "Error verifying gate pass." });
+        console.error("Gate pass verify error:", err);
+        return res.status(500).json({ success: false, valid: false, status: "ERROR", message: "Error verifying gate pass record." });
     }
-});
+}
+
+router.get("/gatepass/verify/:code", (req, res) => handleGatePassVerification(req.params.code, req, res));
+router.get("/gatepass/verify", (req, res) => handleGatePassVerification(req.query.code || req.query.passCode || req.query.passId, req, res));
 
 // Authorized Gate Operator Check-in / Arrival Action
 router.post("/gatepass/checkin", async (req, res) => {
@@ -319,7 +453,13 @@ router.post("/gatepass/checkin", async (req, res) => {
         return res.status(404).json({ success: false, message: "Gate pass not found." });
     }
 
-    if (booking.status === "completed" || booking.status === "delivered" || booking.status === "delivery_confirmed") {
+    if (
+        booking.status === "completed" ||
+        booking.status === "delivered" ||
+        booking.status === "delivery_confirmed" ||
+        booking.status === "arrived_destination" ||
+        booking.actualDeliveryTime
+    ) {
         return res.status(400).json({
             success: false,
             message: `Consignment has already completed check-in on ${booking.actualDeliveryTime || "record"}. Duplicate check-in prevented.`
