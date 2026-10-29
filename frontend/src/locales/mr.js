@@ -1086,6 +1086,9 @@ export const mr = {
     onHighway: "महामार्गावर आहे 🛣️",
     awaitingDispatch: "गाडी निघण्याची प्रतीक्षा",
     pending: "प्रलंबित",
+    callBtn: "कॉल करा",
+    contactUnavailable: "संपर्क क्रमांक उपलब्ध नाही",
+    awaitingTransporterConfirmation: "वाहतूकदाराच्या पुष्टीकरणाची प्रतीक्षा आहे",
   },
 };
 

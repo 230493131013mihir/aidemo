@@ -1428,7 +1428,65 @@ router.get("/my-bookings", async (req, res) => {
             ]
         });
 
-        return res.json({ success: true, count: bookings.length, data: bookings });
+        // Resolve driver and vehicle details (phone, name, reg number, model) from existing database relationships
+        const enrichedBookings = await Promise.all(bookings.map(async (b) => {
+            const bJson = b.toJSON();
+            let driverPhone = bJson.driverPhone || bJson.Vehicle?.driverPhone || null;
+            let driverName = bJson.driverName || bJson.Vehicle?.driverName || null;
+            let vehicleNumber = bJson.vehicleNumber || bJson.Vehicle?.registrationNumber || null;
+            let vehicleType = bJson.vehicleType || bJson.Vehicle?.vehicleType || null;
+
+            // 1. Resolve from Vehicle by registration number if phone or vehicleType is missing
+            if ((!driverPhone || !vehicleType) && vehicleNumber) {
+                try {
+                    const matchedVehicle = await Vehicle.findOne({ where: { registrationNumber: vehicleNumber } });
+                    if (matchedVehicle) {
+                        if (!driverPhone && matchedVehicle.driverPhone) driverPhone = matchedVehicle.driverPhone;
+                        if (!driverName && matchedVehicle.driverName) driverName = matchedVehicle.driverName;
+                        if (!vehicleType && matchedVehicle.vehicleType) vehicleType = matchedVehicle.vehicleType;
+                    }
+                } catch (_) {}
+            }
+
+            // 2. Resolve from Transporter user account if phone is still missing and transporterId exists
+            if (!driverPhone && bJson.transporterId) {
+                try {
+                    const transporterUser = await User.findByPk(bJson.transporterId);
+                    if (transporterUser && transporterUser.phone) {
+                        driverPhone = transporterUser.phone;
+                        if (!driverName) driverName = transporterUser.name;
+                    }
+                } catch (_) {}
+            }
+
+            // 3. Resolve from Driver Name if driverPhone is still missing
+            if (!driverPhone && driverName) {
+                try {
+                    const matchedDriverVeh = await Vehicle.findOne({ where: { driverName } });
+                    if (matchedDriverVeh && matchedDriverVeh.driverPhone) {
+                        driverPhone = matchedDriverVeh.driverPhone;
+                        if (!vehicleNumber) vehicleNumber = matchedDriverVeh.registrationNumber;
+                        if (!vehicleType) vehicleType = matchedDriverVeh.vehicleType;
+                    } else {
+                        const matchedTransporter = await User.findOne({ where: { name: driverName, role: "transporter" } });
+                        if (matchedTransporter && matchedTransporter.phone) {
+                            driverPhone = matchedTransporter.phone;
+                        }
+                    }
+                } catch (_) {}
+            }
+
+            return {
+                ...bJson,
+                driverName,
+                driverPhone,
+                vehicleNumber,
+                vehicleType,
+                vehicleModel: vehicleType
+            };
+        }));
+
+        return res.json({ success: true, count: enrichedBookings.length, data: enrichedBookings });
     } catch (error) {
         console.error("My bookings error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to load bookings" });

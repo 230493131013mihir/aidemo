@@ -1086,6 +1086,9 @@ export const en = {
     onHighway: "On Highway 🛣️",
     awaitingDispatch: "Awaiting Dispatch",
     pending: "Pending",
+    callBtn: "Call",
+    contactUnavailable: "Contact number unavailable",
+    awaitingTransporterConfirmation: "Awaiting transporter confirmation",
   },
 };
 

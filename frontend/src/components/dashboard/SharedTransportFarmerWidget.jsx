@@ -1999,14 +1999,46 @@ export default function SharedTransportFarmerWidget({
                     </div>
                     <div>
                       <span className="text-muted block text-[10px]">{t('farmerTransport.vehicleAndDriver', 'Vehicle & Driver')}</span>
-                      {booking.status === 'pending' || !booking.driverName ? (
-                        <span className="font-semibold text-amber-700 block truncate">
-                          ⏳ Awaiting transporter confirmation
+                      {!booking.driverName && !booking.driverPhone && (!booking.Vehicle || (!booking.Vehicle.driverName && !booking.Vehicle.driverPhone)) ? (
+                        <span className="font-semibold text-amber-700 block text-[11px] mt-0.5">
+                          ⏳ {t('farmerTransport.awaitingTransporterConfirmation', 'Awaiting transporter confirmation')}
                         </span>
                       ) : (
-                        <span className="font-bold text-slate-800 block truncate">
-                          {booking.driverName} ({booking.vehicleNumber || 'MH-APMC'})
-                        </span>
+                        <div className="space-y-0.5 mt-0.5">
+                          <div className="font-bold text-slate-800 leading-tight">
+                            <span>{booking.driverName || booking.Vehicle?.driverName || t('farmerTransport.assignedDriver', 'Assigned Driver')}</span>
+                            {(booking.vehicleNumber || booking.Vehicle?.registrationNumber) && (
+                              <span className="text-slate-500 font-medium ml-1">
+                                ({booking.vehicleNumber || booking.Vehicle?.registrationNumber})
+                              </span>
+                            )}
+                          </div>
+                          {(booking.vehicleType || booking.vehicleModel || booking.Vehicle?.vehicleType) && (booking.vehicleType || booking.vehicleModel || booking.Vehicle?.vehicleType) !== 'any' && (
+                            <span className="text-[10px] text-slate-500 block truncate leading-tight">
+                              {booking.vehicleType || booking.vehicleModel || booking.Vehicle?.vehicleType}
+                            </span>
+                          )}
+                          <div className="pt-0.5">
+                            {(booking.driverPhone || booking.Vehicle?.driverPhone) ? (
+                              <a
+                                href={`tel:${booking.driverPhone || booking.Vehicle?.driverPhone}`}
+                                className="inline-flex items-center gap-1 font-bold text-emerald-700 hover:text-emerald-800 hover:underline bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 px-2 py-0.5 rounded text-[11px] transition-colors"
+                                title={`Call Driver: ${booking.driverPhone || booking.Vehicle?.driverPhone}`}
+                              >
+                                <Phone className="w-3 h-3 text-emerald-600 shrink-0" />
+                                <span className="font-mono">{booking.driverPhone || booking.Vehicle?.driverPhone}</span>
+                                <span className="text-[9px] font-black uppercase text-emerald-800 bg-emerald-200/60 px-1 py-0.2 rounded ml-0.5">
+                                  {t('farmerTransport.callBtn', 'Call')}
+                                </span>
+                              </a>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 italic flex items-center gap-1">
+                                <Phone className="w-2.5 h-2.5 opacity-50 shrink-0" />
+                                <span>{t('farmerTransport.contactUnavailable', 'Contact number unavailable')}</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
                     <div>
