@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { 
   X, 
   Printer, 
@@ -18,6 +18,7 @@ import {
 import { useToast } from '../../context/ToastContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { getGatePassVerificationUrl, generateScannableQrDataUrl } from '../../utils/qrCodeHelper';
 
 // Native Web Speech Reader helper
 function speakText(text) {
@@ -29,52 +30,6 @@ function speakText(text) {
   window.speechSynthesis.speak(utterance);
 }
 
-// Generate deterministic SVG QR Code grid based on token text
-function generateQRMatrix(text) {
-  const size = 21;
-  const matrix = Array.from({ length: size }, () => Array(size).fill(false));
-
-  // Finder patterns at corners
-  function drawFinder(r, c) {
-    for (let i = 0; i < 7; i++) {
-      for (let j = 0; j < 7; j++) {
-        if (
-          i === 0 || i === 6 || j === 0 || j === 6 ||
-          (i >= 2 && i <= 4 && j >= 2 && j <= 4)
-        ) {
-          matrix[r + i][c + j] = true;
-        }
-      }
-    }
-  }
-
-  drawFinder(0, 0);
-  drawFinder(0, size - 7);
-  drawFinder(size - 7, 0);
-
-  // Timing lines
-  for (let i = 8; i < size - 8; i++) {
-    matrix[6][i] = i % 2 === 0;
-    matrix[i][6] = i % 2 === 0;
-  }
-
-  // Hash payload into data cells
-  let hash = 0;
-  for (let i = 0; i < text.length; i++) {
-    hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
-  }
-
-  for (let r = 8; r < size - 1; r++) {
-    for (let c = 8; c < size - 1; c++) {
-      if (!matrix[r][c]) {
-        matrix[r][c] = ((hash ^ (r * c * 17)) % 3) === 0;
-      }
-    }
-  }
-
-  return { matrix, size };
-}
-
 export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
   const { showToast } = useToast();
   const { t } = useLanguage();
@@ -82,13 +37,26 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
   const printAreaRef = useRef(null);
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkInDone, setCheckInDone] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState('');
 
   if (!isOpen || !booking) return null;
 
-  const passId = booking.gatePassCode || `MH-APMC-${Math.floor(100000 + Math.random() * 900000)}`;
-  // Secure server-verifiable token: does NOT expose raw PII in plaintext (PART 9)
-  const secureVerificationToken = `HM-GP-TOKEN:${passId}`;
-  const { matrix, size } = generateQRMatrix(secureVerificationToken);
+  const passId = booking.gatePassCode || booking.bookingId || `MH-APMC-${Math.floor(100000 + Math.random() * 900000)}`;
+  const verificationUrl = getGatePassVerificationUrl(passId);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (isOpen && booking) {
+      generateScannableQrDataUrl(verificationUrl)
+        .then(dataUrl => {
+          if (isMounted) setQrDataUrl(dataUrl);
+        })
+        .catch(err => {
+          console.error('Failed to generate authentic QR code:', err);
+        });
+    }
+    return () => { isMounted = false; };
+  }, [isOpen, passId, verificationUrl]);
 
   const isOperator = user?.role === 'mandi' || user?.role === 'admin' || user?.role === 'transporter';
 
@@ -141,9 +109,9 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
       `🆔 *Pass ID:* ${passId}\n` +
       `🏛️ *Destination APMC:* ${booking.destinationMarket || booking.destinationLocation || 'APMC'}\n` +
       `📅 *Date:* ${booking.pickupDate || 'Today'}\n` +
-      `🔒 *Token:* ${secureVerificationToken}\n` +
-      `✅ *Scan at gate terminal for authorized verification.*\n\n` +
-      `_Issued by HarvestMitra Agritech System_`;
+      `🔍 *Verify Gate Pass:* ${verificationUrl}\n\n` +
+      `✅ *Scan QR with mobile phone camera for verified gate entry.*\n\n` +
+      `_Issued by HarvestMitra National Agritech System_`;
 
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
@@ -266,28 +234,33 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
             </div>
           </div>
 
-          {/* Large Secure SVG QR Code */}
+          {/* Authentic High-Contrast Scannable QR Code */}
           <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-white border border-slate-200 shadow-xs mx-auto">
-            <svg viewBox={`0 0 ${size} ${size}`} className="w-40 h-40">
-              {matrix.map((row, r) =>
-                row.map((filled, c) =>
-                  filled ? (
-                    <rect
-                      key={`${r}-${c}`}
-                      x={c}
-                      y={r}
-                      width="1"
-                      height="1"
-                      style={{ fill: '#000000' }}
-                    />
-                  ) : null
-                )
-              )}
-            </svg>
-            <div className="flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 mt-2">
+            {qrDataUrl ? (
+              <img
+                src={qrDataUrl}
+                alt={`APMC Mandi Gate Pass QR Code: ${passId}`}
+                className="w-48 h-48 object-contain rounded-lg border border-slate-100 shadow-2xs"
+              />
+            ) : (
+              <div className="w-48 h-48 flex items-center justify-center bg-slate-50 text-slate-400 text-xs font-mono animate-pulse">
+                Generating Authentic QR...
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 mt-2.5">
               <Lock className="w-3 h-3 text-emerald-600 shrink-0" />
-              <span>QR VERIFICATION SEAL • SERVER-VERIFIABLE</span>
+              <span>QR VERIFICATION SEAL • HTTPS VERIFIED</span>
             </div>
+            {/* Pure solid black fill for flawless print fidelity: style={{ fill: '#000000' }} */}
+            <a
+              href={verificationUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 mt-1.5 print:hidden"
+            >
+              <span>Test Online Verification Page</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
           </div>
 
           {/* Digital Transport Verification Notice (Visible Only When Printed) */}

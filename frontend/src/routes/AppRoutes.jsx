@@ -28,6 +28,7 @@ import FpoTransportPage from '../pages/fpo/FpoTransportPage';
 import FpoOrdersPage from '../pages/fpo/FpoOrdersPage';
 import FpoRequestsPage from '../pages/fpo/FpoRequestsPage';
 import FarmerFpoPage from '../pages/FarmerFpoPage';
+import VerifyGatePassPage from '../pages/VerifyGatePassPage';
 import { useAuth } from '../context/AuthContext';
 
 function FpoRouteGate() {
@@ -57,6 +58,13 @@ export default function AppRoutes() {
       </Route>
       <Route path="/login" element={<AuthPage mode="login" />} />
       <Route path="/register" element={<AuthPage mode="register" />} />
+
+      {/* Public Digital Gate Pass Verification (Scanned via normal mobile phone camera) */}
+      <Route path="/verify-gate-pass/:code" element={<VerifyGatePassPage />} />
+      <Route path="/verify-gate-pass" element={<VerifyGatePassPage />} />
+      <Route path="/gatepass/verify/:code" element={<VerifyGatePassPage />} />
+      <Route path="/gatepass/verify" element={<VerifyGatePassPage />} />
+      <Route path="/gatepass" element={<VerifyGatePassPage />} />
 
       {/* Application & Feature Workspace Routes */}
       <Route
