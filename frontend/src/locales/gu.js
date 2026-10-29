@@ -27,6 +27,7 @@ export const gu = {
     getStarted: "શરૂઆત કરો",
     menu: "મેનૂ",
     close: "બંધ કરો",
+    requestJoinFpo: "FPO માં જોડાવા માટે વિનંતી",
   },
   dashboard: {
     title: "ખેડૂત ડેશબોર્ડ",

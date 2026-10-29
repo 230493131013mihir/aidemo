@@ -136,12 +136,6 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
           testLabel: t('nav.harvest', 'Harvest Simulator'),
           icon: Calculator, 
           description: 'Compare mandis & net earnings' 
-        },
-        { 
-          to: '/dashboard#registered-crops', 
-          label: t('nav.myCropListings', 'My Crop Listings'), 
-          icon: Sprout, 
-          description: 'Active crops & quantities' 
         }
       ]
     },
@@ -157,18 +151,6 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
           testLabel: t('nav.transport', 'Shared Transport'),
           icon: Truck, 
           description: 'Available verified trucks' 
-        },
-        { 
-          to: '/transport#my-bookings', 
-          label: t('nav.myBookings', 'My Bookings'), 
-          icon: ClipboardList, 
-          description: 'Trip status & receipts' 
-        },
-        { 
-          to: '/transport#live-tracking', 
-          label: t('nav.trackTransport', 'Track Transport'), 
-          icon: Navigation, 
-          description: 'Live driver location' 
         }
       ]
     },
@@ -203,6 +185,12 @@ export default function Sidebar({ isOpen = false, onClose, className = '' }) {
           label: t('nav.schemes', 'Govt Schemes'),
           icon: Landmark,
           description: 'Subsidies & welfare checklist'
+        },
+        {
+          to: '/fpo',
+          label: t('nav.requestJoinFpo', 'Request to Join FPO'),
+          icon: Users,
+          description: 'Join agricultural collective'
         }
       ]
     }

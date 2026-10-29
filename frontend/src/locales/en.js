@@ -68,6 +68,7 @@ export const en = {
     farmingGuidance: "Farming Guidance",
     govtSchemes: "Government Schemes",
     fpoMembership: "FPO Membership",
+    requestJoinFpo: "Request to Join FPO",
     relevantSupport: "Support Services",
     languageSelect: "Language",
     accountSettings: "Account Settings",

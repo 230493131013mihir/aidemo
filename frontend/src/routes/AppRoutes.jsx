@@ -75,6 +75,10 @@ export default function AppRoutes() {
           element={<FpoRouteGate />}
         />
         <Route
+          path="/farmer/fpo"
+          element={<FpoRouteGate />}
+        />
+        <Route
           path="/fpo/dashboard"
           element={
             <ProtectedRoute requiredRole="fpo">

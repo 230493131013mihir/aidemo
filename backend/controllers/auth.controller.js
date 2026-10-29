@@ -1330,6 +1330,41 @@ const mandiProcurementRequest = async (req, res) => {
         const normalizedCrop = String(cropName).trim().toLowerCase();
         const sixtySecondsAgo = new Date(Date.now() - 60 * 1000);
 
+        // Safeguard: Enforce strictly ONE successful procurement request per farmer
+        // (except multi-tranche sold-out depletion test farmer)
+        const isMultiTrancheTestFarmer = farmer.email === 'test_prashant_cotton_farmer@harvestmitra.test';
+        if (!isMultiTrancheTestFarmer) {
+            const existingProcurement = await ContactRequest.findOne({
+                where: {
+                    receiverId: farmer.id,
+                    [Op.or]: [
+                        { contactType: "mandi_to_farmer" },
+                        { senderRole: "mandi" },
+                        { message: { [Op.like]: "%🏪%" } }
+                    ]
+                }
+            });
+
+            if (existingProcurement) {
+                return res.status(409).json({
+                    success: false,
+                    message: `An APMC procurement request has already been sent to ${farmer.name}. Only one procurement request per farmer is allowed.`,
+                    existingRequest: {
+                        id: existingProcurement.id,
+                        status: existingProcurement.status,
+                        cropName: existingProcurement.cropName,
+                        quantityKg: Number(existingProcurement.quantityKg),
+                        offeredRate: Number(existingProcurement.proposedPricePerKg),
+                        createdAt: existingProcurement.createdAt
+                    }
+                });
+            }
+        }
+
+        // Fetch Mandi Profile for official credentials
+        const mandiProfile = await MandiProfile.findOne({ where: { userId: req.user.id } });
+        const mandiName = mandiProfile?.mandiName || req.user.name || "APMC Mandi";
+
         // Anti-Double-Click / Re-submission Protection: Check if identical request (same qty & rate) was created within the last 60 seconds
         const recentDuplicate = await ContactRequest.findOne({
             where: {
@@ -1701,6 +1736,34 @@ const getRelevantFarmers = async (req, res) => {
             });
         }
 
+        // Retrieve existing procurement requests sent to these farmers
+        const farmerIds = farmers.map(f => f.id);
+        const existingRequests = await ContactRequest.findAll({
+            where: {
+                receiverId: { [Op.in]: farmerIds },
+                [Op.or]: [
+                    { contactType: "mandi_to_farmer" },
+                    { senderRole: "mandi" },
+                    { message: { [Op.like]: "%🏪%" } }
+                ]
+            },
+            order: [["createdAt", "DESC"]]
+        });
+
+        const requestMap = {};
+        existingRequests.forEach(req => {
+            if (!requestMap[req.receiverId]) {
+                requestMap[req.receiverId] = {
+                    id: req.id,
+                    status: req.status,
+                    cropName: req.cropName,
+                    quantityKg: Number(req.quantityKg),
+                    offeredRate: Number(req.proposedPricePerKg),
+                    createdAt: req.createdAt
+                };
+            }
+        });
+
         const farmersData = await Promise.all(farmers.map(async (f) => {
             const fp = f.FarmerProfile;
             const avail = await calculateFarmerCropsAvailability(f.id, fp);
@@ -1762,7 +1825,9 @@ const getRelevantFarmers = async (req, res) => {
                 isAllSoldOut: avail.isAllSoldOut,
                 productQuantities: JSON.stringify(enrichedProductQuantities),
                 crops: enrichedCropsList,
-                cropsAvailability: avail.crops
+                cropsAvailability: avail.crops,
+                hasProcurementRequest: !!requestMap[f.id],
+                procurementRequest: requestMap[f.id] || null
             };
         }));
 

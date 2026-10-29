@@ -68,6 +68,11 @@ async function runTests() {
   const farmerToken = jwt.sign({ id: farmer.id, role: farmer.role, name: farmer.name }, secret, { expiresIn: '1h' });
   const mandiToken = jwt.sign({ id: mandiUser.id, role: mandiUser.role, name: mandiUser.name }, secret, { expiresIn: '1h' });
 
+  // Clean up any previous test requests for this farmer
+  await ContactRequest.destroy({
+    where: { receiverId: farmer.id }
+  });
+
   // Test 1: Unauthenticated request to /api/auth/mandi-procurement-request is rejected with 401
   const res1 = await fetch(`${baseUrl}/api/auth/mandi-procurement-request`, {
     method: 'POST',
@@ -146,10 +151,34 @@ async function runTests() {
   const json6 = await res6.json();
   assert.strictEqual(json6.success, true);
   assert.ok(Array.isArray(json6.data), 'Farmers data is returned as array');
-  console.log(`  ✅ [PASS] 6. Mandi fetched ${json6.data.length} registered district farmers`);
+  const targetFarmerInDirectory = json6.data.find(f => f.id === farmer.id);
+  assert.ok(targetFarmerInDirectory, 'Target farmer must be found in directory');
+  assert.strictEqual(targetFarmerInDirectory.hasProcurementRequest, true, 'hasProcurementRequest must be true for target farmer');
+  assert.strictEqual(targetFarmerInDirectory.procurementRequest.cropName, 'Cotton', 'procurementRequest details must match');
+  console.log(`  ✅ [PASS] 6. Mandi fetched ${json6.data.length} registered district farmers with persisted procurement status`);
+
+  // Test 7: Duplicate procurement request to the same farmer is rejected with 409 Conflict
+  const res7 = await fetch(`${baseUrl}/api/auth/mandi-procurement-request`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${mandiToken}`
+    },
+    body: JSON.stringify({
+      farmerId: farmer.id,
+      cropName: 'Cotton',
+      quantityKg: 300,
+      offeredRate: 78.00
+    })
+  });
+  assert.strictEqual(res7.status, 409, 'Duplicate procurement request to the same farmer must be rejected with 409 Conflict');
+  const json7 = await res7.json();
+  assert.strictEqual(json7.success, false);
+  assert.ok(json7.message.includes('Only one procurement request per farmer is allowed'), 'Error message informs user of one-request rule');
+  console.log('  ✅ [PASS] 7. Duplicate procurement request rejected with 409 Conflict (One-Request-Per-Farmer Enforced)');
 
   console.log('\n======================================================');
-  console.log('🎉 ALL 6 APMC MANDI PORTAL & PROCUREMENT TESTS PASSED!');
+  console.log('🎉 ALL 7 APMC MANDI PORTAL & PROCUREMENT TESTS PASSED!');
   console.log('======================================================\n');
 
   server.close();
