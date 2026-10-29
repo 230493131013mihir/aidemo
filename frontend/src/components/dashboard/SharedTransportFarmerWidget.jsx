@@ -1607,44 +1607,82 @@ export default function SharedTransportFarmerWidget({
                       </div>
 
                       {/* Specs Matrix */}
-                      <div className="grid grid-cols-2 gap-1.5 text-[11px] bg-white p-2.5 rounded-xl border border-slate-200/90">
-                        <div>
-                          <span className="text-slate-500 block text-[10px]">Total Capacity:</span>
-                          <span className="font-bold text-slate-900 font-mono">
-                            {vehicle.capacityKg.toLocaleString('en-IN')} kg
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-slate-500 block text-[10px]">Space Available:</span>
-                          <span
-                            className={`font-bold font-mono ${
-                              isDedicatedReserved
-                                ? 'text-amber-700'
+                      {/* Specs Matrix: Total Capacity, Confirmed Booked Load, Remaining Capacity */}
+                      <div className="space-y-1.5 text-[11px] bg-white p-2.5 rounded-xl border border-slate-200/90">
+                        <div className="grid grid-cols-3 gap-1 text-center bg-slate-50 p-1.5 rounded-lg border border-slate-200/70">
+                          <div>
+                            <span className="text-slate-500 block text-[9.5px] font-semibold">Total Cap</span>
+                            <span className="font-bold text-slate-900 font-mono text-[11px]">
+                              {vehicle.capacityKg.toLocaleString('en-IN')} kg
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[9.5px] font-semibold">Booked</span>
+                            <span className={`font-bold font-mono text-[11px] ${Number(vehicle.bookedWeightKg || 0) > 0 ? 'text-amber-700' : 'text-slate-600'}`}>
+                              {Number(vehicle.bookedWeightKg || 0).toLocaleString('en-IN')} kg
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[9.5px] font-semibold">Remaining</span>
+                            <span
+                              className={`font-black font-mono text-[11px] ${
+                                isDedicatedReserved
+                                  ? 'text-amber-700'
+                                  : isFullyBooked
+                                  ? 'text-rose-600'
+                                  : isCapacityInsufficient
+                                  ? 'text-amber-600'
+                                  : 'text-emerald-700'
+                              }`}
+                            >
+                              {isDedicatedReserved
+                                ? '0 kg (Reserved)'
                                 : isFullyBooked
-                                ? 'text-rose-600'
-                                : isCapacityInsufficient
-                                ? 'text-amber-600'
-                                : 'text-blue-700'
-                            }`}
-                          >
-                            {isDedicatedReserved
-                              ? '0 kg (Dedicated Reserved)'
-                              : isFullyBooked
-                              ? '0 kg (Full / Sold Out)'
-                              : `${vehicle.remainingCapacityKg.toLocaleString('en-IN')} kg free`}
-                          </span>
+                                ? '0 kg (FULL)'
+                                : `${(vehicle.remainingCapacityKg !== undefined ? vehicle.remainingCapacityKg : vehicle.capacityKg).toLocaleString('en-IN')} kg`}
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-slate-500 block text-[10px]">Driver:</span>
-                          <span className="font-semibold text-slate-800 block truncate">
-                            {vehicle.driverName}
-                          </span>
+
+                        {/* Capacity Progress Bar */}
+                        <div className="space-y-0.5">
+                          <div className="flex justify-between text-[9.5px] text-slate-500">
+                            <span>Capacity Load</span>
+                            <span className="font-mono font-bold text-slate-700">
+                              {isFullyBooked
+                                ? '100% FULL'
+                                : `${Math.round(((Number(vehicle.bookedWeightKg || 0)) / (Number(vehicle.capacityKg || 1))) * 100)}% Booked`}
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60">
+                            <div
+                              className={`h-full transition-all duration-300 ${
+                                isFullyBooked
+                                  ? 'bg-rose-600'
+                                  : Number(vehicle.bookedWeightKg || 0) > 0
+                                  ? 'bg-amber-500'
+                                  : 'bg-emerald-500'
+                              }`}
+                              style={{
+                                width: `${Math.min(100, Math.round(((Number(vehicle.bookedWeightKg || 0)) / (Number(vehicle.capacityKg || 1))) * 100))}%`
+                              }}
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-slate-500 block text-[10px]">Route:</span>
-                          <span className="font-semibold text-slate-800 block truncate">
-                            {vehicle.baseLocation || 'Pune'} ➔ APMC
-                          </span>
+
+                        <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-100">
+                          <div>
+                            <span className="text-slate-500 block text-[10px]">Driver:</span>
+                            <span className="font-semibold text-slate-800 block truncate">
+                              {vehicle.driverName}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[10px]">Route:</span>
+                            <span className="font-semibold text-slate-800 block truncate">
+                              {vehicle.baseLocation || 'Pune'} ➔ APMC
+                            </span>
+                          </div>
                         </div>
                       </div>
 

@@ -15,7 +15,10 @@ const {
     reports,
     listAuditLogs,
     listVehicles,
-    vehicleMetrics
+    vehicleMetrics,
+    listFarmers,
+    listTransporters,
+    listSchemes
 } = require("../controllers/admin.controller");
 
 const router = express.Router();
@@ -23,6 +26,9 @@ router.use(authMiddleware, adminMiddleware);
 
 router.get("/overview", overview);
 router.get("/users", listUsers);
+router.get("/farmers", listFarmers);
+router.get("/transporters", listTransporters);
+router.get("/schemes", listSchemes);
 router.put("/users/:id", updateUser);
 router.delete("/users/:id", deleteUser);
 

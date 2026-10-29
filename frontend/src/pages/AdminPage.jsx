@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { 
   AlertCircle, 
   IndianRupee, 
@@ -30,7 +30,10 @@ import {
   Download,
   Activity,
   Server,
-  ShieldCheck
+  ShieldCheck,
+  ChevronDown,
+  ChevronUp,
+  Eye
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -48,6 +51,7 @@ function authHeaders(token) {
 
 export default function AdminPage() {
   const navigate = useNavigate();
+  const { view: urlView } = useParams();
   const { user, token: userToken, isAuthenticated, login, logout } = useAuth();
   const { showToast } = useToast();
   const { greeting, icon } = getTimeGreeting();
@@ -128,6 +132,45 @@ export default function AdminPage() {
     officialInfoUrl: 'https://agricoop.nic.in',
     benefitDescription: ''
   });
+
+  // ── Card Detail View State ──────────────────────────────────────────────────
+  // Farmers detail view
+  const [farmers, setFarmers] = useState([]);
+  const [farmersLoading, setFarmersLoading] = useState(false);
+  const [farmersError, setFarmersError] = useState('');
+  const [farmerSearch, setFarmerSearch] = useState('');
+  const [farmerStatusFilter, setFarmerStatusFilter] = useState('all');
+  const [farmerPage, setFarmerPage] = useState(1);
+
+  // Transporters detail view
+  const [transportersList, setTransportersList] = useState([]);
+  const [transportersLoading, setTransportersLoading] = useState(false);
+  const [transportersError, setTransportersError] = useState('');
+  const [transporterSearch, setTransporterSearch] = useState('');
+  const [transporterStatusFilter, setTransporterStatusFilter] = useState('all');
+  const [transporterPage, setTransporterPage] = useState(1);
+  const [expandedTransporter, setExpandedTransporter] = useState(null);
+
+  // Mandis detail view
+  const [mandisSearch, setMandisSearch] = useState('');
+  const [mandisStatusFilter, setMandisStatusFilter] = useState('all');
+  const [mandisStateFilter, setMandisStateFilter] = useState('all');
+  const [mandisPage, setMandisPage] = useState(1);
+
+  // Users detail view (reuses existing users state)
+  const [usersDetailSearch, setUsersDetailSearch] = useState('');
+  const [usersDetailRoleFilter, setUsersDetailRoleFilter] = useState('all');
+  const [usersDetailStatusFilter, setUsersDetailStatusFilter] = useState('all');
+  const [usersDetailPage, setUsersDetailPage] = useState(1);
+
+  // Schemes detail view
+  const [schemesDetailSearch, setSchemesDetailSearch] = useState('');
+  const [schemesDetailStatusFilter, setSchemesDetailStatusFilter] = useState('all');
+  const [schemesDetailDeptFilter, setSchemesDetailDeptFilter] = useState('all');
+  const [schemesDetailPage, setSchemesDetailPage] = useState(1);
+  const [schemesDetailList, setSchemesDetailList] = useState([]);
+  const [schemesDetailLoading, setSchemesDetailLoading] = useState(false);
+  const [schemesDetailError, setSchemesDetailError] = useState('');
 
   // If user is already logged in as admin through main auth, reuse token
   useEffect(() => {
@@ -763,13 +806,188 @@ export default function AdminPage() {
   }
 
   const cards = [
-    { label: 'Registered Users', value: summary?.users || users.length || 0, sublabel: 'Verified multi-role accounts', icon: Users, color: 'text-blue-600 bg-blue-50' },
-    { label: 'Farmer Profiles', value: summary?.farmers || 0, sublabel: '7/12 Land & Agristack Linked', icon: Wheat, color: 'text-emerald-600 bg-emerald-50' },
-    { label: 'Transporters', value: summary?.transporters || 0, sublabel: 'Verified Fleet Logistics', icon: Truck, color: 'text-cyan-600 bg-cyan-50' },
-    { label: 'Active Mandis', value: summary?.markets || markets.length || 0, sublabel: 'APMC Market Yards in Directory', icon: Store, color: 'text-amber-600 bg-amber-50' },
-    { label: 'Total APMC Price Benchmarks', value: summary?.marketPrices || prices.length || 0, sublabel: '12,504 Nationwide Mandis in MySQL', icon: IndianRupee, color: 'text-purple-600 bg-purple-50' },
-    { label: 'Verified Schemes', value: schemes.length || 10, sublabel: 'National & State Schemes', icon: Landmark, color: 'text-emerald-700 bg-emerald-50' },
+    { label: 'Registered Users', value: summary?.users || users.length || 0, sublabel: 'Verified multi-role accounts', icon: Users, color: 'text-blue-600 bg-blue-50', navTo: 'users' },
+    { label: 'Farmer Profiles', value: summary?.farmers || 0, sublabel: '7/12 Land & Agristack Linked', icon: Wheat, color: 'text-emerald-600 bg-emerald-50', navTo: 'farmers' },
+    { label: 'Transporters', value: summary?.transporters || 0, sublabel: 'Verified Fleet Logistics', icon: Truck, color: 'text-cyan-600 bg-cyan-50', navTo: 'transporters' },
+    { label: 'Active Mandis', value: summary?.markets || markets.length || 0, sublabel: 'APMC Market Yards in Directory', icon: Store, color: 'text-amber-600 bg-amber-50', navTo: 'mandis' },
+    { label: 'Total APMC Price Benchmarks', value: summary?.marketPrices || prices.length || 0, sublabel: '12,504 Nationwide Mandis in MySQL', icon: IndianRupee, color: 'text-purple-600 bg-purple-50', navTo: null },
+    { label: 'Verified Schemes', value: summary?.schemes || schemes.length || 0, sublabel: 'National & State Schemes', icon: Landmark, color: 'text-emerald-700 bg-emerald-50', navTo: 'schemes' },
   ];
+
+  // ── Loaders for card detail views ──────────────────────────────────────────
+  async function loadFarmers() {
+    if (!token) return;
+    setFarmersLoading(true);
+    setFarmersError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/farmers`, { headers: authHeaders(token) });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Unable to load farmer profiles');
+      setFarmers(data.data || []);
+    } catch (err) {
+      setFarmersError(err.message);
+    } finally {
+      setFarmersLoading(false);
+    }
+  }
+
+  async function loadTransporters() {
+    if (!token) return;
+    setTransportersLoading(true);
+    setTransportersError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/transporters`, { headers: authHeaders(token) });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Unable to load transporters');
+      setTransportersList(data.data || []);
+    } catch (err) {
+      setTransportersError(err.message);
+    } finally {
+      setTransportersLoading(false);
+    }
+  }
+
+  async function loadSchemesDetail() {
+    if (!token) return;
+    setSchemesDetailLoading(true);
+    setSchemesDetailError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/schemes`, { headers: authHeaders(token) });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Unable to load schemes');
+      setSchemesDetailList(data.data || []);
+    } catch (err) {
+      setSchemesDetailError(err.message);
+    } finally {
+      setSchemesDetailLoading(false);
+    }
+  }
+
+  // Load data when navigating to a detail view
+  useEffect(() => {
+    if (urlView === 'farmers' && token && farmers.length === 0 && !farmersLoading) {
+      loadFarmers();
+    }
+    if (urlView === 'transporters' && token && transportersList.length === 0 && !transportersLoading) {
+      loadTransporters();
+    }
+    if (urlView === 'schemes' && token && schemesDetailList.length === 0 && !schemesDetailLoading) {
+      loadSchemesDetail();
+    }
+    // users and mandis reuse existing state already loaded by loadAdminData()
+  }, [urlView, token]);
+
+  // ── Derived/filtered lists for detail views ────────────────────────────────
+  const DETAIL_PER_PAGE = 10;
+
+  const filteredUsersDetail = useMemo(() => {
+    return users.filter((u) => {
+      const q = usersDetailSearch.toLowerCase();
+      const matchQ = !q || (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q) || (u.phone||'').includes(q);
+      const matchRole = usersDetailRoleFilter === 'all' || u.role === usersDetailRoleFilter;
+      const matchStatus = usersDetailStatusFilter === 'all' || (usersDetailStatusFilter === 'active' ? (u.status !== 'suspended' && u.status !== 'disabled') : (u.status === 'suspended' || u.status === 'disabled'));
+      return matchQ && matchRole && matchStatus;
+    });
+  }, [users, usersDetailSearch, usersDetailRoleFilter, usersDetailStatusFilter]);
+  const usersDetailTotalPages = Math.ceil(filteredUsersDetail.length / DETAIL_PER_PAGE) || 1;
+  const usersDetailDisplayed = useMemo(() => filteredUsersDetail.slice((usersDetailPage-1)*DETAIL_PER_PAGE, usersDetailPage*DETAIL_PER_PAGE), [filteredUsersDetail, usersDetailPage]);
+
+  const filteredFarmers = useMemo(() => {
+    return farmers.filter((f) => {
+      const u = f.User || {};
+      const q = farmerSearch.toLowerCase();
+      const matchQ = !q || (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q) || (u.phone||'').includes(q) || (f.district||'').toLowerCase().includes(q) || (f.village||'').toLowerCase().includes(q);
+      const matchStatus = farmerStatusFilter === 'all' || (farmerStatusFilter === 'verified' ? f.isGovtVerified : !f.isGovtVerified);
+      return matchQ && matchStatus;
+    });
+  }, [farmers, farmerSearch, farmerStatusFilter]);
+  const farmersTotalPages = Math.ceil(filteredFarmers.length / DETAIL_PER_PAGE) || 1;
+  const farmersDisplayed = useMemo(() => filteredFarmers.slice((farmerPage-1)*DETAIL_PER_PAGE, farmerPage*DETAIL_PER_PAGE), [filteredFarmers, farmerPage]);
+
+  const filteredTransporters = useMemo(() => {
+    return transportersList.filter((t) => {
+      const q = transporterSearch.toLowerCase();
+      const tp = t.TransporterProfile || {};
+      const matchQ = !q || (t.name||'').toLowerCase().includes(q) || (t.email||'').toLowerCase().includes(q) || (t.phone||'').includes(q) || (tp.baseMandi||'').toLowerCase().includes(q);
+      const matchStatus = transporterStatusFilter === 'all' || (transporterStatusFilter === 'active' ? (t.status !== 'suspended') : t.status === 'suspended');
+      return matchQ && matchStatus;
+    });
+  }, [transportersList, transporterSearch, transporterStatusFilter]);
+  const transportersTotalPages = Math.ceil(filteredTransporters.length / DETAIL_PER_PAGE) || 1;
+  const transportersDisplayed = useMemo(() => filteredTransporters.slice((transporterPage-1)*DETAIL_PER_PAGE, transporterPage*DETAIL_PER_PAGE), [filteredTransporters, transporterPage]);
+
+  const filteredMandis = useMemo(() => {
+    return markets.filter((m) => {
+      const q = mandisSearch.toLowerCase();
+      const matchQ = !q || (m.name||'').toLowerCase().includes(q) || (m.district||'').toLowerCase().includes(q) || (m.state||'').toLowerCase().includes(q);
+      const matchState = mandisStateFilter === 'all' || (m.state||'').toLowerCase() === mandisStateFilter.toLowerCase();
+      const matchStatus = mandisStatusFilter === 'all' || (mandisStatusFilter === 'active' ? m.isActive !== false : m.isActive === false);
+      return matchQ && matchState && matchStatus;
+    });
+  }, [markets, mandisSearch, mandisStateFilter, mandisStatusFilter]);
+  const mandisTotalPages = Math.ceil(filteredMandis.length / DETAIL_PER_PAGE) || 1;
+  const mandisDisplayed = useMemo(() => filteredMandis.slice((mandisPage-1)*DETAIL_PER_PAGE, mandisPage*DETAIL_PER_PAGE), [filteredMandis, mandisPage]);
+
+  const filteredSchemesDetail = useMemo(() => {
+    return schemesDetailList.filter((s) => {
+      const q = schemesDetailSearch.toLowerCase();
+      const matchQ = !q || (s.nameEn||s.name||'').toLowerCase().includes(q) || (s.department||'').toLowerCase().includes(q) || (s.category||'').toLowerCase().includes(q);
+      const matchStatus = schemesDetailStatusFilter === 'all' || (schemesDetailStatusFilter === 'verified' ? s.isActive !== false : s.isActive === false);
+      const matchDept = schemesDetailDeptFilter === 'all' || (s.department||'').toLowerCase().includes(schemesDetailDeptFilter.toLowerCase());
+      return matchQ && matchStatus && matchDept;
+    });
+  }, [schemesDetailList, schemesDetailSearch, schemesDetailStatusFilter, schemesDetailDeptFilter]);
+  const schemesDetailTotalPages = Math.ceil(filteredSchemesDetail.length / DETAIL_PER_PAGE) || 1;
+  const schemesDetailDisplayed = useMemo(() => filteredSchemesDetail.slice((schemesDetailPage-1)*DETAIL_PER_PAGE, schemesDetailPage*DETAIL_PER_PAGE), [filteredSchemesDetail, schemesDetailPage]);
+
+  // Helper: pagination bar
+  function PaginationBar({ page, totalPages, onPageChange }) {
+    if (totalPages <= 1) return null;
+    return (
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-border bg-slate-50/50 text-xs">
+        <span className="text-muted text-[11px]">Page <span className="font-bold text-text">{page}</span> of <span className="font-bold text-text">{totalPages}</span></span>
+        <div className="flex items-center gap-1.5">
+          <button type="button" disabled={page <= 1} onClick={() => onPageChange(Math.max(1, page-1))} className="px-3 py-1.5 rounded-xl border border-border bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold">Previous</button>
+          <span className="px-3 py-1.5 rounded-xl bg-primary text-white font-bold font-mono">{page} / {totalPages}</span>
+          <button type="button" disabled={page >= totalPages} onClick={() => onPageChange(Math.min(totalPages, page+1))} className="px-3 py-1.5 rounded-xl border border-border bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold">Next</button>
+        </div>
+      </div>
+    );
+  }
+
+  // Helper: role badge
+  function RoleBadge({ role }) {
+    const cls = role === 'admin' ? 'bg-purple-100 text-purple-800' : role === 'transporter' ? 'bg-blue-100 text-blue-800' : role === 'fpo_leader' || role === 'fpo' ? 'bg-orange-100 text-orange-800' : role === 'mandi_official' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800';
+    const label = role === 'fpo_leader' ? 'FPO Leader' : role === 'fpo' ? 'FPO' : role === 'mandi_official' ? 'Mandi Official' : role;
+    return <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${cls}`}>{label}</span>;
+  }
+
+  // Helper: status badge
+  function StatusBadge({ isActive }) {
+    return isActive !== false
+      ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Active</span>
+      : <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 border border-red-200"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />Suspended</span>;
+  }
+
+  function DetailPageHeader({ title, icon: Icon, iconColor, count, onBack }) {
+    return (
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={onBack} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-white hover:bg-slate-50 text-xs font-bold text-muted hover:text-text transition-all shadow-xs">
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back to Dashboard
+          </button>
+          <div className="flex items-center gap-2">
+            <div className={`p-2 rounded-xl ${iconColor}`}><Icon className="w-4 h-4" /></div>
+            <div>
+              <h2 className="text-base font-black text-text">{title}</h2>
+              {count !== undefined && <p className="text-[11px] text-muted">{count} total records</p>}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 w-full max-w-full 2xl:max-w-[1720px] mx-auto py-4 sm:py-6 px-2 sm:px-4">
@@ -918,17 +1136,365 @@ export default function AdminPage() {
       {/* Main Admin Console Body */}
       {token && (
         <div className="space-y-6">
+
+          {/* ── DETAIL VIEW: Registered Users ─────────────────────────────── */}
+          {urlView === 'users' && (
+            <div className="space-y-4">
+              <DetailPageHeader title="Registered Users" icon={Users} iconColor="bg-blue-100 text-blue-600" count={filteredUsersDetail.length} onBack={() => navigate('/admin')} />
+              {/* Filters */}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+                  <input value={usersDetailSearch} onChange={(e) => { setUsersDetailSearch(e.target.value); setUsersDetailPage(1); }} placeholder="Search by name, email or phone…" className="w-full rounded-xl border border-border pl-9 pr-3 py-2 text-xs outline-none focus:border-primary" />
+                </div>
+                <select value={usersDetailRoleFilter} onChange={(e) => { setUsersDetailRoleFilter(e.target.value); setUsersDetailPage(1); }} className="rounded-xl border border-border px-3 py-2 text-xs bg-white outline-none focus:border-primary font-bold">
+                  <option value="all">All Roles</option>
+                  <option value="farmer">Farmer</option>
+                  <option value="transporter">Transporter</option>
+                  <option value="mandi_official">Mandi Official</option>
+                  <option value="fpo_leader">FPO Leader</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <select value={usersDetailStatusFilter} onChange={(e) => { setUsersDetailStatusFilter(e.target.value); setUsersDetailPage(1); }} className="rounded-xl border border-border px-3 py-2 text-xs bg-white outline-none focus:border-primary font-bold">
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+              <div className="rounded-3xl border border-border bg-white shadow-xs overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50/60 text-muted uppercase tracking-wider text-[10px] border-b border-border">
+                      <tr>
+                        <th className="px-4 py-3">ID</th>
+                        <th className="px-4 py-3">Full Name</th>
+                        <th className="px-4 py-3">Email</th>
+                        <th className="px-4 py-3">Mobile</th>
+                        <th className="px-4 py-3">Role</th>
+                        <th className="px-4 py-3">Registered</th>
+                        <th className="px-4 py-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/60">
+                      {usersDetailDisplayed.length === 0 ? (
+                        <tr><td colSpan={7} className="px-4 py-8 text-center text-muted">No users matched your query.</td></tr>
+                      ) : usersDetailDisplayed.map((u) => (
+                        <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-4 py-3 font-mono text-muted">#{u.id}</td>
+                          <td className="px-4 py-3 font-bold text-text">{u.name || '—'}</td>
+                          <td className="px-4 py-3 text-muted">{u.email || '—'}</td>
+                          <td className="px-4 py-3 font-mono text-text">+91 {u.phone || '—'}</td>
+                          <td className="px-4 py-3"><RoleBadge role={u.role} /></td>
+                          <td className="px-4 py-3 text-muted">{u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-IN') : '—'}</td>
+                          <td className="px-4 py-3"><StatusBadge isActive={u.status !== 'suspended' && u.status !== 'disabled'} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <PaginationBar page={usersDetailPage} totalPages={usersDetailTotalPages} onPageChange={setUsersDetailPage} />
+              </div>
+            </div>
+          )}
+
+          {/* ── DETAIL VIEW: Farmer Profiles ──────────────────────────────── */}
+          {urlView === 'farmers' && (
+            <div className="space-y-4">
+              <DetailPageHeader title="Farmer Profiles" icon={Wheat} iconColor="bg-emerald-100 text-emerald-600" count={filteredFarmers.length} onBack={() => navigate('/admin')} />
+              {farmersError && <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2"><AlertCircle className="w-4 h-4" />{farmersError}</div>}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+                  <input value={farmerSearch} onChange={(e) => { setFarmerSearch(e.target.value); setFarmerPage(1); }} placeholder="Search by name, email, district or village…" className="w-full rounded-xl border border-border pl-9 pr-3 py-2 text-xs outline-none focus:border-primary" />
+                </div>
+                <select value={farmerStatusFilter} onChange={(e) => { setFarmerStatusFilter(e.target.value); setFarmerPage(1); }} className="rounded-xl border border-border px-3 py-2 text-xs bg-white outline-none focus:border-primary font-bold">
+                  <option value="all">All Verification</option>
+                  <option value="verified">Govt. Verified</option>
+                  <option value="unverified">Unverified</option>
+                </select>
+              </div>
+              {farmersLoading ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-muted text-sm"><RefreshCw className="w-5 h-5 animate-spin" /> Loading farmer profiles…</div>
+              ) : (
+                <div className="rounded-3xl border border-border bg-white shadow-xs overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50/60 text-muted uppercase tracking-wider text-[10px] border-b border-border">
+                        <tr>
+                          <th className="px-4 py-3">Farmer Name</th>
+                          <th className="px-4 py-3">ID</th>
+                          <th className="px-4 py-3">Mobile</th>
+                          <th className="px-4 py-3">Email</th>
+                          <th className="px-4 py-3">Village / District</th>
+                          <th className="px-4 py-3">State</th>
+                          <th className="px-4 py-3">Farm Size</th>
+                          <th className="px-4 py-3">Main Crop</th>
+                          <th className="px-4 py-3">Harvest (Kg)</th>
+                          <th className="px-4 py-3">Verification</th>
+                          <th className="px-4 py-3">Registered</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/60">
+                        {farmersDisplayed.length === 0 ? (
+                          <tr><td colSpan={11} className="px-4 py-8 text-center text-muted">No farmer profiles found.</td></tr>
+                        ) : farmersDisplayed.map((f) => {
+                          const u = f.User || {};
+                          return (
+                            <tr key={f.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="px-4 py-3 font-bold text-text">{u.name || '—'}</td>
+                              <td className="px-4 py-3 font-mono text-muted">#{u.id || f.userId}</td>
+                              <td className="px-4 py-3 font-mono">+91 {u.phone || '—'}</td>
+                              <td className="px-4 py-3 text-muted">{u.email || '—'}</td>
+                              <td className="px-4 py-3">{[f.village, f.district].filter(Boolean).join(', ') || '—'}</td>
+                              <td className="px-4 py-3">{f.state || '—'}</td>
+                              <td className="px-4 py-3">{f.farmSizeAcres ? `${f.farmSizeAcres} ac` : '—'}</td>
+                              <td className="px-4 py-3 font-semibold text-emerald-700">{f.mainCrop || f.customCrop || '—'}</td>
+                              <td className="px-4 py-3 font-mono font-bold">{f.currentHarvestKg ?? '—'}</td>
+                              <td className="px-4 py-3">{f.isGovtVerified ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800"><CheckCircle className="w-3 h-3" /> Verified</span> : <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">Pending</span>}</td>
+                              <td className="px-4 py-3 text-muted">{u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-IN') : '—'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <PaginationBar page={farmerPage} totalPages={farmersTotalPages} onPageChange={setFarmerPage} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── DETAIL VIEW: Transporters ─────────────────────────────────── */}
+          {urlView === 'transporters' && (
+            <div className="space-y-4">
+              <DetailPageHeader title="Transporters Management" icon={Truck} iconColor="bg-cyan-100 text-cyan-600" count={filteredTransporters.length} onBack={() => navigate('/admin')} />
+              {transportersError && <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2"><AlertCircle className="w-4 h-4" />{transportersError}</div>}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+                  <input value={transporterSearch} onChange={(e) => { setTransporterSearch(e.target.value); setTransporterPage(1); }} placeholder="Search by name, email, phone or mandi…" className="w-full rounded-xl border border-border pl-9 pr-3 py-2 text-xs outline-none focus:border-primary" />
+                </div>
+                <select value={transporterStatusFilter} onChange={(e) => { setTransporterStatusFilter(e.target.value); setTransporterPage(1); }} className="rounded-xl border border-border px-3 py-2 text-xs bg-white outline-none focus:border-primary font-bold">
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+              {transportersLoading ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-muted text-sm"><RefreshCw className="w-5 h-5 animate-spin" /> Loading transporters…</div>
+              ) : (
+                <div className="rounded-3xl border border-border bg-white shadow-xs overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50/60 text-muted uppercase tracking-wider text-[10px] border-b border-border">
+                        <tr>
+                          <th className="px-4 py-3">Transporter Name</th>
+                          <th className="px-4 py-3">ID</th>
+                          <th className="px-4 py-3">Mobile</th>
+                          <th className="px-4 py-3">Email</th>
+                          <th className="px-4 py-3">Vehicles</th>
+                          <th className="px-4 py-3">Base Mandi</th>
+                          <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3">Fleet Details</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/60">
+                        {transportersDisplayed.length === 0 ? (
+                          <tr><td colSpan={8} className="px-4 py-8 text-center text-muted">No transporters found.</td></tr>
+                        ) : transportersDisplayed.map((t) => {
+                          const tp = t.TransporterProfile || {};
+                          const vehicleList = t.Vehicles || [];
+                          const isExpanded = expandedTransporter === t.id;
+                          return (
+                            <React.Fragment key={t.id}>
+                              <tr className="hover:bg-slate-50/50 transition-colors">
+                                <td className="px-4 py-3 font-bold text-text">{t.name || '—'}</td>
+                                <td className="px-4 py-3 font-mono text-muted">#{t.id}</td>
+                                <td className="px-4 py-3 font-mono">+91 {t.phone || tp.phone || '—'}</td>
+                                <td className="px-4 py-3 text-muted">{t.email || '—'}</td>
+                                <td className="px-4 py-3 font-mono font-bold text-cyan-700">{vehicleList.length}</td>
+                                <td className="px-4 py-3">{tp.baseMandi || '—'}</td>
+                                <td className="px-4 py-3"><StatusBadge isActive={t.status !== 'suspended'} /></td>
+                                <td className="px-4 py-3">
+                                  {vehicleList.length > 0 && (
+                                    <button type="button" onClick={() => setExpandedTransporter(isExpanded ? null : t.id)} className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-cyan-200 bg-cyan-50 text-cyan-700 text-[11px] font-bold hover:bg-cyan-100 transition-colors">
+                                      {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                      {isExpanded ? 'Hide' : 'View'} Fleet
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                              {isExpanded && vehicleList.map((v) => (
+                                <tr key={v.id} className="bg-cyan-50/40 border-l-4 border-cyan-400">
+                                  <td className="px-4 py-2.5 pl-8" colSpan={2}>
+                                    <span className="font-mono font-bold text-cyan-800">{v.registrationNumber}</span>
+                                    <span className="ml-2 text-[11px] text-muted">{v.vehicleType}</span>
+                                  </td>
+                                  <td className="px-4 py-2.5 text-[11px]" colSpan={2}>
+                                    <span className="font-semibold">{v.capacityKg ? `${v.capacityKg.toLocaleString()} kg` : '—'}</span>
+                                    <span className="text-muted ml-1">capacity</span>
+                                  </td>
+                                  <td className="px-4 py-2.5 text-[11px]">{v.driverName}</td>
+                                  <td className="px-4 py-2.5 text-[11px] text-muted">{v.baseLocation}</td>
+                                  <td className="px-4 py-2.5" colSpan={2}>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${v.status === 'available' ? 'bg-emerald-100 text-emerald-800' : v.status === 'busy' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}`}>{v.status}</span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <PaginationBar page={transporterPage} totalPages={transportersTotalPages} onPageChange={setTransporterPage} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── DETAIL VIEW: Active Mandis ─────────────────────────────────── */}
+          {urlView === 'mandis' && (
+            <div className="space-y-4">
+              <DetailPageHeader title="Active Mandis" icon={Store} iconColor="bg-amber-100 text-amber-600" count={filteredMandis.length} onBack={() => navigate('/admin')} />
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+                  <input value={mandisSearch} onChange={(e) => { setMandisSearch(e.target.value); setMandisPage(1); }} placeholder="Search by mandi name, district or state…" className="w-full rounded-xl border border-border pl-9 pr-3 py-2 text-xs outline-none focus:border-primary" />
+                </div>
+                <select value={mandisStateFilter} onChange={(e) => { setMandisStateFilter(e.target.value); setMandisPage(1); }} className="rounded-xl border border-border px-3 py-2 text-xs bg-white outline-none focus:border-primary font-bold">
+                  <option value="all">All States</option>
+                  {availableStates.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <select value={mandisStatusFilter} onChange={(e) => { setMandisStatusFilter(e.target.value); setMandisPage(1); }} className="rounded-xl border border-border px-3 py-2 text-xs bg-white outline-none focus:border-primary font-bold">
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              <div className="rounded-3xl border border-border bg-white shadow-xs overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50/60 text-muted uppercase tracking-wider text-[10px] border-b border-border">
+                      <tr>
+                        <th className="px-4 py-3">Mandi / APMC Name</th>
+                        <th className="px-4 py-3">ID</th>
+                        <th className="px-4 py-3">District</th>
+                        <th className="px-4 py-3">State</th>
+                        <th className="px-4 py-3">Operating Days</th>
+                        <th className="px-4 py-3">Latest Price</th>
+                        <th className="px-4 py-3">Last Updated</th>
+                        <th className="px-4 py-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/60">
+                      {mandisDisplayed.length === 0 ? (
+                        <tr><td colSpan={8} className="px-4 py-8 text-center text-muted">No mandis found.</td></tr>
+                      ) : mandisDisplayed.map((m) => {
+                        const latestPrice = m.MarketPrices?.[0] || null;
+                        return (
+                          <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-3 font-bold text-text">{m.name}</td>
+                            <td className="px-4 py-3 font-mono text-muted">#{m.id}</td>
+                            <td className="px-4 py-3">{m.district || '—'}</td>
+                            <td className="px-4 py-3">{m.state || '—'}</td>
+                            <td className="px-4 py-3 text-muted">{m.operatingDays || '—'}</td>
+                            <td className="px-4 py-3 font-mono font-bold text-amber-700">{latestPrice ? `₹${latestPrice.pricePerQuintal}/qtl` : '—'}</td>
+                            <td className="px-4 py-3 text-muted">{latestPrice?.priceDate ? new Date(latestPrice.priceDate).toLocaleDateString('en-IN') : '—'}</td>
+                            <td className="px-4 py-3"><StatusBadge isActive={m.isActive !== false} /></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <PaginationBar page={mandisPage} totalPages={mandisTotalPages} onPageChange={setMandisPage} />
+              </div>
+            </div>
+          )}
+
+          {/* ── DETAIL VIEW: Verified Schemes ─────────────────────────────── */}
+          {urlView === 'schemes' && (
+            <div className="space-y-4">
+              <DetailPageHeader title="Government Schemes Management" icon={Landmark} iconColor="bg-emerald-100 text-emerald-700" count={filteredSchemesDetail.length} onBack={() => navigate('/admin')} />
+              {schemesDetailError && <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2"><AlertCircle className="w-4 h-4" />{schemesDetailError}</div>}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+                  <input value={schemesDetailSearch} onChange={(e) => { setSchemesDetailSearch(e.target.value); setSchemesDetailPage(1); }} placeholder="Search by scheme name, department or category…" className="w-full rounded-xl border border-border pl-9 pr-3 py-2 text-xs outline-none focus:border-primary" />
+                </div>
+                <select value={schemesDetailStatusFilter} onChange={(e) => { setSchemesDetailStatusFilter(e.target.value); setSchemesDetailPage(1); }} className="rounded-xl border border-border px-3 py-2 text-xs bg-white outline-none focus:border-primary font-bold">
+                  <option value="all">All Status</option>
+                  <option value="verified">Active / Verified</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              {schemesDetailLoading ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-muted text-sm"><RefreshCw className="w-5 h-5 animate-spin" /> Loading schemes…</div>
+              ) : (
+                <div className="rounded-3xl border border-border bg-white shadow-xs overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50/60 text-muted uppercase tracking-wider text-[10px] border-b border-border">
+                        <tr>
+                          <th className="px-4 py-3">Scheme Name</th>
+                          <th className="px-4 py-3">Department</th>
+                          <th className="px-4 py-3">Category</th>
+                          <th className="px-4 py-3">Description</th>
+                          <th className="px-4 py-3">Benefits</th>
+                          <th className="px-4 py-3">Application Link</th>
+                          <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3">Last Verified</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/60">
+                        {schemesDetailDisplayed.length === 0 ? (
+                          <tr><td colSpan={8} className="px-4 py-8 text-center text-muted">No schemes found.</td></tr>
+                        ) : schemesDetailDisplayed.map((s) => (
+                          <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-3 font-bold text-text max-w-[200px]">{s.nameEn || s.name || '—'}</td>
+                            <td className="px-4 py-3 text-muted max-w-[150px]">{s.department || '—'}</td>
+                            <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">{s.category || '—'}</span></td>
+                            <td className="px-4 py-3 text-muted max-w-[200px] line-clamp-2">{s.shortDescriptionEn || s.description || '—'}</td>
+                            <td className="px-4 py-3 text-muted max-w-[200px] line-clamp-2">{s.benefitsEn || s.benefitDescription || '—'}</td>
+                            <td className="px-4 py-3">{(s.officialApplicationUrl || s.officialInfoUrl) ? <a href={s.officialApplicationUrl || s.officialInfoUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1"><ExternalLink className="w-3 h-3" />Apply</a> : '—'}</td>
+                            <td className="px-4 py-3"><StatusBadge isActive={s.isActive !== false} /></td>
+                            <td className="px-4 py-3 text-muted">{s.lastVerifiedDate ? new Date(s.lastVerifiedDate).toLocaleDateString('en-IN') : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <PaginationBar page={schemesDetailPage} totalPages={schemesDetailTotalPages} onPageChange={setSchemesDetailPage} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── NORMAL DASHBOARD (no detail view active) ─────────────────── */}
+          {!urlView && (
+          <div className="contents">
           {/* Top Metrics Cards */}
           <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
             {cards.map((c) => {
               const Icon = c.icon;
+              const isClickable = !!c.navTo;
               return (
                 <article
                   key={c.label}
-                  className="rounded-2xl border border-border bg-white p-4 shadow-xs space-y-2 hover:border-primary/40 transition-all"
+                  onClick={isClickable ? () => navigate(`/admin/${c.navTo}`) : undefined}
+                  className={`rounded-2xl border border-border bg-white p-4 shadow-xs space-y-2 transition-all ${
+                    isClickable
+                      ? 'cursor-pointer hover:border-primary/60 hover:shadow-md hover:-translate-y-0.5 hover:bg-slate-50/60 group'
+                      : 'hover:border-primary/40'
+                  }`}
+                  title={isClickable ? `View all ${c.label}` : undefined}
+                  role={isClickable ? 'button' : undefined}
+                  tabIndex={isClickable ? 0 : undefined}
+                  onKeyDown={isClickable ? (e) => e.key === 'Enter' && navigate(`/admin/${c.navTo}`) : undefined}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted font-bold">{c.label}</span>
+                    <span className="text-xs text-muted font-bold group-hover:text-primary transition-colors">{c.label}</span>
                     <div className={`p-1.5 rounded-lg ${c.color}`}>
                       <Icon className="w-4 h-4" />
                     </div>
@@ -936,6 +1502,11 @@ export default function AdminPage() {
                   <p className="text-2xl font-black text-text font-mono">{c.value}</p>
                   {c.sublabel && (
                     <p className="text-[10px] text-muted font-medium line-clamp-1">{c.sublabel}</p>
+                  )}
+                  {isClickable && (
+                    <p className="text-[10px] text-primary font-semibold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                      <Eye className="w-3 h-3" /> View All Records
+                    </p>
                   )}
                 </article>
               );
@@ -2316,6 +2887,7 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+          </div>)}
         </div>
       )}
 
