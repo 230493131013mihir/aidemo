@@ -39,14 +39,15 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
   const [checkInDone, setCheckInDone] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState('');
 
-  if (!isOpen || !booking) return null;
-
-  const passId = booking.gatePassCode || booking.bookingId || `MH-APMC-${Math.floor(100000 + Math.random() * 900000)}`;
-  const verificationUrl = getGatePassVerificationUrl(passId);
+  const passId = booking?.gatePassCode || booking?.bookingId || (booking?.id ? `MH-APMC-GP-${booking.id}` : '');
+  const verificationUrl = passId ? getGatePassVerificationUrl(passId) : '';
+  const localVerificationUrl = (typeof window !== 'undefined' && passId)
+    ? `${window.location.origin}/verify-gate-pass/${encodeURIComponent(passId)}`
+    : verificationUrl;
 
   useEffect(() => {
     let isMounted = true;
-    if (isOpen && booking) {
+    if (isOpen && booking && verificationUrl) {
       generateScannableQrDataUrl(verificationUrl)
         .then(dataUrl => {
           if (isMounted) setQrDataUrl(dataUrl);
@@ -54,9 +55,13 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
         .catch(err => {
           console.error('Failed to generate authentic QR code:', err);
         });
+    } else {
+      setQrDataUrl('');
     }
     return () => { isMounted = false; };
-  }, [isOpen, passId, verificationUrl]);
+  }, [isOpen, passId, verificationUrl, Boolean(booking)]);
+
+  if (!isOpen || !booking) return null;
 
   const isOperator = user?.role === 'mandi' || user?.role === 'admin' || user?.role === 'transporter';
 
@@ -237,11 +242,23 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
           {/* Authentic High-Contrast Scannable QR Code */}
           <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-white border border-slate-200 shadow-xs mx-auto">
             {qrDataUrl ? (
-              <img
-                src={qrDataUrl}
-                alt={`APMC Mandi Gate Pass QR Code: ${passId}`}
-                className="w-48 h-48 object-contain rounded-lg border border-slate-100 shadow-2xs"
-              />
+              <a
+                href={localVerificationUrl || verificationUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={t('gatePass.clickToVerify', 'Click to open verification page')}
+                className="group relative cursor-pointer block rounded-xl overflow-hidden"
+              >
+                <img
+                  src={qrDataUrl}
+                  alt={`APMC Mandi Gate Pass QR Code: ${passId}`}
+                  className="w-48 h-48 object-contain rounded-lg border border-slate-100 shadow-2xs group-hover:scale-[1.02] transition-transform"
+                />
+                <span className="absolute bottom-1.5 right-1.5 bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 opacity-90 group-hover:opacity-100">
+                  <ExternalLink className="w-3 h-3" />
+                  <span>Open</span>
+                </span>
+              </a>
             ) : (
               <div className="w-48 h-48 flex items-center justify-center bg-slate-50 text-slate-400 text-xs font-mono animate-pulse">
                 Generating Authentic QR...
@@ -251,9 +268,9 @@ export default function DigitalGatePassModal({ isOpen, booking, onClose }) {
               <Lock className="w-3 h-3 text-emerald-600 shrink-0" />
               <span>QR VERIFICATION SEAL • HTTPS VERIFIED</span>
             </div>
-            {/* Pure solid black fill for flawless print fidelity: style={{ fill: '#000000' }} */}
+            {/* Direct Verification Link */}
             <a
-              href={verificationUrl}
+              href={localVerificationUrl || verificationUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 mt-1.5 print:hidden"
