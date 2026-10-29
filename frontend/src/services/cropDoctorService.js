@@ -11,6 +11,7 @@
  */
 
 import { fetchCrops } from './marketApiService.js';
+import { apiClient } from './apiClient.js';
 
 export const CROP_CATEGORIES = [
   { id: 'all', labelKey: 'cropDoctor.allCategories', defaultLabel: 'All Crops' },
@@ -895,4 +896,118 @@ export function buildPrescriptionSpeechText(guide, language = 'en') {
     return `પાક: ${guide.crop}. રોગ નિદાન: ${disease}. તીવ્રતા: ${severity}. જૈવિક ઉપાય: ${organic}. સંકલિત જીવાત નિયંત્રણ: ${chemical}.`;
   }
   return `Crop: ${guide.crop}. Diagnostic: ${disease}. Severity: ${severity}. Biological Management: ${organic}. Integrated Pest Guidance: ${chemical}.`;
+}
+
+/**
+ * Real Photo Diagnosis API Client
+ * Sends user uploaded photos and agronomic context to backend visual pathology service
+ *
+ * @param {Object} params
+ * @param {Array<string>} params.images - Base64 data URLs
+ * @param {Object} params.context - Farmer agronomic context (crop, plant part, symptoms, weather, district)
+ * @param {string} params.language - 'mr' | 'hi' | 'gu' | 'en'
+ * @param {Object} [params.options] - Optional flags (e.g. simulateError)
+ * @returns {Promise<Object>} Structured diagnostic report
+ */
+export async function diagnoseCropPhoto({ images = [], context = {}, language = 'en', options = {} } = {}) {
+  try {
+    const res = await apiClient('/api/crop-doctor/diagnose', {
+      method: 'POST',
+      body: JSON.stringify({
+        images,
+        context,
+        language,
+        options
+      })
+    });
+
+    if (!res.ok) {
+      let errorMsg = `Server error ${res.status}`;
+      try {
+        const errJson = await res.json();
+        errorMsg = errJson.error || errorMsg;
+      } catch (_) {}
+      const err = new Error(errorMsg);
+      err.status = res.status;
+      throw err;
+    }
+
+    return await res.json();
+  } catch (err) {
+    console.error('Crop Doctor diagnosis request failed:', err);
+    throw err;
+  }
+}
+
+/**
+ * Builds localized text for speech reading based on REAL diagnostic report
+ *
+ * @param {Object} report - Structured report from diagnoseCropPhoto
+ * @param {string} language - 'mr' | 'hi' | 'gu' | 'en'
+ * @returns {string} Text to be spoken
+ */
+export function buildStructuredPrescriptionSpeechText(report, language = 'en') {
+  if (!report) return '';
+  const lang = ['mr', 'hi', 'gu', 'en'].includes(language) ? language : 'en';
+
+  if (report.status === 'unrelated_image') {
+    return lang === 'mr'
+      ? 'प्रतिमेमध्ये कोणतेही कृषी पीक किंवा पान आढळले नाही. कृपया पिकाच्या पानाचा किंवा रोगाचा स्पष्ट फोटो अपलोड करा.'
+      : lang === 'hi'
+      ? 'फोटो में कोई फसल या पत्ती नहीं पाई गई। कृपया अपनी फसल की पत्ती का स्पष्ट फोटो अपलोड करें।'
+      : lang === 'gu'
+      ? 'ફોટોમાં કોઈ કૃષિ પાક કે પાન મળ્યું નથી. કૃપા કરીને તમારા પાંદડાંનો સ્પષ્ટ ફોટો અપલોડ કરો.'
+      : 'No crop foliage or plant tissue detected in this photo. Please upload a clear photo of your crop leaf or plant.';
+  }
+
+  if (report.status === 'unreadable_image') {
+    return lang === 'mr'
+      ? 'फोटो अस्पष्ट किंवा अंधुक आहे. कृपया कॅमेरा स्थिर ठेवून दिवसा उजेडात पुन्हा फोटो काढा.'
+      : lang === 'hi'
+      ? 'फोटो धुंधला या कम रोशनी वाला है। कृपया अच्छी रोशनी में स्पष्ट फोटो दोबारा लें।'
+      : lang === 'gu'
+      ? 'ફોટો ઝાંખો છે. કૃપા કરીને સારા પ્રકાશમાં સ્પષ્ટ ફોટો ફરીથી લો.'
+      : 'The photo is too blurry or dark to analyze symptoms. Please retake a clear photo in natural daylight.';
+  }
+
+  if (report.status === 'healthy_plant') {
+    const cropName = report.cropIdentification?.name || 'Crop';
+    return lang === 'mr'
+      ? `पीक: ${cropName}. पीक पूर्णपणे निरोगी आणि टवटवीत दिसत आहे. कोणताही रोग नाही. विनाकारण रासायनिक कीटकनाशके फवारू नका.`
+      : lang === 'hi'
+      ? `फसल: ${cropName}। फसल पूर्णतः स्वस्थ और सामान्य है। कोई रोग नहीं है। अनावश्यक रासायनिक छिड़काव न करें।`
+      : lang === 'gu'
+      ? `પાક: ${cropName}. પાક તંદુરસ્ત જણાય છે. કોઈ રોગ નથી. બિનજરૂરી રાસાયણિક દવા ન છાંટો.`
+      : `Crop: ${cropName}. Plant foliage appears physiologically healthy with no disease symptoms. Do not spray unnecessary chemicals.`;
+  }
+
+  if (report.status === 'unsupported_crop' || report.status === 'uncertain_diagnosis') {
+    const cropName = report.cropIdentification?.name || 'Crop';
+    const condition = report.primaryCause?.name || '';
+    return lang === 'mr'
+      ? `पीक: ${cropName}. स्थिती: ${condition}. अचूक निदानासाठी तालुका कृषी अधिकारी किंवा कृषी विज्ञान केंद्राशी संपर्क साधा.`
+      : lang === 'hi'
+      ? `फसल: ${cropName}। स्थिति: ${condition}। सटीक पहचान हेतु नजदीकी कृषि विज्ञान केंद्र से संपर्क करें।`
+      : lang === 'gu'
+      ? `પાક: ${cropName}. સ્થિતિ: ${condition}. ચોક્કસ નિદાન માટે તાલુકા કૃષિ અધિકારીનો સંપર્ક કરો.`
+      : `Crop: ${cropName}. Status: ${condition}. Physical inspection by a local agronomist is advised before spraying.`;
+  }
+
+  // Diseased crop
+  const crop = report.cropIdentification?.name || '';
+  const condition = report.primaryCause?.name || '';
+  const symptoms = report.observedSymptoms || '';
+  const organic = report.approvedTreatments?.organic || '';
+  const chemical = report.approvedTreatments?.chemical || '';
+
+  if (lang === 'mr') {
+    return `पीक: ${crop}. रोग निदान: ${condition}. लक्षणे: ${symptoms}. सेंद्रिय उपाय: ${organic}. एकात्मिक व्यवस्थापन: ${chemical}.`;
+  }
+  if (lang === 'hi') {
+    return `फसल: ${crop}। रोग निदान: ${condition}। लक्षण: ${symptoms}। जैविक उपाय: ${organic}। एकीकृत प्रबंधन: ${chemical}।`;
+  }
+  if (lang === 'gu') {
+    return `પાક: ${crop}. રોગ નિદાન: ${condition}. લક્ષણો: ${symptoms}. જૈવિક ઉપાય: ${organic}. સંકલિત નિયંત્રણ: ${chemical}.`;
+  }
+  return `Crop: ${crop}. Diagnosis: ${condition}. Observed symptoms: ${symptoms}. Biological management: ${organic}. Integrated pest guidance: ${chemical}.`;
 }

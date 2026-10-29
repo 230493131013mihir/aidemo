@@ -23,8 +23,8 @@ app.disable('x-powered-by');
 
 // Middlewares
 app.use(cors());
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // Root welcome & health check endpoints
 app.get('/', (req, res) => {
@@ -65,6 +65,7 @@ app.use('/api/reports', require('./routes/report.routes'));
 app.use('/api/report', require('./routes/report.routes'));
 app.use('/api/alerts', require('./routes/alert.routes'));
 app.use('/api/fpo', require('./routes/fpo.routes'));
+app.use('/api/crop-doctor', require('./routes/cropDoctorRoutes'));
 
 // Dedicated API 404 handler: guarantees unmatched /api requests ALWAYS return JSON 404
 app.use('/api', (req, res) => {

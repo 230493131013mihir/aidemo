@@ -4,7 +4,7 @@
  * Wraps fetch, automatically injects Authorization header, and handles 401 logout/redirect.
  */
 
-import { API_BASE_URL } from '../config/apiConfig';
+import { API_BASE_URL } from '../config/apiConfig.js';
 const TOKEN_KEY = 'harvestmitra_token';
 const USER_KEY = 'harvestmitra_user';
 
